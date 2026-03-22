@@ -1,0 +1,140 @@
+
+import React, { useState, useRef } from 'react';
+import Header from '../components/Header';
+import VehicleTable from '../components/VehicleTable';
+import VehicleFormModal from '../components/VehicleFormModal';
+import type { Vehicle, Owner, User, ProfilePermissions } from '../types';
+import { VehicleSetType, VehicleBodyType, DriverClassification } from '../types';
+import { can } from '../auth';
+
+interface VehiclesPageProps {
+  vehicles: Vehicle[];
+  setVehicles: React.Dispatch<React.SetStateAction<Vehicle[]>>;
+  onSaveVehicle: (vehicleData: Vehicle | Omit<Vehicle, 'id'>) => void;
+  owners: Owner[];
+  currentUser: User;
+  profilePermissions: ProfilePermissions;
+}
+
+const VehiclesPage: React.FC<VehiclesPageProps> = ({ vehicles, setVehicles, onSaveVehicle, owners, currentUser, profilePermissions }) => {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [vehicleToEdit, setVehicleToEdit] = useState<Vehicle | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const canCreate = can('create', currentUser, 'vehicles', profilePermissions);
+  const canUpdate = can('update', currentUser, 'vehicles', profilePermissions);
+  const canDelete = can('delete', currentUser, 'vehicles', profilePermissions);
+
+  const handleOpenModal = () => {
+    setVehicleToEdit(null);
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+  };
+
+  const handleEditVehicle = (vehicle: Vehicle) => {
+    setVehicleToEdit(vehicle);
+    setIsModalOpen(true);
+  };
+  
+  const handleDeleteVehicle = (vehicleId: string) => {
+    if (window.confirm('Tem certeza que deseja excluir este veículo?')) {
+        setVehicles(prev => prev.filter(v => v.id !== vehicleId));
+    }
+  };
+
+  const handleSaveVehicle = (vehicle: Vehicle | Omit<Vehicle, 'id'>) => {
+    onSaveVehicle(vehicle);
+    handleCloseModal();
+  };
+  
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleExport = () => {
+    const headers = ['plate', 'setType', 'bodyType', 'axles', 'classification', 'ownerId', 'driverId'];
+    const csvRows = [
+      headers.join(','),
+      ...vehicles.map(vehicle =>
+        headers.map(header => `"${vehicle[header] || ''}"`).join(',')
+      )
+    ];
+    const csvString = csvRows.join('\n');
+    const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'veiculos.csv');
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleFileImport = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const text = e.target?.result as string;
+        const lines = text.split('\n').slice(1).filter(line => line.trim() !== '');
+        
+        const newVehicles: Omit<Vehicle, 'id'>[] = lines.map((line, index) => {
+          const [plate, setType, bodyType, axles, classification, ownerId, driverId] = line.split(',').map(col => col.trim());
+          if (!plate || !ownerId) {
+            throw new Error(`Linha ${index + 2}: Placa e Proprietário são obrigatórios.`);
+          }
+          return {
+            plate,
+            setType: setType as VehicleSetType,
+            bodyType: bodyType as VehicleBodyType,
+            axles: parseInt(axles, 10),
+            classification: classification as DriverClassification,
+            ownerId,
+            driverId: driverId || undefined,
+          };
+        });
+        
+        newVehicles.forEach(onSaveVehicle);
+        alert(`${newVehicles.length} veículos importados com sucesso!`);
+      } catch (error) {
+        alert(`Erro ao importar o arquivo: ${error.message}`);
+      } finally {
+        if(event.target) event.target.value = '';
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  return (
+    <>
+      <Header title="Cadastro de Veículos">
+        {canCreate && (
+          <>
+            <button onClick={handleImportClick} className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700">Importar</button>
+            <button onClick={handleExport} className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">Exportar</button>
+            <button onClick={handleOpenModal} className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark">Adicionar Veículo</button>
+          </>
+        )}
+      </Header>
+      
+      <input type="file" ref={fileInputRef} onChange={handleFileImport} className="hidden" accept=".csv"/>
+
+      <VehicleTable 
+        vehicles={vehicles} 
+        owners={owners} 
+        onEdit={canUpdate ? handleEditVehicle : undefined} 
+        onDelete={canDelete ? handleDeleteVehicle : undefined} 
+      />
+
+      <VehicleFormModal isOpen={isModalOpen} onClose={handleCloseModal} onSave={handleSaveVehicle} vehicleToEdit={vehicleToEdit} owners={owners} />
+    </>
+  );
+};
+
+export default VehiclesPage;

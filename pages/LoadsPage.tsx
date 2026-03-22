@@ -1,0 +1,131 @@
+
+import React, { useState } from 'react';
+import Header from '../components/Header';
+import LoadTable from '../components/LoadTable';
+import LoadFormModal from '../components/LoadFormModal';
+import HistoryModal from '../components/HistoryModal';
+import type { Cargo, Client, Product, User, ProfilePermissions, Shipment, DailyScheduleEntry } from '../types';
+import { CargoStatus } from '../types';
+import { can } from '../auth';
+
+interface LoadsPageProps {
+  loads: Cargo[];
+  setLoads: React.Dispatch<React.SetStateAction<Cargo[]>>;
+  clients: Client[];
+  products: Product[];
+  shipments: Shipment[];
+  // FIX: Changed Omit to use a union type for the keys to be omitted.
+  onSaveLoad: (loadData: Cargo | Omit<Cargo, 'id' | 'history' | 'createdAt' | 'createdById'>) => void;
+  currentUser: User;
+  profilePermissions: ProfilePermissions;
+  users: User[];
+}
+
+const LoadsPage: React.FC<LoadsPageProps> = ({ loads, setLoads, clients, products, shipments, onSaveLoad, currentUser, profilePermissions, users }) => {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [loadToEdit, setLoadToEdit] = useState<Cargo | null>(null);
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+  const [selectedLoadForHistory, setSelectedLoadForHistory] = useState<Cargo | null>(null);
+  const [dailyBalanceDate, setDailyBalanceDate] = useState(new Date().toISOString().split('T')[0]);
+  const [initialModalStep, setInitialModalStep] = useState(1);
+
+
+  const canCreate = can('create', currentUser, 'loads', profilePermissions);
+  const canUpdate = can('update', currentUser, 'loads', profilePermissions);
+  const canDelete = can('delete', currentUser, 'loads', profilePermissions);
+
+  const handleOpenModal = () => {
+    setLoadToEdit(null);
+    setInitialModalStep(1);
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+  };
+
+  const handleEditLoad = (load: Cargo) => {
+    setLoadToEdit(load);
+    setInitialModalStep(1);
+    setIsModalOpen(true);
+  };
+  
+  // FIX: Changed Omit to use a union type for the keys to be omitted.
+  const handleSaveLoad = (load: Cargo | Omit<Cargo, 'id' | 'history' | 'createdAt' | 'createdById'>) => {
+    onSaveLoad(load);
+    handleCloseModal();
+  };
+
+  const handleCloseLoad = (cargoToClose: Cargo) => {
+    if (window.confirm(`Tem certeza que deseja fechar a carga ${cargoToClose.id}? Essa ação mudará o status para "Fechada".`)) {
+        onSaveLoad({ ...cargoToClose, status: CargoStatus.Fechada });
+    }
+  };
+
+  const handleShowHistory = (load: Cargo) => {
+    setSelectedLoadForHistory(load);
+    setIsHistoryModalOpen(true);
+  };
+
+  const handleEditSchedule = (load: Cargo) => {
+    setLoadToEdit(load);
+    setInitialModalStep(2); // Step 2 is the scheduling timeline
+    setIsModalOpen(true);
+  };
+
+  return (
+    <>
+      <Header title="Cadastro de Cargas">
+        {canCreate && (
+          <button
+            onClick={handleOpenModal}
+            className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+          >
+            Adicionar Carga
+          </button>
+        )}
+      </Header>
+      
+      <div className="mt-6">
+        <LoadTable 
+            loads={loads} 
+            clients={clients} 
+            products={products}
+            shipments={shipments}
+            dailyBalanceDate={dailyBalanceDate}
+            onDailyBalanceDateChange={setDailyBalanceDate}
+            onEdit={canUpdate ? handleEditLoad : undefined}
+            onClose={canDelete ? handleCloseLoad : undefined}
+            onShowHistory={handleShowHistory}
+            onEditSchedule={canUpdate ? handleEditSchedule : undefined}
+        />
+      </div>
+
+
+      <LoadFormModal
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+        onSave={handleSaveLoad}
+        loadToEdit={loadToEdit}
+        clients={clients}
+        products={products}
+        currentUser={currentUser}
+        users={users}
+        loads={loads}
+        initialStep={initialModalStep}
+      />
+
+      {selectedLoadForHistory && (
+          <HistoryModal
+            isOpen={isHistoryModalOpen}
+            onClose={() => setIsHistoryModalOpen(false)}
+            history={selectedLoadForHistory.history}
+            users={users}
+            title={`Histórico da Carga ${selectedLoadForHistory.id}`}
+          />
+      )}
+    </>
+  );
+};
+
+export default LoadsPage;

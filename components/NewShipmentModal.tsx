@@ -1,0 +1,281 @@
+
+import React, { useState, useEffect, useMemo } from 'react';
+import type { Cargo, Driver, Shipment, Client, Vehicle, User } from '../types';
+import { UserProfile, DailyScheduleType, VehicleSetType, VehicleBodyType } from '../types';
+
+interface NewShipmentModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSave: (shipmentData: any) => void;
+  cargo: Cargo | null;
+  drivers: Driver[];
+  clients: Client[];
+  vehicles: Vehicle[];
+  currentUser: User | null;
+  shipments: Shipment[];
+  users: User[];
+}
+
+const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, onSave, cargo, drivers, clients, vehicles, currentUser, shipments, users }) => {
+  const [driverName, setDriverName] = useState('');
+  const [driverCpf, setDriverCpf] = useState('');
+  const [driverCnh, setDriverCnh] = useState('');
+  const [horsePlate, setHorsePlate] = useState('');
+  const [trailer1Plate, setTrailer1Plate] = useState('');
+  const [trailer2Plate, setTrailer2Plate] = useState('');
+  const [trailer3Plate, setTrailer3Plate] = useState('');
+  const [shipmentTonnage, setShipmentTonnage] = useState<number>(0);
+  const [driverContact, setDriverContact] = useState('');
+  const [scheduledDate, setScheduledDate] = useState('');
+  const [scheduledTime, setScheduledTime] = useState('');
+  const [embarcadorId, setEmbarcadorId] = useState('');
+  const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
+  const [vehicleSetType, setVehicleSetType] = useState<VehicleSetType | ''>('');
+  const [vehicleBodyType, setVehicleBodyType] = useState<VehicleBodyType | ''>('');
+
+  const embarcadores = useMemo(() => {
+    return users.filter(u => u.profile === UserProfile.Embarcador);
+  }, [users]);
+
+  useEffect(() => {
+    if (isOpen) {
+      setDriverName('');
+      setDriverCpf('');
+      setDriverCnh('');
+      setHorsePlate('');
+      setTrailer1Plate('');
+      setTrailer2Plate('');
+      setTrailer3Plate('');
+      setShipmentTonnage(0);
+      setDriverContact('');
+      setScheduledDate('');
+      setScheduledTime('');
+      setSelectedVehicle(null);
+      setVehicleSetType('');
+      setVehicleBodyType('');
+      setEmbarcadorId(
+          currentUser?.profile === UserProfile.Embarcador
+              ? currentUser.id
+              : ''
+      );
+    }
+  }, [isOpen, drivers, cargo, currentUser]);
+
+  useEffect(() => {
+    const selectedDriver = drivers.find(d => d.name.trim().toLowerCase() === driverName.trim().toLowerCase());
+    setDriverContact(selectedDriver?.phone || '');
+    setDriverCpf(selectedDriver?.cpf || '');
+    setDriverCnh(selectedDriver?.cnh || '');
+  }, [driverName, drivers]);
+  
+  useEffect(() => {
+    const vehicle = vehicles.find(v => v.plate.trim().toLowerCase() === horsePlate.trim().toLowerCase());
+    setSelectedVehicle(vehicle || null);
+    if (vehicle) {
+        setVehicleSetType(vehicle.setType);
+        setVehicleBodyType(vehicle.bodyType);
+    } else {
+        setVehicleSetType('');
+        setVehicleBodyType('');
+    }
+  }, [horsePlate, vehicles]);
+
+
+  const calculatedFreight = useMemo(() => {
+    if (!cargo || shipmentTonnage <= 0) return 0;
+    return cargo.driverFreightValuePerTon * shipmentTonnage;
+  }, [cargo, shipmentTonnage]);
+
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!driverName || !horsePlate || shipmentTonnage <= 0 || !scheduledDate || !embarcadorId || !scheduledTime) {
+        alert('Por favor, preencha todos os campos obrigatórios (Data/Hora Programada, Embarcador, Motorista, Placa Cavalo e Toneladas).');
+        return;
+    }
+    
+    const isNewDriver = !drivers.find(d => d.name.trim().toLowerCase() === driverName.trim().toLowerCase());
+    if (isNewDriver && (!driverCpf || !driverCnh)) {
+        alert('Para novos motoristas, CPF e CNH são obrigatórios.');
+        return;
+    }
+    
+    let vehicleInfo: { setType?: VehicleSetType | '', bodyType?: VehicleBodyType | '' };
+
+    if (selectedVehicle) {
+        vehicleInfo = selectedVehicle;
+    } else {
+        if (!vehicleSetType || !vehicleBodyType) {
+            alert('Para novos veículos, o Tipo de Veículo e Carroceria são obrigatórios.');
+            return;
+        }
+        vehicleInfo = { setType: vehicleSetType, bodyType: vehicleBodyType };
+    }
+
+    if (cargo?.allowedVehicleTypes && cargo.allowedVehicleTypes.length > 0 && vehicleInfo.setType && vehicleInfo.bodyType) {
+        const isAllowed = cargo.allowedVehicleTypes.some(allowed => 
+            allowed.setType === vehicleInfo.setType && allowed.bodyTypes.includes(vehicleInfo.bodyType!)
+        );
+        if (!isAllowed) {
+            alert(`O tipo do veículo selecionado (${vehicleInfo.setType} - ${vehicleInfo.bodyType}) não é permitido para esta carga.`);
+            return;
+        }
+    }
+    
+    if (cargo?.dailySchedule) {
+        const scheduleRule = cargo.dailySchedule.find(rule => rule.date === scheduledDate);
+        if (scheduleRule) {
+            if (scheduleRule.type === DailyScheduleType.Verificar) {
+                alert('Atenção: A programação para este dia exige verificação com o comercial antes de marcar.');
+            } else if (scheduleRule.type === DailyScheduleType.Fixo && scheduleRule.tonnage) {
+                const alreadyScheduledTonnage = shipments
+                    .filter(s => s.cargoId === cargo.id && s.scheduledDate === scheduledDate)
+                    .reduce((sum, s) => sum + s.shipmentTonnage, 0);
+                
+                if (alreadyScheduledTonnage + shipmentTonnage > scheduleRule.tonnage) {
+                    alert(`Erro: A tonelagem para este dia excede o limite programado de ${scheduleRule.tonnage} ton. Já existem ${alreadyScheduledTonnage} ton programadas.`);
+                    return;
+                }
+            }
+        }
+    }
+
+
+    onSave({
+      driverName,
+      driverCpf,
+      driverCnh,
+      driverContact,
+      horsePlate,
+      trailer1Plate,
+      trailer2Plate,
+      trailer3Plate,
+      shipmentTonnage,
+      driverFreightValue: calculatedFreight,
+      embarcadorId: embarcadorId,
+      scheduledDate,
+      scheduledTime,
+      vehicleSetType: vehicleSetType || undefined,
+      vehicleBodyType: vehicleBodyType || undefined,
+    });
+  };
+
+  if (!isOpen || !cargo) return null;
+
+  const clientName = clients.find(c => c.id === cargo.clientId)?.nomeFantasia || 'Cliente não encontrado';
+  const isExistingDriver = !!drivers.find(d => d.name.trim().toLowerCase() === driverName.trim().toLowerCase() && driverName.trim() !== '');
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-8 max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+        <h2 className="text-2xl font-bold mb-2 text-gray-800 dark:text-white">Criar Nova Ordem de Carregamento</h2>
+        <div className="mb-6 p-3 bg-gray-100 dark:bg-gray-700 rounded-md">
+          <p className="text-sm text-gray-600 dark:text-gray-400">Cliente: <span className="font-semibold text-gray-800 dark:text-gray-200">{clientName}</span></p>
+          <p className="text-sm text-gray-600 dark:text-gray-400">Rota: <span className="font-semibold text-gray-800 dark:text-gray-200">{cargo.origin} → {cargo.destination}</span></p>
+          {cargo.allowedVehicleTypes && cargo.allowedVehicleTypes.length > 0 && (
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                Veículos Permitidos: <span className="font-semibold text-gray-800 dark:text-gray-200">{cargo.allowedVehicleTypes.map(vt => `${vt.setType} (${vt.bodyTypes.join('/')})`).join(', ')}</span>
+              </p>
+          )}
+        </div>
+        
+        <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Data Programada</label>
+                  <input type="date" value={scheduledDate} onChange={(e) => setScheduledDate(e.target.value)} className="mt-1 p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600" required />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Horário Previsto</label>
+                  <input type="time" value={scheduledTime} onChange={(e) => setScheduledTime(e.target.value)} className="mt-1 p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600" required />
+                </div>
+            </div>
+            
+            <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Embarcador Responsável</label>
+                <select
+                    value={embarcadorId}
+                    onChange={(e) => setEmbarcadorId(e.target.value)}
+                    className="mt-1 p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600"
+                    required
+                >
+                    <option value="" disabled>Selecione um responsável...</option>
+                    {embarcadores.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+                </select>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Motorista</label>
+                  <input value={driverName} onChange={(e) => setDriverName(e.target.value)} placeholder="Digite o nome do motorista" className="mt-1 p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600" required list="driver-names" />
+                  <datalist id="driver-names">{drivers.map(d => <option key={d.id} value={d.name} />)}</datalist>
+              </div>
+              <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Contato (WhatsApp)</label>
+                  <input type="text" value={driverContact} onChange={(e) => setDriverContact(e.target.value)} placeholder="Contato (auto-preenchido)" className="mt-1 p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600" disabled={isExistingDriver} />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">CPF do Motorista</label>
+                <input type="text" value={driverCpf} onChange={(e) => setDriverCpf(e.target.value)} placeholder="CPF (auto-preenchido)" className="mt-1 p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600" disabled={isExistingDriver} required={!isExistingDriver} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">CNH do Motorista</label>
+                <input type="text" value={driverCnh} onChange={(e) => setDriverCnh(e.target.value)} placeholder="CNH (auto-preenchido)" className="mt-1 p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600" disabled={isExistingDriver} required={!isExistingDriver} />
+              </div>
+            </div>
+
+            <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Placa Cavalo</label>
+                <input value={horsePlate} onChange={(e) => setHorsePlate(e.target.value.toUpperCase())} placeholder="AAA-1234" className="mt-1 p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600" required list="vehicle-plates" />
+                <datalist id="vehicle-plates">{vehicles.map(v => <option key={v.id} value={v.plate} />)}</datalist>
+            </div>
+          
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Tipo de Veículo</label>
+                    <select value={vehicleSetType} onChange={(e) => setVehicleSetType(e.target.value as VehicleSetType)} className="mt-1 p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600" required={!selectedVehicle} disabled={!!selectedVehicle}>
+                        <option value="" disabled>Selecione...</option>
+                        {Object.values(VehicleSetType).map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Tipo de Carroceria</label>
+                    <select value={vehicleBodyType} onChange={(e) => setVehicleBodyType(e.target.value as VehicleBodyType)} className="mt-1 p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600" required={!selectedVehicle} disabled={!!selectedVehicle}>
+                        <option value="" disabled>Selecione...</option>
+                        {Object.values(VehicleBodyType).map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Placa Carreta 1</label><input type="text" value={trailer1Plate} onChange={(e) => setTrailer1Plate(e.target.value.toUpperCase())} placeholder="Opcional" className="mt-1 p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600" /></div>
+              <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Placa Carreta 2</label><input type="text" value={trailer2Plate} onChange={(e) => setTrailer2Plate(e.target.value.toUpperCase())} placeholder="Opcional" className="mt-1 p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600" /></div>
+              <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Placa Carreta 3</label><input type="text" value={trailer3Plate} onChange={(e) => setTrailer3Plate(e.target.value.toUpperCase())} placeholder="Opcional" className="mt-1 p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600" /></div>
+            </div>
+          
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Toneladas do Embarque</label>
+              <input type="number" value={shipmentTonnage} onChange={(e) => setShipmentTonnage(parseFloat(e.target.value) || 0)} placeholder="Ex: 35.5" className="mt-1 p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600" step="0.01" required />
+            </div>
+
+            <div className="mt-4 p-4 bg-gray-100 dark:bg-gray-900/50 rounded-lg text-center">
+              <p className="text-sm text-gray-600 dark:text-gray-400">Valor do Frete (Motorista)</p>
+              <p className="text-2xl font-bold text-gray-800 dark:text-white">{formatCurrency(calculatedFreight)}</p>
+            </div>
+          
+            <div className="mt-8 flex justify-end space-x-4">
+              <button type="button" onClick={onClose} className="py-2 px-4 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-200 dark:hover:bg-gray-500">Cancelar</button>
+              <button type="submit" className="py-2 px-4 bg-primary text-white rounded-lg hover:bg-primary-dark">Criar Ordem</button>
+            </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+export default NewShipmentModal;
