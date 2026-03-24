@@ -399,7 +399,7 @@ export default function LayoverCalculatorPage({ currentUser }: LayoverCalculator
                         Salvo com sucesso!
                       </div>
                     )}
-                    <button onClick={handleSave} className="w-full flex items-center justify-center px-4 py-3 bg-primary text-white rounded-xl hover:bg-primary-dark transition-colors font-medium">
+                    <button onClick={handleSave} className="w-full flex items-center justify-center px-4 py-3 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-colors font-medium">
                       <Save className="w-4 h-4 mr-2" /> Salvar Estadia
                     </button>
                     <div className="grid grid-cols-2 gap-3">

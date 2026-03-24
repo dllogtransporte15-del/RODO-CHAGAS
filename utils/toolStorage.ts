@@ -130,3 +130,23 @@ export const saveToolQuote = (quote: Omit<QuoteRecord, 'id' | 'date'>): QuoteRec
     return newQuote;
   }
 };
+
+export const deleteToolStay = (id: string): void => {
+  try {
+    const allStays: StayRecord[] = JSON.parse(localStorage.getItem('dllog_stays') || '[]');
+    const filtered = allStays.filter(s => s.id !== id);
+    localStorage.setItem('dllog_stays', JSON.stringify(filtered));
+  } catch (e) {
+    console.error('Error deleting stay:', e);
+  }
+};
+
+export const deleteToolQuote = (id: string): void => {
+  try {
+    const allQuotes: QuoteRecord[] = JSON.parse(localStorage.getItem('dllog_quotes') || '[]');
+    const filtered = allQuotes.filter(q => q.id !== id);
+    localStorage.setItem('dllog_quotes', JSON.stringify(filtered));
+  } catch (e) {
+    console.error('Error deleting quote:', e);
+  }
+};
