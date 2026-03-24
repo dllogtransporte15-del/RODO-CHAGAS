@@ -154,16 +154,13 @@ export default function ToolsHistoryPage({ currentUser }: ToolsHistoryPageProps)
         formatCurrency(s.totalValue)
       ]);
     } else {
-      head = [['Data', 'Cliente', 'Origem', 'Destino', 'KM', 'Peso', 'Lucro', 'Total']];
+      head = [['Data da Cotação', 'Cliente', 'Origem', 'Destino', 'Valor do Frete Empresa (por Tonelada)']];
       body = (data as QuoteRecord[]).map(q => [
-        format(parseISO(q.date), 'dd/MM/yyyy'),
+        format(parseISO(q.date), 'dd/MM/yyyy HH:mm'),
         q.clientName || '-',
         q.origin,
         q.destination,
-        `${q.distance.toFixed(0)} km`,
-        `${q.weight}t`,
-        formatCurrency(q.carrierNetProfit),
-        formatCurrency(q.companyTotalFreight)
+        formatCurrency(q.companyFreightPerTon || 0)
       ]);
     }
 
