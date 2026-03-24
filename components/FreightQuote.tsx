@@ -120,7 +120,7 @@ export default function FreightQuote({ companyId }: FreightQuoteProps) {
       const originCoords = await getCoordinates(formData.origin);
       const destCoords = await getCoordinates(formData.destination);
 
-      const routeResponse = await fetch(`https://router.project-osrm.org/route/v1/driving/${originCoords[1]},${originCoords[0]};${destCoords[1]},${destCoords[0]}?overview=full&geometries=geojson`);
+      const routeResponse = await fetch(`https://router.project-osrm.org/route/v1/driving/${originCoords[1]},${originCoords[0]};${destCoords[1]},${destCoords[0]}?overview=simplified&geometries=geojson`);
       const routeJson = await routeResponse.json();
 
       if (routeJson.code !== 'Ok') throw new Error("Erro ao calcular a rota com OSRM.");

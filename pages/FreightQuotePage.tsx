@@ -17,20 +17,13 @@ import Header from '../components/Header';
 import { saveToolQuote, getToolClients, saveToolClient, Client } from '../utils/toolStorage';
 import type { User as AppUser } from '../types';
 
-// Fix Leaflet icon issue
-// @ts-ignore
-import icon from 'leaflet/dist/images/marker-icon.png';
-// @ts-ignore
-import iconShadow from 'leaflet/dist/images/marker-shadow.png';
-
-let DefaultIcon = L.icon({
-    iconUrl: icon,
-    shadowUrl: iconShadow,
-    iconSize: [25, 41],
-    iconAnchor: [12, 41]
+// Fix Leaflet icon issue by using CDN directly to prevent webpack/vite breaking the image paths
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
-
-L.Marker.prototype.options.icon = DefaultIcon;
 
 interface Location {
   lat: number;
@@ -70,9 +63,27 @@ interface FreightQuotePageProps {
   currentUser: AppUser | null;
 }
 
-function ChangeView({ center, zoom }: { center: [number, number], zoom: number }) {
+function MapUpdater({ origin, dest, routeCoords }: { origin?: Location | null, dest?: Location | null, routeCoords?: [number, number][] }) {
   const map = useMap();
-  map.setView(center, zoom);
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      map.invalidateSize();
+    }, 300);
+
+    if (routeCoords && routeCoords.length > 0) {
+      const bounds = L.latLngBounds(routeCoords);
+      map.fitBounds(bounds, { padding: [50, 50] });
+    } else if (origin && dest) {
+      const bounds = L.latLngBounds([
+        [origin.lat, origin.lng],
+        [dest.lat, dest.lng]
+      ]);
+      map.fitBounds(bounds, { padding: [50, 50] });
+    } else if (origin) {
+      map.setView([origin.lat, origin.lng], 12);
+    }
+    return () => clearTimeout(timeoutId);
+  }, [map, origin, dest, routeCoords]);
   return null;
 }
 
@@ -121,7 +132,8 @@ export default function FreightQuotePage({ currentUser }: FreightQuotePageProps)
 
   const fetchCoordinates = async (address: string) => {
     try {
-      const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1`);
+      const cleanAddress = address.trim().replace(/\s+-\s+Brasil$/i, '').replace(/,\s*Brasil$/i, '');
+      const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(cleanAddress + ', Brasil')}&limit=1&accept-language=pt-br&countrycodes=br`);
       const data = await response.json();
       if (data && data.length > 0) {
         return {
@@ -160,7 +172,7 @@ export default function FreightQuotePage({ currentUser }: FreightQuotePageProps)
       setOriginCoords(origin);
       setDestCoords(dest);
 
-      const routeResponse = await fetch(`https://router.project-osrm.org/route/v1/driving/${origin.lng},${origin.lat};${dest.lng},${dest.lat}?overview=full&geometries=geojson`);
+      const routeResponse = await fetch(`https://router.project-osrm.org/route/v1/driving/${origin.lng},${origin.lat};${dest.lng},${dest.lat}?overview=simplified&geometries=geojson`);
       const routeData = await routeResponse.json();
 
       if (routeData.code === 'Ok' && routeData.routes.length > 0) {
@@ -438,7 +450,7 @@ export default function FreightQuotePage({ currentUser }: FreightQuotePageProps)
               {originCoords && <Marker position={[originCoords.lat, originCoords.lng]} />}
               {destCoords && <Marker position={[destCoords.lat, destCoords.lng]} />}
               {routeInfo && <Polyline positions={routeInfo.coordinates} color="#4f46e5" weight={4} opacity={0.7} />}
-              {originCoords && destCoords && <ChangeView center={[(originCoords.lat + destCoords.lat) / 2, (originCoords.lng + destCoords.lat) / 2]} zoom={6} />}
+              <MapUpdater origin={originCoords} dest={destCoords} routeCoords={routeInfo?.coordinates} />
             </MapContainer>
 
             {routeInfo && (
