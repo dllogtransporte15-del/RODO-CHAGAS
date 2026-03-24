@@ -327,6 +327,12 @@ export async function fetchProfilePermissions(): Promise<ProfilePermissions | nu
   return data?.permissions || null;
 }
 
+export async function fetchAppSettings(): Promise<{ company_logo: string | null; theme_image: string | null } | null> {
+  const { data, error } = await supabase.from('app_settings').select('company_logo, theme_image').eq('id', 1).single();
+  if (error) return null;
+  return data || null;
+}
+
 // ─────────────────────────────────────────────
 // UPSERT (insert or update)
 // ─────────────────────────────────────────────
@@ -373,6 +379,11 @@ export async function upsertTicket(ticket: Ticket): Promise<void> {
 
 export async function saveProfilePermissions(permissions: ProfilePermissions): Promise<void> {
   const { error } = await supabase.from('profile_permissions').upsert({ id: 1, permissions });
+  if (error) throw error;
+}
+
+export async function saveAppSettings(settings: { company_logo?: string | null; theme_image?: string | null }): Promise<void> {
+  const { error } = await supabase.from('app_settings').update(settings).eq('id', 1);
   if (error) throw error;
 }
 

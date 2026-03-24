@@ -22,7 +22,6 @@ import LoadHistoryPage from './pages/LoadHistoryPage';
 import LayoverCalculatorPage from './pages/LayoverCalculatorPage';
 import FreightQuotePage from './pages/FreightQuotePage';
 import ToolsHistoryPage from './pages/ToolsHistoryPage';
-import AIAssistantPage from './pages/AIAssistantPage';
 import { MOCK_PRODUCTS } from './constants';
 import type { Client, Owner, Driver, Vehicle, Product, Cargo, Shipment, User, Page, ProfilePermissions, HistoryLog, Ticket, TicketHistory } from './types';
 import { CargoStatus, ShipmentStatus, UserProfile, TicketStatus, TicketPriority, DriverClassification, VehicleSetType, VehicleBodyType } from './types';
@@ -34,7 +33,8 @@ import {
   upsertClient, upsertOwner, upsertDriver, upsertVehicle, upsertCargo,
   upsertShipment, upsertUser, upsertTicket, saveProfilePermissions,
   upsertManyDrivers, upsertManyVehicles, upsertManyShipments, upsertManyCargos,
-  uploadShipmentAttachment, getShipmentAttachmentUrl
+  uploadShipmentAttachment, getShipmentAttachmentUrl,
+  fetchAppSettings, saveAppSettings
 } from './lib/db';
 
 const RODOCHAGAS_LOGO_BASE64 = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wCEAAkGBxISEhUSEhIVFRUVFRUVFRUVFRUVFRUVFRUWFhUVFRUYHSggGBolHRUVITEhJSkrLi4uFx8zODMtNygtLisBCgoKDg0OGxAQGy0lICUtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLf/AABEIAJYAlgMBIgACEQEDEQH/xAAcAAABBQEBAQAAAAAAAAAAAAAAAQIDBAUGBwj/xAA+EAABAwIEAwQHBgQGAwAAAAABAAIRAyEEEjFBBVFhBnGBkRMiMqGxwdHwFEJS4fEGYnKCorLCFiQ0c8P/AAaAQEAAwEBAQAAAAAAAAAAAAAAAQIDBAUG/xAAuEQEAAgIBAwIDCAIDAAAAAAAAAAECEQMSITFBUQQTYSIycYGRobHR8MEUI0Lh/9oADAMBAAIRAxEAPwD2hCEIAEIQgAQhCABCEIAEIQgAQhCABCEIAEIQgAQhCABCEIAEIQgAQhCABCEIAEIQgAQhCABCEIAEIQgAUK1aVpc89Ggn2CuuX4zxFtWm+j9o1hfBqQCWs/e5mRcNdG26AOKzTjT6lYsqVG02sE0qbRmc4HUCJMnfTQBY9Hjr2U20KDy+ZNTESHGTEz337Kzw/1wzE1B9np0zVqVsVKr3F0TYS42G+wWdw3gn+HqvrucypC4DSgOaGtJEmDqSY3IE5TMSfLb2m9I6mLi4fX8X/R1XA+NuxD/ALO+mGVC0ua5pcWutMEEXuCR/wBz0F3yLgPCwzG1ahqNL/suVkES4BxJLSPuwdR+6NeqO1d/C5HJp9/L/Rz54qMbvoEIQuowBCEIAEIQgAQhCABCEIAEIQgAQhCABCEIAEIQgAQhCABCEIAEIQgAQhCAOY4/VpChVa97BLHNLQczpkEWGs2XlsJcKjnFrnNaXmSAHHYEaR6L2vEeC4fEATDiLtc2A4dJ0PsQuawv2bNbicxqn2JgtZT5S+dxmc4i+ggLs4fUQjFqbs8Hi/DZZZ5UoK0v5OLxOIbUfUqVGmpUDiym0OMMaNPdAJjUnfZe0+z2niGYdzcWAHOHslzSxxEHIQ6SRY/guX/APj52L+0Go1sEimKbS6mB+6XmQCTroOnr0WB4NRw/8AaKj6dSpnFM5y5uVr8xAawEkkwdTHMLfUTlODWl7/AKRz8LhjhzuMrb1/p0PQgIXAV3QhCABCEIAEIQgAQhCABCEIAEIQgAQhCABCEIAEIQgAQhCABCEIAEIQgAQhCABCEIAEIQgAQhCABCEIAEIQgAQhCABCEIAEIQgAQhCABCEIAEIQgAQhCABCEIAEIQgAQhCABCEIAEIQgAQhCABCEIAEIQgD/9k=";
@@ -117,7 +117,7 @@ const App: React.FC = () => {
     setIsLoading(true);
     setLoadError(null);
     try {
-      const [dbClients, dbOwners, dbDrivers, dbVehicles, dbCargos, dbShipments, dbUsers, dbTickets, dbPermissions] = await Promise.all([
+      const [dbClients, dbOwners, dbDrivers, dbVehicles, dbCargos, dbShipments, dbUsers, dbTickets, dbPermissions, dbSettings] = await Promise.all([
         fetchClients(),
         fetchOwners(),
         fetchDrivers(),
@@ -127,6 +127,7 @@ const App: React.FC = () => {
         fetchUsers(),
         fetchTickets(),
         fetchProfilePermissions(),
+        fetchAppSettings(),
       ]);
       setClients(dbClients);
       setOwners(dbOwners);
@@ -138,6 +139,10 @@ const App: React.FC = () => {
       setTickets(dbTickets);
       if (dbPermissions && Object.keys(dbPermissions).length > 0) {
         setProfilePermissions(dbPermissions);
+      }
+      if (dbSettings) {
+        if (dbSettings.company_logo) setCompanyLogo(dbSettings.company_logo);
+        if (dbSettings.theme_image) setThemeImage(dbSettings.theme_image);
       }
       // Update nextIds from DB counts
       setNextIds({
@@ -168,6 +173,15 @@ const App: React.FC = () => {
   useEffect(() => {
     if (companyLogo) {
       localStorage.setItem('rodochagas_companyLogo', companyLogo);
+      
+      // Update favicon
+      const link = (document.querySelector("link[rel*='icon']") as HTMLLinkElement) || document.createElement('link');
+      link.type = 'image/x-icon';
+      link.rel = 'shortcut icon';
+      link.href = companyLogo;
+      if (!document.querySelector("link[rel*='icon']")) {
+        document.getElementsByTagName('head')[0].appendChild(link);
+      }
     } else {
       localStorage.removeItem('rodochagas_companyLogo');
     }
@@ -238,13 +252,23 @@ const App: React.FC = () => {
     alert("Permissões salvas com sucesso!");
   };
   
-  const handleSaveLogo = (logo: string) => {
+  const handleSaveLogo = async (logo: string) => {
     setCompanyLogo(logo || null);
+    try {
+      await saveAppSettings({ company_logo: logo || null });
+    } catch (err) {
+      console.error('Erro ao salvar logo no Supabase:', err);
+    }
     alert("Logo da empresa atualizado com sucesso!");
   };
 
-  const handleSaveThemeImage = (image: string) => {
+  const handleSaveThemeImage = async (image: string) => {
     setThemeImage(image || null);
+    try {
+      await saveAppSettings({ theme_image: image || null });
+    } catch (err) {
+      console.error('Erro ao salvar tema no Supabase:', err);
+    }
     alert("Tema de fundo atualizado com sucesso!");
   };
 
@@ -977,9 +1001,7 @@ const App: React.FC = () => {
       case 'freight-quote':
         return <FreightQuotePage currentUser={currentUser} />;
       case 'tools-history':
-        return <ToolsHistoryPage currentUser={currentUser} companyLogo={companyLogo} />;
-      case 'ai-assistant':
-        return <AIAssistantPage />;
+        return <ToolsHistoryPage currentUser={currentUser} />;
       default:
         return <DashboardPage cargos={visibleLoads} shipments={visibleShipments} users={users} currentUser={currentUser} />;
     }

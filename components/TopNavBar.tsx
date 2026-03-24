@@ -78,23 +78,22 @@ const navItems: NavItem[] = [
   },
   { id: 'reports', label: 'Relatórios', icon: ChartIcon },
   {
+    id: 'ferramentas',
+    label: 'Ferramentas',
+    icon: ToolIcon,
+    children: [
+      { id: 'layover-calculator', label: 'Cálculo de Estadias', icon: CalculatorIcon },
+      { id: 'freight-quote', label: 'Cotação de Frete', icon: MapIcon },
+      { id: 'tools-history', label: 'Histórico', icon: HistoryIcon },
+    ]
+  },
+  {
     id: 'settings',
     label: 'Configurações',
     icon: UsersIcon,
     children: [
       { id: 'users-register', label: 'Gerenciar Usuários', icon: UserPlusIcon },
       { id: 'appearance', label: 'Aparência', icon: ImageIcon },
-      {
-        id: 'tools',
-        label: 'Ferramentas',
-        icon: ToolIcon,
-        children: [
-          { id: 'layover-calculator', label: 'Cálculo de Estadias', icon: CalculatorIcon },
-          { id: 'freight-quote', label: 'Cotação', icon: DollarSignIcon },
-          { id: 'tools-history', label: 'Histórico de Ferramentas', icon: HistoryIcon },
-          { id: 'ai-assistant', label: 'Assistente Logística IA', icon: InfoIcon },
-        ]
-      }
     ]
   }
 ];
@@ -168,12 +167,12 @@ const TopNavBar: React.FC<TopNavBarProps> = ({ user, onLogout, currentPage, setC
       <div className="container mx-auto px-6">
         <div className="flex items-center justify-between h-16">
           {/* Logo e Nome da Empresa */}
-          <div className="flex items-center space-x-4">
-            <a href="#" onClick={(e) => { e.preventDefault(); handlePageSelect('dashboard')}} className="flex items-center space-x-2">
+          <div className="flex items-center flex-shrink-0 mr-4">
+            <a href="#" onClick={(e) => { e.preventDefault(); handlePageSelect('dashboard')}} className="flex items-center">
                 {companyLogo ? (
-                    <img src={companyLogo} alt="Logo" className="h-9" />
+                    <img src={companyLogo} alt="Logo" className="h-8 md:h-9 w-auto object-contain max-w-[150px] md:max-w-none" />
                 ) : (
-                    <h1 className="text-xl font-bold text-primary dark:text-white">Rodochagas Logística</h1>
+                    <h1 className="text-lg md:text-xl font-bold text-primary dark:text-white whitespace-nowrap">Rodochagas Logística</h1>
                 )}
             </a>
           </div>
