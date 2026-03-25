@@ -146,6 +146,33 @@ const LoadTable: React.FC<LoadTableProps> = ({ loads, clients, products, shipmen
             .reduce((sum, s) => sum + s.shipmentTonnage, 0);
           const dailyScheduleInfo = load.dailySchedule?.find(ds => ds.date === dailyBalanceDate);
 
+          const freightLegsToDisplay = (load.freightLegs && load.freightLegs.length > 0)
+            ? load.freightLegs
+            : [{
+                companyFreightValuePerTon: load.companyFreightValuePerTon,
+                driverFreightValuePerTon: load.driverFreightValuePerTon,
+                hasIcms: load.hasIcms,
+                icmsPercentage: load.icmsPercentage,
+              }];
+              
+          const totalDriverFreight = freightLegsToDisplay.reduce((sum, leg) => sum + leg.driverFreightValuePerTon, 0);
+          const totalNetCompanyValue = freightLegsToDisplay.reduce((sum, leg) => {
+              const icmsRate = leg.hasIcms ? leg.icmsPercentage / 100 : 0;
+              return sum + (leg.companyFreightValuePerTon * (1 - icmsRate));
+          }, 0);
+
+          const netProfit = totalNetCompanyValue - totalDriverFreight;
+          const margin = (totalNetCompanyValue > 0) ? (netProfit / totalNetCompanyValue) * 100 : 0;
+          const netMarginPercentage = isNaN(margin) || !isFinite(margin) ? '0,00%' : `${margin.toFixed(2).replace('.', ',')}%`;
+
+          let marginColorClass = 'text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800';
+          if (!isNaN(margin) && isFinite(margin)) {
+            if (margin < 5) marginColorClass = 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30';
+            else if (margin < 6) marginColorClass = 'text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/30';
+            else if (margin < 7) marginColorClass = 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30';
+            else marginColorClass = 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/30';
+          }
+
           return (
             <div key={load.id} className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 hover:border-primary/30 transition-colors">
               <div className="flex flex-col lg:flex-row lg:items-center p-4 gap-4">
@@ -219,9 +246,14 @@ const LoadTable: React.FC<LoadTableProps> = ({ loads, clients, products, shipmen
 
                 {/* Freight and Actions */}
                 <div className="flex items-center justify-between lg:justify-end gap-4 min-w-[150px]">
-                  <div className="text-right">
+                  <div className="text-right flex flex-col items-end">
                     <div className="text-[9px] text-gray-400 uppercase font-bold">Frete</div>
-                    <div className="text-sm font-bold text-primary dark:text-blue-400">{formatCurrency(load.driverFreightValuePerTon)}</div>
+                    <div className="flex items-center gap-2">
+                      <div className="text-sm font-bold text-primary dark:text-blue-400">{formatCurrency(load.driverFreightValuePerTon)}</div>
+                      <div className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${marginColorClass}`} title="Margem de Lucro">
+                        {netMarginPercentage}
+                      </div>
+                    </div>
                   </div>
 
                   <div className="relative">
