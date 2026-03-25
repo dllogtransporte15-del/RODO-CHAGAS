@@ -23,6 +23,7 @@ import { ArchiveIcon } from './icons/ArchiveIcon';
 import { ToolIcon } from './icons/ToolIcon';
 import { CalculatorIcon } from './icons/CalculatorIcon';
 import { InfoIcon } from './icons/InfoIcon';
+import { Menu as MenuIcon, X as XIcon } from 'lucide-react';
 
 interface TopNavBarProps {
   user: User;
@@ -100,6 +101,7 @@ const navItems: NavItem[] = [
 
 const TopNavBar: React.FC<TopNavBarProps> = ({ user, onLogout, currentPage, setCurrentPage, profilePermissions, companyLogo, onOpenTickets, tickets }) => {
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const myOpenTicketsCount = useMemo(() => {
@@ -141,6 +143,7 @@ const TopNavBar: React.FC<TopNavBarProps> = ({ user, onLogout, currentPage, setC
   const handlePageSelect = (page: Page) => {
       setCurrentPage(page);
       setOpenDropdown(null);
+      setIsMobileMenuOpen(false);
   }
 
   useEffect(() => {
@@ -263,7 +266,7 @@ const TopNavBar: React.FC<TopNavBarProps> = ({ user, onLogout, currentPage, setC
                     <p className="text-sm font-semibold text-gray-800 dark:text-white truncate">{user.name}</p>
                     <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{user.profile}</p>
                 </div>
-                 <ChevronDownIcon className={`w-4 h-4 text-gray-500 transition-transform ${openDropdown === 'user' ? 'rotate-180' : ''}`} />
+                 <ChevronDownIcon className={`hidden lg:block w-4 h-4 text-gray-500 transition-transform ${openDropdown === 'user' ? 'rotate-180' : ''}`} />
               </button>
               {openDropdown === 'user' && (
                 <div className="absolute mt-2 w-48 right-0 origin-top-right bg-white dark:bg-gray-800 rounded-md shadow-lg ring-1 ring-black ring-opacity-5 py-1">
@@ -274,9 +277,114 @@ const TopNavBar: React.FC<TopNavBarProps> = ({ user, onLogout, currentPage, setC
                 </div>
               )}
             </div>
+
+            {/* Mobile Menu Button */}
+            <div className="md:hidden flex items-center ml-2">
+              <button
+                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                className="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary"
+              >
+                <span className="sr-only">Abrir menu</span>
+                {isMobileMenuOpen ? (
+                  <XIcon className="block leading-none w-6 h-6" aria-hidden="true" />
+                ) : (
+                  <MenuIcon className="block leading-none w-6 h-6" aria-hidden="true" />
+                )}
+              </button>
+            </div>
           </div>
         </div>
       </div>
+
+      {/* Mobile Menu */}
+      {isMobileMenuOpen && (
+        <div className="md:hidden border-t dark:border-gray-700 bg-white dark:bg-gray-800 absolute w-full shadow-2xl max-h-[calc(100vh-4rem)] overflow-y-auto">
+          <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
+             {filteredNavItems.map((item) => {
+                const isActive = currentPage === item.id || isParentOfCurrentPage(item);
+                if (item.children) {
+                   return (
+                      <div key={item.id} className="space-y-1">
+                         <button
+                            onClick={() => handleDropdownToggle(item.id)}
+                            className={`w-full flex items-center justify-between px-3 py-2 rounded-md text-base font-medium ${
+                                isActive ? 'text-primary dark:text-blue-400 bg-blue-50 dark:bg-blue-900/50' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+                            }`}
+                         >
+                            <div className="flex items-center">
+                               <item.icon className="w-5 h-5 mr-3" />
+                               {item.label}
+                            </div>
+                            <ChevronDownIcon className={`w-4 h-4 transition-transform ${openDropdown === item.id ? 'rotate-180' : ''}`} />
+                         </button>
+                         {openDropdown === item.id && (
+                            <div className="pl-8 space-y-1 pb-2">
+                               {item.children.map(child => {
+                                  if (child.children) {
+                                      return (
+                                          <div key={child.id} className="pt-2">
+                                              <div className="px-3 text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">{child.label}</div>
+                                              <div className="space-y-1">
+                                                {child.children.map(grandchild => (
+                                                    <a key={grandchild.id} href="#" onClick={(e) => { e.preventDefault(); handlePageSelect(grandchild.id as Page); }}
+                                                       className={`flex items-center px-3 py-2 rounded-md text-sm font-medium ${currentPage === grandchild.id ? 'text-primary dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+                                                    >
+                                                        <grandchild.icon className="w-4 h-4 mr-3" />
+                                                        {grandchild.label}
+                                                    </a>
+                                                ))}
+                                              </div>
+                                          </div>
+                                      )
+                                  }
+                                  return (
+                                      <a key={child.id} href="#" onClick={(e) => { e.preventDefault(); handlePageSelect(child.id as Page); }}
+                                         className={`flex items-center px-3 py-2 rounded-md text-sm font-medium ${currentPage === child.id ? 'text-primary dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+                                      >
+                                          <child.icon className="w-4 h-4 mr-3" />
+                                          {child.label}
+                                      </a>
+                                  )
+                               })}
+                            </div>
+                         )}
+                      </div>
+                   )
+                }
+                return (
+                    <a key={item.id} href="#" onClick={(e) => { e.preventDefault(); handlePageSelect(item.id as Page); }}
+                       className={`flex items-center px-3 py-2 rounded-md text-base font-medium ${
+                           isActive ? 'text-primary dark:text-blue-400 bg-blue-50 dark:bg-blue-900/50' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+                       }`}
+                    >
+                        <item.icon className="w-5 h-5 mr-3" />
+                        {item.label}
+                    </a>
+                )
+             })}
+          </div>
+          <div className="pt-4 pb-3 border-t border-gray-200 dark:border-gray-700">
+             <div className="flex items-center px-5 space-x-3">
+                <div className="w-10 h-10 rounded-full bg-blue-200 text-primary flex items-center justify-center font-bold text-lg">
+                   {user.name.charAt(0)}
+                </div>
+                <div>
+                   <div className="text-base font-medium leading-none text-gray-800 dark:text-white">{user.name}</div>
+                   <div className="text-sm font-medium leading-none text-gray-500 dark:text-gray-400 mt-1">{user.profile}</div>
+                </div>
+             </div>
+             <div className="mt-3 px-2 space-y-1">
+                <button
+                   onClick={onLogout}
+                   className="w-full flex items-center px-3 py-2 rounded-md text-base font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                >
+                   <LogOutIcon className="w-5 h-5 mr-3" />
+                   Sair
+                </button>
+             </div>
+          </div>
+        </div>
+      )}
     </header>
   );
 };
