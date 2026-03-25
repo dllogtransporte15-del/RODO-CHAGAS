@@ -38,15 +38,6 @@ const StatCard: React.FC<{ title: string, value: string | number, icon: React.Re
 
 
 const SalespersonReport: React.FC<SalespersonReportProps> = ({ shipments, cargos, users }) => {
-  const getCurrentMonth = () => {
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-  };
-  const [selectedMonth, setSelectedMonth] = useState<string>(getCurrentMonth());
-
-  const handleMonthChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      setSelectedMonth(e.target.value);
-  };
   
   const salespersonStats = useMemo<SalespersonStats[]>(() => {
     const salespeople = users.filter(u => u.profile === UserProfile.Comercial);
@@ -67,14 +58,7 @@ const SalespersonReport: React.FC<SalespersonReportProps> = ({ shipments, cargos
           if (!salespersonCargoIds.has(s.cargoId) || !loadedStatuses.includes(s.status)) {
               return false;
           }
-          
-          if (!selectedMonth) return true;
-
-          const loadedEntry = s.statusHistory?.find(h => h.status === ShipmentStatus.AguardandoDescarga);
-          
-          if (!loadedEntry) return false;
-
-          return loadedEntry.timestamp.startsWith(selectedMonth);
+          return true;
       });
 
       const stats = relevantShipments.reduce((acc, shipment) => {
@@ -100,27 +84,17 @@ const SalespersonReport: React.FC<SalespersonReportProps> = ({ shipments, cargos
         ...stats,
       };
     });
-  }, [shipments, cargos, users, selectedMonth]);
+  }, [shipments, cargos, users]);
 
   return (
     <div>
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-2xl font-semibold text-gray-800 dark:text-white">Demandas Comerciais</h2>
-        <div>
-            <label htmlFor="report-month" className="sr-only">Mês do Relatório</label>
-            <input
-                type="month"
-                id="report-month"
-                value={selectedMonth}
-                onChange={handleMonthChange}
-                className="p-2 border rounded dark:bg-gray-700 dark:border-gray-600"
-            />
-        </div>
       </div>
 
       {salespersonStats.length === 0 ? (
         <div className="bg-white dark:bg-gray-800 rounded-lg p-8 text-center text-gray-500 dark:text-gray-400">
-            Nenhum dado comercial encontrado para o mês selecionado.
+            Nenhum dado comercial encontrado para o período selecionado.
         </div>
       ) : (
         <div className="space-y-6">

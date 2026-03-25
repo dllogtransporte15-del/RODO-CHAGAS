@@ -17,6 +17,8 @@ interface ClientStats {
   totalTonnage: number;
   grossBilled: number;
   profitMargin: number;
+  totalShipments: number;
+  averageTicket: number;
 }
 
 const StatCard: React.FC<{ title: string, value: string | number, icon: React.ReactElement, formatAsCurrency?: boolean }> = ({ title, value, icon, formatAsCurrency=false }) => {
@@ -38,13 +40,13 @@ const StatCard: React.FC<{ title: string, value: string | number, icon: React.Re
 
 const ClientReport: React.FC<ClientReportProps> = ({ shipments, cargos, clients }) => {
   const clientStats = useMemo<ClientStats[]>(() => {
-    const statsMap = new Map<string, { totalTonnage: number, grossBilled: number, profitMargin: number }>();
+    const statsMap = new Map<string, { totalTonnage: number, grossBilled: number, profitMargin: number, totalShipments: number }>();
     // FIX: Explicitly type `cargoMap` to ensure correct type inference for `cargoMap.get()`.
     const cargoMap: Map<string, Cargo> = new Map(cargos.map(c => [c.id, c]));
 
     // Initialize map for all clients to ensure they are listed even with no activity if needed, though we filter later.
     clients.forEach(client => {
-      statsMap.set(client.id, { totalTonnage: 0, grossBilled: 0, profitMargin: 0 });
+      statsMap.set(client.id, { totalTonnage: 0, grossBilled: 0, profitMargin: 0, totalShipments: 0 });
     });
 
     const finalizedShipments = shipments.filter(s => s.status === ShipmentStatus.Finalizado);
@@ -57,6 +59,7 @@ const ClientReport: React.FC<ClientReportProps> = ({ shipments, cargos, clients 
       if (!clientStat) return;
 
       clientStat.totalTonnage += shipment.shipmentTonnage;
+      clientStat.totalShipments += 1;
       
       const grossValue = cargo.companyFreightValuePerTon * shipment.shipmentTonnage;
       clientStat.grossBilled += grossValue;
@@ -71,7 +74,8 @@ const ClientReport: React.FC<ClientReportProps> = ({ shipments, cargos, clients 
       .map(([clientId, stats]) => ({
         id: clientId,
         name: clients.find(c => c.id === clientId)?.nomeFantasia || 'N/A',
-        ...stats
+        ...stats,
+        averageTicket: stats.totalShipments > 0 ? stats.grossBilled / stats.totalShipments : 0
       }))
       .filter(stat => stat.grossBilled > 0) // Only show clients with activity
       .sort((a, b) => b.grossBilled - a.grossBilled); // Sort by highest billing
@@ -82,17 +86,19 @@ const ClientReport: React.FC<ClientReportProps> = ({ shipments, cargos, clients 
       <h2 className="text-2xl font-semibold text-gray-800 dark:text-white mb-4">Desempenho por Cliente</h2>
       {clientStats.length === 0 ? (
         <div className="bg-white dark:bg-gray-800 rounded-lg p-8 text-center text-gray-500 dark:text-gray-400">
-            Nenhum dado de cliente para exibir.
+            Nenhum dado de cliente encontrado para os filtros selecionados.
         </div>
       ) : (
         <div className="space-y-6">
           {clientStats.map(stats => (
             <div key={stats.id} className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
               <h3 className="text-xl font-bold text-primary dark:text-blue-400 mb-4">{stats.name}</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                <StatCard title="Volume Total Transportado" value={`${stats.totalTonnage.toLocaleString('pt-BR')} ton`} icon={<PackageIcon className="w-8 h-8 text-gray-500"/>} />
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                <StatCard title="Total de Embarques" value={stats.totalShipments} icon={<PackageIcon className="w-8 h-8 text-blue-500"/>} />
+                <StatCard title="Volume Total" value={`${stats.totalTonnage.toLocaleString('pt-BR')} ton`} icon={<PackageIcon className="w-8 h-8 text-gray-500"/>} />
                 <StatCard title="Faturamento Bruto" value={stats.grossBilled} icon={<DollarSignIcon className="w-8 h-8 text-blue-500"/>} formatAsCurrency />
                 <StatCard title="Margem de Lucro" value={stats.profitMargin} icon={<DollarSignIcon className="w-8 h-8 text-blue-400"/>} formatAsCurrency />
+                <StatCard title="Ticket Médio" value={stats.averageTicket} icon={<DollarSignIcon className="w-8 h-8 text-green-500"/>} formatAsCurrency />
               </div>
             </div>
           ))}

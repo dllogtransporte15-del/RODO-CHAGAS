@@ -66,7 +66,7 @@ const ShipperReport: React.FC<ShipperReportProps> = ({ shipments, users }) => {
             <h2 className="text-2xl font-semibold text-gray-800 dark:text-white mb-4">Desempenho por Solicitante de Embarque</h2>
             {operatorStats.length === 0 ? (
                 <div className="bg-white dark:bg-gray-800 rounded-lg p-8 text-center text-gray-500 dark:text-gray-400">
-                    Nenhum embarque encontrado para exibir.
+                    Nenhum embarque encontrado para os filtros selecionados.
                 </div>
             ) : (
                 <div className="space-y-6">

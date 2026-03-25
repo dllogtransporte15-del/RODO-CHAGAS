@@ -29,19 +29,7 @@ const formatDuration = (ms: number): string => {
 };
 
 const OperationalTimingReport: React.FC<OperationalTimingReportProps> = ({ shipments }) => {
-  const getCurrentMonth = () => {
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-  };
-  const [selectedMonth, setSelectedMonth] = useState<string>(getCurrentMonth());
-
-  const handleMonthChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSelectedMonth(e.target.value);
-  };
-
   const timingStats = useMemo<StatusTimeStat[]>(() => {
-    if (!selectedMonth) return [];
-
     const stats: { [key in ShipmentStatus]?: { totalDuration: number; count: number } } = {};
 
     shipments.forEach(shipment => {
@@ -54,18 +42,15 @@ const OperationalTimingReport: React.FC<OperationalTimingReportProps> = ({ shipm
         const currentEntry = shipment.statusHistory[i];
         const nextEntry = shipment.statusHistory[i+1];
 
-        // Check if the status started within the selected month
-        if (currentEntry.timestamp.startsWith(selectedMonth)) {
-          const startTime = new Date(currentEntry.timestamp).getTime();
-          const endTime = new Date(nextEntry.timestamp).getTime();
-          const duration = endTime - startTime;
+        const startTime = new Date(currentEntry.timestamp).getTime();
+        const endTime = new Date(nextEntry.timestamp).getTime();
+        const duration = endTime - startTime;
 
-          if (!stats[currentEntry.status]) {
-            stats[currentEntry.status] = { totalDuration: 0, count: 0 };
-          }
-          stats[currentEntry.status]!.totalDuration += duration;
-          stats[currentEntry.status]!.count += 1;
+        if (!stats[currentEntry.status]) {
+          stats[currentEntry.status] = { totalDuration: 0, count: 0 };
         }
+        stats[currentEntry.status]!.totalDuration += duration;
+        stats[currentEntry.status]!.count += 1;
       }
     });
     
@@ -83,7 +68,7 @@ const OperationalTimingReport: React.FC<OperationalTimingReportProps> = ({ shipm
         return orderA - orderB;
     });
 
-  }, [shipments, selectedMonth]);
+  }, [shipments]);
 
   const maxDurationHours = useMemo(() => {
       return Math.max(...timingStats.map(s => s.averageDurationHours), 0) || 1;
@@ -93,16 +78,6 @@ const OperationalTimingReport: React.FC<OperationalTimingReportProps> = ({ shipm
     <div>
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-semibold text-gray-800 dark:text-white">Tempo Médio por Status</h2>
-        <div>
-            <label htmlFor="report-month" className="sr-only">Mês do Relatório</label>
-            <input
-                type="month"
-                id="report-month"
-                value={selectedMonth}
-                onChange={handleMonthChange}
-                className="p-2 border rounded dark:bg-gray-700 dark:border-gray-600"
-            />
-        </div>
       </div>
       
       <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
@@ -126,7 +101,7 @@ const OperationalTimingReport: React.FC<OperationalTimingReportProps> = ({ shipm
           </div>
         ) : (
           <div className="text-center text-gray-500 dark:text-gray-400 py-10">
-            Nenhum dado de tempo de operação encontrado para o mês selecionado.
+            Nenhum dado de tempo de operação encontrado para o período selecionado.
           </div>
         )}
       </div>

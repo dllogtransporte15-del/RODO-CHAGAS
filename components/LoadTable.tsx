@@ -5,6 +5,8 @@ import { DailyScheduleType, CargoStatus } from '../types';
 import VolumeBar from './VolumeBar';
 import { PlusIcon } from './icons/PlusIcon';
 import { HistoryIcon } from './icons/HistoryIcon';
+import { Search, Filter, X } from 'lucide-react';
+import MultiSelectDropdown from './MultiSelectDropdown';
 
 interface LoadTableProps {
   loads: Cargo[];
@@ -27,8 +29,41 @@ interface LoadTableProps {
 const LoadTable: React.FC<LoadTableProps> = ({ loads, clients, products, shipments, dailyBalanceDate, onDailyBalanceDateChange, onCreateShipment, onSuspend, onReactivate, onFinalize, onEdit, onClose, onShowHistory, onShowDetails, onEditSchedule }) => {
   const [openActionMenu, setOpenActionMenu] = useState<string | null>(null);
   
+  const [showFilters, setShowFilters] = useState(false);
+  const [filterId, setFilterId] = useState<string[]>([]);
+  const [filterClient, setFilterClient] = useState<string[]>([]);
+  const [filterProduct, setFilterProduct] = useState<string[]>([]);
+  const [filterOrigin, setFilterOrigin] = useState<string[]>([]);
+  const [filterDest, setFilterDest] = useState<string[]>([]);
+
   const getClientName = (clientId: string) => clients.find(c => c.id === clientId)?.nomeFantasia || 'N/A';
   const getProductName = (productId: string) => products.find(p => p.id === productId)?.name || 'N/A';
+
+  // Opções únicas baseadas nas cargas listadas
+  const idOptions = Array.from(new Set(loads.map(l => l.sequenceId?.toString() || ''))).filter(Boolean).sort();
+  const clientOptions = Array.from(new Set(loads.map(l => getClientName(l.clientId)))).filter(Boolean).sort();
+  const productOptions = Array.from(new Set(loads.map(l => getProductName(l.productId)))).filter(Boolean).sort();
+  const originOptions = Array.from(new Set(loads.map(l => l.origin))).filter(Boolean).sort();
+  const destOptions = Array.from(new Set(loads.map(l => l.destination))).filter(Boolean).sort();
+
+  const filteredLoads = loads.filter(load => {
+    if (filterId.length > 0 && !filterId.includes(load.sequenceId?.toString() || '')) return false;
+    if (filterClient.length > 0 && !filterClient.includes(getClientName(load.clientId))) return false;
+    if (filterProduct.length > 0 && !filterProduct.includes(getProductName(load.productId))) return false;
+    if (filterOrigin.length > 0 && !filterOrigin.includes(load.origin)) return false;
+    if (filterDest.length > 0 && !filterDest.includes(load.destination)) return false;
+    return true;
+  });
+
+  const activeFiltersCount = (filterId.length > 0 ? 1 : 0) + (filterClient.length > 0 ? 1 : 0) + (filterProduct.length > 0 ? 1 : 0) + (filterOrigin.length > 0 ? 1 : 0) + (filterDest.length > 0 ? 1 : 0);
+
+  const clearFilters = () => {
+      setFilterId([]);
+      setFilterClient([]);
+      setFilterProduct([]);
+      setFilterOrigin([]);
+      setFilterDest([]);
+  };
   
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
@@ -52,23 +87,59 @@ const LoadTable: React.FC<LoadTableProps> = ({ loads, clients, products, shipmen
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700">
-        <div className="flex items-center gap-4">
-          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Balanço Diário para:</span>
-          <input
-            type="date"
-            value={dailyBalanceDate}
-            onChange={(e) => onDailyBalanceDateChange(e.target.value)}
-            className="p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm focus:ring-2 focus:ring-primary outline-none"
-          />
+      <div className="flex flex-col bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700">
+        <div className="flex flex-col md:flex-row items-center justify-between p-4 gap-4">
+          {/* Toggle Filters Button */}
+          <div className="w-full md:w-auto">
+            <button 
+                onClick={() => setShowFilters(!showFilters)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-md transition-colors ${showFilters || activeFiltersCount > 0 ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border border-blue-200 dark:border-blue-800' : 'bg-gray-50 text-gray-700 dark:bg-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600'}`}
+            >
+                <Filter className="w-4 h-4" />
+                <span className="text-sm font-medium">Filtros Avançados {activeFiltersCount > 0 && `(${activeFiltersCount})`}</span>
+            </button>
+          </div>
+
+          {/* Existing Controls */}
+          <div className="flex items-center gap-4 w-full md:w-auto justify-end">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Balanço Diário para:</span>
+              <input
+                type="date"
+                value={dailyBalanceDate}
+                onChange={(e) => onDailyBalanceDateChange(e.target.value)}
+                className="p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm focus:ring-2 focus:ring-primary outline-none"
+              />
+            </div>
+            <div className="text-xs text-gray-500 dark:text-gray-400 font-medium whitespace-nowrap hidden sm:block">
+              {filteredLoads.length !== loads.length ? `${filteredLoads.length} de ` : ''}{loads.length} cargas cadastradas
+            </div>
+          </div>
         </div>
-        <div className="text-xs text-gray-500 dark:text-gray-400 font-medium">
-          {loads.length} cargas cadastradas
-        </div>
+
+        {/* Expandable Filters Section */}
+        {showFilters && (
+            <div className="p-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                    <MultiSelectDropdown label="ID da Carga" options={idOptions} selectedValues={filterId} onChange={setFilterId} placeholder="Todos os IDs..." />
+                    <MultiSelectDropdown label="Nome do Cliente" options={clientOptions} selectedValues={filterClient} onChange={setFilterClient} placeholder="Todos os Clientes..." />
+                    <MultiSelectDropdown label="Nome do Produto" options={productOptions} selectedValues={filterProduct} onChange={setFilterProduct} placeholder="Todos os Produtos..." />
+                    <MultiSelectDropdown label="Cidade de Origem" options={originOptions} selectedValues={filterOrigin} onChange={setFilterOrigin} placeholder="Todas as Origens..." />
+                    <MultiSelectDropdown label="Cidade de Destino" options={destOptions} selectedValues={filterDest} onChange={setFilterDest} placeholder="Todos os Destinos..." />
+                </div>
+                {activeFiltersCount > 0 && (
+                    <div className="mt-4 flex justify-end">
+                        <button onClick={clearFilters} className="text-sm flex items-center gap-1 text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300">
+                            <X className="w-4 h-4" /> Limpar Filtros
+                        </button>
+                    </div>
+                )}
+            </div>
+        )}
       </div>
 
       <div className="space-y-3">
-        {loads.map((load) => {
+        {filteredLoads.map((load) => {
           const scheduledButNotLoaded = Math.max(0, load.scheduledVolume - load.loadedVolume);
           const dailyScheduledTonnage = shipments
             .filter(s => s.cargoId === load.id && s.scheduledDate === dailyBalanceDate)
