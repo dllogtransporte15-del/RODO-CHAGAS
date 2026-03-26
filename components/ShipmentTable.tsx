@@ -352,7 +352,7 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users,
                                     </a>
                                 )}
 
-                                {shipment.status === ShipmentStatus.Cancelado ? (
+                                {shipment.status === ShipmentStatus.Cancelado && currentUser.profile !== UserProfile.Admin ? (
                                     <span className="text-xs text-gray-400 dark:text-gray-500 italic px-2">Cancelado</span>
                                 ) : (
                                     <div className="relative" ref={openActionMenu === shipment.id ? actionMenuRef : null}>
@@ -367,12 +367,16 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users,
                                             <div className="absolute right-0 mt-2 w-56 origin-top-right bg-white dark:bg-gray-800 rounded-md shadow-lg ring-1 ring-black ring-opacity-5 z-20">
                                                 <div className="py-1" role="menu" aria-orientation="vertical">
                                                     {onShowHistory && <ActionMenuItem icon={HistoryIcon} text="Ver Histórico" onClick={() => onShowHistory(shipment)} />}
-                                                    {isActionable && onAttach && <ActionMenuItem icon={PaperclipIcon} text="Anexar e Avançar" onClick={() => onAttach(shipment)} disabled={!canAdvance} title={!canAdvance ? disabledReason : undefined} />}
-                                                    {shipment.status === ShipmentStatus.PreCadastro && onOpenCadastroAntt && <ActionMenuItem icon={ExternalLinkIcon} text="Fazer Cadastro" onClick={() => onOpenCadastroAntt(shipment)} />}
-                                                    {isActionable && onEditPrice && <ActionMenuItem icon={DollarSignIcon} text="Alterar Preço" onClick={() => onEditPrice(shipment)} />}
-                                                    {isActionable && onTransfer && <ActionMenuItem icon={TransferIcon} text="Transferir Embarque" onClick={() => onTransfer(shipment)} />}
-                                                    {shipment.status === ShipmentStatus.Finalizado && onAttach && <ActionMenuItem icon={PaperclipIcon} text="Gestor de Anexos" onClick={() => onAttach(shipment)} />}
-                                                    {isActionable && onCancel && <ActionMenuItem icon={XIcon} text="Cancelar Embarque" onClick={() => onCancel(shipment)} isDestructive />}
+                                                    {shipment.status !== ShipmentStatus.Cancelado && (
+                                                        <>
+                                                            {isActionable && onAttach && <ActionMenuItem icon={PaperclipIcon} text="Anexar e Avançar" onClick={() => onAttach(shipment)} disabled={!canAdvance} title={!canAdvance ? disabledReason : undefined} />}
+                                                            {shipment.status === ShipmentStatus.PreCadastro && onOpenCadastroAntt && <ActionMenuItem icon={ExternalLinkIcon} text="Fazer Cadastro" onClick={() => onOpenCadastroAntt(shipment)} />}
+                                                            {isActionable && onEditPrice && <ActionMenuItem icon={DollarSignIcon} text="Alterar Preço" onClick={() => onEditPrice(shipment)} />}
+                                                            {isActionable && onTransfer && <ActionMenuItem icon={TransferIcon} text="Transferir Embarque" onClick={() => onTransfer(shipment)} />}
+                                                            {shipment.status === ShipmentStatus.Finalizado && onAttach && <ActionMenuItem icon={PaperclipIcon} text="Gestor de Anexos" onClick={() => onAttach(shipment)} />}
+                                                            {isActionable && onCancel && <ActionMenuItem icon={XIcon} text="Cancelar Embarque" onClick={() => onCancel(shipment)} isDestructive />}
+                                                        </>
+                                                    )}
                                                     {onDelete && currentUser.profile === UserProfile.Admin && <ActionMenuItem icon={Trash2} text="Excluir Embarque" onClick={() => onDelete(shipment.id)} isDestructive />}
                                                 </div>
                                             </div>

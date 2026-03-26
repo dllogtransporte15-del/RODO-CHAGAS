@@ -17,7 +17,7 @@ const ShipmentStatusFilter: React.FC<ShipmentStatusFilterProps> = ({ shipments, 
 
   const statusOrder = useMemo(() => {
     let statuses = Object.values(ShipmentStatus).filter(
-      status => status !== ShipmentStatus.Finalizado && status !== ShipmentStatus.Cancelado
+      status => status !== ShipmentStatus.Finalizado && (status !== ShipmentStatus.Cancelado || currentUser.profile === UserProfile.Admin)
     );
 
     if (currentUser.profile === UserProfile.Cliente) {
