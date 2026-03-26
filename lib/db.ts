@@ -457,3 +457,8 @@ export async function deleteShipment(id: string): Promise<void> {
   const { error } = await supabase.from('shipments').delete().eq('id', id);
   if (error) throw error;
 }
+
+export async function deleteUser(id: string): Promise<void> {
+  const { error } = await supabase.from('users').delete().eq('id', id);
+  if (error) throw error;
+}

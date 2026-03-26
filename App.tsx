@@ -35,7 +35,7 @@ import {
   upsertManyDrivers, upsertManyVehicles, upsertManyShipments, upsertManyCargos,
   uploadShipmentAttachment, getShipmentAttachmentUrl,
   fetchAppSettings, saveAppSettings,
-  deleteCargo, deleteShipment
+  deleteCargo, deleteShipment, deleteUser
 } from './lib/db';
 
 const RODOCHAGAS_LOGO_BASE64 = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wCEAAkGBxISEhUSEhIVFRUVFRUVFRUVFRUVFRUVFRUWFhUVFRUYHSggGBolHRUVITEhJSkrLi4uFx8zODMtNygtLisBCgoKDg0OGxAQGy0lICUtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLf/AABEIAJYAlgMBIgACEQEDEQH/xAAcAAABBQEBAQAAAAAAAAAAAAAAAQIDBAUGBwj/xAA+EAABAwIEAwQHBgQGAwAAAAABAAIRAyEEEjFBBVFhBnGBkRMiMqGxwdHwFEJS4fEGYnKCorLCFiQ0c8P/AAaAQEAAwEBAQAAAAAAAAAAAAAAAQIDBAUG/xAAuEQEAAgIBAwIDCAIDAAAAAAAAAAECEQMSITFBUQQTYSIycYGRobHR8MEUI0Lh/9oADAMBAAIRAxEAPwD2hCEIAEIQgAQhCABCEIAEIQgAQhCABCEIAEIQgAQhCABCEIAEIQgAQhCABCEIAEIQgAQhCABCEIAEIQgAUK1aVpc89Ggn2CuuX4zxFtWm+j9o1hfBqQCWs/e5mRcNdG26AOKzTjT6lYsqVG02sE0qbRmc4HUCJMnfTQBY9Hjr2U20KDy+ZNTESHGTEz337Kzw/1wzE1B9np0zVqVsVKr3F0TYS42G+wWdw3gn+HqvrucypC4DSgOaGtJEmDqSY3IE5TMSfLb2m9I6mLi4fX8X/R1XA+NuxD/ALO+mGVC0ua5pcWutMEEXuCR/wBz0F3yLgPCwzG1ahqNL/suVkES4BxJLSPuwdR+6NeqO1d/C5HJp9/L/Rz54qMbvoEIQuowBCEIAEIQgAQhCABCEIAEIQgAQhCABCEIAEIQgAQhCABCEIAEIQgAQhCAOY4/VpChVa97BLHNLQczpkEWGs2XlsJcKjnFrnNaXmSAHHYEaR6L2vEeC4fEATDiLtc2A4dJ0PsQuawv2bNbicxqn2JgtZT5S+dxmc4i+ggLs4fUQjFqbs8Hi/DZZZ5UoK0v5OLxOIbUfUqVGmpUDiym0OMMaNPdAJjUnfZe0+z2niGYdzcWAHOHslzSxxEHIQ6SRY/guX/APj52L+0Go1sEimKbS6mB+6XmQCTroOnr0WB4NRw/8AaKj6dSpnFM5y5uVr8xAawEkkwdTHMLfUTlODWl7/AKRz8LhjhzuMrb1/p0PQgIXAV3QhCABCEIAEIQgAQhCABCEIAEIQgAQhCABCEIAEIQgAQhCABCEIAEIQgAQhCABCEIAEIQgAQhCABCEIAEIQgAQhCABCEIAEIQgAQhCABCEIAEIQgAQhCABCEIAEIQgAQhCABCEIAEIQgAQhCABCEIAEIQgD/9k=";
@@ -1001,6 +1001,25 @@ const App: React.FC = () => {
     }
     try { await upsertUser(saved); } catch(err) { console.error('Erro ao salvar usuário:', err); }
   };
+  
+  const handleDeleteUser = async (userId: string) => {
+    if (!currentUser || currentUser.profile !== UserProfile.Admin) return;
+    if (userId === currentUser.id) {
+        alert("Você não pode excluir seu próprio usuário.");
+        return;
+    }
+    
+    if (window.confirm('Tem certeza que deseja excluir permanentemente este usuário?')) {
+        try {
+            await deleteUser(userId);
+            setUsers(prev => prev.filter(u => u.id !== userId));
+            alert("Usuário excluído com sucesso.");
+        } catch (err) {
+            console.error('Erro ao excluir usuário:', err);
+            alert("Erro ao excluir usuário. Verifique o console.");
+        }
+    }
+  };
 
   // --- RENDER LOGIC ---
   const renderPage = () => {
@@ -1102,6 +1121,7 @@ const App: React.FC = () => {
                   profilePermissions={profilePermissions} 
                   onSavePermissions={handleSavePermissions}
                   clients={clients}
+                  onDeleteUser={handleDeleteUser}
                 />;
       case 'appearance':
         return <AppearancePage

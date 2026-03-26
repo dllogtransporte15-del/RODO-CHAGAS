@@ -16,9 +16,10 @@ interface UsersPageProps {
   profilePermissions: ProfilePermissions;
   onSavePermissions: (permissions: ProfilePermissions) => void;
   clients: Client[];
+  onDeleteUser: (userId: string) => void;
 }
 
-const UsersPage: React.FC<UsersPageProps> = ({ users, setUsers, onSaveUser, currentUser, profilePermissions, onSavePermissions, clients }) => {
+const UsersPage: React.FC<UsersPageProps> = ({ users, setUsers, onSaveUser, currentUser, profilePermissions, onSavePermissions, clients, onDeleteUser }) => {
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
   const [isPermissionsModalOpen, setIsPermissionsModalOpen] = useState(false);
   const [userToEdit, setUserToEdit] = useState<User | null>(null);
@@ -37,9 +38,7 @@ const UsersPage: React.FC<UsersPageProps> = ({ users, setUsers, onSaveUser, curr
     setIsUserModalOpen(true);
   };
   const handleDeleteUser = (userId: string) => {
-    if (window.confirm('Tem certeza que deseja excluir este usuário?')) {
-        setUsers(prev => prev.filter(u => u.id !== userId));
-    }
+    onDeleteUser(userId);
   };
   const handleSaveUser = (user: User | Omit<User, 'id'>) => {
     onSaveUser(user);
