@@ -65,7 +65,8 @@ const SalespersonReport: React.FC<SalespersonReportProps> = ({ shipments, cargos
           const cargo = cargoMap.get(shipment.cargoId);
           if (!cargo) return acc;
 
-          const grossValue = cargo.companyFreightValuePerTon * shipment.shipmentTonnage;
+          const grossRate = shipment.companyFreightRateSnapshot || cargo.companyFreightValuePerTon;
+          const grossValue = grossRate * shipment.shipmentTonnage;
           const icmsValue = cargo.hasIcms ? grossValue * (cargo.icmsPercentage / 100) : 0;
           const netValue = grossValue - icmsValue;
           const profit = netValue - shipment.driverFreightValue;

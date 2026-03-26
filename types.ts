@@ -1,7 +1,7 @@
 
 // FIX: Moved Page type definition from App.tsx to here so it can be shared across modules.
 // FIX: Added 'embarcadores' and 'operational-map' to the page list to resolve type errors.
-export type Page = 'dashboard' | 'clients' | 'owners' | 'embarcadores' | 'drivers' | 'vehicles' | 'loads' | 'shipments' | 'financial' | 'reports' | 'operational-loads' | 'operational-map' | 'users-register' | 'commissions' | 'appearance' | 'shipment-history' | 'load-history';
+export type Page = 'dashboard' | 'clients' | 'owners' | 'embarcadores' | 'drivers' | 'vehicles' | 'loads' | 'shipments' | 'financial' | 'reports' | 'operational-loads' | 'operational-map' | 'users-register' | 'commissions' | 'appearance' | 'shipment-history' | 'load-history' | 'layover-calculator' | 'freight-quote' | 'ai-assistant' | 'tools-history';
 
 export enum UserProfile {
   Embarcador = "Embarcador",
@@ -203,8 +203,8 @@ export interface LoadingOrder {
 }
 
 export enum ShipmentStatus {
-  PreCadastro = "Pré-cadastro",
   AguardandoSeguradora = "Ag. Seguradora",
+  PreCadastro = "Pré-cadastro",
   AguardandoCarregamento = "Ag. Carregamento",
   AguardandoNota = "Ag. Nota",
   AguardandoAdiantamento = "Ag. Adiantamento",
@@ -244,6 +244,10 @@ export interface Shipment {
   }[];
   anttOwnerIdentifier?: string;
   bankDetails?: string;
+  advancePercentage?: number;
+  advanceValue?: number;
+  companyFreightRateSnapshot?: number;
+  driverFreightRateSnapshot?: number;
 }
 
 export interface ProfilePermissions {

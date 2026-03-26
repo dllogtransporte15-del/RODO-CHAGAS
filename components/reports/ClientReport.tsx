@@ -61,7 +61,8 @@ const ClientReport: React.FC<ClientReportProps> = ({ shipments, cargos, clients 
       clientStat.totalTonnage += shipment.shipmentTonnage;
       clientStat.totalShipments += 1;
       
-      const grossValue = cargo.companyFreightValuePerTon * shipment.shipmentTonnage;
+      const grossRate = shipment.companyFreightRateSnapshot || cargo.companyFreightValuePerTon;
+      const grossValue = grossRate * shipment.shipmentTonnage;
       clientStat.grossBilled += grossValue;
 
       const icmsValue = cargo.hasIcms ? grossValue * (cargo.icmsPercentage / 100) : 0;

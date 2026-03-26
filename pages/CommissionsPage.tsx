@@ -5,6 +5,7 @@ import type { Shipment, User, Cargo } from '../types';
 import { BriefcaseIcon } from '../components/icons/BriefcaseIcon';
 import { ShipIcon } from '../components/icons/ShipIcon';
 import SalespersonReport from '../components/reports/SalespersonReport';
+import SupervisorReport from '../components/reports/SupervisorReport';
 import ShipperReport from '../components/reports/ShipperReport';
 
 interface CommissionsPageProps {
@@ -21,7 +22,7 @@ const CommissionsPage: React.FC<CommissionsPageProps> = ({ shipments, cargos, us
   const renderContent = () => {
     switch(activeTab) {
       case 'comercial':
-        return <SalespersonReport shipments={shipments} cargos={cargos} users={users} />;
+        return <SupervisorReport shipments={shipments} cargos={cargos} users={users} />;
       case 'embarcador':
         return <ShipperReport shipments={shipments} users={users} />;
       default:
@@ -30,8 +31,8 @@ const CommissionsPage: React.FC<CommissionsPageProps> = ({ shipments, cargos, us
   };
   
   const navItems = [
-      { id: 'comercial', label: 'Comercial', icon: BriefcaseIcon },
-      { id: 'embarcador', label: 'Embarcador', icon: ShipIcon },
+      { id: 'comercial', label: 'Supervisor', icon: BriefcaseIcon },
+      { id: 'embarcador', label: 'Embarcadores', icon: ShipIcon },
   ];
 
   return (

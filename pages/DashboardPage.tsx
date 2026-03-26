@@ -11,6 +11,7 @@ import { DollarSignIcon } from '../components/icons/DollarSignIcon';
 import { ClientsIcon } from '../components/icons/ClientsIcon';
 import type { Cargo, Shipment, User } from '../types';
 import { CargoStatus, ShipmentStatus, UserProfile } from '../types';
+import ShipmentDetailsModal from '../components/ShipmentDetailsModal';
 
 interface DashboardPageProps {
   cargos: Cargo[];
@@ -24,9 +25,10 @@ interface ShipmentListCardProps {
   shipments: Shipment[];
   users: User[];
   thresholds?: { yellow: number; red: number }; // in minutes
+  onShowDetails?: (shipment: Shipment) => void;
 }
 
-const ShipmentListCard: React.FC<ShipmentListCardProps> = ({ title, shipments, users, thresholds }) => {
+const ShipmentListCard: React.FC<ShipmentListCardProps> = ({ title, shipments, users, thresholds, onShowDetails }) => {
   const getEmbarcadorName = (embarcadorId: string): string => {
     return users.find(u => u.id === embarcadorId)?.name || 'N/A';
   };
@@ -91,6 +93,16 @@ const ShipmentListCard: React.FC<ShipmentListCardProps> = ({ title, shipments, u
                 <div key={shipment.id} className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-md border-l-4 border-primary">
                     <div className="flex justify-between items-start">
                         <div>
+                            {onShowDetails ? (
+                                <button
+                                    onClick={() => onShowDetails(shipment)}
+                                    className="font-mono text-xs text-primary dark:text-blue-400 font-bold mb-1 hover:underline text-left"
+                                >
+                                    {shipment.id}
+                                </button>
+                            ) : (
+                                <p className="font-mono text-xs text-gray-500 mb-1">{shipment.id}</p>
+                            )}
                             <p className="font-semibold text-gray-900 dark:text-white truncate">{shipment.driverName}</p>
                             <p className="text-sm text-gray-600 dark:text-gray-300">{shipment.horsePlate}</p>
                         </div>
@@ -113,6 +125,8 @@ const ShipmentListCard: React.FC<ShipmentListCardProps> = ({ title, shipments, u
 
 
 const DashboardPage: React.FC<DashboardPageProps> = ({ cargos, shipments, users, currentUser }) => {
+  const [detailsModalShipment, setDetailsModalShipment] = React.useState<Shipment | null>(null);
+
   const cargoStatusData = useMemo(() => {
     const counts = cargos.reduce((acc, cargo) => {
       acc[cargo.status] = (acc[cargo.status] || 0) + 1;
@@ -149,8 +163,35 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ cargos, shipments, users,
 
   const canViewRanking = useMemo(() => {
     if (!currentUser) return false;
-    return [UserProfile.Comercial, UserProfile.Supervisor, UserProfile.Admin].includes(currentUser.profile);
+    return [UserProfile.Comercial, UserProfile.Supervisor, UserProfile.Admin, UserProfile.Diretor].includes(currentUser.profile);
   }, [currentUser]);
+
+  const dashboardStats = useMemo(() => {
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+
+    let monthlyEffectiveTonnage = 0;
+    
+    shipments.forEach(s => {
+      const isEffective = ![ShipmentStatus.PreCadastro, ShipmentStatus.AguardandoSeguradora, ShipmentStatus.AguardandoCarregamento, ShipmentStatus.Cancelado].includes(s.status);
+      if (isEffective) {
+        const date = new Date(s.createdAt);
+        if (date.getMonth() === currentMonth && date.getFullYear() === currentYear) {
+          monthlyEffectiveTonnage += s.shipmentTonnage || 0;
+        }
+      }
+    });
+
+    const monthlyCommission = monthlyEffectiveTonnage * 2;
+    const canViewCommission = currentUser && [UserProfile.Diretor, UserProfile.Comercial, UserProfile.Admin].includes(currentUser.profile);
+
+    return {
+      monthlyEffectiveTonnage,
+      monthlyCommission,
+      canViewCommission
+    };
+  }, [shipments, currentUser]);
 
   const clientDashboardData = useMemo(() => {
     if (currentUser?.profile !== UserProfile.Cliente) return null;
@@ -244,10 +285,16 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ cargos, shipments, users,
       <>
         <Header title="Dashboard Fiscal" />
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <ShipmentListCard title="Aguardando Cadastro" shipments={shipmentsPreCadastro} users={users} thresholds={{ yellow: 60, red: 90 }}/>
-          <ShipmentListCard title="Aguardando Seguradora" shipments={shipmentsAwaitingInsurance} users={users} thresholds={{ yellow: 30, red: 50 }} />
-          <ShipmentListCard title="Aguardando Nota" shipments={shipmentsAwaitingNote} users={users} thresholds={{ yellow: 120, red: 240 }} />
+          <ShipmentListCard title="Aguardando Seguradora" shipments={shipmentsAwaitingInsurance} users={users} thresholds={{ yellow: 30, red: 50 }} onShowDetails={setDetailsModalShipment} />
+          <ShipmentListCard title="Aguardando Cadastro" shipments={shipmentsPreCadastro} users={users} thresholds={{ yellow: 60, red: 90 }} onShowDetails={setDetailsModalShipment} />
+          <ShipmentListCard title="Aguardando Nota" shipments={shipmentsAwaitingNote} users={users} thresholds={{ yellow: 120, red: 240 }} onShowDetails={setDetailsModalShipment} />
         </div>
+        <ShipmentDetailsModal
+          isOpen={!!detailsModalShipment}
+          onClose={() => setDetailsModalShipment(null)}
+          shipment={detailsModalShipment}
+          cargo={detailsModalShipment ? cargos.find(c => c.id === detailsModalShipment.cargoId) : undefined}
+        />
       </>
     );
   }
@@ -255,6 +302,8 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ cargos, shipments, users,
   if (currentUser?.profile === UserProfile.Financeiro) {
     const shipmentsAwaitingAdvance = shipments.filter(s => s.status === ShipmentStatus.AguardandoAdiantamento);
     const shipmentsAwaitingBalance = shipments.filter(s => s.status === ShipmentStatus.AguardandoPagamentoSaldo);
+    const shipmentsInTransit = shipments.filter(s => s.status === ShipmentStatus.AguardandoDescarga); // Added filter
+    const shipmentsUnloaded = shipments.filter(s => s.status === ShipmentStatus.AguardandoPagamentoSaldo); // Added filter
 
     return (
       <>
@@ -265,14 +314,36 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ cargos, shipments, users,
             shipments={shipmentsAwaitingAdvance} 
             users={users} 
             thresholds={{ yellow: 30, red: 60 }} 
+            onShowDetails={setDetailsModalShipment} // Added onShowDetails
           />
           <ShipmentListCard 
             title="Aguardando Pagamento de Saldo" 
             shipments={shipmentsAwaitingBalance} 
             users={users} 
             thresholds={{ yellow: 24 * 60, red: 47 * 60 }} 
+            onShowDetails={setDetailsModalShipment} // Added onShowDetails
+          />
+          <ShipmentListCard 
+            title="Em Trânsito / Entrega" 
+            shipments={shipmentsInTransit} 
+            users={users} 
+            thresholds={{ yellow: 24 * 60, red: 48 * 60 }}
+            onShowDetails={setDetailsModalShipment}
+          />
+          <ShipmentListCard 
+            title="Descarga Pronta / Fechamento" 
+            shipments={shipmentsUnloaded} 
+            users={users} 
+            thresholds={{ yellow: 12 * 60, red: 24 * 60 }}
+            onShowDetails={setDetailsModalShipment}
           />
         </div>
+        <ShipmentDetailsModal
+          isOpen={!!detailsModalShipment}
+          onClose={() => setDetailsModalShipment(null)}
+          shipment={detailsModalShipment}
+          cargo={detailsModalShipment ? cargos.find(c => c.id === detailsModalShipment.cargoId) : undefined}
+        />
       </>
     );
   }
@@ -335,23 +406,39 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ cargos, shipments, users,
           colorClass="bg-gray-500"
         />
         <Card
-          title="Faturamento (Mês)"
-          value="R$ 0,00"
-          icon={<DollarSignIcon className="w-6 h-6 text-white" />}
-          colorClass="bg-blue-400"
+          title="Tons Efetivadas (Mês)"
+          value={`${dashboardStats.monthlyEffectiveTonnage.toLocaleString('pt-BR')} t`}
+          icon={<TruckIcon className="w-6 h-6 text-white" />}
+          colorClass="bg-green-500"
         />
-        <Card
-          title="Clientes Ativos"
-          value="0"
-          icon={<ClientsIcon className="w-6 h-6 text-white" />}
-          colorClass="bg-gray-400"
-        />
+        {dashboardStats.canViewCommission ? (
+          <Card
+            title="Comissão (Mês)"
+            value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(dashboardStats.monthlyCommission)}
+            icon={<DollarSignIcon className="w-6 h-6 text-white" />}
+            colorClass="bg-emerald-500"
+          />
+        ) : (
+          <Card
+            title="Clientes Ativos"
+            value="0"
+            icon={<ClientsIcon className="w-6 h-6 text-white" />}
+            colorClass="bg-gray-400"
+          />
+        )}
       </div>
       <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {canViewRanking && <ShipperRankingCard shipments={shipments} cargos={cargos} users={users} />}
+        {canViewRanking && <ShipperRankingCard shipments={shipments} cargos={cargos} users={users} currentUser={currentUser} />}
         <DonutChartCard title="Distribuição de Cargas por Status" data={cargoStatusData} />
         <ShipmentFunnelCard title="Funil de Embarques" data={shipmentStatusData} />
       </div>
+
+      <ShipmentDetailsModal
+        isOpen={!!detailsModalShipment}
+        onClose={() => setDetailsModalShipment(null)}
+        shipment={detailsModalShipment}
+        cargo={detailsModalShipment ? cargos.find(c => c.id === detailsModalShipment.cargoId) : undefined}
+      />
     </>
   );
 };

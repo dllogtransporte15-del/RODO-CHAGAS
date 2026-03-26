@@ -32,6 +32,8 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
   const [vehicleSetType, setVehicleSetType] = useState<VehicleSetType | ''>('');
   const [vehicleBodyType, setVehicleBodyType] = useState<VehicleBodyType | ''>('');
+  const [bankDetails, setBankDetails] = useState('');
+  const [filesToAttach, setFilesToAttach] = useState<File[]>([]);
 
   const embarcadores = useMemo(() => {
     return users.filter(u => u.profile === UserProfile.Embarcador);
@@ -53,6 +55,8 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
       setSelectedVehicle(null);
       setVehicleSetType('');
       setVehicleBodyType('');
+      setBankDetails('');
+      setFilesToAttach([]);
       setEmbarcadorId(
           currentUser?.profile === UserProfile.Embarcador
               ? currentUser.id
@@ -160,6 +164,8 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
       scheduledTime,
       vehicleSetType: vehicleSetType || undefined,
       vehicleBodyType: vehicleBodyType || undefined,
+      bankDetails: bankDetails || undefined,
+      filesToAttach: filesToAttach.length > 0 ? filesToAttach : undefined,
     });
   };
 
@@ -256,6 +262,37 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
               <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Placa Carreta 1</label><input type="text" value={trailer1Plate} onChange={(e) => setTrailer1Plate(e.target.value.toUpperCase())} placeholder="Opcional" className="mt-1 p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600" /></div>
               <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Placa Carreta 2</label><input type="text" value={trailer2Plate} onChange={(e) => setTrailer2Plate(e.target.value.toUpperCase())} placeholder="Opcional" className="mt-1 p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600" /></div>
               <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Placa Carreta 3</label><input type="text" value={trailer3Plate} onChange={(e) => setTrailer3Plate(e.target.value.toUpperCase())} placeholder="Opcional" className="mt-1 p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600" /></div>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+               <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Dados Bancários</label>
+                  <textarea 
+                    value={bankDetails} 
+                    onChange={(e) => setBankDetails(e.target.value)} 
+                    placeholder="Banco, Agência, Conta, PIX, etc." 
+                    className="mt-1 p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600 resize-y" 
+                    rows={2} 
+                  />
+              </div>
+              
+              <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Anexar Documentos</label>
+                  <div className="mt-1 flex items-center h-full">
+                      <label className="cursor-pointer bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 py-2 px-4 rounded-lg inline-flex items-center transition-colors">
+                          <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"></path></svg>
+                          Anexar
+                          <input type="file" multiple className="hidden" onChange={(e) => {
+                              if (e.target.files) {
+                                  setFilesToAttach(Array.from(e.target.files));
+                              }
+                          }} />
+                      </label>
+                      <span className="ml-3 text-sm text-gray-600 dark:text-gray-400">
+                          {filesToAttach.length > 0 ? `${filesToAttach.length} arquivo(s) selecionado(s)` : 'Nenhum'}
+                      </span>
+                  </div>
+              </div>
             </div>
           
             <div>

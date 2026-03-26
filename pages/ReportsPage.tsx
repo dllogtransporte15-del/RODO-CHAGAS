@@ -8,6 +8,7 @@ import { UsersIcon } from '../components/icons/UsersIcon';
 import { ClockIcon } from '../components/icons/ClockIcon';
 import { Filter, X, Calendar, DollarSign, Package } from 'lucide-react';
 import SalespersonReport from '../components/reports/SalespersonReport';
+import SupervisorReport from '../components/reports/SupervisorReport';
 import ShipperReport from '../components/reports/ShipperReport';
 import ClientReport from '../components/reports/ClientReport';
 import OperationalTimingReport from '../components/reports/OperationalTimingReport';
@@ -109,9 +110,9 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, carg
   const renderReport = () => {
     switch(activeReport) {
       case 'comercial':
-        return <SalespersonReport shipments={filteredShipments} cargos={cargos} users={users} />;
+        return <SupervisorReport shipments={filteredShipments} cargos={cargos} users={users} />;
       case 'embarcadores':
-        return <ShipperReport shipments={filteredShipments} users={users} />;
+        return <ShipperReport shipments={filteredShipments} users={users} currentUser={currentUser} />;
       case 'clientes':
         return <ClientReport shipments={filteredShipments} cargos={cargos} clients={clients} />;
       case 'tempo-operacao':
@@ -122,8 +123,8 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, carg
   };
   
   const navItems = [
-      ...(canViewCommercialReport ? [{ id: 'comercial', label: 'Comercial', icon: BriefcaseIcon }] : []),
-      { id: 'embarcadores', label: 'Solicitantes', icon: ShipIcon },
+      ...(canViewCommercialReport ? [{ id: 'comercial', label: 'Relatório Supervisão', icon: BriefcaseIcon }] : []),
+      { id: 'embarcadores', label: 'Embarcadores', icon: ShipIcon },
       { id: 'clientes', label: 'Clientes', icon: UsersIcon },
       { id: 'tempo-operacao', label: 'Tempo de Operação', icon: ClockIcon },
   ];

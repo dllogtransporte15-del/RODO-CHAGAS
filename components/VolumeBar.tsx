@@ -7,6 +7,7 @@ interface VolumeBarProps {
   total: number;
   loadedColor?: string;
   scheduledColor?: string;
+  onClick?: () => void;
 }
 
 const VolumeBar: React.FC<VolumeBarProps> = ({ 
@@ -14,13 +15,17 @@ const VolumeBar: React.FC<VolumeBarProps> = ({
     scheduled, 
     total, 
     loadedColor = 'bg-green-500', 
-    scheduledColor = 'bg-orange-400' 
+    scheduledColor = 'bg-orange-400',
+    onClick
 }) => {
   const loadedPercentage = total > 0 ? (loaded / total) * 100 : 0;
   const scheduledPercentage = total > 0 ? (scheduled / total) * 100 : 0;
   
   return (
-    <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700 flex overflow-hidden">
+    <div 
+      className={`w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700 flex overflow-hidden ${onClick ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
+      onClick={onClick}
+    >
       <div
         className={`${loadedColor} h-2.5 transition-all duration-300`}
         style={{ width: `${loadedPercentage}%` }}

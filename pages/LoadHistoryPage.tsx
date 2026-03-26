@@ -14,9 +14,10 @@ interface LoadHistoryPageProps {
   users: User[];
   currentUser: User;
   shipments: Shipment[];
+  onDeleteLoad: (cargoId: string) => void;
 }
 
-const LoadHistoryPage: React.FC<LoadHistoryPageProps> = ({ loads, clients, products, users, currentUser, shipments }) => {
+const LoadHistoryPage: React.FC<LoadHistoryPageProps> = ({ loads, clients, products, users, currentUser, shipments, onDeleteLoad }) => {
   const [filters, setFilters] = useState<LoadFilters>({
     startDate: '',
     endDate: '',
@@ -80,6 +81,8 @@ const LoadHistoryPage: React.FC<LoadHistoryPageProps> = ({ loads, clients, produ
         onDailyBalanceDateChange={setDailyBalanceDate}
         onShowHistory={handleShowHistory}
         onShowDetails={handleShowDetails}
+        onDelete={onDeleteLoad}
+        currentUser={currentUser}
       />
 
       {selectedLoadForHistory && (

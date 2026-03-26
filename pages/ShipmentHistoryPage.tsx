@@ -17,9 +17,10 @@ interface ShipmentHistoryPageProps {
   clients: Client[];
   products: Product[];
   vehicles: Vehicle[];
+  onDeleteShipment: (shipmentId: string) => void;
 }
 
-const ShipmentHistoryPage: React.FC<ShipmentHistoryPageProps> = ({ shipments, cargos, users, currentUser, clients, products, vehicles }) => {
+const ShipmentHistoryPage: React.FC<ShipmentHistoryPageProps> = ({ shipments, cargos, users, currentUser, clients, products, vehicles, onDeleteShipment }) => {
   const [activeStatus, setActiveStatus] = useState<ShipmentStatus>(ShipmentStatus.Finalizado);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [isAttachmentModalOpen, setAttachmentModalOpen] = useState(false);
@@ -40,10 +41,10 @@ const ShipmentHistoryPage: React.FC<ShipmentHistoryPageProps> = ({ shipments, ca
     setAttachmentModalOpen(true);
   };
   
-  const handleDummySave = () => {
+  const handleDummySave = (data: { filesToAttach: { [key: string]: File[] }, bankDetails?: string, loadedTonnage?: number, advancePercentage?: number }) => {
     // This is a read-only page, but the modal needs a function
     setAttachmentModalOpen(false);
-  }
+  };
 
   const handleShowCargoDetails = (cargo: Cargo) => {
     setDetailsModalCargo(cargo);
@@ -65,8 +66,10 @@ const ShipmentHistoryPage: React.FC<ShipmentHistoryPageProps> = ({ shipments, ca
         onShowHistory={handleShowHistory}
         onAttach={handleOpenAttachmentModal} // Allow viewing attachments
         onShowCargoDetails={handleShowCargoDetails}
+        onDelete={onDeleteShipment}
         currentUser={currentUser}
         activeStatus={activeStatus}
+        clients={clients}
       />
       {selectedShipment && (
         <HistoryModal

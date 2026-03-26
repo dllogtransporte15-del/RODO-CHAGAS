@@ -443,3 +443,17 @@ export function getShipmentAttachmentUrl(path: string): string {
     
   return data.publicUrl;
 }
+
+// ─────────────────────────────────────────────
+// DELETE
+// ─────────────────────────────────────────────
+
+export async function deleteCargo(id: string): Promise<void> {
+  const { error } = await supabase.from('cargos').delete().eq('id', id);
+  if (error) throw error;
+}
+
+export async function deleteShipment(id: string): Promise<void> {
+  const { error } = await supabase.from('shipments').delete().eq('id', id);
+  if (error) throw error;
+}

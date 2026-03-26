@@ -1,6 +1,6 @@
 
-import React, { useState, useEffect, useRef } from 'react';
-import type { Shipment, Cargo, User, Vehicle } from '../types';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import type { Shipment, Cargo, User, Vehicle, Client } from '../types';
 import { ShipmentStatus, UserProfile } from '../types';
 import { PaperclipIcon } from './icons/PaperclipIcon';
 import { DollarSignIcon } from './icons/DollarSignIcon';
@@ -11,12 +11,16 @@ import { ExternalLinkIcon } from './icons/ExternalLinkIcon';
 import { InfoIcon } from './icons/InfoIcon';
 import { TransferIcon } from './icons/TransferIcon';
 import { MoreVerticalIcon } from './icons/MoreVerticalIcon';
+import { Search, Filter, X, Trash2 } from 'lucide-react';
+import MultiSelectDropdown from './MultiSelectDropdown';
+import ShipmentDetailsModal from './ShipmentDetailsModal';
 
 interface ShipmentTableProps {
   shipments: Shipment[];
   cargos: Cargo[];
   users: User[];
   vehicles: Vehicle[];
+  clients: Client[];
   onAttach?: (shipment: Shipment) => void;
   onEditPrice?: (shipment: Shipment) => void;
   onCancel?: (shipment: Shipment) => void;
@@ -25,14 +29,23 @@ interface ShipmentTableProps {
   onOpenCadastroAntt?: (shipment: Shipment) => void;
   onShowCargoDetails?: (cargo: Cargo) => void;
   onMarkArrival?: (shipmentId: string) => void;
+  onDelete?: (shipmentId: string) => void;
   canUserAdvanceStatus?: (shipment: Shipment) => { allowed: boolean; reason: string };
   currentUser: User;
   activeStatus: ShipmentStatus;
 }
 
-const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users, vehicles, onAttach, onEditPrice, onCancel, onTransfer, onShowHistory, onShowCargoDetails, canUserAdvanceStatus, onMarkArrival, onOpenCadastroAntt, currentUser, activeStatus }) => {
+const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users, vehicles, onAttach, onEditPrice, onCancel, onTransfer, onShowHistory, onShowCargoDetails, canUserAdvanceStatus, onMarkArrival, onDelete, onOpenCadastroAntt, currentUser, activeStatus, clients }) => {
   const [openActionMenu, setOpenActionMenu] = useState<string | null>(null);
+  const [detailsModalShipment, setDetailsModalShipment] = useState<Shipment | null>(null);
   const actionMenuRef = useRef<HTMLDivElement>(null);
+
+  const [showFilters, setShowFilters] = useState(false);
+  const [filterPlate, setFilterPlate] = useState<string[]>([]);
+  const [filterName, setFilterName] = useState<string[]>([]);
+  const [filterOrigin, setFilterOrigin] = useState<string[]>([]);
+  const [filterDest, setFilterDest] = useState<string[]>([]);
+  const [filterClient, setFilterClient] = useState<string[]>([]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -54,6 +67,37 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users,
 
   const getEmbarcadorName = (embarcadorId: string): string => {
     return users.find(u => u.id === embarcadorId)?.name || 'N/A';
+  };
+
+  const getClientName = (clientId: string) => clients.find(c => c.id === clientId)?.nomeFantasia || 'N/A';
+
+  // Filter options
+  const plateOptions = useMemo(() => Array.from(new Set(shipments.map(s => s.horsePlate))).filter(Boolean).sort(), [shipments]);
+  const nameOptions = useMemo(() => Array.from(new Set(shipments.map(s => s.driverName))).filter(Boolean).sort(), [shipments]);
+  const originOptions = useMemo(() => Array.from(new Set(shipments.map(s => getCargoInfo(s.cargoId)?.origin || ''))).filter(Boolean).sort(), [shipments, cargos]);
+  const destOptions = useMemo(() => Array.from(new Set(shipments.map(s => getCargoInfo(s.cargoId)?.destination || ''))).filter(Boolean).sort(), [shipments, cargos]);
+  const clientOptions = useMemo(() => Array.from(new Set(shipments.map(s => getClientName(getCargoInfo(s.cargoId)?.clientId || '')))).filter(Boolean).sort(), [shipments, cargos, clients]);
+
+  const filteredShipments = useMemo(() => {
+    return shipments.filter(shipment => {
+        const cargo = getCargoInfo(shipment.cargoId);
+        if (filterPlate.length > 0 && !filterPlate.includes(shipment.horsePlate)) return false;
+        if (filterName.length > 0 && !filterName.includes(shipment.driverName)) return false;
+        if (filterOrigin.length > 0 && !filterOrigin.includes(cargo?.origin || '')) return false;
+        if (filterDest.length > 0 && !filterDest.includes(cargo?.destination || '')) return false;
+        if (filterClient.length > 0 && !filterClient.includes(getClientName(cargo?.clientId || ''))) return false;
+        return true;
+    });
+  }, [shipments, filterPlate, filterName, filterOrigin, filterDest, filterClient, cargos, clients]);
+
+  const activeFiltersCount = (filterPlate.length > 0 ? 1 : 0) + (filterName.length > 0 ? 1 : 0) + (filterOrigin.length > 0 ? 1 : 0) + (filterDest.length > 0 ? 1 : 0) + (filterClient.length > 0 ? 1 : 0);
+
+  const clearFilters = () => {
+    setFilterPlate([]);
+    setFilterName([]);
+    setFilterOrigin([]);
+    setFilterDest([]);
+    setFilterClient([]);
   };
 
   const formatCurrency = (value: number) => {
@@ -116,7 +160,44 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users,
   );
 
   return (
-    <div className="bg-white dark:bg-gray-800 shadow-md rounded-lg overflow-hidden">
+    <div className="space-y-4">
+      <div className="flex flex-col bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700">
+        <div className="flex flex-col md:flex-row items-center justify-between p-4 gap-4">
+          <div className="w-full md:w-auto">
+            <button 
+                onClick={() => setShowFilters(!showFilters)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-md transition-colors ${showFilters || activeFiltersCount > 0 ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border border-blue-200 dark:border-blue-800' : 'bg-gray-50 text-gray-700 dark:bg-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600'}`}
+            >
+                <Filter className="w-4 h-4" />
+                <span className="text-sm font-medium">Filtros Avançados {activeFiltersCount > 0 && `(${activeFiltersCount})`}</span>
+            </button>
+          </div>
+          <div className="text-xs text-gray-500 dark:text-gray-400 font-medium whitespace-nowrap">
+            {filteredShipments.length !== shipments.length ? `${filteredShipments.length} de ` : ''}{shipments.length} embarques listados
+          </div>
+        </div>
+
+        {showFilters && (
+            <div className="p-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                    <MultiSelectDropdown label="Placa" options={plateOptions} selectedValues={filterPlate} onChange={setFilterPlate} placeholder="Todas as Placas..." />
+                    <MultiSelectDropdown label="Motorista" options={nameOptions} selectedValues={filterName} onChange={setFilterName} placeholder="Todos os Motoristas..." />
+                    <MultiSelectDropdown label="Cidade de Origem" options={originOptions} selectedValues={filterOrigin} onChange={setFilterOrigin} placeholder="Todas as Origens..." />
+                    <MultiSelectDropdown label="Cidade de Destino" options={destOptions} selectedValues={filterDest} onChange={setFilterDest} placeholder="Todos os Destinos..." />
+                    <MultiSelectDropdown label="Cliente" options={clientOptions} selectedValues={filterClient} onChange={setFilterClient} placeholder="Todos os Clientes..." />
+                </div>
+                {activeFiltersCount > 0 && (
+                    <div className="mt-4 flex justify-end">
+                        <button onClick={clearFilters} className="text-sm flex items-center gap-1 text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300">
+                            <X className="w-4 h-4" /> Limpar Filtros
+                        </button>
+                    </div>
+                )}
+            </div>
+        )}
+      </div>
+
+      <div className="bg-white dark:bg-gray-800 shadow-md rounded-lg overflow-hidden">
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
           <thead className="bg-gray-50 dark:bg-gray-700">
@@ -133,7 +214,7 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users,
             </tr>
           </thead>
           <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-            {shipments.map((shipment) => {
+            {filteredShipments.map((shipment) => {
               const cargo = getCargoInfo(shipment.cargoId);
               const vehicle = vehicles.find(v => v.plate === shipment.horsePlate);
               const isActionable = shipment.status !== ShipmentStatus.Finalizado && shipment.status !== ShipmentStatus.Cancelado;
@@ -153,7 +234,12 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users,
               return (
                 <tr key={shipment.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    <div className="font-medium text-gray-900 dark:text-white">{shipment.id}</div>
+                    <button 
+                        onClick={() => setDetailsModalShipment(shipment)} 
+                        className="font-medium text-primary dark:text-blue-400 hover:underline text-left block"
+                    >
+                        {shipment.id}
+                    </button>
                     {cargo && (
                       <div className="text-xs text-gray-500 dark:text-gray-400">
                         Carga: 
@@ -287,6 +373,7 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users,
                                                     {isActionable && onTransfer && <ActionMenuItem icon={TransferIcon} text="Transferir Embarque" onClick={() => onTransfer(shipment)} />}
                                                     {shipment.status === ShipmentStatus.Finalizado && onAttach && <ActionMenuItem icon={PaperclipIcon} text="Gestor de Anexos" onClick={() => onAttach(shipment)} />}
                                                     {isActionable && onCancel && <ActionMenuItem icon={XIcon} text="Cancelar Embarque" onClick={() => onCancel(shipment)} isDestructive />}
+                                                    {onDelete && currentUser.profile === UserProfile.Admin && <ActionMenuItem icon={Trash2} text="Excluir Embarque" onClick={() => onDelete(shipment.id)} isDestructive />}
                                                 </div>
                                             </div>
                                         )}
@@ -303,7 +390,15 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users,
         </table>
       </div>
     </div>
-  );
+
+    <ShipmentDetailsModal
+      isOpen={!!detailsModalShipment}
+      onClose={() => setDetailsModalShipment(null)}
+      shipment={detailsModalShipment}
+      cargo={detailsModalShipment ? getCargoInfo(detailsModalShipment.cargoId) || undefined : undefined}
+    />
+  </div>
+);
 };
 
 export default ShipmentTable;

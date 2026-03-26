@@ -34,7 +34,8 @@ import {
   upsertShipment, upsertUser, upsertTicket, saveProfilePermissions,
   upsertManyDrivers, upsertManyVehicles, upsertManyShipments, upsertManyCargos,
   uploadShipmentAttachment, getShipmentAttachmentUrl,
-  fetchAppSettings, saveAppSettings
+  fetchAppSettings, saveAppSettings,
+  deleteCargo, deleteShipment
 } from './lib/db';
 
 const RODOCHAGAS_LOGO_BASE64 = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wCEAAkGBxISEhUSEhIVFRUVFRUVFRUVFRUVFRUVFRUWFhUVFRUYHSggGBolHRUVITEhJSkrLi4uFx8zODMtNygtLisBCgoKDg0OGxAQGy0lICUtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLf/AABEIAJYAlgMBIgACEQEDEQH/xAAcAAABBQEBAQAAAAAAAAAAAAAAAQIDBAUGBwj/xAA+EAABAwIEAwQHBgQGAwAAAAABAAIRAyEEEjFBBVFhBnGBkRMiMqGxwdHwFEJS4fEGYnKCorLCFiQ0c8P/AAaAQEAAwEBAQAAAAAAAAAAAAAAAQIDBAUG/xAAuEQEAAgIBAwIDCAIDAAAAAAAAAAECEQMSITFBUQQTYSIycYGRobHR8MEUI0Lh/9oADAMBAAIRAxEAPwD2hCEIAEIQgAQhCABCEIAEIQgAQhCABCEIAEIQgAQhCABCEIAEIQgAQhCABCEIAEIQgAQhCABCEIAEIQgAUK1aVpc89Ggn2CuuX4zxFtWm+j9o1hfBqQCWs/e5mRcNdG26AOKzTjT6lYsqVG02sE0qbRmc4HUCJMnfTQBY9Hjr2U20KDy+ZNTESHGTEz337Kzw/1wzE1B9np0zVqVsVKr3F0TYS42G+wWdw3gn+HqvrucypC4DSgOaGtJEmDqSY3IE5TMSfLb2m9I6mLi4fX8X/R1XA+NuxD/ALO+mGVC0ua5pcWutMEEXuCR/wBz0F3yLgPCwzG1ahqNL/suVkES4BxJLSPuwdR+6NeqO1d/C5HJp9/L/Rz54qMbvoEIQuowBCEIAEIQgAQhCABCEIAEIQgAQhCABCEIAEIQgAQhCABCEIAEIQgAQhCAOY4/VpChVa97BLHNLQczpkEWGs2XlsJcKjnFrnNaXmSAHHYEaR6L2vEeC4fEATDiLtc2A4dJ0PsQuawv2bNbicxqn2JgtZT5S+dxmc4i+ggLs4fUQjFqbs8Hi/DZZZ5UoK0v5OLxOIbUfUqVGmpUDiym0OMMaNPdAJjUnfZe0+z2niGYdzcWAHOHslzSxxEHIQ6SRY/guX/APj52L+0Go1sEimKbS6mB+6XmQCTroOnr0WB4NRw/8AaKj6dSpnFM5y5uVr8xAawEkkwdTHMLfUTlODWl7/AKRz8LhjhzuMrb1/p0PQgIXAV3QhCABCEIAEIQgAQhCABCEIAEIQgAQhCABCEIAEIQgAQhCABCEIAEIQgAQhCABCEIAEIQgAQhCABCEIAEIQgAQhCABCEIAEIQgAQhCABCEIAEIQgAQhCABCEIAEIQgAQhCABCEIAEIQgAQhCABCEIAEIQgD/9k=";
@@ -77,6 +78,7 @@ interface NewShipmentRequestData extends Omit<Shipment, 'id' | 'orderId' | 'stat
   driverCnh?: string;
   vehicleSetType?: VehicleSetType;
   vehicleBodyType?: VehicleBodyType;
+  filesToAttach?: File[];
 }
 
 const App: React.FC = () => {
@@ -209,8 +211,8 @@ const App: React.FC = () => {
   }, [themeImage]);
 
   const nextStatusMap: Partial<Record<ShipmentStatus, ShipmentStatus>> = {
-    [ShipmentStatus.PreCadastro]: ShipmentStatus.AguardandoSeguradora,
-    [ShipmentStatus.AguardandoSeguradora]: ShipmentStatus.AguardandoCarregamento,
+    [ShipmentStatus.AguardandoSeguradora]: ShipmentStatus.PreCadastro,
+    [ShipmentStatus.PreCadastro]: ShipmentStatus.AguardandoCarregamento,
     [ShipmentStatus.AguardandoCarregamento]: ShipmentStatus.AguardandoNota,
     [ShipmentStatus.AguardandoNota]: ShipmentStatus.AguardandoAdiantamento,
     // AguardandoAdiantamento is now handled conditionally
@@ -439,6 +441,29 @@ const App: React.FC = () => {
     processVehicle(data.trailer3Plate || '', false);
 
     const newShipmentId = formatId(currentNextIds.shipment, 'SHP');
+    
+    const documentsUrlMap: { [key: string]: string[] } = {};
+    const attachedFileNames: string[] = [];
+    if (data.filesToAttach && data.filesToAttach.length > 0) {
+      try {
+        const newDocUrls = [];
+        for (const file of data.filesToAttach) {
+          const path = await uploadShipmentAttachment(newShipmentId, 'Arquivos Iniciais', file);
+          const url = getShipmentAttachmentUrl(path);
+          newDocUrls.push(url);
+          attachedFileNames.push(file.name);
+        }
+        documentsUrlMap['Arquivos Iniciais'] = newDocUrls;
+      } catch (error) {
+        console.error('Erro ao fazer upload dos anexos iniciais:', error);
+        alert('Ocorreu um erro ao enviar os arquivos. O embarque foi criado, mas os arquivos não puderam ser salvos.');
+      }
+    }
+    
+    let historyMsg = `Embarque ${newShipmentId} criado.`;
+    if (attachedFileNames.length > 0) historyMsg += ` Anexo(s): ${attachedFileNames.join(', ')}.`;
+    if (data.bankDetails) historyMsg += ` Dados bancários preenchidos.`;
+
     const newShipment: Shipment = {
       id: newShipmentId,
       orderId: `ord_${newShipmentId}`,
@@ -453,14 +478,18 @@ const App: React.FC = () => {
       trailer3Plate: data.trailer3Plate,
       shipmentTonnage: data.shipmentTonnage,
       driverFreightValue: data.driverFreightValue,
-      status: ShipmentStatus.PreCadastro,
+      driverFreightRateSnapshot: cargos.find(c => c.id === data.cargoId)?.driverFreightValuePerTon,
+      companyFreightRateSnapshot: cargos.find(c => c.id === data.cargoId)?.companyFreightValuePerTon,
+      status: ShipmentStatus.AguardandoSeguradora,
       scheduledDate: data.scheduledDate,
       scheduledTime: data.scheduledTime,
-      history: [createHistoryLogLocal(`Embarque ${newShipmentId} criado.`)],
+      bankDetails: data.bankDetails,
+      documents: Object.keys(documentsUrlMap).length > 0 ? documentsUrlMap : undefined,
+      history: [createHistoryLogLocal(historyMsg)],
       createdAt: new Date().toISOString(),
       createdById: currentUser.id,
       statusHistory: [{
-        status: ShipmentStatus.PreCadastro,
+        status: ShipmentStatus.AguardandoSeguradora,
         timestamp: new Date().toISOString(),
         userId: currentUser.id,
       }],
@@ -522,8 +551,8 @@ const App: React.FC = () => {
     }
   };
 
-  const handleUpdateShipmentAttachment = async (shipmentId: string, data: { filesToAttach: { [key: string]: File[] }, bankDetails?: string }) => {
-    const { filesToAttach, bankDetails } = data;
+  const handleUpdateShipmentAttachment = async (shipmentId: string, data: { filesToAttach: { [key: string]: File[] }, bankDetails?: string, loadedTonnage?: number, advancePercentage?: number }) => {
+    const { filesToAttach, bankDetails, loadedTonnage, advancePercentage } = data;
     const originalShipment = shipments.find(s => s.id === shipmentId);
     if (!originalShipment || !currentUser) return;
 
@@ -592,11 +621,38 @@ const App: React.FC = () => {
     if(attachedFileNames.length > 0) historyLogs.push(`anexo(s): ${attachedFileNames.join(', ')}`);
     if(bankDetails) historyLogs.push(`Dados bancários preenchidos.`);
 
+    let updatedTonnage = originalShipment.shipmentTonnage;
+    let updatedDriverFreight = originalShipment.driverFreightValue;
+    
+    // Recalcular frete se a tonelagem carregada for informada
+    if (loadedTonnage !== undefined && loadedTonnage > 0) {
+        updatedTonnage = loadedTonnage;
+        const rateToUse = originalShipment.driverFreightRateSnapshot || cargos.find(c => c.id === originalShipment.cargoId)?.driverFreightValuePerTon || 0;
+        updatedDriverFreight = rateToUse * loadedTonnage;
+        const formattedVal = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(updatedDriverFreight);
+        historyLogs.push(`Tonelagem ajustada após carregamento para ${loadedTonnage.toLocaleString('pt-BR')} ton. Frete atualizado com base na taxa de ${rateToUse.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'})} para ${formattedVal}.`);
+    }
+    
+    let calculatedAdvanceValue = originalShipment.advanceValue;
+    let finalAdvancePercentage = originalShipment.advancePercentage;
+    
+    // Calcular adiantamento se a porcentagem for informada
+    if (advancePercentage !== undefined && advancePercentage > 0) {
+        finalAdvancePercentage = advancePercentage;
+        calculatedAdvanceValue = (updatedDriverFreight * advancePercentage) / 100;
+        const formattedAdv = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calculatedAdvanceValue);
+        historyLogs.push(`Pagamento de Adiantamento: ${advancePercentage}% registrado (${formattedAdv}).`);
+    }
+
     const updatedShipment: Shipment = {
         ...originalShipment,
         status: nextStatus,
         documents: updatedDocuments,
         bankDetails: bankDetails || originalShipment.bankDetails,
+        shipmentTonnage: updatedTonnage,
+        driverFreightValue: updatedDriverFreight,
+        advancePercentage: finalAdvancePercentage,
+        advanceValue: calculatedAdvanceValue,
         history: [...originalShipment.history, createHistoryLog(`Status alterado para ${nextStatus}. ${historyLogs.join(' ')}`)],
         statusHistory: [
             ...(originalShipment.statusHistory || []),
@@ -651,13 +707,23 @@ const App: React.FC = () => {
     }
   };
 
-  const handleUpdateShipmentPrice = async (shipmentId: string, newPrice: number) => {
+  const handleUpdateShipmentPrice = async (shipmentId: string, data: { newTotal: number, newRate?: number }) => {
     let updated: Shipment | undefined;
     setShipments(prev => prev.map(s => {
       if (s.id === shipmentId) {
         const oldPriceFormatted = s.driverFreightValue.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'});
-        const newPriceFormatted = newPrice.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'});
-        updated = { ...s, driverFreightValue: newPrice, history: [...s.history, createHistoryLog(`${FIELD_TRANSLATIONS['driverFreightValue']} alterado de "${oldPriceFormatted}" para "${newPriceFormatted}".`)] };
+        const newPriceFormatted = data.newTotal.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'});
+        const historyMsgParts = [`${FIELD_TRANSLATIONS['driverFreightValue']} alterado de "${oldPriceFormatted}" para "${newPriceFormatted}".`];
+        
+        const updateObj: Partial<Shipment> = { driverFreightValue: data.newTotal };
+        if (data.newRate !== undefined) {
+            const oldRateFormatted = (s.driverFreightRateSnapshot || 0).toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'});
+            const newRateFormatted = data.newRate.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'});
+            updateObj.driverFreightRateSnapshot = data.newRate;
+            historyMsgParts.push(`Taxa do motorista alterada de "${oldRateFormatted}" para "${newRateFormatted}".`);
+        }
+
+        updated = { ...s, ...updateObj, history: [...s.history, createHistoryLog(historyMsgParts.join(' '))] };
         return updated;
       }
       return s;
@@ -732,6 +798,71 @@ const App: React.FC = () => {
     try { await upsertClient(saved); } catch(err) { console.error('Erro ao salvar cliente:', err); }
   };
   
+  const handleDeleteCargo = async (cargoId: string) => {
+    if (!currentUser || currentUser.profile !== UserProfile.Admin) return;
+    
+    const relatedShipments = shipments.filter(s => s.cargoId === cargoId);
+    const confirmMsg = relatedShipments.length > 0
+      ? `A carga ${cargoId} possui ${relatedShipments.length} embarque(s) associado(s). Se você excluir a carga, os embarques também podem ficar órfãos ou causar erros. Deseja excluir a carga e todos os embarques associados?`
+      : `Tem certeza que deseja excluir permanentemente a carga ${cargoId}?`;
+
+    if (window.confirm(confirmMsg)) {
+        try {
+            await deleteCargo(cargoId);
+            setCargos(prev => prev.filter(c => c.id !== cargoId));
+            
+            if (relatedShipments.length > 0) {
+                setShipments(prev => prev.filter(s => s.cargoId !== cargoId));
+            }
+            alert("Carga excluída com sucesso.");
+        } catch (err) {
+            console.error('Erro ao excluir carga:', err);
+            alert("Erro ao excluir carga. Verifique o console.");
+        }
+    }
+  };
+
+  const handleDeleteShipment = async (shipmentId: string) => {
+    if (!currentUser || currentUser.profile !== UserProfile.Admin) return;
+    
+    const shipmentToDelete = shipments.find(s => s.id === shipmentId);
+    if (!shipmentToDelete) return;
+
+    if (window.confirm(`Tem certeza que deseja excluir permanentemente o embarque ${shipmentId}?`)) {
+        try {
+            await deleteShipment(shipmentId);
+            setShipments(prev => prev.filter(s => s.id !== shipmentId));
+
+            // Atualizar volumes da carga
+            const wasLoaded = Object.values(ShipmentStatus).indexOf(shipmentToDelete.status) >= Object.values(ShipmentStatus).indexOf(ShipmentStatus.AguardandoDescarga);
+            let updatedCargo: Cargo | undefined;
+            
+            setCargos(prevCargos => prevCargos.map(cargo => {
+                if (cargo.id === shipmentToDelete.cargoId) {
+                    const newScheduledVolume = Math.max(0, cargo.scheduledVolume - shipmentToDelete.shipmentTonnage);
+                    const newLoadedVolume = wasLoaded ? Math.max(0, cargo.loadedVolume - shipmentToDelete.shipmentTonnage) : cargo.loadedVolume;
+                    updatedCargo = { 
+                        ...cargo, 
+                        scheduledVolume: newScheduledVolume, 
+                        loadedVolume: newLoadedVolume,
+                        history: [...cargo.history, createHistoryLog(`Embarque ${shipmentId} EXCLUÍDO pelo Administrador. Volumes ajustados.`)]
+                    };
+                    return updatedCargo;
+                }
+                return cargo;
+            }));
+
+            if (updatedCargo) {
+                await upsertCargo(updatedCargo);
+            }
+            alert("Embarque excluído com sucesso e volumes da carga recalculados.");
+        } catch (err) {
+            console.error('Erro ao excluir embarque:', err);
+            alert("Erro ao excluir embarque. Verifique o console.");
+        }
+    }
+  };
+
   const handleSaveOwner = async (ownerData: Owner | Omit<Owner, 'id'>) => {
     let saved: Owner;
     if ('id' in ownerData) {
@@ -907,7 +1038,7 @@ const App: React.FC = () => {
       case 'vehicles':
         return <VehiclesPage vehicles={vehicles} setVehicles={setVehicles} onSaveVehicle={handleSaveVehicle} owners={owners} currentUser={currentUser} profilePermissions={profilePermissions} />;
       case 'loads':
-        return <LoadsPage loads={visibleLoads} setLoads={setCargos} clients={clients} products={products} onSaveLoad={handleSaveLoad} currentUser={currentUser} profilePermissions={profilePermissions} users={users} shipments={visibleShipments} />;
+        return <LoadsPage loads={visibleLoads} setLoads={setCargos} clients={clients} products={products} onSaveLoad={handleSaveLoad} currentUser={currentUser} profilePermissions={profilePermissions} users={users} shipments={visibleShipments} onDeleteLoad={handleDeleteCargo} />;
       case 'shipments':
         return <ShipmentsPage 
                     shipments={visibleShipments} 
@@ -925,6 +1056,7 @@ const App: React.FC = () => {
                     onUpdateAnttAndBankDetails={handleUpdateShipmentAnttAndBankDetails}
                     onMarkArrival={handleMarkArrival}
                     onTransferShipment={handleTransferShipment}
+                    onDeleteShipment={handleDeleteShipment}
                 />;
       case 'operational-loads':
         return (
@@ -940,6 +1072,7 @@ const App: React.FC = () => {
             profilePermissions={profilePermissions}
             shipments={visibleShipments}
             users={users}
+            onDeleteLoad={handleDeleteCargo}
           />
         );
       case 'operational-map':
@@ -986,6 +1119,7 @@ const App: React.FC = () => {
                   clients={clients}
                   products={products}
                   vehicles={vehicles}
+                  onDeleteShipment={handleDeleteShipment}
                 />;
       case 'load-history':
         return <LoadHistoryPage
@@ -995,6 +1129,7 @@ const App: React.FC = () => {
                   users={users}
                   currentUser={currentUser}
                   shipments={shipments}
+                  onDeleteLoad={handleDeleteCargo}
                 />;
       case 'layover-calculator':
         return <LayoverCalculatorPage currentUser={currentUser} />;

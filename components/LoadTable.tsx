@@ -1,8 +1,9 @@
 
 import React, { useState } from 'react';
-import type { Cargo, Client, Product, Shipment } from '../types';
-import { DailyScheduleType, CargoStatus } from '../types';
+import type { Cargo, Client, Product, Shipment, User } from '../types';
+import { DailyScheduleType, CargoStatus, UserProfile } from '../types';
 import VolumeBar from './VolumeBar';
+import { Trash2 } from 'lucide-react';
 import { PlusIcon } from './icons/PlusIcon';
 import { HistoryIcon } from './icons/HistoryIcon';
 import { Search, Filter, X } from 'lucide-react';
@@ -24,9 +25,12 @@ interface LoadTableProps {
   onShowHistory?: (load: Cargo) => void;
   onShowDetails?: (load: Cargo) => void;
   onEditSchedule?: (load: Cargo) => void;
+  onShowShipments?: (load: Cargo) => void;
+  onDelete?: (cargoId: string) => void;
+  currentUser: User;
 }
 
-const LoadTable: React.FC<LoadTableProps> = ({ loads, clients, products, shipments, dailyBalanceDate, onDailyBalanceDateChange, onCreateShipment, onSuspend, onReactivate, onFinalize, onEdit, onClose, onShowHistory, onShowDetails, onEditSchedule }) => {
+const LoadTable: React.FC<LoadTableProps> = ({ loads, clients, products, shipments, dailyBalanceDate, onDailyBalanceDateChange, onCreateShipment, onSuspend, onReactivate, onFinalize, onEdit, onClose, onShowHistory, onShowDetails, onEditSchedule, onShowShipments, onDelete, currentUser }) => {
   const [openActionMenu, setOpenActionMenu] = useState<string | null>(null);
   
   const [showFilters, setShowFilters] = useState(false);
@@ -227,6 +231,7 @@ const LoadTable: React.FC<LoadTableProps> = ({ loads, clients, products, shipmen
                     loaded={load.loadedVolume}
                     scheduled={scheduledButNotLoaded}
                     total={load.totalVolume}
+                    onClick={onShowShipments ? () => onShowShipments(load) : undefined}
                   />
                 </div>
 
@@ -241,6 +246,7 @@ const LoadTable: React.FC<LoadTableProps> = ({ loads, clients, products, shipmen
                     total={dailyScheduleInfo?.type === DailyScheduleType.Fixo && dailyScheduleInfo.tonnage ? dailyScheduleInfo.tonnage : (dailyScheduledTonnage > 0 ? dailyScheduledTonnage : 1)}
                     scheduled={0}
                     loadedColor="bg-blue-500"
+                    onClick={onShowShipments ? () => onShowShipments(load) : undefined}
                   />
                 </div>
 
@@ -305,6 +311,11 @@ const LoadTable: React.FC<LoadTableProps> = ({ loads, clients, products, shipmen
                           {onClose && (
                             <button onClick={() => { onClose(load); setOpenActionMenu(null); }} className="w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700">
                               Fechar Carga
+                            </button>
+                          )}
+                          {onDelete && currentUser.profile === UserProfile.Admin && (
+                            <button onClick={() => { onDelete(load.id); setOpenActionMenu(null); }} className="w-full text-left px-4 py-2 text-sm text-red-700 dark:text-red-500 font-bold hover:bg-red-50 dark:hover:bg-red-900/50 flex items-center gap-2">
+                              <Trash2 className="h-4 w-4" /> Excluir Carga
                             </button>
                           )}
                         </div>

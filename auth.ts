@@ -2,7 +2,7 @@
 import type { User, Page, ProfilePermissions, CrudPermissions } from './types';
 import { UserProfile } from './types';
 
-const allPages: Page[] = ['dashboard', 'clients', 'owners', 'drivers', 'vehicles', 'loads', 'shipments', 'financial', 'reports', 'operational-loads', 'operational-map', 'users-register', 'commissions', 'appearance', 'shipment-history', 'load-history', 'layover-calculator', 'freight-quote'];
+const allPages: Page[] = ['dashboard', 'clients', 'owners', 'embarcadores', 'drivers', 'vehicles', 'loads', 'shipments', 'financial', 'reports', 'operational-loads', 'operational-map', 'users-register', 'commissions', 'appearance', 'shipment-history', 'load-history', 'layover-calculator', 'freight-quote', 'ai-assistant', 'tools-history'];
 
 const createPermissions = (pages: Page[], readOnly = false): { [key in Page]?: CrudPermissions } => {
   const permissions: { [key in Page]?: CrudPermissions } = {};

@@ -4,6 +4,8 @@ import Header from '../components/Header';
 import LoadTable from '../components/LoadTable';
 import LoadFormModal from '../components/LoadFormModal';
 import HistoryModal from '../components/HistoryModal';
+import CargoDetailsModal from '../components/CargoDetailsModal';
+import CargoShipmentsSidePanel from '../components/CargoShipmentsSidePanel';
 import type { Cargo, Client, Product, User, ProfilePermissions, Shipment, DailyScheduleEntry } from '../types';
 import { CargoStatus } from '../types';
 import { can } from '../auth';
@@ -19,15 +21,28 @@ interface LoadsPageProps {
   currentUser: User;
   profilePermissions: ProfilePermissions;
   users: User[];
+  onDeleteLoad: (cargoId: string) => void;
 }
 
-const LoadsPage: React.FC<LoadsPageProps> = ({ loads, setLoads, clients, products, shipments, onSaveLoad, currentUser, profilePermissions, users }) => {
+const LoadsPage: React.FC<LoadsPageProps> = ({ loads, setLoads, clients, products, shipments, onSaveLoad, currentUser, profilePermissions, users, onDeleteLoad }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loadToEdit, setLoadToEdit] = useState<Cargo | null>(null);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [selectedLoadForHistory, setSelectedLoadForHistory] = useState<Cargo | null>(null);
   const [dailyBalanceDate, setDailyBalanceDate] = useState(new Date().toISOString().split('T')[0]);
   const [initialModalStep, setInitialModalStep] = useState(1);
+  const [detailsModalCargo, setDetailsModalCargo] = useState<Cargo | null>(null);
+  const [isShipmentsPanelOpen, setIsShipmentsPanelOpen] = useState(false);
+  const [selectedCargoForShipments, setSelectedCargoForShipments] = useState<Cargo | null>(null);
+
+  const handleShowDetails = (cargo: Cargo) => {
+    setDetailsModalCargo(cargo);
+  };
+
+  const handleShowShipments = (cargo: Cargo) => {
+    setSelectedCargoForShipments(cargo);
+    setIsShipmentsPanelOpen(true);
+  };
 
 
   const canCreate = can('create', currentUser, 'loads', profilePermissions);
@@ -98,6 +113,10 @@ const LoadsPage: React.FC<LoadsPageProps> = ({ loads, setLoads, clients, product
             onClose={canDelete ? handleCloseLoad : undefined}
             onShowHistory={handleShowHistory}
             onEditSchedule={canUpdate ? handleEditSchedule : undefined}
+            onShowDetails={handleShowDetails}
+            onShowShipments={handleShowShipments}
+            onDelete={onDeleteLoad}
+            currentUser={currentUser}
         />
       </div>
 
@@ -124,6 +143,23 @@ const LoadsPage: React.FC<LoadsPageProps> = ({ loads, setLoads, clients, product
             title={`Histórico da Carga ${selectedLoadForHistory.id}`}
           />
       )}
+
+      <CargoDetailsModal
+        isOpen={!!detailsModalCargo}
+        onClose={() => setDetailsModalCargo(null)}
+        cargo={detailsModalCargo}
+        client={detailsModalCargo ? clients.find(c => c.id === detailsModalCargo.clientId) : undefined}
+        product={detailsModalCargo ? products.find(p => p.id === detailsModalCargo.productId) : undefined}
+        commercialUser={detailsModalCargo ? users.find(u => u.id === detailsModalCargo.createdById) : undefined}
+      />
+
+      <CargoShipmentsSidePanel
+        isOpen={isShipmentsPanelOpen}
+        onClose={() => setIsShipmentsPanelOpen(false)}
+        cargo={selectedCargoForShipments}
+        shipments={shipments}
+        users={users}
+      />
     </>
   );
 };

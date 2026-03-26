@@ -25,11 +25,12 @@ interface ShipmentsPageProps {
   profilePermissions: ProfilePermissions;
   users: User[];
   onUpdateAttachment: (shipmentId: string, data: { filesToAttach: { [key: string]: File[] }, bankDetails?: string }) => void;
-  onUpdatePrice: (shipmentId: string, newPrice: number) => void;
+  onUpdatePrice: (shipmentId: string, data: { newTotal: number, newRate?: number }) => void;
   onConfirmCancel: (shipmentId: string) => void;
   onUpdateAnttAndBankDetails: (shipmentId: string, data: { anttOwnerIdentifier: string; bankDetails?: string }) => void;
   onTransferShipment: (shipmentId: string, newEmbarcadorId: string) => void;
   onMarkArrival: (shipmentId: string) => void;
+  onDeleteShipment: (shipmentId: string) => void;
 }
 
 const requiredDocumentMap: Partial<Record<ShipmentStatus, string>> = {
@@ -43,8 +44,8 @@ const requiredDocumentMap: Partial<Record<ShipmentStatus, string>> = {
     [ShipmentStatus.AguardandoPagamentoSaldo]: 'Comprovante de Pagamento de Saldo',
 };
 
-const ShipmentsPage: React.FC<ShipmentsPageProps> = ({ shipments, cargos, clients, products, drivers, vehicles, currentUser, profilePermissions, users, onUpdateAttachment, onUpdatePrice, onConfirmCancel, onUpdateAnttAndBankDetails, onTransferShipment, onMarkArrival }) => {
-  const [activeStatus, setActiveStatus] = useState<ShipmentStatus>(ShipmentStatus.PreCadastro);
+const ShipmentsPage: React.FC<ShipmentsPageProps> = ({ shipments, cargos, clients, products, drivers, vehicles, currentUser, profilePermissions, users, onUpdateAttachment, onUpdatePrice, onConfirmCancel, onUpdateAnttAndBankDetails, onTransferShipment, onMarkArrival, onDeleteShipment }) => {
+  const [activeStatus, setActiveStatus] = useState<ShipmentStatus>(ShipmentStatus.AguardandoSeguradora);
   const [isAttachmentModalOpen, setAttachmentModalOpen] = useState(false);
   const [isEditPriceModalOpen, setEditPriceModalOpen] = useState(false);
   const [isCancelModalOpen, setCancelModalOpen] = useState(false);
@@ -84,7 +85,7 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({ shipments, cargos, client
     setSelectedShipment(null);
   };
 
-  const handleSaveAttachment = (data: { filesToAttach: { [key: string]: File[] }, bankDetails?: string }) => {
+  const handleSaveAttachment = (data: { filesToAttach: { [key: string]: File[] }, bankDetails?: string, loadedTonnage?: number, advancePercentage?: number }) => {
     if (!selectedShipment) return;
     onUpdateAttachment(selectedShipment.id, data);
     handleCloseAttachmentModal();
@@ -112,9 +113,9 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({ shipments, cargos, client
     setIsTransferModalOpen(true);
   };
 
-  const handleSavePrice = (newPrice: number) => {
+  const handleSavePrice = (data: { newTotal: number, newRate?: number }) => {
     if (!selectedShipment) return;
-    onUpdatePrice(selectedShipment.id, newPrice);
+    onUpdatePrice(selectedShipment.id, data);
     setEditPriceModalOpen(false);
     setSelectedShipment(null);
   };
@@ -187,9 +188,11 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({ shipments, cargos, client
         onShowCargoDetails={handleShowCargoDetails}
         canUserAdvanceStatus={canUserAdvanceStatus}
         onMarkArrival={onMarkArrival}
+        onDelete={onDeleteShipment}
         onOpenCadastroAntt={handleOpenCadastroAnttModal}
         currentUser={currentUser}
         activeStatus={activeStatus}
+        clients={clients}
       />
       {selectedShipment && (
         <AttachmentModal
