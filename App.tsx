@@ -341,10 +341,7 @@ const App: React.FC = () => {
   const visibleLoads = useMemo(() => {
     if (!currentUser) return [];
     if (currentUser.profile === UserProfile.Embarcador) {
-      const embarcadorShipmentCargoIds = new Set(
-        shipments.filter(s => s.embarcadorId === currentUser.id).map(s => s.cargoId)
-      );
-      return cargos.filter(c => embarcadorShipmentCargoIds.has(c.id));
+      return cargos;
     }
     if (currentUser.profile === UserProfile.Cliente && currentUser.clientId) {
       return cargos.filter(c => c.clientId === currentUser.clientId);

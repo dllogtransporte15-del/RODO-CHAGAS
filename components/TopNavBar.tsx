@@ -53,7 +53,7 @@ const navItems: NavItem[] = [
       { id: 'shipments', label: 'Embarques', icon: PackageIcon },
       { id: 'shipment-history', label: 'Histórico Embarques', icon: HistoryIcon },
       { id: 'load-history', label: 'Histórico Cargas', icon: ArchiveIcon },
-      { id: 'operational-loads', label: 'Cargas', icon: ChartIcon },
+      { id: 'operational-loads', label: 'Cargas em Andamento', icon: ChartIcon },
       { id: 'operational-map', label: 'Mapa Operacional', icon: MapIcon },
     ],
   },
