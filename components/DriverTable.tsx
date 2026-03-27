@@ -26,6 +26,7 @@ const DriverTable: React.FC<DriverTableProps> = ({ drivers, owners, onEdit, onDe
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">Telefone</th>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">Classificação</th>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">Proprietário</th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">Status</th>
               {(onEdit || onDelete) && <th scope="col" className="relative px-6 py-3"><span className="sr-only">Ações</span></th>}
             </tr>
           </thead>
@@ -40,6 +41,13 @@ const DriverTable: React.FC<DriverTableProps> = ({ drivers, owners, onEdit, onDe
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{driver.phone}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{driver.classification}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{getOwnerName(driver.ownerId)}</td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  {driver.active ? (
+                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">Ativo</span>
+                  ) : (
+                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400" title={driver.restrictionReason}>Restrito</span>
+                  )}
+                </td>
                 {(onEdit || onDelete) && (
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     {onEdit && <button onClick={() => onEdit(driver)} className="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300">Editar</button>}

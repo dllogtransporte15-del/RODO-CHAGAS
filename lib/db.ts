@@ -65,6 +65,8 @@ const toDriver = (row: any): Driver => ({
   phone: row.phone,
   classification: row.classification,
   ownerId: row.owner_id,
+  active: row.active ?? true,
+  restrictionReason: row.restriction_reason,
 });
 
 const fromDriver = (d: Driver | Omit<Driver, 'id'>) => ({
@@ -75,6 +77,8 @@ const fromDriver = (d: Driver | Omit<Driver, 'id'>) => ({
   phone: d.phone,
   classification: d.classification,
   owner_id: d.ownerId,
+  active: d.active !== undefined ? d.active : true,
+  restriction_reason: d.restrictionReason,
 });
 
 const toVehicle = (row: any): Vehicle => ({

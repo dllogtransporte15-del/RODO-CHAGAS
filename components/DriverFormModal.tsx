@@ -19,6 +19,8 @@ const DriverFormModal: React.FC<DriverFormModalProps> = ({ isOpen, onClose, onSa
     phone: '',
     classification: DriverClassification.Terceiro,
     ownerId: undefined,
+    active: true,
+    restrictionReason: '',
   });
 
   const [driver, setDriver] = useState<Omit<Driver, 'id'>>(getInitialState());
@@ -33,10 +35,12 @@ const DriverFormModal: React.FC<DriverFormModalProps> = ({ isOpen, onClose, onSa
     }
   }, [driverToEdit, isOpen]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value, type } = e.target;
+    const checked = (e.target as HTMLInputElement).checked;
+    
     setDriver(prev => {
-      const newState = { ...prev, [name]: value };
+      const newState = { ...prev, [name]: type === 'checkbox' ? checked : value };
       if (name === 'classification' && value === DriverClassification.Terceiro) {
         newState.ownerId = undefined;
       }
@@ -97,6 +101,34 @@ const DriverFormModal: React.FC<DriverFormModalProps> = ({ isOpen, onClose, onSa
                   Para motoristas "Próprio", selecione o cadastro de proprietário correspondente ao motorista.
                 </p>
               )}
+            </div>
+          )}
+
+          <div className="flex items-center space-x-2 p-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+            <input
+              type="checkbox"
+              name="active"
+              id="active"
+              checked={driver.active}
+              onChange={handleChange}
+              className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+            />
+            <label htmlFor="active" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              Motorista Ativo
+            </label>
+          </div>
+
+          {!driver.active && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Motivo da Restrição</label>
+              <textarea
+                name="restrictionReason"
+                value={driver.restrictionReason || ''}
+                onChange={handleChange}
+                placeholder="Informe o motivo da desativação/restrição..."
+                className="mt-1 p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600 h-24"
+                required
+              />
             </div>
           )}
 

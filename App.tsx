@@ -410,6 +410,7 @@ const App: React.FC = () => {
         cnh: data.driverCnh || '',
         phone: data.driverContact || '',
         classification: DriverClassification.Terceiro,
+        active: true,
       };
       newDrivers.unshift(driverToUse);
       addedDrivers.push(driverToUse);

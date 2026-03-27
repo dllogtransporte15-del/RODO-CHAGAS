@@ -75,6 +75,8 @@ export interface Driver {
   phone: string;
   classification: DriverClassification;
   ownerId?: string;
+  active: boolean;
+  restrictionReason?: string;
 }
 
 export enum VehicleSetType {

@@ -96,6 +96,18 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Check for Restricted Driver
+    const selectedDriverObj = drivers.find(d => 
+        (d.name.trim().toLowerCase() === driverName.trim().toLowerCase() && driverName.trim() !== '') || 
+        (d.cpf.replace(/\D/g, '') === driverCpf.replace(/\D/g, '') && driverCpf.trim() !== '')
+    );
+
+    if (selectedDriverObj && !selectedDriverObj.active) {
+        alert(`Motorista com Restrição: ${selectedDriverObj.restrictionReason || 'Sem motivo especificado'}. Não é permitido criar ordens para este motorista.`);
+        return;
+    }
+
     if (!driverName || !horsePlate || shipmentTonnage <= 0 || !scheduledDate || !embarcadorId || !scheduledTime) {
         alert('Por favor, preencha todos os campos obrigatórios (Data/Hora Programada, Embarcador, Motorista, Placa Cavalo e Toneladas).');
         return;
