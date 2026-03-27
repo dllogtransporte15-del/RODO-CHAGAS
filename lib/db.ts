@@ -360,13 +360,38 @@ export async function upsertVehicle(vehicle: Vehicle): Promise<void> {
 }
 
 export async function upsertCargo(cargo: Cargo): Promise<void> {
-  const { error } = await supabase.from('cargos').upsert(fromCargo(cargo));
-  if (error) throw error;
+  const payload = fromCargo(cargo);
+  console.log('[upsertCargo] Saving cargo:', cargo.id, payload);
+  let error;
+  if (cargo.id) {
+    // Existing record: use update to guarantee the row is written
+    const result = await supabase.from('cargos').update(payload).eq('id', cargo.id);
+    error = result.error;
+  } else {
+    const result = await supabase.from('cargos').insert(payload);
+    error = result.error;
+  }
+  if (error) {
+    console.error('[upsertCargo] Error:', error);
+    throw error;
+  }
+  console.log('[upsertCargo] Success for cargo:', cargo.id);
 }
 
 export async function upsertShipment(shipment: Shipment): Promise<void> {
-  const { error } = await supabase.from('shipments').upsert(fromShipment(shipment));
-  if (error) throw error;
+  const payload = fromShipment(shipment);
+  let error;
+  if (shipment.id) {
+    const result = await supabase.from('shipments').update(payload).eq('id', shipment.id);
+    error = result.error;
+  } else {
+    const result = await supabase.from('shipments').insert(payload);
+    error = result.error;
+  }
+  if (error) {
+    console.error('[upsertShipment] Error:', error);
+    throw error;
+  }
 }
 
 export async function upsertUser(user: User): Promise<void> {
@@ -375,8 +400,39 @@ export async function upsertUser(user: User): Promise<void> {
 }
 
 export async function upsertTicket(ticket: Ticket): Promise<void> {
-  const { error } = await supabase.from('tickets').upsert(fromTicket(ticket));
-  if (error) throw error;
+  const payload = fromTicket(ticket);
+  let error;
+  if ((ticket as Ticket).id) {
+    const result = await supabase.from('tickets').update(payload).eq('id', (ticket as Ticket).id);
+    error = result.error;
+  } else {
+    const result = await supabase.from('tickets').insert(payload);
+    error = result.error;
+  }
+  if (error) {
+    console.error('[upsertTicket] Error:', error);
+    throw error;
+  }
+}
+
+export async function insertCargo(cargo: Cargo): Promise<void> {
+  const payload = fromCargo(cargo);
+  console.log('[insertCargo] Inserting new cargo:', cargo.id);
+  const { error } = await supabase.from('cargos').insert(payload);
+  if (error) {
+    console.error('[insertCargo] Error:', error);
+    throw error;
+  }
+  console.log('[insertCargo] Success for cargo:', cargo.id);
+}
+
+export async function insertShipment(shipment: Shipment): Promise<void> {
+  const payload = fromShipment(shipment);
+  const { error } = await supabase.from('shipments').insert(payload);
+  if (error) {
+    console.error('[insertShipment] Error:', error);
+    throw error;
+  }
 }
 
 export async function saveProfilePermissions(permissions: ProfilePermissions): Promise<void> {

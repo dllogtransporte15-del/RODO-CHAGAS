@@ -30,8 +30,8 @@ import { INITIAL_PERMISSIONS } from './auth';
 import {
   fetchClients, fetchOwners, fetchDrivers, fetchVehicles, fetchProducts,
   fetchCargos, fetchShipments, fetchUsers, fetchTickets, fetchProfilePermissions,
-  upsertClient, upsertOwner, upsertDriver, upsertVehicle, upsertCargo,
-  upsertShipment, upsertUser, upsertTicket, saveProfilePermissions,
+  upsertClient, upsertOwner, upsertDriver, upsertVehicle, upsertCargo, insertCargo,
+  upsertShipment, insertShipment, upsertUser, upsertTicket, saveProfilePermissions,
   upsertManyDrivers, upsertManyVehicles, upsertManyShipments, upsertManyCargos,
   uploadShipmentAttachment, getShipmentAttachmentUrl,
   fetchAppSettings, saveAppSettings,
@@ -532,7 +532,7 @@ const App: React.FC = () => {
       await Promise.all([
         upsertManyDrivers(addedDrivers),
         upsertManyVehicles(addedVehicles),
-        upsertShipment(newShipment),
+        insertShipment(newShipment),
         updatedCargo ? upsertCargo(updatedCargo) : Promise.resolve(),
       ]);
     } catch (err) {
@@ -1009,7 +1009,7 @@ const App: React.FC = () => {
       };
       setCargos(prev => [newLoad, ...prev]);
       setNextIds(prev => ({ ...prev, cargo: prev.cargo + 1 }));
-      try { await upsertCargo(newLoad); } catch(err) { console.error('Erro ao criar carga:', err); }
+      try { await insertCargo(newLoad); } catch(err) { console.error('Erro ao criar carga:', err); }
     }
   };
 
