@@ -67,6 +67,7 @@ const navItems: NavItem[] = [
         { id: 'drivers', label: 'Motoristas', icon: DriverIcon },
         { id: 'vehicles', label: 'Veículos', icon: TruckIcon },
         { id: 'loads', label: 'Cargas', icon: PackageIcon },
+        { id: 'products', label: 'Produtos', icon: PackageIcon },
     ]
   },
   { id: 'reports', label: 'Relatórios', icon: ChartIcon },

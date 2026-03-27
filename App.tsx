@@ -22,7 +22,7 @@ import LoadHistoryPage from './pages/LoadHistoryPage';
 import LayoverCalculatorPage from './pages/LayoverCalculatorPage';
 import FreightQuotePage from './pages/FreightQuotePage';
 import ToolsHistoryPage from './pages/ToolsHistoryPage';
-import { MOCK_PRODUCTS } from './constants';
+import ProductsPage from './pages/ProductsPage';
 import type { Client, Owner, Driver, Vehicle, Product, Cargo, Shipment, User, Page, ProfilePermissions, HistoryLog, Ticket, TicketHistory } from './types';
 import { CargoStatus, ShipmentStatus, UserProfile, TicketStatus, TicketPriority, DriverClassification, VehicleSetType, VehicleBodyType } from './types';
 import { formatId } from './utils';
@@ -35,7 +35,7 @@ import {
   upsertManyDrivers, upsertManyVehicles, upsertManyShipments, upsertManyCargos,
   uploadShipmentAttachment, getShipmentAttachmentUrl,
   fetchAppSettings, saveAppSettings,
-  deleteCargo, deleteShipment, deleteUser
+  deleteCargo, deleteShipment, deleteUser, upsertProduct, deleteProduct
 } from './lib/db';
 
 const RODOCHAGAS_LOGO_BASE64 = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wCEAAkGBxISEhUSEhIVFRUVFRUVFRUVFRUVFRUVFRUWFhUVFRUYHSggGBolHRUVITEhJSkrLi4uFx8zODMtNygtLisBCgoKDg0OGxAQGy0lICUtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLf/AABEIAJYAlgMBIgACEQEDEQH/xAAcAAABBQEBAQAAAAAAAAAAAAAAAQIDBAUGBwj/xAA+EAABAwIEAwQHBgQGAwAAAAABAAIRAyEEEjFBBVFhBnGBkRMiMqGxwdHwFEJS4fEGYnKCorLCFiQ0c8P/AAaAQEAAwEBAQAAAAAAAAAAAAAAAQIDBAUG/xAAuEQEAAgIBAwIDCAIDAAAAAAAAAAECEQMSITFBUQQTYSIycYGRobHR8MEUI0Lh/9oADAMBAAIRAxEAPwD2hCEIAEIQgAQhCABCEIAEIQgAQhCABCEIAEIQgAQhCABCEIAEIQgAQhCABCEIAEIQgAQhCABCEIAEIQgAUK1aVpc89Ggn2CuuX4zxFtWm+j9o1hfBqQCWs/e5mRcNdG26AOKzTjT6lYsqVG02sE0qbRmc4HUCJMnfTQBY9Hjr2U20KDy+ZNTESHGTEz337Kzw/1wzE1B9np0zVqVsVKr3F0TYS42G+wWdw3gn+HqvrucypC4DSgOaGtJEmDqSY3IE5TMSfLb2m9I6mLi4fX8X/R1XA+NuxD/ALO+mGVC0ua5pcWutMEEXuCR/wBz0F3yLgPCwzG1ahqNL/suVkES4BxJLSPuwdR+6NeqO1d/C5HJp9/L/Rz54qMbvoEIQuowBCEIAEIQgAQhCABCEIAEIQgAQhCABCEIAEIQgAQhCABCEIAEIQgAQhCAOY4/VpChVa97BLHNLQczpkEWGs2XlsJcKjnFrnNaXmSAHHYEaR6L2vEeC4fEATDiLtc2A4dJ0PsQuawv2bNbicxqn2JgtZT5S+dxmc4i+ggLs4fUQjFqbs8Hi/DZZZ5UoK0v5OLxOIbUfUqVGmpUDiym0OMMaNPdAJjUnfZe0+z2niGYdzcWAHOHslzSxxEHIQ6SRY/guX/APj52L+0Go1sEimKbS6mB+6XmQCTroOnr0WB4NRw/8AaKj6dSpnFM5y5uVr8xAawEkkwdTHMLfUTlODWl7/AKRz8LhjhzuMrb1/p0PQgIXAV3QhCABCEIAEIQgAQhCABCEIAEIQgAQhCABCEIAEIQgAQhCABCEIAEIQgAQhCABCEIAEIQgAQhCABCEIAEIQgAQhCABCEIAEIQgAQhCABCEIAEIQgAQhCABCEIAEIQgAQhCABCEIAEIQgAQhCABCEIAEIQgD/9k=";
@@ -92,7 +92,7 @@ const App: React.FC = () => {
   const [owners, setOwners] = useState<Owner[]>([]);
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-  const [products] = useState<Product[]>(MOCK_PRODUCTS);
+  const [products, setProducts] = useState<Product[]>([]);
   const [cargos, setCargos] = useState<Cargo[]>([]);
   const [shipments, setShipments] = useState<Shipment[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -111,7 +111,7 @@ const App: React.FC = () => {
   const [nextIds, setNextIds] = useState(() => {
     const saved = localStorage.getItem('rodochagas_nextIds');
     if (saved) return JSON.parse(saved);
-    return { client: 100, owner: 100, driver: 100, vehicle: 100, shipment: 100, cargo: 100, user: 100, ticket: 1, history: 1000 };
+    return { client: 100, owner: 100, driver: 100, vehicle: 100, product: 100, shipment: 100, cargo: 100, user: 100, ticket: 1, history: 1000 };
   });
 
   // --- LOAD DATA FROM SUPABASE ---
@@ -119,11 +119,12 @@ const App: React.FC = () => {
     setIsLoading(true);
     setLoadError(null);
     try {
-      const [dbClients, dbOwners, dbDrivers, dbVehicles, dbCargos, dbShipments, dbUsers, dbTickets, dbPermissions, dbSettings] = await Promise.all([
+      const [dbClients, dbOwners, dbDrivers, dbVehicles, dbProducts, dbCargos, dbShipments, dbUsers, dbTickets, dbPermissions, dbSettings] = await Promise.all([
         fetchClients(),
         fetchOwners(),
         fetchDrivers(),
         fetchVehicles(),
+        fetchProducts(),
         fetchCargos(),
         fetchShipments(),
         fetchUsers(),
@@ -135,6 +136,7 @@ const App: React.FC = () => {
       setOwners(dbOwners);
       setDrivers(dbDrivers);
       setVehicles(dbVehicles);
+      setProducts(dbProducts);
       setCargos(dbCargos);
       setShipments(dbShipments);
       setUsers(dbUsers);
@@ -152,6 +154,7 @@ const App: React.FC = () => {
         owner: dbOwners.length + 100,
         driver: dbDrivers.length + 100,
         vehicle: dbVehicles.length + 100,
+        product: (dbProducts.length || 0) + 100,
         shipment: dbShipments.length + 100,
         cargo: dbCargos.length + 100,
         user: dbUsers.length + 100,
@@ -929,6 +932,32 @@ const App: React.FC = () => {
     }
     try { await upsertVehicle(saved); } catch(err) { console.error('Erro ao salvar veículo:', err); }
   };
+
+  const handleSaveProduct = async (productData: Product | Omit<Product, 'id'>) => {
+    let saved: Product;
+    if ('id' in productData) {
+      saved = productData;
+      setProducts(prev => prev.map(p => p.id === productData.id ? productData : p));
+    } else {
+      const newId = `PRD-${String(nextIds.product).padStart(3, '0')}`;
+      saved = { ...productData, id: newId };
+      setProducts(prev => [saved, ...prev]);
+      setNextIds(prev => ({ ...prev, product: prev.product + 1 }));
+    }
+    try { await upsertProduct(saved); } catch(err) { console.error('Erro ao salvar produto:', err); }
+    alert('Produto salvo com sucesso!');
+  };
+
+  const handleDeleteProduct = async (productId: string) => {
+    try {
+      await deleteProduct(productId);
+      setProducts(prev => prev.filter(p => p.id !== productId));
+      alert('Produto excluído com sucesso.');
+    } catch (err) {
+      console.error('Erro ao excluir produto:', err);
+      alert('Erro ao excluir produto.');
+    }
+  };
   
   const handleSaveLoad = async (loadData: Cargo | Omit<Cargo, 'id' | 'history' | 'createdAt' | 'createdById'>) => {
     if ('id' in loadData) {
@@ -1083,6 +1112,8 @@ const App: React.FC = () => {
         return <VehiclesPage vehicles={vehicles} setVehicles={setVehicles} onSaveVehicle={handleSaveVehicle} owners={owners} currentUser={currentUser} profilePermissions={profilePermissions} />;
       case 'loads':
         return <LoadsPage loads={visibleLoads} setLoads={setCargos} clients={clients} products={products} onSaveLoad={handleSaveLoad} currentUser={currentUser} profilePermissions={profilePermissions} users={users} shipments={visibleShipments} onDeleteLoad={handleDeleteCargo} />;
+      case 'products':
+        return <ProductsPage products={products} onSaveProduct={handleSaveProduct} onDeleteProduct={handleDeleteProduct} currentUser={currentUser} profilePermissions={profilePermissions} />;
       case 'shipments':
         return <ShipmentsPage 
                     shipments={visibleShipments} 

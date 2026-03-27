@@ -520,3 +520,14 @@ export async function deleteUser(id: string): Promise<void> {
   const { error } = await supabase.from('app_users').delete().eq('id', id);
   if (error) throw error;
 }
+
+export async function upsertProduct(product: Product): Promise<void> {
+  const { error } = await supabase.from('products').upsert({ id: product.id, name: product.name, unit: product.unit });
+  if (error) throw error;
+}
+
+export async function deleteProduct(id: string): Promise<void> {
+  const { error } = await supabase.from('products').delete().eq('id', id);
+  if (error) throw error;
+}
+
