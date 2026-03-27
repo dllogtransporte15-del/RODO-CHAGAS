@@ -296,32 +296,40 @@ const App: React.FC = () => {
 
   const handleUpdateTicket = async (ticketId: string, newStatus: TicketStatus, comment: string) => {
     if (!currentUser) return;
-    let updatedTicket: Ticket | undefined;
+    
+    const ticketToUpdate = tickets.find(t => t.id === ticketId);
+    if (!ticketToUpdate) return;
+
+    const oldStatus = ticketToUpdate.status;
+    let finalComment = comment.trim();
+    if (!finalComment) {
+      finalComment = newStatus === TicketStatus.Resolvido
+        ? 'Chamado marcado como resolvido.'
+        : `Status alterado para ${newStatus}.`;
+    }
+
+    const newHistoryEntry: TicketHistory = {
+      userId: currentUser.id,
+      timestamp: new Date().toISOString(),
+      comment: finalComment,
+      oldStatus,
+      newStatus,
+    };
+
+    const updatedTicket = { 
+      ...ticketToUpdate, 
+      status: newStatus, 
+      history: [...ticketToUpdate.history, newHistoryEntry] 
+    };
+
     setTickets(prevTickets =>
-      prevTickets.map(ticket => {
-        if (ticket.id === ticketId) {
-          const oldStatus = ticket.status;
-          let finalComment = comment.trim();
-          if (!finalComment) {
-              finalComment = newStatus === TicketStatus.Resolvido 
-                  ? 'Chamado marcado como resolvido.' 
-                  : `Status alterado para ${newStatus}.`;
-          }
-          const newHistoryEntry: TicketHistory = {
-            userId: currentUser.id,
-            timestamp: new Date().toISOString(),
-            comment: finalComment,
-            oldStatus,
-            newStatus,
-          };
-          updatedTicket = { ...ticket, status: newStatus, history: [...ticket.history, newHistoryEntry] };
-          return updatedTicket;
-        }
-        return ticket;
-      })
+      prevTickets.map(ticket => ticket.id === ticketId ? updatedTicket : ticket)
     );
-    if (updatedTicket) {
-      try { await upsertTicket(updatedTicket); } catch(err) { console.error('Erro ao atualizar ticket:', err); }
+
+    try {
+      await upsertTicket(updatedTicket);
+    } catch (err) {
+      console.error('Erro ao atualizar ticket:', err);
     }
   };
 
@@ -537,17 +545,21 @@ const App: React.FC = () => {
 
   const handleMarkArrival = async (shipmentId: string) => {
     if (!currentUser) return;
-    let updated: Shipment | undefined;
-    setShipments(prev => prev.map(s => {
-      if (s.id === shipmentId) {
-        const now = new Date().toISOString();
-        updated = { ...s, arrivalTime: now, history: [...s.history, createHistoryLog(`Chegada do veículo marcada em ${new Date(now).toLocaleString('pt-BR')}`)] };
-        return updated;
-      }
-      return s;
-    }));
-    if (updated) {
-      try { await upsertShipment(updated); } catch(err) { console.error('Erro ao marcar chegada:', err); }
+    const shipmentToUpdate = shipments.find(s => s.id === shipmentId);
+    if (!shipmentToUpdate) return;
+
+    const now = new Date().toISOString();
+    const updatedShipment: Shipment = { 
+      ...shipmentToUpdate, 
+      arrivalTime: now, 
+      history: [...shipmentToUpdate.history, createHistoryLog(`Chegada do veículo marcada em ${new Date(now).toLocaleString('pt-BR')}`)] 
+    };
+
+    setShipments(prev => prev.map(s => s.id === shipmentId ? updatedShipment : s));
+    try {
+      await upsertShipment(updatedShipment);
+    } catch (err) {
+      console.error('Erro ao marcar chegada:', err);
     }
   };
 
@@ -691,45 +703,55 @@ const App: React.FC = () => {
   };
 
   const handleUpdateShipmentAnttAndBankDetails = async (shipmentId: string, data: { anttOwnerIdentifier: string; bankDetails?: string }) => {
-    let updated: Shipment | undefined;
-    setShipments(prev => prev.map(s => {
-      if (s.id === shipmentId) {
-        const changes: string[] = [];
-        if (s.anttOwnerIdentifier !== data.anttOwnerIdentifier) changes.push(`${FIELD_TRANSLATIONS.anttOwnerIdentifier} definido.`);
-        if (data.bankDetails && s.bankDetails !== data.bankDetails) changes.push(`${FIELD_TRANSLATIONS.bankDetails} definidos.`);
-        updated = { ...s, anttOwnerIdentifier: data.anttOwnerIdentifier, bankDetails: data.bankDetails || s.bankDetails, history: changes.length > 0 ? [...s.history, createHistoryLog(changes.join(' '))] : s.history };
-        return updated;
-      }
-      return s;
-    }));
-    if (updated) {
-      try { await upsertShipment(updated); } catch(err) { console.error('Erro ao atualizar ANTT/banco:', err); }
+    const shipmentToUpdate = shipments.find(s => s.id === shipmentId);
+    if (!shipmentToUpdate) return;
+
+    const changes: string[] = [];
+    if (shipmentToUpdate.anttOwnerIdentifier !== data.anttOwnerIdentifier) changes.push(`${FIELD_TRANSLATIONS.anttOwnerIdentifier} definido.`);
+    if (data.bankDetails && shipmentToUpdate.bankDetails !== data.bankDetails) changes.push(`${FIELD_TRANSLATIONS.bankDetails} definidos.`);
+
+    const updatedShipment: Shipment = { 
+      ...shipmentToUpdate, 
+      anttOwnerIdentifier: data.anttOwnerIdentifier, 
+      bankDetails: data.bankDetails || shipmentToUpdate.bankDetails, 
+      history: changes.length > 0 ? [...shipmentToUpdate.history, createHistoryLog(changes.join(' '))] : shipmentToUpdate.history 
+    };
+
+    setShipments(prev => prev.map(s => s.id === shipmentId ? updatedShipment : s));
+    try {
+      await upsertShipment(updatedShipment);
+    } catch (err) {
+      console.error('Erro ao atualizar ANTT/banco:', err);
     }
   };
 
   const handleUpdateShipmentPrice = async (shipmentId: string, data: { newTotal: number, newRate?: number }) => {
-    let updated: Shipment | undefined;
-    setShipments(prev => prev.map(s => {
-      if (s.id === shipmentId) {
-        const oldPriceFormatted = s.driverFreightValue.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'});
-        const newPriceFormatted = data.newTotal.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'});
-        const historyMsgParts = [`${FIELD_TRANSLATIONS['driverFreightValue']} alterado de "${oldPriceFormatted}" para "${newPriceFormatted}".`];
-        
-        const updateObj: Partial<Shipment> = { driverFreightValue: data.newTotal };
-        if (data.newRate !== undefined) {
-            const oldRateFormatted = (s.driverFreightRateSnapshot || 0).toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'});
-            const newRateFormatted = data.newRate.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'});
-            updateObj.driverFreightRateSnapshot = data.newRate;
-            historyMsgParts.push(`Taxa do motorista alterada de "${oldRateFormatted}" para "${newRateFormatted}".`);
-        }
+    const shipmentToUpdate = shipments.find(s => s.id === shipmentId);
+    if (!shipmentToUpdate) return;
 
-        updated = { ...s, ...updateObj, history: [...s.history, createHistoryLog(historyMsgParts.join(' '))] };
-        return updated;
-      }
-      return s;
-    }));
-    if (updated) {
-      try { await upsertShipment(updated); } catch(err) { console.error('Erro ao atualizar preço:', err); }
+    const oldPriceFormatted = shipmentToUpdate.driverFreightValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    const newPriceFormatted = data.newTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    const historyMsgParts = [`${FIELD_TRANSLATIONS['driverFreightValue']} alterado de "${oldPriceFormatted}" para "${newPriceFormatted}".`];
+
+    const updateObj: Partial<Shipment> = { driverFreightValue: data.newTotal };
+    if (data.newRate !== undefined) {
+      const oldRateFormatted = (shipmentToUpdate.driverFreightRateSnapshot || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+      const newRateFormatted = data.newRate.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+      updateObj.driverFreightRateSnapshot = data.newRate;
+      historyMsgParts.push(`Taxa do motorista alterada de "${oldRateFormatted}" para "${newRateFormatted}".`);
+    }
+
+    const updatedShipment: Shipment = { 
+      ...shipmentToUpdate, 
+      ...updateObj, 
+      history: [...shipmentToUpdate.history, createHistoryLog(historyMsgParts.join(' '))] 
+    };
+
+    setShipments(prev => prev.map(s => s.id === shipmentId ? updatedShipment : s));
+    try {
+      await upsertShipment(updatedShipment);
+    } catch (err) {
+      console.error('Erro ao atualizar preço:', err);
     }
   };
   
@@ -737,35 +759,43 @@ const App: React.FC = () => {
     const shipmentToCancel = shipments.find(s => s.id === shipmentId);
     if (!shipmentToCancel || !currentUser) return;
     
-    let cancelledShipment: Shipment | undefined;
-    setShipments(prev => prev.map(s => {
-      if (s.id === shipmentId) {
-        const oldStatus = s.status;
-        cancelledShipment = { ...s, status: ShipmentStatus.Cancelado, history: [...s.history, createHistoryLog(`Status alterado de "${oldStatus}" para "${ShipmentStatus.Cancelado}".`)], statusHistory: [...(s.statusHistory || []), { status: ShipmentStatus.Cancelado, timestamp: new Date().toISOString(), userId: currentUser.id }] };
-        return cancelledShipment;
-      }
-      return s;
-    }));
+    const oldStatus = shipmentToCancel.status;
+    const cancelledShipment: Shipment = { 
+      ...shipmentToCancel, 
+      status: ShipmentStatus.Cancelado, 
+      history: [...shipmentToCancel.history, createHistoryLog(`Status alterado de "${oldStatus}" para "${ShipmentStatus.Cancelado}".`)], 
+      statusHistory: [...(shipmentToCancel.statusHistory || []), { status: ShipmentStatus.Cancelado, timestamp: new Date().toISOString(), userId: currentUser.id }] 
+    };
+
+    setShipments(prev => prev.map(s => s.id === shipmentId ? cancelledShipment : s));
 
     const wasLoaded = Object.values(ShipmentStatus).indexOf(shipmentToCancel.status) >= Object.values(ShipmentStatus).indexOf(ShipmentStatus.AguardandoDescarga);
+    const relatedCargo = cargos.find(c => c.id === shipmentToCancel.cargoId);
+    
     let updatedCargo: Cargo | undefined;
-    setCargos(prevCargos => prevCargos.map(cargo => {
-        if (cargo.id === shipmentToCancel.cargoId) {
-            const newScheduledVolume = cargo.scheduledVolume - shipmentToCancel.shipmentTonnage;
-            const newLoadedVolume = wasLoaded ? cargo.loadedVolume - shipmentToCancel.shipmentTonnage : cargo.loadedVolume;
-            const historyDescription = wasLoaded
-                ? `Volumes agendado e carregado ajustados devido ao cancelamento do embarque ${shipmentId}`
-                : `Volume agendado ajustado devido ao cancelamento do embarque ${shipmentId}`;
-            updatedCargo = { ...cargo, scheduledVolume: Math.max(0, newScheduledVolume), loadedVolume: Math.max(0, newLoadedVolume), history: [...cargo.history, createHistoryLog(historyDescription)] };
-            return updatedCargo;
-        }
-        return cargo;
-    }));
+    if (relatedCargo) {
+        const newScheduledVolume = relatedCargo.scheduledVolume - shipmentToCancel.shipmentTonnage;
+        const newLoadedVolume = wasLoaded ? relatedCargo.loadedVolume - shipmentToCancel.shipmentTonnage : relatedCargo.loadedVolume;
+        const historyDescription = wasLoaded
+            ? `Volumes agendado e carregado ajustados devido ao cancelamento do embarque ${shipmentId}`
+            : `Volume agendado ajustado devido ao cancelamento do embarque ${shipmentId}`;
+        
+        updatedCargo = { 
+            ...relatedCargo, 
+            scheduledVolume: Math.max(0, newScheduledVolume), 
+            loadedVolume: Math.max(0, newLoadedVolume), 
+            history: [...relatedCargo.history, createHistoryLog(historyDescription)] 
+        };
+        
+        setCargos(prevCargos => prevCargos.map(cargo => cargo.id === relatedCargo.id ? updatedCargo! : cargo));
+    }
 
     try {
-      if (cancelledShipment) await upsertShipment(cancelledShipment);
+      await upsertShipment(cancelledShipment);
       if (updatedCargo) await upsertCargo(updatedCargo);
-    } catch(err) { console.error('Erro ao cancelar embarque:', err); }
+    } catch (err) {
+      console.error('Erro ao cancelar embarque:', err);
+    }
   };
 
   const handleTransferShipment = async (shipmentId: string, newEmbarcadorId: string) => {
@@ -835,24 +865,19 @@ const App: React.FC = () => {
 
             // Atualizar volumes da carga
             const wasLoaded = Object.values(ShipmentStatus).indexOf(shipmentToDelete.status) >= Object.values(ShipmentStatus).indexOf(ShipmentStatus.AguardandoDescarga);
-            let updatedCargo: Cargo | undefined;
+            const relatedCargo = cargos.find(c => c.id === shipmentToDelete.cargoId);
             
-            setCargos(prevCargos => prevCargos.map(cargo => {
-                if (cargo.id === shipmentToDelete.cargoId) {
-                    const newScheduledVolume = Math.max(0, cargo.scheduledVolume - shipmentToDelete.shipmentTonnage);
-                    const newLoadedVolume = wasLoaded ? Math.max(0, cargo.loadedVolume - shipmentToDelete.shipmentTonnage) : cargo.loadedVolume;
-                    updatedCargo = { 
-                        ...cargo, 
-                        scheduledVolume: newScheduledVolume, 
-                        loadedVolume: newLoadedVolume,
-                        history: [...cargo.history, createHistoryLog(`Embarque ${shipmentId} EXCLUÍDO pelo Administrador. Volumes ajustados.`)]
-                    };
-                    return updatedCargo;
-                }
-                return cargo;
-            }));
-
-            if (updatedCargo) {
+            if (relatedCargo) {
+                const newScheduledVolume = Math.max(0, relatedCargo.scheduledVolume - shipmentToDelete.shipmentTonnage);
+                const newLoadedVolume = wasLoaded ? Math.max(0, relatedCargo.loadedVolume - shipmentToDelete.shipmentTonnage) : relatedCargo.loadedVolume;
+                const updatedCargo: Cargo = { 
+                    ...relatedCargo, 
+                    scheduledVolume: newScheduledVolume, 
+                    loadedVolume: newLoadedVolume,
+                    history: [...relatedCargo.history, createHistoryLog(`Embarque ${shipmentId} EXCLUÍDO pelo Administrador. Volumes ajustados.`)]
+                };
+                
+                setCargos(prevCargos => prevCargos.map(cargo => cargo.id === relatedCargo.id ? updatedCargo : cargo));
                 await upsertCargo(updatedCargo);
             }
             alert("Embarque excluído com sucesso e volumes da carga recalculados.");
@@ -907,70 +932,70 @@ const App: React.FC = () => {
   
   const handleSaveLoad = async (loadData: Cargo | Omit<Cargo, 'id' | 'history' | 'createdAt' | 'createdById'>) => {
     if ('id' in loadData) {
-      let updatedCargo: Cargo | undefined;
-      setCargos(prev => prev.map(l => {
-        if (l.id === loadData.id) {
-            const changes: string[] = [];
-            (Object.keys(loadData) as Array<keyof Cargo>).forEach(key => {
-                // Ignore automated fields
-                if (key === 'scheduledVolume' || key === 'loadedVolume') return;
+      const oldCargo = cargos.find(l => l.id === loadData.id);
+      if (!oldCargo) return;
 
-                const oldValue: any = l[key];
-                const newValue: any = loadData[key];
+      const changes: string[] = [];
+      (Object.keys(loadData) as Array<keyof Cargo>).forEach(key => {
+        if (key === 'scheduledVolume' || key === 'loadedVolume') return;
 
-                if (key !== 'id' && key !== 'history' && key !== 'createdAt' && oldValue !== newValue) {
-                    const fieldName = FIELD_TRANSLATIONS[key] || key;
-                    let oldDisplayValue = oldValue;
-                    let newDisplayValue = newValue;
+        const oldValue: any = oldCargo[key];
+        const newValue: any = loadData[key];
 
-                    switch(key) {
-                        case 'clientId':
-                            oldDisplayValue = clients.find(c => c.id === oldValue)?.nomeFantasia || oldValue;
-                            newDisplayValue = clients.find(c => c.id === newValue)?.nomeFantasia || newValue;
-                            break;
-                        case 'productId':
-                            oldDisplayValue = products.find(p => p.id === oldValue)?.name || oldValue;
-                            newDisplayValue = products.find(p => p.id === newValue)?.name || newValue;
-                            break;
-                        case 'createdById':
-                            oldDisplayValue = users.find(u => u.id === oldValue)?.name || oldValue;
-                            newDisplayValue = users.find(u => u.id === newValue)?.name || newValue;
-                            break;
-                        case 'hasIcms':
-                        case 'requiresScheduling':
-                            oldDisplayValue = oldValue ? 'Sim' : 'Não';
-                            newDisplayValue = newValue ? 'Sim' : 'Não';
-                            break;
-                        case 'companyFreightValuePerTon':
-                        case 'driverFreightValuePerTon':
-                            oldDisplayValue = oldValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-                            newDisplayValue = newValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-                            break;
-                        case 'totalVolume':
-                            oldDisplayValue = `${oldValue} ton`;
-                            newDisplayValue = `${newValue} ton`;
-                            break;
-                        case 'icmsPercentage':
-                             oldDisplayValue = `${oldValue}%`;
-                            newDisplayValue = `${newValue}%`;
-                            break;
-                    }
-                    changes.push(`${fieldName} alterado de "${oldDisplayValue}" para "${newDisplayValue}"`);
-                }
-            });
+        if (key !== 'id' && key !== 'history' && key !== 'createdAt' && oldValue !== newValue) {
+          const fieldName = FIELD_TRANSLATIONS[key] || key;
+          let oldDisplayValue = oldValue;
+          let newDisplayValue = newValue;
 
-            if (changes.length > 0) {
-                const newHistory = createHistoryLog(`Carga atualizada: ${changes.join('; ')}.`);
-                updatedCargo = { ...l, ...loadData, history: [...l.history, newHistory]};
-                return updatedCargo;
-            }
-            updatedCargo = { ...l, ...loadData }; // Apply changes even if no history log
-            return updatedCargo;
+          switch (key) {
+            case 'clientId':
+              oldDisplayValue = clients.find(c => c.id === oldValue)?.nomeFantasia || oldValue;
+              newDisplayValue = clients.find(c => c.id === newValue)?.nomeFantasia || newValue;
+              break;
+            case 'productId':
+              oldDisplayValue = products.find(p => p.id === oldValue)?.name || oldValue;
+              newDisplayValue = products.find(p => p.id === newValue)?.name || newValue;
+              break;
+            case 'createdById':
+              oldDisplayValue = users.find(u => u.id === oldValue)?.name || oldValue;
+              newDisplayValue = users.find(u => u.id === newValue)?.name || newValue;
+              break;
+            case 'hasIcms':
+            case 'requiresScheduling':
+              oldDisplayValue = oldValue ? 'Sim' : 'Não';
+              newDisplayValue = newValue ? 'Sim' : 'Não';
+              break;
+            case 'companyFreightValuePerTon':
+            case 'driverFreightValuePerTon':
+              oldDisplayValue = oldValue?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) ?? 'N/A';
+              newDisplayValue = newValue?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) ?? 'N/A';
+              break;
+            case 'totalVolume':
+              oldDisplayValue = `${oldValue} ton`;
+              newDisplayValue = `${newValue} ton`;
+              break;
+            case 'icmsPercentage':
+              oldDisplayValue = `${oldValue}%`;
+              newDisplayValue = `${newValue}%`;
+              break;
+          }
+          changes.push(`${fieldName} alterado de "${oldDisplayValue}" para "${newDisplayValue}"`);
         }
-        return l;
-      }));
-      if (updatedCargo) {
-        try { await upsertCargo(updatedCargo); } catch(err) { console.error('Erro ao atualizar carga:', err); }
+      });
+
+      let updatedCargo: Cargo;
+      if (changes.length > 0) {
+        const newHistory = createHistoryLog(`Carga atualizada: ${changes.join('; ')}.`);
+        updatedCargo = { ...oldCargo, ...loadData, history: [...oldCargo.history, newHistory] };
+      } else {
+        updatedCargo = { ...oldCargo, ...loadData };
+      }
+
+      setCargos(prev => prev.map(l => l.id === loadData.id ? updatedCargo : l));
+      try {
+        await upsertCargo(updatedCargo);
+      } catch (err) {
+        console.error('Erro ao atualizar carga:', err);
       }
     } else { 
       if (!currentUser) return;
