@@ -7,6 +7,8 @@ import { CargoStatus } from '../types';
 import { CopyIcon } from '../components/icons/CopyIcon';
 
 import { BRAZILIAN_CITIES } from '../brazilianCities';
+import { geocodeCity, getCoordsSync } from '../utils/geocoding';
+import { upsertManyCargos } from '../lib/db';
 
 // Declare Leaflet globally since it's loaded via script tag in index.html
 declare const L: any;
@@ -23,33 +25,6 @@ interface OperationalMapPageProps {
   users: User[];
 }
 
-// Coordinates for some common logistics hubs in Brazil to ensure mock data maps correctly
-const LOGISTICS_HUBS: Record<string, { lat: number; lng: number }> = {
-  'Catalão, GO': { lat: -18.1691, lng: -47.9463 },
-  'Sinop, MT': { lat: -11.8598, lng: -55.5031 },
-  'Cuiabá, MT': { lat: -15.6010, lng: -56.0974 },
-  'Sorriso, MT': { lat: -12.5507, lng: -55.7126 },
-  'Rio Verde, GO': { lat: -17.7915, lng: -50.9202 },
-  'Goiânia, GO': { lat: -16.6869, lng: -49.2648 },
-  'Campo Grande, MS': { lat: -20.4697, lng: -54.6201 },
-  'Rondonópolis, MT': { lat: -16.4674, lng: -54.6347 },
-  'São Paulo, SP': { lat: -23.5505, lng: -46.6333 },
-  'Santos, SP': { lat: -23.9608, lng: -46.3339 },
-  'Paranaguá, PR': { lat: -25.5204, lng: -48.5093 },
-  'Uberlândia, MG': { lat: -18.9186, lng: -48.2772 },
-  'Patrocínio, MG': { lat: -18.9433, lng: -46.9944 },
-  'Guarda-Mor, MG': { lat: -17.7769, lng: -47.1042 },
-  'Cristalina, GO': { lat: -16.7686, lng: -47.6133 },
-  'Anápolis, GO': { lat: -16.3267, lng: -48.9528 },
-  'Rio Verde de Mato Grosso, MS': { lat: -18.9181, lng: -54.8442 },
-  'Dourados, MS': { lat: -22.2235, lng: -54.8064 },
-  'Luís Eduardo Magalhães, BA': { lat: -12.0968, lng: -45.7872 },
-  'Barreiras, BA': { lat: -12.1528, lng: -44.9978 },
-  'Primavera do Leste, MT': { lat: -15.5591, lng: -54.2965 },
-  'Nova Mutum, MT': { lat: -13.8294, lng: -56.0792 },
-  'Lucas do Rio Verde, MT': { lat: -13.0645, lng: -55.9103 },
-};
-
 const P180 = Math.PI / 180;
 
 // Simple Haversine formula to calculate distance in KM
@@ -63,9 +38,8 @@ const getDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => 
     Math.sin(dLon/2) * Math.sin(dLon/2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
   return R * c; 
-};
 
-const HUBS_MAP = new Map(Object.entries(LOGISTICS_HUBS).map(([k, v]) => [k.toLowerCase(), v]));
+};
 
 const OperationalMapPage: React.FC<OperationalMapPageProps> = ({ cargos, shipments, clients, products, drivers, vehicles, onCreateShipment, currentUser, users }) => {
   const [originQuery, setOriginQuery] = useState('Catalão');
@@ -76,19 +50,15 @@ const OperationalMapPage: React.FC<OperationalMapPageProps> = ({ cargos, shipmen
   const [destinationRadius, setDestinationRadius] = useState(200);
   const [destinationCoords, setDestinationCoords] = useState<{ lat: number; lng: number } | null>(null);
 
-  // Local cache for geocoding to improve performance and avoid repeated API calls
-  const [geoCache, setGeoCache] = useState<Record<string, [number, number]>>({});
   const [filteredLoads, setFilteredLoads] = useState<Cargo[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const abortControllerRef = useRef<AbortController | null>(null);
   
-  // Cache persistente para a sessão
-  const geocodeResultsRef = useRef<Record<string, [number, number]>>({});
   const [copyButtonText, setCopyButtonText] = useState('Divulgar');
   
   const [isShipmentModalOpen, setIsShipmentModalOpen] = useState(false);
   const [selectedCargoForShipment, setSelectedCargoForShipment] = useState<Cargo | null>(null);
+  const [syncingAll, setSyncingAll] = useState(false);
 
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
@@ -121,29 +91,14 @@ const OperationalMapPage: React.FC<OperationalMapPageProps> = ({ cargos, shipmen
     return cargos
       .filter(c => c.status === CargoStatus.EmAndamento)
       .map(c => {
-        const getCoordsFor = (locationName: string) => {
-            let coords = LOGISTICS_HUBS[locationName];
-            if (!coords) {
-              for (const hub in LOGISTICS_HUBS) {
-                  if (locationName.includes(hub.split(',')[0])) {
-                      return LOGISTICS_HUBS[hub];
-                  }
-              }
-              let hash = 0;
-              for (let i = 0; i < locationName.length; i++) {
-                hash = locationName.charCodeAt(i) + ((hash << 5) - hash);
-              }
-              coords = { 
-                lat: -10 - (Math.abs(hash % 1500) / 100), 
-                lng: -45 - (Math.abs((hash >> 2) % 1500) / 100) 
-              };
-            }
-            return coords;
-        }
+        // Use coordinates stored in DB, otherwise try synchronous fallback (for old loads), or skip
+        const originCoords = c.originCoords || getCoordsSync(c.origin);
+        const destinationCoords = c.destinationCoords || getCoordsSync(c.destination);
+
         return { 
             ...c, 
-            originCoords: getCoordsFor(c.origin),
-            destinationCoords: getCoordsFor(c.destination)
+            originCoords: originCoords || undefined,
+            destinationCoords: destinationCoords || undefined
         };
       });
   }, [cargos]);
@@ -211,6 +166,61 @@ const OperationalMapPage: React.FC<OperationalMapPageProps> = ({ cargos, shipmen
   useEffect(() => {
     setFilteredLoads(memoizedFilteredLoads);
   }, [memoizedFilteredLoads]);
+
+  // Initial search on mount if default query exists
+  useEffect(() => {
+    if (originQuery && !originCoords && !loading) {
+       handleSearch(null);
+    }
+  }, []);
+
+  const handleSyncAllCargos = async () => {
+    if (!window.confirm('Deseja atualizar as coordenadas de TODAS as cargas cadastradas? Isso pode levar algum tempo.')) return;
+    
+    setSyncingAll(true);
+    let updatedCount = 0;
+    
+    try {
+        const cargosToUpdate: Cargo[] = [];
+        
+        for (const cargo of cargos) {
+            if (!cargo.originCoords || !cargo.destinationCoords) {
+                const [origin, destination] = await Promise.all([
+                    geocodeCity(cargo.origin),
+                    geocodeCity(cargo.destination)
+                ]);
+                
+                if (origin || destination) {
+                    cargosToUpdate.push({
+                        ...cargo,
+                        originCoords: origin || cargo.originCoords,
+                        destinationCoords: destination || cargo.destinationCoords
+                    });
+                    updatedCount++;
+                }
+                
+                // Pequeno delay para não sobrecarregar a API Nominatim (rate limit 1s)
+                // Usamos 1.1s se for uma requisição real para o servidor externo
+                if (updatedCount % 2 === 0) {
+                     await new Promise(resolve => setTimeout(resolve, 1100));
+                }
+            }
+        }
+        
+        if (cargosToUpdate.length > 0) {
+            await upsertManyCargos(cargosToUpdate);
+            alert(`${updatedCount} cargas atualizadas com sucesso! Recarregando página...`);
+            window.location.reload();
+        } else {
+            alert('Todas as cargas já possuem coordenadas ou não foi possível geocodificar as restantes.');
+        }
+    } catch (err) {
+        console.error('Erro ao sincronizar coordenadas:', err);
+        alert('Ocorreu um erro durante a sincronização. Verifique o console.');
+    } finally {
+        setSyncingAll(false);
+    }
+  };
 
   const initMap = () => {
     if (!mapContainerRef.current || mapInstanceRef.current) return;
@@ -339,7 +349,7 @@ const OperationalMapPage: React.FC<OperationalMapPageProps> = ({ cargos, shipmen
       return Math.abs(lat - centerLat) <= latDegree && Math.abs(lon - centerLon) <= lonDegree;
   };
 
-  const handleSearch = async (e: React.FormEvent | null) => {
+    const handleSearch = async (e: React.FormEvent | null) => {
     if (e) e.preventDefault();
     if (!originQuery.trim() && !destinationQuery.trim()) {
       setOriginCoords(null);
@@ -348,64 +358,24 @@ const OperationalMapPage: React.FC<OperationalMapPageProps> = ({ cargos, shipmen
       return;
     }
 
-    // 1. Cancel previous pending search requests
-    if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-    }
-    abortControllerRef.current = new AbortController();
-
     setLoading(true);
     setError(null);
 
-    const geocode = async (query: string): Promise<[number, number] | null> => {
-        if (!query.trim()) return null;
-        const normalizedQuery = query.trim().toLowerCase();
-        
-        // 1. Check local Hubs first (Map lookup is O(1))
-        const hubCoords = HUBS_MAP.get(normalizedQuery);
-        if (hubCoords) {
-            return [hubCoords.lat, hubCoords.lng];
-        }
-
-        // 2. Check persistent ref cache (avoids re-geocoding same input in one session)
-        if (geocodeResultsRef.current[normalizedQuery]) {
-            return geocodeResultsRef.current[normalizedQuery];
-        }
-
-        // 3. Check state cache
-        if (geoCache[normalizedQuery]) {
-            return geoCache[normalizedQuery];
-        }
-
-        try {
-            // 4. Fallback to API with stricter parameters for precision
-            const response = await fetch(
-              `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query + ', Brasil')}&countrycodes=br&addressdetails=1&limit=1`,
-              { signal: abortControllerRef.current?.signal }
-            );
-            const data = await response.json();
-            if (data && data.length > 0) {
-                const result: [number, number] = [parseFloat(data[0].lat), parseFloat(data[0].lon)];
-                setGeoCache(prev => ({ ...prev, [normalizedQuery]: result }));
-                geocodeResultsRef.current[normalizedQuery] = result;
-                return result;
-            }
-            setError(prev => (prev ? prev + ` Localização não encontrada: "${query}".` : `Localização não encontrada: "${query}".`));
-            return null;
-        } catch (err: any) {
-            if (err.name === 'AbortError') return null;
-            setError(prev => (prev ? prev + ` Erro ao buscar localização para "${query}".` : `Erro ao buscar localização para "${query}".`));
-            return null;
-        }
-    };
     try {
         const [originResult, destinationResult] = await Promise.all([
-            geocode(originQuery),
-            geocode(destinationQuery)
+            geocodeCity(originQuery),
+            geocodeCity(destinationQuery)
         ]);
         
-        setOriginCoords(originResult ? { lat: originResult[0], lng: originResult[1] } : null);
-        setDestinationCoords(destinationResult ? { lat: destinationResult[0], lng: destinationResult[1] } : null);
+        setOriginCoords(originResult || null);
+        setDestinationCoords(destinationResult || null);
+        
+        if (!originResult && originQuery.trim()) {
+            setError(prev => (prev ? prev + ` Origem não encontrada.` : `Origem não encontrada.`));
+        }
+        if (!destinationResult && destinationQuery.trim()) {
+            setError(prev => (prev ? prev + ` Destino não encontrado.` : `Destino não encontrado.`));
+        }
     } finally {
         setLoading(false);
     }
@@ -550,6 +520,21 @@ const OperationalMapPage: React.FC<OperationalMapPageProps> = ({ cargos, shipmen
               </button>
             </form>
             {error && <p className="text-red-500 text-[10px] mt-3 font-bold bg-red-50 dark:bg-red-900/20 p-2 rounded-lg text-center">{error}</p>}
+            
+            <button 
+                onClick={handleSyncAllCargos}
+                disabled={syncingAll}
+                className="w-full mt-4 py-2 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl text-[10px] items-center justify-center font-bold text-gray-400 hover:text-blue-500 hover:border-blue-500 transition-all flex gap-2"
+            >
+                {syncingAll ? (
+                    <>
+                        <div className="w-3 h-3 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin"></div>
+                        <span>Sincronizando Coordenadas...</span>
+                    </>
+                ) : (
+                    <span>Sincronizar Todas as Cargas (Old)</span>
+                )}
+            </button>
           </div>
 
           {/* Card 2: Resultados - Centralizado agora na direita */}

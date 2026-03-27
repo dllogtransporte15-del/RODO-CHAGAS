@@ -184,7 +184,9 @@ export interface Cargo {
   attachments?: string[];
   // Location simulation for map
   originCoords?: { lat: number; lng: number };
+  destinationCoords?: { lat: number; lng: number };
 }
+
 
 export enum OrderStatus {
   Solicitada = "Solicitada",

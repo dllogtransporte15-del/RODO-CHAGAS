@@ -132,6 +132,7 @@ const toCargo = (row: any): Cargo => ({
   observations: row.observations,
   attachments: row.attachments || [],
   originCoords: row.origin_coords,
+  destinationCoords: row.destination_coords,
 });
 
 const fromCargo = (c: Cargo) => ({
@@ -163,6 +164,7 @@ const fromCargo = (c: Cargo) => ({
   observations: c.observations,
   attachments: c.attachments || [],
   origin_coords: c.originCoords,
+  destination_coords: c.destinationCoords,
 });
 
 const toShipment = (row: any): Shipment => ({

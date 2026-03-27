@@ -6,6 +6,7 @@ import { PlusIcon } from './icons/PlusIcon';
 import { XIcon } from './icons/XIcon';
 import { PaperclipIcon } from './icons/PaperclipIcon';
 import { BRAZILIAN_CITIES } from '../brazilianCities';
+import { geocodeCity } from '../utils/geocoding';
 
 interface LoadFormModalProps {
   isOpen: boolean;
@@ -182,10 +183,16 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
       }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     const activeLegs = hasMultiLeg ? (load.freightLegs || []).slice(0, 2) : (load.freightLegs || []).slice(0, 1);
+
+    // Geocode origin and destination
+    const [originCoords, destinationCoords] = await Promise.all([
+        geocodeCity(load.origin),
+        geocodeCity(load.destination)
+    ]);
 
     const finalLoadData = {
         ...load,
@@ -194,6 +201,8 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
         freightLegs: activeLegs,
         hasIcms: activeLegs[0]?.hasIcms || false,
         icmsPercentage: activeLegs[0]?.icmsPercentage || 0,
+        originCoords: originCoords || undefined,
+        destinationCoords: destinationCoords || undefined,
     };
 
     if (loadToEdit) {
