@@ -38,7 +38,18 @@ const getDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => 
     Math.sin(dLon/2) * Math.sin(dLon/2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
   return R * c; 
+};
 
+// Haversine formula (alias, same as getDistance)
+const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+  return getDistance(lat1, lon1, lat2, lon2);
+};
+
+// Quick filter by bounding box (lighter than full Haversine for pre-selection)
+const isInBoundingBox = (lat: number, lon: number, centerLat: number, centerLon: number, radiusKm: number): boolean => {
+  const latDegree = radiusKm / 111.32;
+  const lonDegree = radiusKm / (111.32 * Math.cos(centerLat * P180));
+  return Math.abs(lat - centerLat) <= latDegree && Math.abs(lon - centerLon) <= lonDegree;
 };
 
 const OperationalMapPage: React.FC<OperationalMapPageProps> = ({ cargos, shipments, clients, products, drivers, vehicles, onCreateShipment, currentUser, users }) => {
@@ -329,27 +340,7 @@ const OperationalMapPage: React.FC<OperationalMapPageProps> = ({ cargos, shipmen
     updateMapLayers();
   }, [filteredLoads, originCoords, destinationCoords]); // Dependencies ensure map updates correctly
 
-  // Haversine formula to calculate distance in KM
-  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
-      const R = 6371;
-      const dLat = (lat2 - lat1) * Math.PI / 180;
-      const dLon = (lon2 - lon1) * Math.PI / 180;
-      const a = 
-          Math.sin(dLat/2) * Math.sin(dLat/2) +
-          Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
-          Math.sin(dLon/2) * Math.sin(dLon/2);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-      return R * c;
-  };
-
-  // Quick filter by bounding box (lighter than full Haversine for pre-selection)
-  const isInBoundingBox = (lat: number, lon: number, centerLat: number, centerLon: number, radiusKm: number): boolean => {
-      const latDegree = radiusKm / 111.32;
-      const lonDegree = radiusKm / (111.32 * Math.cos(centerLat * Math.PI / 180));
-      return Math.abs(lat - centerLat) <= latDegree && Math.abs(lon - centerLon) <= lonDegree;
-  };
-
-    const handleSearch = async (e: React.FormEvent | null) => {
+  const handleSearch = async (e: React.FormEvent | null) => {
     if (e) e.preventDefault();
     if (!originQuery.trim() && !destinationQuery.trim()) {
       setOriginCoords(null);
