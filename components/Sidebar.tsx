@@ -60,14 +60,6 @@ const navItems: NavItem[] = [
         { id: 'loads', label: 'Cargas', icon: PackageIcon },
     ]
   },
-  {
-    id: 'financial',
-    label: 'Financeiro',
-    icon: DollarSignIcon,
-    children: [
-      { id: 'commissions', label: 'Comissões', icon: DollarSignIcon },
-    ],
-  },
   { id: 'reports', label: 'Relatórios', icon: ChartIcon },
   {
     id: 'settings',
