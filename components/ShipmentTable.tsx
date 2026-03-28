@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import type { Shipment, Cargo, User, Vehicle, Client } from '../types';
 import { ShipmentStatus, UserProfile } from '../types';
 import { PaperclipIcon } from './icons/PaperclipIcon';
@@ -37,8 +38,10 @@ interface ShipmentTableProps {
 
 const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users, vehicles, onAttach, onEditPrice, onCancel, onTransfer, onShowHistory, onShowCargoDetails, canUserAdvanceStatus, onMarkArrival, onDelete, onOpenCadastroAntt, currentUser, activeStatus, clients }) => {
   const [openActionMenu, setOpenActionMenu] = useState<string | null>(null);
+  const [menuPosition, setMenuPosition] = useState<{ top: number, left: number, isUp: boolean } | null>(null);
   const [detailsModalShipment, setDetailsModalShipment] = useState<Shipment | null>(null);
   const actionMenuRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
 
   const [showFilters, setShowFilters] = useState(false);
   const [filterPlate, setFilterPlate] = useState<string[]>([]);
@@ -57,8 +60,22 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users,
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const toggleActionMenu = (shipmentId: string) => {
-    setOpenActionMenu(prev => (prev === shipmentId ? null : shipmentId));
+  const toggleActionMenu = (shipmentId: string, event: React.MouseEvent<HTMLButtonElement>) => {
+    if (openActionMenu === shipmentId) {
+      setOpenActionMenu(null);
+      setMenuPosition(null);
+    } else {
+      const rect = event.currentTarget.getBoundingClientRect();
+      const menuHeight = 250; // Estimated height
+      const isUp = rect.bottom + menuHeight > window.innerHeight;
+      
+      setMenuPosition({
+        top: isUp ? rect.top : rect.bottom,
+        left: rect.right,
+        isUp: isUp
+      });
+      setOpenActionMenu(shipmentId);
+    }
   };
 
   const getCargoInfo = (cargoId: string): Cargo | null => {
@@ -282,7 +299,7 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users,
                   <div className="flex gap-2">
                     {(!isClient || showActionsColumnForClient) && (
                       <button 
-                        onClick={() => toggleActionMenu(shipment.id)}
+                        onClick={(e) => toggleActionMenu(shipment.id, e)}
                         className="flex items-center gap-2 px-3 py-1.5 bg-primary text-white text-xs rounded-md shadow-sm hover:bg-primary/90"
                       >
                         Ações <MoreVerticalIcon className="w-3 h-3" />
@@ -463,16 +480,27 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users,
                                   {shipment.status === ShipmentStatus.Cancelado && currentUser.profile !== UserProfile.Admin ? (
                                       <span className="text-xs text-gray-400 dark:text-gray-500 italic px-2">Cancelado</span>
                                   ) : (
-                                      <div className="relative" ref={openActionMenu === shipment.id ? actionMenuRef : null}>
+                                      <div className="relative">
                                           <button
-                                              onClick={() => toggleActionMenu(shipment.id)}
+                                              onClick={(e) => toggleActionMenu(shipment.id, e)}
                                               className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500 dark:text-gray-400"
                                               title="Mais ações"
                                           >
                                               <MoreVerticalIcon className="h-5 w-5" />
                                           </button>
-                                          {openActionMenu === shipment.id && (
-                                              <div className="absolute right-0 mt-2 w-56 origin-top-right bg-white dark:bg-gray-800 rounded-md shadow-lg ring-1 ring-black ring-opacity-5 z-20">
+                                          
+                                          {openActionMenu === shipment.id && menuPosition && createPortal(
+                                              <div 
+                                                ref={actionMenuRef}
+                                                style={{
+                                                  position: 'fixed',
+                                                  top: menuPosition.isUp ? 'auto' : `${menuPosition.top + 8}px`,
+                                                  bottom: menuPosition.isUp ? `${window.innerHeight - menuPosition.top + 8}px` : 'auto',
+                                                  left: `${menuPosition.left - 224}px`, // 224 is w-56 (14rem * 16px)
+                                                  zIndex: 9999
+                                                }}
+                                                className="w-56 bg-white dark:bg-gray-800 rounded-md shadow-lg ring-1 ring-black ring-opacity-5 animate-in fade-in zoom-in duration-100"
+                                              >
                                                   <div className="py-1" role="menu" aria-orientation="vertical">
                                                       {onShowHistory && <ActionMenuItem icon={HistoryIcon} text="Ver Histórico" onClick={() => onShowHistory(shipment)} />}
                                                       {shipment.status !== ShipmentStatus.Cancelado && (
@@ -487,7 +515,8 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users,
                                                       )}
                                                       {onDelete && currentUser.profile === UserProfile.Admin && <ActionMenuItem icon={Trash2} text="Excluir Embarque" onClick={() => onDelete(shipment.id)} isDestructive />}
                                                   </div>
-                                              </div>
+                                              </div>,
+                                              document.body
                                           )}
                                       </div>
                                   )}

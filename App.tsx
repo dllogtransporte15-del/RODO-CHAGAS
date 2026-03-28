@@ -1,5 +1,6 @@
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import { supabase } from './supabase';
 import TopNavBar from './components/TopNavBar';
 import TicketModal from './components/TicketModal';
 import DashboardPage from './pages/DashboardPage';
@@ -86,8 +87,13 @@ interface NewShipmentRequestData extends Omit<Shipment, 'id' | 'orderId' | 'stat
 }
 
 const App: React.FC = () => {
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [currentPage, setCurrentPage] = useState<Page>('dashboard');
+  const [currentUser, setCurrentUser] = useState<User | null>(() => {
+    const saved = localStorage.getItem('rodochagas_currentUser');
+    return saved ? JSON.parse(saved) : null;
+  });
+  const [currentPage, setCurrentPage] = useState<Page>(() => {
+    return (localStorage.getItem('rodochagas_currentPage') as Page) || 'dashboard';
+  });
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -172,6 +178,33 @@ const App: React.FC = () => {
       setIsLoading(false);
     }
   }, []);
+
+  useEffect(() => {
+    if (currentUser) {
+      localStorage.setItem('rodochagas_currentUser', JSON.stringify(currentUser));
+    } else {
+      localStorage.removeItem('rodochagas_currentUser');
+    }
+  }, [currentUser]);
+
+  useEffect(() => {
+    localStorage.setItem('rodochagas_currentPage', currentPage);
+  }, [currentPage]);
+
+  // --- REAL-TIME UPDATES ---
+  useEffect(() => {
+    const channel = supabase
+      .channel('schema_changes')
+      .on('postgres_changes', { event: '*', schema: 'public' }, (payload) => {
+        console.log('Real-time change detected:', payload);
+        loadAllData();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [loadAllData]);
 
   useEffect(() => {
     loadAllData();
@@ -1099,15 +1132,7 @@ const App: React.FC = () => {
   const renderPage = () => {
     if (!currentUser) return null;
 
-    if (isLoading) {
-      return (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '60vh', gap: '16px' }}>
-          <div style={{ width: '48px', height: '48px', border: '4px solid #e5e7eb', borderTopColor: '#3b82f6', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
-          <p style={{ color: '#6b7280', fontSize: '16px' }}>Carregando dados do servidor...</p>
-          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-        </div>
-      );
-    }
+    // We moved the isLoading check to the top-level to prevent race conditions during login.
 
     if (loadError) {
       return (
@@ -1237,6 +1262,16 @@ const App: React.FC = () => {
         return <DashboardPage cargos={visibleLoads} shipments={visibleShipments} users={users} currentUser={currentUser} />;
     }
   };
+
+  if (isLoading) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', gap: '16px', background: '#f9fafb' }}>
+        <div style={{ width: '48px', height: '48px', border: '4px solid #e5e7eb', borderTopColor: '#3b82f6', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+        <p style={{ color: '#6b7280', fontSize: '18px', fontWeight: 500 }}>Carregando Rodochagas Logística...</p>
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
 
   if (!currentUser) {
     return <LoginPage onLogin={handleLogin} users={users} companyLogo={companyLogo} />;

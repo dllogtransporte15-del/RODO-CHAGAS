@@ -15,7 +15,12 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, users, companyLogo }) =>
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const user = users.find(u => u.email === email && u.password === password);
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanPassword = password.trim();
+    
+    // Find user with case-insensitive email matching
+    const user = users.find(u => u.email.trim().toLowerCase() === cleanEmail && u.password === cleanPassword);
+    
     if (user && user.active) {
       onLogin(user);
     } else if (user && !user.active) {
