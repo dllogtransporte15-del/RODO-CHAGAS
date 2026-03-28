@@ -59,6 +59,10 @@ const FIELD_TRANSLATIONS: Record<string, string> = {
   type: 'Tipo de Carga',
   status: 'Status da Carga',
   createdById: 'Comercial Responsável',
+  freightLegs: 'Trechos de Frete',
+  dailySchedule: 'Agenda Diária',
+  originCoords: 'Coordenadas de Origem',
+  destinationCoords: 'Coordenadas de Destino',
 
   // Shipment fields
   driverId: 'Motorista',
@@ -1004,6 +1008,19 @@ const App: React.FC = () => {
             case 'icmsPercentage':
               oldDisplayValue = `${oldValue}%`;
               newDisplayValue = `${newValue}%`;
+              break;
+            case 'originCoords':
+            case 'destinationCoords':
+              oldDisplayValue = oldValue ? `Lat: ${oldValue.lat.toFixed(4)}, Lng: ${oldValue.lng.toFixed(4)}` : 'N/A';
+              newDisplayValue = newValue ? `Lat: ${newValue.lat.toFixed(4)}, Lng: ${newValue.lng.toFixed(4)}` : 'N/A';
+              break;
+            case 'dailySchedule':
+              oldDisplayValue = Array.isArray(oldValue) && oldValue.length > 0 ? `${oldValue.length} dias agendados` : (oldValue === "" ? 'Vazio' : 'N/A');
+              newDisplayValue = Array.isArray(newValue) && newValue.length > 0 ? `${newValue.length} dias agendados` : 'Vazio';
+              break;
+            case 'freightLegs':
+              oldDisplayValue = Array.isArray(oldValue) && oldValue.length > 0 ? `${oldValue.length} trechos` : 'Padrão';
+              newDisplayValue = Array.isArray(newValue) && newValue.length > 0 ? `${newValue.length} trechos` : 'Padrão';
               break;
           }
           changes.push(`${fieldName} alterado de "${oldDisplayValue}" para "${newDisplayValue}"`);
