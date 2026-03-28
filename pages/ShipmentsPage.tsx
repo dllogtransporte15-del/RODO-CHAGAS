@@ -93,11 +93,11 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({
             setSelectedShipment(shipment);
             setAttachmentModalOpen(true);
             
-            // Set up heartbeat to keep lock alive (every 4 minutes, since it expires in 5)
+            // Set up heartbeat to keep lock alive (every 45 seconds, since it expires in 60s)
             if (lockHeartbeatRef.current) clearInterval(lockHeartbeatRef.current);
             lockHeartbeatRef.current = setInterval(async () => {
                 await tryAcquireShipmentLock(shipment.id, currentUser.id, currentUser.name);
-            }, 4 * 60 * 1000);
+            }, 45 * 1000);
         } else {
             alert(`Este embarque foi bloqueado para edição por ${result.lockedBy}.`);
         }
