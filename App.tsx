@@ -1163,7 +1163,7 @@ const App: React.FC = () => {
 
     switch (currentPage) {
       case 'dashboard':
-        return <DashboardPage cargos={visibleLoads} shipments={visibleShipments} users={users} currentUser={currentUser} />;
+        return <DashboardPage cargos={visibleLoads} shipments={visibleShipments} users={users} currentUser={currentUser} clients={clients} />;
       case 'clients':
         return <ClientsPage clients={clients} setClients={setClients} onSaveClient={handleSaveClient} currentUser={currentUser} profilePermissions={profilePermissions} />;
       case 'owners':

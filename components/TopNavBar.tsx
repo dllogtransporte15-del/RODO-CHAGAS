@@ -168,7 +168,9 @@ const TopNavBar: React.FC<TopNavBarProps> = ({ user, onLogout, currentPage, setC
                 {companyLogo ? (
                     <img src={companyLogo} alt="Logo" className="h-8 md:h-9 w-auto object-contain max-w-[150px] md:max-w-none" />
                 ) : (
-                    <h1 className="text-lg md:text-xl font-bold text-primary dark:text-white whitespace-nowrap">Rodochagas Logística</h1>
+                    <h1 className="text-lg md:text-xl font-black text-primary dark:text-white tracking-tighter uppercase">
+                      RODO<span className="text-accent">CHAGAS</span>
+                    </h1>
                 )}
             </a>
           </div>
@@ -182,8 +184,8 @@ const TopNavBar: React.FC<TopNavBarProps> = ({ user, onLogout, currentPage, setC
                         <div className="relative" key={item.id} ref={item.id === openDropdown ? dropdownRef : null}>
                             <button
                                 onClick={() => handleDropdownToggle(item.id)}
-                                className={`flex items-center px-4 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${
-                                    isActive ? 'text-primary dark:text-blue-400 bg-blue-50 dark:bg-blue-900/50' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                                className={`flex items-center px-4 py-2 text-sm font-medium rounded-md transition-all duration-200 ${
+                                    isActive ? 'text-primary dark:text-blue-400 bg-primary/10 dark:bg-primary/20 shadow-sm' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
                                 }`}
                             >
                                 <span>{item.label}</span>
@@ -225,8 +227,8 @@ const TopNavBar: React.FC<TopNavBarProps> = ({ user, onLogout, currentPage, setC
                 }
                 return (
                     <a href="#" key={item.id} onClick={(e) => { e.preventDefault(); handlePageSelect(item.id as Page); }}
-                       className={`px-4 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${
-                           isActive ? 'text-primary dark:text-blue-400 bg-blue-50 dark:bg-blue-900/50' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                       className={`px-4 py-2 text-sm font-medium rounded-md transition-all duration-200 ${
+                           isActive ? 'text-primary dark:text-blue-400 bg-primary/10 dark:bg-primary/20 shadow-sm' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
                        }`}
                     >{item.label}</a>
                 )
@@ -251,8 +253,8 @@ const TopNavBar: React.FC<TopNavBarProps> = ({ user, onLogout, currentPage, setC
             </div>
 
             <div className="relative" ref={openDropdown === 'user' ? dropdownRef : null}>
-              <button onClick={() => handleDropdownToggle('user')} className="flex items-center space-x-2">
-                <div className="w-8 h-8 rounded-full bg-blue-200 text-primary flex items-center justify-center font-bold">
+              <button onClick={() => handleDropdownToggle('user')} className="flex items-center space-x-2 p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-all">
+                <div className="w-8 h-8 rounded-full bg-accent text-white flex items-center justify-center font-bold shadow-md">
                   {user.name.charAt(0)}
                 </div>
                 <div className="hidden lg:block text-left">

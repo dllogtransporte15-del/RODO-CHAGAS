@@ -40,63 +40,77 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, users, companyLogo }) =>
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900">
-      <div className="w-full max-w-md p-8 space-y-8 bg-white rounded-lg shadow-md dark:bg-gray-800">
+    <div className="relative flex items-center justify-center min-h-screen bg-primary overflow-hidden">
+      {/* Brand Angled Pattern Background */}
+      <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-0 right-0 w-[80%] h-full bg-accent opacity-10 skew-x-[-25deg] origin-top-right"></div>
+        <div className="absolute bottom-0 left-0 w-[40%] h-[50%] bg-accent opacity-5 skew-x-[-15deg] origin-bottom-left"></div>
+      </div>
+
+      <div className="relative z-10 w-full max-w-md p-10 space-y-8 bg-white dark:bg-dark-card rounded-2xl shadow-2xl border-t-8 border-accent">
         <div className="text-center">
           {companyLogo ? (
-            <img src={companyLogo} alt="Logo da Empresa" className="h-16 mx-auto" />
+            <img src={companyLogo} alt="Logo da Empresa" className="h-20 mx-auto filter drop-shadow-md" />
           ) : (
-            <h1 className="text-4xl font-bold text-primary dark:text-white">Rodochagas Logística</h1>
+            <h1 className="text-4xl font-black text-primary dark:text-white tracking-tighter">
+              RODO<span className="text-accent">CHAGAS</span>
+            </h1>
           )}
-          <p className="mt-2 text-gray-600 dark:text-gray-400">Sistema de Gestão Logística</p>
+          <div className="mt-4 flex flex-col items-center">
+            <p className="text-lg font-bold text-primary dark:text-blue-400">Sistema de Gestão Logística</p>
+            <div className="h-1 w-12 bg-accent mt-1 rounded-full"></div>
+          </div>
         </div>
+
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          <div className="rounded-md shadow-sm -space-y-px">
-            <div>
+          <div className="space-y-4">
+            <div className="relative">
               <input
                 id="email-address"
                 name="email"
                 type="email"
-                autoComplete="email"
-                autoCapitalize="none"
-                autoCorrect="off"
-                spellCheck="false"
                 required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-primary focus:border-primary focus:z-10 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white"
-                placeholder="Email"
+                className="appearance-none block w-full px-4 py-3 border border-gray-200 dark:border-gray-700 placeholder-gray-400 text-gray-900 rounded-xl focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent sm:text-sm dark:bg-gray-800 dark:text-white transition-all"
+                placeholder="Seu email"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
               />
             </div>
-            <div>
+            <div className="relative">
               <input
                 id="password"
                 name="password"
                 type="password"
-                autoComplete="current-password"
-                autoCapitalize="none"
-                autoCorrect="off"
-                spellCheck="false"
                 required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-primary focus:border-primary focus:z-10 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white"
-                placeholder="Senha"
+                className="appearance-none block w-full px-4 py-3 border border-gray-200 dark:border-gray-700 placeholder-gray-400 text-gray-900 rounded-xl focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent sm:text-sm dark:bg-gray-800 dark:text-white transition-all"
+                placeholder="Sua senha"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
               />
             </div>
           </div>
 
-          {error && <p className="mt-2 text-center text-sm text-red-600">{error}</p>}
+          {error && (
+            <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+               <p className="text-center text-sm text-red-600 dark:text-red-400 font-medium">{error}</p>
+            </div>
+          )}
 
-          <div>
+          <div className="pt-2">
             <button
               type="submit"
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-dark"
+              className="w-full flex justify-center py-3 px-4 border border-transparent text-base font-bold rounded-xl text-white bg-accent hover:bg-accent-dark focus:outline-none focus:ring-4 focus:ring-accent/50 shadow-lg shadow-accent/20 transition-all transform hover:-translate-y-1 active:scale-[0.98]"
             >
-              Entrar
+              ENTRAR NO SISTEMA
             </button>
           </div>
         </form>
+        
+        <div className="text-center pt-4">
+            <p className="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-widest font-bold">
+                Transparência | Cuidado | Prazo
+            </p>
+        </div>
       </div>
     </div>
   );

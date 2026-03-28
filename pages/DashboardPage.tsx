@@ -9,8 +9,8 @@ import { TruckIcon } from '../components/icons/TruckIcon';
 import { PackageIcon } from '../components/icons/PackageIcon';
 import { DollarSignIcon } from '../components/icons/DollarSignIcon';
 import { ClientsIcon } from '../components/icons/ClientsIcon';
-import type { Cargo, Shipment, User } from '../types';
 import { CargoStatus, ShipmentStatus, UserProfile } from '../types';
+import type { Cargo, Shipment, User, Client } from '../types';
 import ShipmentDetailsModal from '../components/ShipmentDetailsModal';
 
 interface DashboardPageProps {
@@ -18,6 +18,7 @@ interface DashboardPageProps {
   shipments: Shipment[];
   users: User[];
   currentUser: User | null;
+  clients: Client[];
 }
 
 interface ShipmentListCardProps {
@@ -124,7 +125,7 @@ const ShipmentListCard: React.FC<ShipmentListCardProps> = ({ title, shipments, u
 };
 
 
-const DashboardPage: React.FC<DashboardPageProps> = ({ cargos, shipments, users, currentUser }) => {
+const DashboardPage: React.FC<DashboardPageProps> = ({ cargos, shipments, users, currentUser, clients }) => {
   const [detailsModalShipment, setDetailsModalShipment] = React.useState<Shipment | null>(null);
 
   const cargoStatusData = useMemo(() => {
@@ -152,6 +153,40 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ cargos, shipments, users,
       value: counts[status] || 0,
     }));
   }, [shipments]);
+
+  const clientVolumeData = useMemo(() => {
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    const volumesByClient: Record<string, number> = {};
+
+    shipments.forEach(s => {
+      // Find when it was loaded (AguardandoDescarga status)
+      const loadedEntry = s.statusHistory?.find(h => h.status === ShipmentStatus.AguardandoDescarga);
+      if (loadedEntry) {
+        const date = new Date(loadedEntry.timestamp);
+        if (date.getMonth() === currentMonth && date.getFullYear() === currentYear) {
+          const cargo = cargos.find(c => c.id === s.cargoId);
+          if (cargo) {
+            volumesByClient[cargo.clientId] = (volumesByClient[cargo.clientId] || 0) + s.shipmentTonnage;
+          }
+        }
+      }
+    });
+
+    const colors = ['bg-blue-500', 'bg-emerald-500', 'bg-orange-500', 'bg-purple-500', 'bg-red-500', 'bg-yellow-500', 'bg-pink-500', 'bg-indigo-500'];
+    
+    return Object.entries(volumesByClient)
+      .map(([clientId, value], index) => {
+        const client = clients.find(c => c.id === clientId);
+        return {
+          label: client ? client.nomeFantasia || client.razaoSocial : 'Desconhecido',
+          value,
+          color: colors[index % colors.length]
+        };
+      })
+      .sort((a, b) => b.value - a.value);
+  }, [shipments, cargos, clients]);
   
   const activeShipments = useMemo(() => {
     return shipments.filter(s => s.status !== ShipmentStatus.Finalizado).length;
@@ -397,13 +432,13 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ cargos, shipments, users,
           title="Embarques Ativos"
           value={activeShipments.toString()}
           icon={<TruckIcon className="w-6 h-6 text-white" />}
-          colorClass="bg-blue-500"
+          colorClass="bg-primary"
         />
         <Card
           title="Cargas em Andamento"
           value={pendingLoads.toString()}
           icon={<PackageIcon className="w-6 h-6 text-white" />}
-          colorClass="bg-gray-500"
+          colorClass="bg-secondary"
         />
         <Card
           title="Tons Efetivadas (Mês)"
@@ -416,7 +451,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ cargos, shipments, users,
             title="Comissão (Mês)"
             value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(dashboardStats.monthlyCommission)}
             icon={<DollarSignIcon className="w-6 h-6 text-white" />}
-            colorClass="bg-emerald-500"
+            colorClass="bg-accent"
           />
         ) : (
           <Card
@@ -428,9 +463,12 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ cargos, shipments, users,
         )}
       </div>
       <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {canViewRanking && <ShipperRankingCard shipments={shipments} cargos={cargos} users={users} currentUser={currentUser} />}
-        <DonutChartCard title="Distribuição de Cargas por Status" data={cargoStatusData} />
+        <div className="space-y-6">
+            <DonutChartCard title="Distribuição de Cargas por Status" data={cargoStatusData} />
+            <DonutChartCard title="Volume Carregado por Cliente (Mês)" data={clientVolumeData} unit="t" />
+        </div>
         <ShipmentFunnelCard title="Funil de Embarques" data={shipmentStatusData} />
+        {canViewRanking && <ShipperRankingCard shipments={shipments} cargos={cargos} users={users} currentUser={currentUser} />}
       </div>
 
       <ShipmentDetailsModal
