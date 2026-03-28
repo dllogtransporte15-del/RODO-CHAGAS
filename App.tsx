@@ -24,7 +24,7 @@ import LayoverCalculatorPage from './pages/LayoverCalculatorPage';
 import FreightQuotePage from './pages/FreightQuotePage';
 import ToolsHistoryPage from './pages/ToolsHistoryPage';
 import ProductsPage from './pages/ProductsPage';
-import type { Client, Owner, Driver, Vehicle, Product, Cargo, Shipment, User, Page, ProfilePermissions, HistoryLog, Ticket, TicketHistory } from './types';
+import type { Client, Owner, Driver, Vehicle, Product, Cargo, Shipment, User, Page, ProfilePermissions, HistoryLog, Ticket, TicketHistory, ShipmentLock } from './types';
 import { CargoStatus, ShipmentStatus, UserProfile, TicketStatus, TicketPriority, DriverClassification, VehicleSetType, VehicleBodyType } from './types';
 import { formatId } from './utils';
 import { INITIAL_PERMISSIONS } from './auth';
@@ -36,7 +36,8 @@ import {
   upsertManyDrivers, upsertManyVehicles, upsertManyShipments, upsertManyCargos,
   uploadShipmentAttachment, getShipmentAttachmentUrl,
   fetchAppSettings, saveAppSettings,
-  deleteCargo, deleteShipment, deleteUser, upsertProduct, deleteProduct
+  deleteCargo, deleteShipment, deleteUser, upsertProduct, deleteProduct,
+  fetchShipmentLocks, tryAcquireShipmentLock, releaseShipmentLock
 } from './lib/db';
 
 const RODOCHAGAS_LOGO_BASE64 = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wCEAAkGBxISEhUSEhIVFRUVFRUVFRUVFRUVFRUVFRUWFhUVFRUYHSggGBolHRUVITEhJSkrLi4uFx8zODMtNygtLisBCgoKDg0OGxAQGy0lICUtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLf/AABEIAJYAlgMBIgACEQEDEQH/xAAcAAABBQEBAQAAAAAAAAAAAAAAAQIDBAUGBwj/xAA+EAABAwIEAwQHBgQGAwAAAAABAAIRAyEEEjFBBVFhBnGBkRMiMqGxwdHwFEJS4fEGYnKCorLCFiQ0c8P/AAaAQEAAwEBAQAAAAAAAAAAAAAAAQIDBAUG/xAAuEQEAAgIBAwIDCAIDAAAAAAAAAAECEQMSITFBUQQTYSIycYGRobHR8MEUI0Lh/9oADAMBAAIRAxEAPwD2hCEIAEIQgAQhCABCEIAEIQgAQhCABCEIAEIQgAQhCABCEIAEIQgAQhCABCEIAEIQgAQhCABCEIAEIQgAUK1aVpc89Ggn2CuuX4zxFtWm+j9o1hfBqQCWs/e5mRcNdG26AOKzTjT6lYsqVG02sE0qbRmc4HUCJMnfTQBY9Hjr2U20KDy+ZNTESHGTEz337Kzw/1wzE1B9np0zVqVsVKr3F0TYS42G+wWdw3gn+HqvrucypC4DSgOaGtJEmDqSY3IE5TMSfLb2m9I6mLi4fX8X/R1XA+NuxD/ALO+mGVC0ua5pcWutMEEXuCR/wBz0F3yLgPCwzG1ahqNL/suVkES4BxJLSPuwdR+6NeqO1d/C5HJp9/L/Rz54qMbvoEIQuowBCEIAEIQgAQhCABCEIAEIQgAQhCABCEIAEIQgAQhCABCEIAEIQgAQhCAOY4/VpChVa97BLHNLQczpkEWGs2XlsJcKjnFrnNaXmSAHHYEaR6L2vEeC4fEATDiLtc2A4dJ0PsQuawv2bNbicxqn2JgtZT5S+dxmc4i+ggLs4fUQjFqbs8Hi/DZZZ5UoK0v5OLxOIbUfUqVGmpUDiym0OMMaNPdAJjUnfZe0+z2niGYdzcWAHOHslzSxxEHIQ6SRY/guX/APj52L+0Go1sEimKbS6mB+6XmQCTroOnr0WB4NRw/8AaKj6dSpnFM5y5uVr8xAawEkkwdTHMLfUTlODWl7/AKRz8LhjhzuMrb1/p0PQgIXAV3QhCABCEIAEIQgAQhCABCEIAEIQgAQhCABCEIAEIQgAQhCABCEIAEIQgAQhCABCEIAEIQgAQhCABCEIAEIQgAQhCABCEIAEIQgAQhCABCEIAEIQgAQhCABCEIAEIQgAQhCABCEIAEIQgAQhCABCEIAEIQgD/9k=";
@@ -107,6 +108,7 @@ const App: React.FC = () => {
   const [shipments, setShipments] = useState<Shipment[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [activeLocks, setActiveLocks] = useState<ShipmentLock[]>([]);
   const [profilePermissions, setProfilePermissions] = useState<ProfilePermissions>(INITIAL_PERMISSIONS);
   const [isTicketModalOpen, setIsTicketModalOpen] = useState(false);
 
@@ -129,7 +131,7 @@ const App: React.FC = () => {
     setIsLoading(true);
     setLoadError(null);
     try {
-      const [dbClients, dbOwners, dbDrivers, dbVehicles, dbProducts, dbCargos, dbShipments, dbUsers, dbTickets, dbPermissions, dbSettings] = await Promise.all([
+      const [dbClients, dbOwners, dbDrivers, dbVehicles, dbProducts, dbCargos, dbShipments, dbUsers, dbTickets, dbPermissions, dbSettings, dbLocks] = await Promise.all([
         fetchClients(),
         fetchOwners(),
         fetchDrivers(),
@@ -141,6 +143,7 @@ const App: React.FC = () => {
         fetchTickets(),
         fetchProfilePermissions(),
         fetchAppSettings(),
+        fetchShipmentLocks(),
       ]);
       setClients(dbClients);
       setOwners(dbOwners);
@@ -158,6 +161,7 @@ const App: React.FC = () => {
         if (dbSettings.company_logo) setCompanyLogo(dbSettings.company_logo);
         if (dbSettings.theme_image) setThemeImage(dbSettings.theme_image);
       }
+      setActiveLocks(dbLocks);
       // Update nextIds from DB counts
       setNextIds({
         client: dbClients.length + 100,
@@ -205,6 +209,19 @@ const App: React.FC = () => {
       supabase.removeChannel(channel);
     };
   }, [loadAllData]);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel('lock_changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'shipment_locks' }, () => {
+        fetchShipmentLocks().then(setActiveLocks);
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   useEffect(() => {
     loadAllData();
@@ -1177,6 +1194,7 @@ const App: React.FC = () => {
                     onMarkArrival={handleMarkArrival}
                     onTransferShipment={handleTransferShipment}
                     onDeleteShipment={handleDeleteShipment}
+                    activeLocks={activeLocks}
                 />;
       case 'operational-loads':
         return (

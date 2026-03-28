@@ -309,3 +309,12 @@ export interface Ticket {
   createdAt: string;
   history: TicketHistory[];
 }
+
+export interface ShipmentLock {
+  id: string;
+  shipmentId: string;
+  userId: string;
+  userName: string;
+  createdAt: string;
+  expiresAt: string;
+}

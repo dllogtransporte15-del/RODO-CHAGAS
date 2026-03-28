@@ -10,9 +10,11 @@ import HistoryModal from '../components/HistoryModal';
 import CadastroAnttModal from '../components/CadastroAnttModal';
 import CargoDetailsModal from '../components/CargoDetailsModal';
 import TransferShipmentModal from '../components/TransferShipmentModal';
-import type { Shipment, Cargo, Client, Driver, User, ProfilePermissions, Product, Vehicle } from '../types';
+import type { Shipment, Cargo, Client, Driver, User, ProfilePermissions, Product, Vehicle, ShipmentLock } from '../types';
 import { ShipmentStatus, UserProfile } from '../types';
 import { can } from '../auth';
+import { tryAcquireShipmentLock, releaseShipmentLock } from '../lib/db';
+import { useEffect, useRef } from 'react';
 
 interface ShipmentsPageProps {
   shipments: Shipment[];
@@ -31,6 +33,7 @@ interface ShipmentsPageProps {
   onTransferShipment: (shipmentId: string, newEmbarcadorId: string) => void;
   onMarkArrival: (shipmentId: string) => void;
   onDeleteShipment: (shipmentId: string) => void;
+  activeLocks: ShipmentLock[];
 }
 
 const requiredDocumentMap: Partial<Record<ShipmentStatus, string>> = {
@@ -44,7 +47,12 @@ const requiredDocumentMap: Partial<Record<ShipmentStatus, string>> = {
     [ShipmentStatus.AguardandoPagamentoSaldo]: 'Comprovante de Pagamento de Saldo',
 };
 
-const ShipmentsPage: React.FC<ShipmentsPageProps> = ({ shipments, cargos, clients, products, drivers, vehicles, currentUser, profilePermissions, users, onUpdateAttachment, onUpdatePrice, onConfirmCancel, onUpdateAnttAndBankDetails, onTransferShipment, onMarkArrival, onDeleteShipment }) => {
+const ShipmentsPage: React.FC<ShipmentsPageProps> = ({ 
+  shipments, cargos, clients, products, drivers, vehicles, currentUser, 
+  profilePermissions, users, onUpdateAttachment, onUpdatePrice, onConfirmCancel, 
+  onUpdateAnttAndBankDetails, onTransferShipment, onMarkArrival, onDeleteShipment,
+  activeLocks 
+}) => {
   const [activeStatus, setActiveStatus] = useState<ShipmentStatus>(ShipmentStatus.AguardandoSeguradora);
   const [isAttachmentModalOpen, setAttachmentModalOpen] = useState(false);
   const [isEditPriceModalOpen, setEditPriceModalOpen] = useState(false);
@@ -54,6 +62,7 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({ shipments, cargos, client
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
   const [selectedShipment, setSelectedShipment] = useState<Shipment | null>(null);
   const [detailsModalCargo, setDetailsModalCargo] = useState<Cargo | null>(null);
+  const lockHeartbeatRef = useRef<NodeJS.Timeout | null>(null);
 
   const canUpdate = can('update', currentUser, 'shipments', profilePermissions);
   const canDelete = can('delete', currentUser, 'shipments', profilePermissions);
@@ -70,9 +79,32 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({ shipments, cargos, client
     return shipments.filter(shipment => shipment.status === activeStatus);
   }, [shipments, activeStatus]);
   
-  const handleOpenAttachmentModal = (shipment: Shipment) => {
-    setSelectedShipment(shipment);
-    setAttachmentModalOpen(true);
+  const handleOpenAttachmentModal = async (shipment: Shipment) => {
+    // First, check if someone else has a lock
+    const existingLock = activeLocks.find(l => l.shipmentId === shipment.id);
+    if (existingLock && existingLock.userId !== currentUser.id) {
+        alert(`Atenção: O usuário ${existingLock.userName} está editando os anexos deste embarque no momento. Tente novamente mais tarde.`);
+        return;
+    }
+
+    try {
+        const result = await tryAcquireShipmentLock(shipment.id, currentUser.id, currentUser.name);
+        if (result.success) {
+            setSelectedShipment(shipment);
+            setAttachmentModalOpen(true);
+            
+            // Set up heartbeat to keep lock alive (every 4 minutes, since it expires in 5)
+            if (lockHeartbeatRef.current) clearInterval(lockHeartbeatRef.current);
+            lockHeartbeatRef.current = setInterval(async () => {
+                await tryAcquireShipmentLock(shipment.id, currentUser.id, currentUser.name);
+            }, 4 * 60 * 1000);
+        } else {
+            alert(`Este embarque foi bloqueado para edição por ${result.lockedBy}.`);
+        }
+    } catch (error) {
+        console.error('Erro ao adquirir trava:', error);
+        alert('Erro ao verificar disponibilidade do embarque. Tente novamente.');
+    }
   };
   
   const handleOpenCadastroAnttModal = (shipment: Shipment) => {
@@ -81,6 +113,13 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({ shipments, cargos, client
   };
 
   const handleCloseAttachmentModal = () => {
+    if (selectedShipment) {
+        releaseShipmentLock(selectedShipment.id, currentUser.id).catch(console.error);
+    }
+    if (lockHeartbeatRef.current) {
+        clearInterval(lockHeartbeatRef.current);
+        lockHeartbeatRef.current = null;
+    }
     setAttachmentModalOpen(false);
     setSelectedShipment(null);
   };

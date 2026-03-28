@@ -1,6 +1,6 @@
 import { supabase } from '../supabase';
 import type {
-  Client, Owner, Driver, Vehicle, Product, Cargo, Shipment, User, Ticket, ProfilePermissions
+  Client, Owner, Driver, Vehicle, Product, Cargo, Shipment, User, Ticket, ProfilePermissions, ShipmentLock
 } from '../types';
 
 // ─────────────────────────────────────────────
@@ -327,6 +327,19 @@ export async function fetchTickets(): Promise<Ticket[]> {
   return (data || []).map(toTicket);
 }
 
+export async function fetchShipmentLocks(): Promise<ShipmentLock[]> {
+  const { data, error } = await supabase.from('shipment_locks').select('*');
+  if (error) throw error;
+  return (data || []).map(row => ({
+    id: row.id,
+    shipmentId: row.shipment_id,
+    userId: row.user_id,
+    userName: row.user_name,
+    createdAt: row.created_at,
+    expiresAt: row.expires_at,
+  }));
+}
+
 export async function fetchProfilePermissions(): Promise<ProfilePermissions | null> {
   const { data, error } = await supabase.from('profile_permissions').select('permissions').eq('id', 1).single();
   if (error) return null;
@@ -533,5 +546,40 @@ export async function upsertProduct(product: Product): Promise<void> {
 export async function deleteProduct(id: string): Promise<void> {
   const { error } = await supabase.from('products').delete().eq('id', id);
   if (error) throw error;
+}
+
+// ─────────────────────────────────────────────
+// LOCKING
+// ─────────────────────────────────────────────
+
+export async function tryAcquireShipmentLock(shipmentId: string, userId: string, userName: string): Promise<{ success: boolean; lockedBy?: string }> {
+  const { data, error } = await supabase.rpc('acquire_shipment_lock', {
+    p_shipment_id: shipmentId,
+    p_user_id: userId,
+    p_user_name: userName
+  });
+
+  if (error) {
+    console.error('Error in acquire_shipment_lock:', error);
+    throw error;
+  }
+
+  return {
+    success: data.success,
+    lockedBy: data.locked_by
+  };
+}
+
+export async function releaseShipmentLock(shipmentId: string, userId: string): Promise<void> {
+  const { error } = await supabase
+    .from('shipment_locks')
+    .delete()
+    .eq('shipment_id', shipmentId)
+    .eq('user_id', userId);
+
+  if (error) {
+    console.error('Error in releaseShipmentLock:', error);
+    throw error;
+  }
 }
 

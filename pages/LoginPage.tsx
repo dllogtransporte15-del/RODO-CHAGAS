@@ -18,14 +18,23 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, users, companyLogo }) =>
     const cleanEmail = email.trim().toLowerCase();
     const cleanPassword = password.trim();
     
-    // Find user with case-insensitive email matching
-    const user = users.find(u => u.email.trim().toLowerCase() === cleanEmail && u.password === cleanPassword);
+    // Find user with extremely robust matching:
+    // 1. Case-insensitive email
+    // 2. Trimming any accidental spaces in DB records
+    // 3. Ensuring users list is available
+    const user = users.find(u => {
+      const dbEmail = (u.email || '').trim().toLowerCase();
+      const dbPassword = (u.password || '').trim();
+      return dbEmail === cleanEmail && dbPassword === cleanPassword;
+    });
     
     if (user && user.active) {
       onLogin(user);
     } else if (user && !user.active) {
       setError('Este usuário está inativo.');
     } else {
+      console.log('Login failed. Input email:', cleanEmail, 'Input password:', '***');
+      console.log('Available users in state:', users.length);
       setError('Email ou senha inválidos.');
     }
   };
@@ -49,6 +58,9 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, users, companyLogo }) =>
                 name="email"
                 type="email"
                 autoComplete="email"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck="false"
                 required
                 className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-primary focus:border-primary focus:z-10 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white"
                 placeholder="Email"
@@ -62,6 +74,9 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, users, companyLogo }) =>
                 name="password"
                 type="password"
                 autoComplete="current-password"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck="false"
                 required
                 className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-primary focus:border-primary focus:z-10 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white"
                 placeholder="Senha"
