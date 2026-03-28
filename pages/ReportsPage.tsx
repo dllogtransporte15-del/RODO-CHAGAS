@@ -12,6 +12,7 @@ import SupervisorReport from '../components/reports/SupervisorReport';
 import ShipperReport from '../components/reports/ShipperReport';
 import ClientReport from '../components/reports/ClientReport';
 import OperationalTimingReport from '../components/reports/OperationalTimingReport';
+import ExternalSalespersonReport from '../components/reports/ExternalSalespersonReport';
 import MultiSelectDropdown from '../components/MultiSelectDropdown';
 
 interface ReportsPageProps {
@@ -23,7 +24,7 @@ interface ReportsPageProps {
   clients: Client[];
 }
 
-type ActiveReport = 'comercial' | 'embarcadores' | 'clientes' | 'tempo-operacao';
+type ActiveReport = 'comercial' | 'embarcadores' | 'clientes' | 'vendedores' | 'tempo-operacao';
 
 const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, cargos, users, currentUser, clients }) => {
   const [activeReport, setActiveReport] = useState<ActiveReport>('comercial');
@@ -115,6 +116,8 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, carg
         return <ShipperReport shipments={filteredShipments} users={users} currentUser={currentUser} />;
       case 'clientes':
         return <ClientReport shipments={filteredShipments} cargos={cargos} clients={clients} />;
+      case 'vendedores':
+        return <ExternalSalespersonReport shipments={filteredShipments} cargos={cargos} />;
       case 'tempo-operacao':
         return <OperationalTimingReport shipments={filteredShipments} />;
       default:
@@ -126,6 +129,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, carg
       ...(canViewCommercialReport ? [{ id: 'comercial', label: 'Relatório Supervisão', icon: BriefcaseIcon }] : []),
       { id: 'embarcadores', label: 'Embarcadores', icon: ShipIcon },
       { id: 'clientes', label: 'Clientes', icon: UsersIcon },
+      { id: 'vendedores', label: 'Vendedores', icon: UsersIcon },
       { id: 'tempo-operacao', label: 'Tempo de Operação', icon: ClockIcon },
   ];
 

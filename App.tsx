@@ -453,7 +453,8 @@ const App: React.FC = () => {
     processVehicle(data.trailer2Plate || '', false);
     processVehicle(data.trailer3Plate || '', false);
 
-    const newShipmentId = formatId(currentNextIds.shipment, 'SHP');
+    const prefix = currentUser?.name ? currentUser.name.substring(0, 3).toUpperCase() : 'SHP';
+    const newShipmentId = formatId(currentNextIds.shipment, prefix);
     
     const documentsUrlMap: { [key: string]: string[] } = {};
     const attachedFileNames: string[] = [];
@@ -568,8 +569,8 @@ const App: React.FC = () => {
     }
   };
 
-  const handleUpdateShipmentAttachment = async (shipmentId: string, data: { filesToAttach: { [key: string]: File[] }, bankDetails?: string, loadedTonnage?: number, advancePercentage?: number }) => {
-    const { filesToAttach, bankDetails, loadedTonnage, advancePercentage } = data;
+  const handleUpdateShipmentAttachment = async (shipmentId: string, data: { filesToAttach: { [key: string]: File[] }, bankDetails?: string, loadedTonnage?: number, advancePercentage?: number, tollValue?: number }) => {
+    const { filesToAttach, bankDetails, loadedTonnage, advancePercentage, tollValue } = data;
     const originalShipment = shipments.find(s => s.id === shipmentId);
     if (!originalShipment || !currentUser) return;
 
@@ -656,9 +657,13 @@ const App: React.FC = () => {
     // Calcular adiantamento se a porcentagem for informada
     if (advancePercentage !== undefined && advancePercentage > 0) {
         finalAdvancePercentage = advancePercentage;
-        calculatedAdvanceValue = (updatedDriverFreight * advancePercentage) / 100;
+        calculatedAdvanceValue = ((updatedDriverFreight * advancePercentage) / 100) - (tollValue || 0);
         const formattedAdv = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calculatedAdvanceValue);
-        historyLogs.push(`Pagamento de Adiantamento: ${advancePercentage}% registrado (${formattedAdv}).`);
+        let historyMsg = `Pagamento de Adiantamento: ${advancePercentage}% registrado (${formattedAdv}).`;
+        if (tollValue && tollValue > 0) {
+            historyMsg += ` (Dedução de R$ ${tollValue.toLocaleString('pt-BR')} ref. pedágio)`;
+        }
+        historyLogs.push(historyMsg);
     }
 
     const updatedShipment: Shipment = {
@@ -670,6 +675,7 @@ const App: React.FC = () => {
         driverFreightValue: updatedDriverFreight,
         advancePercentage: finalAdvancePercentage,
         advanceValue: calculatedAdvanceValue,
+        tollValue: tollValue !== undefined ? tollValue : originalShipment.tollValue,
         history: [...originalShipment.history, createHistoryLog(`Status alterado para ${nextStatus}. ${historyLogs.join(' ')}`)],
         statusHistory: [
             ...(originalShipment.statusHistory || []),

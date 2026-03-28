@@ -5,6 +5,7 @@ import { CargoStatus, CargoType, UserProfile, VehicleSetType, VehicleBodyType, D
 import { PlusIcon } from './icons/PlusIcon';
 import { XIcon } from './icons/XIcon';
 import { PaperclipIcon } from './icons/PaperclipIcon';
+import { UserPlusIcon } from './icons/UserPlusIcon';
 import { BRAZILIAN_CITIES } from '../brazilianCities';
 import { geocodeCity } from '../utils/geocoding';
 
@@ -53,11 +54,14 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
     dailySchedule: [],
     observations: '',
     attachments: [],
+    salespersonName: '',
+    salespersonCommissionPerTon: 0,
   })};
   
   const [step, setStep] = useState(initialStep);
   const [load, setLoad] = useState<Omit<Cargo, 'id' | 'history' | 'createdAt' | 'createdById' | 'scheduledVolume' | 'loadedVolume'> & { createdById?: string }>(getInitialState());
   const [hasMultiLeg, setHasMultiLeg] = useState(false);
+  const [showSalesperson, setShowSalesperson] = useState(false);
   
   const [newScheduleDate, setNewScheduleDate] = useState('');
   const [newScheduleType, setNewScheduleType] = useState<DailyScheduleType>(DailyScheduleType.Livre);
@@ -92,8 +96,11 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
                 observations: editableLoad.observations || '',
                 attachments: editableLoad.attachments || [],
                 allowedVehicleTypes: editableLoad.allowedVehicleTypes || [],
+                salespersonName: editableLoad.salespersonName || '',
+                salespersonCommissionPerTon: editableLoad.salespersonCommissionPerTon || 0,
             });
             setHasMultiLeg(editableLoad.freightLegs ? editableLoad.freightLegs.length > 1 : false);
+            setShowSalesperson(!!editableLoad.salespersonName);
         } else {
             const { scheduledVolume, loadedVolume, ...initialState } = getInitialState();
             setLoad({ ...initialState, createdById: currentUser.id });
@@ -505,6 +512,68 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
                         <div className="p-3 bg-gray-100 dark:bg-gray-700 rounded-md"><label className="text-xs font-medium text-gray-500 dark:text-gray-400">Frete Motorista (Final)</label><p className="text-lg font-bold text-gray-800 dark:text-gray-200">{totalDriverFreight.toLocaleString('pt-BR', {style:'currency', currency: 'BRL'})}</p></div>
                         <div className="p-3 bg-blue-50 dark:bg-blue-900/50 rounded-md border border-blue-200 dark:border-blue-800"><label className="text-xs font-medium text-blue-500 dark:text-blue-400">Margem Líquida (%)</label><p className="text-lg font-bold text-primary dark:text-blue-300">{netMarginPercentage}</p></div>
                     </div>
+                </div>
+
+                {/* Vendedor Externo Section */}
+                <div className="border-t dark:border-gray-600 pt-4">
+                    <div className="flex justify-between items-center mb-2">
+                        <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300">Comissão de Vendedor Externo</h3>
+                        {!showSalesperson && (
+                            <button 
+                                type="button" 
+                                onClick={() => setShowSalesperson(true)}
+                                className="flex items-center gap-1 text-sm font-medium text-primary hover:text-primary-dark dark:text-blue-400"
+                            >
+                                <UserPlusIcon className="h-4 w-4" />
+                                <span>Adicionar Vendedor</span>
+                            </button>
+                        )}
+                    </div>
+
+                    {showSalesperson && (
+                        <div className="p-4 border rounded-md dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
+                            <div className="flex justify-between items-center mb-3">
+                                <h4 className="font-semibold text-gray-600 dark:text-gray-300">Dados do Vendedor</h4>
+                                <button 
+                                    type="button" 
+                                    onClick={() => {
+                                        setShowSalesperson(false);
+                                        setLoad(prev => ({ ...prev, salespersonName: '', salespersonCommissionPerTon: 0 }));
+                                    }}
+                                    className="text-xs text-red-500 hover:text-red-700"
+                                >
+                                    Remover
+                                </button>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Nome do Vendedor</label>
+                                    <input 
+                                        name="salespersonName" 
+                                        value={load.salespersonName || ''} 
+                                        onChange={handleChange} 
+                                        placeholder="Ex: João da Silva" 
+                                        className="p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Comissão (R$/Ton)</label>
+                                    <input 
+                                        name="salespersonCommissionPerTon" 
+                                        value={load.salespersonCommissionPerTon || ''} 
+                                        onChange={handleChange} 
+                                        type="number" 
+                                        placeholder="Ex: 2,00" 
+                                        className="p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600" 
+                                        step="0.01"
+                                    />
+                                </div>
+                            </div>
+                            <p className="mt-2 text-xs text-gray-500 dark:text-gray-400 italic">
+                                * A comissão será calculada automaticamente com base na tonelagem carregada nos embarques desta carga.
+                            </p>
+                        </div>
+                    )}
                 </div>
                  <div className="border-t dark:border-gray-600 pt-4">
                     <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2">Tipos de Veículos Permitidos</h3>

@@ -7,6 +7,8 @@ import { ShipIcon } from '../components/icons/ShipIcon';
 import SalespersonReport from '../components/reports/SalespersonReport';
 import SupervisorReport from '../components/reports/SupervisorReport';
 import ShipperReport from '../components/reports/ShipperReport';
+import ExternalSalespersonReport from '../components/reports/ExternalSalespersonReport';
+import { UsersIcon } from '../components/icons/UsersIcon';
 
 interface CommissionsPageProps {
   shipments: Shipment[];
@@ -14,7 +16,7 @@ interface CommissionsPageProps {
   users: User[];
 }
 
-type ActiveTab = 'comercial' | 'embarcador';
+type ActiveTab = 'comercial' | 'embarcador' | 'vendedor-externo';
 
 const CommissionsPage: React.FC<CommissionsPageProps> = ({ shipments, cargos, users }) => {
   const [activeTab, setActiveTab] = useState<ActiveTab>('comercial');
@@ -25,6 +27,8 @@ const CommissionsPage: React.FC<CommissionsPageProps> = ({ shipments, cargos, us
         return <SupervisorReport shipments={shipments} cargos={cargos} users={users} />;
       case 'embarcador':
         return <ShipperReport shipments={shipments} users={users} />;
+      case 'vendedor-externo':
+        return <ExternalSalespersonReport shipments={shipments} cargos={cargos} />;
       default:
         return null;
     }
@@ -33,6 +37,7 @@ const CommissionsPage: React.FC<CommissionsPageProps> = ({ shipments, cargos, us
   const navItems = [
       { id: 'comercial', label: 'Supervisor', icon: BriefcaseIcon },
       { id: 'embarcador', label: 'Embarcadores', icon: ShipIcon },
+      { id: 'vendedor-externo', label: 'Vendedor Externo', icon: UsersIcon },
   ];
 
   return (

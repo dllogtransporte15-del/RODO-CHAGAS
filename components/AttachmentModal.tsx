@@ -7,7 +7,7 @@ import { ExternalLinkIcon } from './icons/ExternalLinkIcon';
 interface AttachmentModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (data: { filesToAttach: { [key: string]: File[] }, bankDetails?: string, loadedTonnage?: number, advancePercentage?: number }) => void;
+  onSave: (data: { filesToAttach: { [key: string]: File[] }, bankDetails?: string, loadedTonnage?: number, advancePercentage?: number, tollValue?: number }) => void;
   shipment: Shipment;
   documentName: string;
   currentUser: User;
@@ -52,6 +52,7 @@ const AttachmentModal: React.FC<AttachmentModalProps> = ({ isOpen, onClose, onSa
   const [bankDetails, setBankDetails] = useState('');
   const [loadedTonnage, setLoadedTonnage] = useState<number | ''>('');
   const [advancePercentage, setAdvancePercentage] = useState<number | ''>('');
+  const [tollValue, setTollValue] = useState<number | ''>('');
   const [error, setError] = useState<string>('');
   
   useEffect(() => {
@@ -62,6 +63,7 @@ const AttachmentModal: React.FC<AttachmentModalProps> = ({ isOpen, onClose, onSa
       setBankDetails('');
       setLoadedTonnage('');
       setAdvancePercentage('');
+      setTollValue('');
     }
   }, [isOpen]);
 
@@ -99,7 +101,8 @@ const AttachmentModal: React.FC<AttachmentModalProps> = ({ isOpen, onClose, onSa
       filesToAttach, 
       bankDetails: bankDetails || undefined,
       loadedTonnage: shipment.status === ShipmentStatus.AguardandoCarregamento ? Number(loadedTonnage) : undefined,
-      advancePercentage: shipment.status === ShipmentStatus.AguardandoAdiantamento ? Number(advancePercentage) : undefined
+      advancePercentage: shipment.status === ShipmentStatus.AguardandoAdiantamento ? Number(advancePercentage) : undefined,
+      tollValue: shipment.status === ShipmentStatus.AguardandoAdiantamento ? Number(tollValue || 0) : undefined
     });
   };
   
@@ -224,35 +227,66 @@ const AttachmentModal: React.FC<AttachmentModalProps> = ({ isOpen, onClose, onSa
                             </div>
                         </div>
                     ) : shipment.status === ShipmentStatus.AguardandoAdiantamento ? (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
-                            <FileInput label={documentName} files={singleFiles} onFileChange={handleSingleFileChange} />
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">% de Adiantamento</label>
-                                <div className="flex gap-4 items-center">
-                                    <div className="relative rounded-md shadow-sm w-1/3">
-                                        <input
-                                            type="number"
-                                            min="0"
-                                            max="100"
-                                            step="0.1"
-                                            value={advancePercentage}
-                                            onChange={(e) => setAdvancePercentage(e.target.value === '' ? '' : Number(e.target.value))}
-                                            placeholder="Ex: 80"
-                                            className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:focus:ring-blue-500 pr-8"
-                                        />
-                                        <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                                            <span className="text-gray-500 sm:text-sm">%</span>
-                                        </div>
-                                    </div>
-                                    <div className="flex-1 p-2 bg-green-50 text-green-800 dark:bg-green-900/30 dark:text-green-400 rounded-md border border-green-200 dark:border-green-800 flex items-center justify-between">
-                                        <span className="text-xs uppercase font-semibold mr-2">Valor Adiant.</span>
-                                        <span className="font-bold whitespace-nowrap">
-                                            {advancePercentage !== '' && advancePercentage > 0 
-                                                ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format((shipment.driverFreightValue * Number(advancePercentage)) / 100) 
-                                                : 'R$ 0,00'}
-                                        </span>
+                        <div className="grid grid-cols-12 gap-4 items-end">
+                            {/* Document Upload - Taking up less width (5/12) */}
+                            <div className="col-span-12 md:col-span-5">
+                                <FileInput label={documentName} files={singleFiles} onFileChange={handleSingleFileChange} />
+                            </div>
+                            
+                            {/* Advance % - (2/12) */}
+                            <div className="col-span-6 md:col-span-2 mb-4">
+                                <label className="block text-[10px] sm:text-xs font-semibold uppercase text-gray-500 mb-1">Cálculo (%)</label>
+                                <div className="relative rounded-md shadow-sm">
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        max="100"
+                                        step="0.1"
+                                        value={advancePercentage}
+                                        onChange={(e) => setAdvancePercentage(e.target.value === '' ? '' : Number(e.target.value))}
+                                        placeholder="%"
+                                        className="w-full py-2 pl-3 pr-8 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:focus:ring-blue-500"
+                                    />
+                                    <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                        <span className="text-gray-400 text-sm">%</span>
                                     </div>
                                 </div>
+                            </div>
+
+                            {/* Toll Value - (2/12) */}
+                            <div className="col-span-6 md:col-span-2 mb-4">
+                                <label className="block text-[10px] sm:text-xs font-semibold uppercase text-gray-500 mb-1">Pedágio (R$)</label>
+                                <div className="relative rounded-md shadow-sm">
+                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <span className="text-gray-400 text-sm">R$</span>
+                                    </div>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        step="0.01"
+                                        value={tollValue}
+                                        onChange={(e) => setTollValue(e.target.value === '' ? '' : Number(e.target.value))}
+                                        placeholder="0,00"
+                                        className="w-full py-2 pl-9 pr-3 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:focus:ring-blue-500"
+                                    />
+                                </div>
+                            </div>
+                            
+                            {/* Net Advance Result - (3/12) */}
+                            <div className="col-span-12 md:col-span-3 mb-4">
+                                <div className="p-2 bg-emerald-50 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400 rounded-md border border-emerald-200 dark:border-emerald-800 flex flex-col items-end">
+                                    <span className="text-[10px] uppercase font-bold tracking-wider opacity-70 mb-1">Adiantamento Líquido</span>
+                                    <span className="font-bold text-xl">
+                                        {advancePercentage !== '' && Number(advancePercentage) > 0 
+                                            ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(((shipment.driverFreightValue * Number(advancePercentage)) / 100) - Number(tollValue || 0)) 
+                                            : 'R$ 0,00'}
+                                    </span>
+                                </div>
+                                {Number(tollValue) > 0 && (
+                                    <p className="text-[9px] text-right text-gray-400 mt-1 italic">
+                                        (Reflete dedução de R$ {Number(tollValue).toLocaleString('pt-BR')})
+                                    </p>
+                                )}
                             </div>
                         </div>
                     ) : (

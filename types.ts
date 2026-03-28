@@ -184,6 +184,8 @@ export interface Cargo {
   dailySchedule?: DailyScheduleEntry[];
   observations?: string;
   attachments?: string[];
+  salespersonName?: string;
+  salespersonCommissionPerTon?: number;
   // Location simulation for map
   originCoords?: { lat: number; lng: number };
   destinationCoords?: { lat: number; lng: number };
@@ -247,9 +249,10 @@ export interface Shipment {
       userId: string;
   }[];
   anttOwnerIdentifier?: string;
-  bankDetails?: string;
   advancePercentage?: number;
   advanceValue?: number;
+  tollValue?: number;
+  bankDetails?: string;
   companyFreightRateSnapshot?: number;
   driverFreightRateSnapshot?: number;
 }
