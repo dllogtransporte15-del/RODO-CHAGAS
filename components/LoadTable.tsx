@@ -209,8 +209,8 @@ const LoadTable: React.FC<LoadTableProps> = ({ loads, clients, products, shipmen
                 </div>
 
                 {/* Route */}
-                <div className="hidden xl:flex items-center gap-2 min-w-[180px] text-xs">
-                  <div className="text-right flex-1">
+                <div className="flex items-center gap-2 min-w-[180px] text-xs py-2 lg:py-0 border-t border-gray-50 lg:border-t-0 dark:border-gray-700/50">
+                  <div className="text-left lg:text-right flex-1">
                     <div className="text-gray-400 text-[9px] uppercase font-bold">Origem</div>
                     <div className="font-medium text-gray-700 dark:text-gray-300 truncate">{load.origin}</div>
                   </div>
@@ -220,6 +220,7 @@ const LoadTable: React.FC<LoadTableProps> = ({ loads, clients, products, shipmen
                     <div className="font-medium text-gray-700 dark:text-gray-300 truncate">{load.destination}</div>
                   </div>
                 </div>
+
 
                 {/* Balanço Geral */}
                 <div className="min-w-[180px] space-y-1">

@@ -197,203 +197,312 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users,
         )}
       </div>
 
-      <div className="bg-white dark:bg-gray-800 shadow-md rounded-lg overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-          <thead className="bg-gray-50 dark:bg-gray-700">
-            <tr>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">Embarque / Carga</th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">Motorista / Solicitante</th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">Origem / Destino</th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">Valor Frete</th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">Status Atual</th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">Data Programada</th>
-              {(!isClient || showActionsColumnForClient) && (
-                <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">Ações</th>
-              )}
-            </tr>
-          </thead>
-          <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-            {filteredShipments.map((shipment) => {
-              const cargo = getCargoInfo(shipment.cargoId);
-              const vehicle = vehicles.find(v => v.plate === shipment.horsePlate);
-              const isActionable = shipment.status !== ShipmentStatus.Finalizado && shipment.status !== ShipmentStatus.Cancelado;
-              const whatsappLink = shipment.driverContact ? formatWhatsAppLink(shipment.driverContact) : null;
-              const advanceStatusCheck = canUserAdvanceStatus ? canUserAdvanceStatus(shipment) : { allowed: true, reason: '' };
-              const canAdvance = advanceStatusCheck.allowed;
-              const disabledReason = advanceStatusCheck.reason;
+      <div className="bg-white dark:bg-gray-800 shadow-md rounded-lg overflow-hidden border border-gray-100 dark:border-gray-700">
+        {/* Mobile View - Cards */}
+        <div className="grid grid-cols-1 divide-y divide-gray-100 dark:divide-gray-700 lg:hidden">
+          {filteredShipments.map((shipment) => {
+            const cargo = getCargoInfo(shipment.cargoId);
+            const vehicle = vehicles.find(v => v.plate === shipment.horsePlate);
+            const whatsappLink = shipment.driverContact ? formatWhatsAppLink(shipment.driverContact) : null;
+            const advanceStatusCheck = canUserAdvanceStatus ? canUserAdvanceStatus(shipment) : { allowed: true, reason: '' };
+            const canAdvance = advanceStatusCheck.allowed;
+            const disabledReason = advanceStatusCheck.reason;
+            const isActionable = shipment.status !== ShipmentStatus.Finalizado && shipment.status !== ShipmentStatus.Cancelado;
 
-              let isLate = false;
-              if (shipment.scheduledTime && !shipment.arrivalTime) {
-                const scheduledDateTime = new Date(`${shipment.scheduledDate}T${shipment.scheduledTime}`);
-                if (new Date() > scheduledDateTime) {
-                    isLate = true;
-                }
-              }
-
-              return (
-                <tr key={shipment.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">
+            return (
+              <div key={shipment.id} className="p-4 space-y-3">
+                <div className="flex justify-between items-start">
+                  <div>
                     <button 
-                        onClick={() => setDetailsModalShipment(shipment)} 
-                        className="font-medium text-primary dark:text-blue-400 hover:underline text-left block"
+                      onClick={() => setDetailsModalShipment(shipment)} 
+                      className="text-sm font-bold text-primary dark:text-blue-400 hover:underline"
                     >
-                        {shipment.id}
+                      {shipment.id}
                     </button>
                     {cargo && (
-                      <div className="text-xs text-gray-500 dark:text-gray-400">
-                        Carga: 
-                        {onShowCargoDetails ? (
-                          <button onClick={() => onShowCargoDetails(cargo)} className="ml-1 font-semibold text-primary dark:text-blue-400 hover:underline">
-                            {cargo.sequenceId}
-                          </button>
-                        ) : (
-                          <span className="ml-1 font-semibold">{cargo.sequenceId}</span>
-                        )}
+                      <div className="text-xs text-gray-500 mt-0.5">
+                        Carga: <button onClick={() => onShowCargoDetails?.(cargo)} className="font-semibold text-primary/80">#{cargo.sequenceId}</button>
                       </div>
                     )}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900 dark:text-white">{shipment.driverName}</div>
-                    <div className="text-sm text-gray-500 dark:text-gray-400">{shipment.horsePlate}</div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        Sol.: <span className="font-medium">{getEmbarcadorName(shipment.embarcadorId)}</span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-xs font-bold px-2 py-1 rounded-full bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                      {shipment.status}
+                    </span>
+                    <div className="text-[10px] text-gray-400 mt-1">
+                      {new Date(shipment.scheduledDate + 'T00:00:00').toLocaleDateString('pt-BR')}
                     </div>
-                    {vehicle && (
-                        <div className="mt-1">
-                        <span className="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-gray-200 text-gray-700 dark:bg-gray-600 dark:text-gray-200">
-                            {vehicle.setType} / {vehicle.bodyType}
-                        </span>
-                        </div>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white group relative">
-                    <div>{cargo?.origin || 'N/A'}</div>
-                    <div className="text-sm text-gray-500 dark:text-gray-400">{cargo?.destination || 'N/A'}</div>
-                     {cargo && onShowCargoDetails && (
-                        <button 
-                            onClick={() => onShowCargoDetails(cargo)} 
-                            className="absolute top-1/2 right-2 -translate-y-1/2 p-1 rounded-full text-gray-400 dark:text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-gray-200 dark:hover:bg-gray-600"
-                            title="Ver detalhes da Carga"
-                        >
-                            <InfoIcon className="w-4 h-4" />
-                        </button>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    {isClient ? (
-                        <>
-                            <div className="font-semibold text-gray-900 dark:text-white">{formatCurrency((cargo?.companyFreightValuePerTon || 0) * shipment.shipmentTonnage)}</div>
-                            {shipment.shipmentTonnage > 0 && (
-                                <div className="text-xs text-gray-500 dark:text-gray-400">
-                                {formatCurrency(cargo?.companyFreightValuePerTon || 0)}/ton
-                                </div>
-                            )}
-                        </>
-                    ) : (
-                        <>
-                            <div className="font-semibold text-gray-900 dark:text-white">{formatCurrency(shipment.driverFreightValue)}</div>
-                            {shipment.shipmentTonnage > 0 && (
-                                <div className="text-xs text-gray-500 dark:text-gray-400">
-                                {formatCurrency(shipment.driverFreightValue / shipment.shipmentTonnage)}/ton
-                                </div>
-                            )}
-                        </>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">{shipment.status}</p>
-                    {shipment.scheduledTime && (
-                        <p className={`text-xs mt-1 ${isLate && !shipment.arrivalTime ? 'text-yellow-500' : 'text-gray-500'}`}>
-                            Previsto: {shipment.scheduledTime}
-                        </p>
-                    )}
-                    {shipment.arrivalTime ? (
-                        <div className="text-xs text-green-600 dark:text-green-400 font-semibold mt-1">
-                            Chegou: {new Date(shipment.arrivalTime).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                        </div>
-                    ) : (
-                        onMarkArrival && shipment.scheduledTime && (
-                            <button onClick={() => onMarkArrival(shipment.id)} className="mt-2 text-xs px-2 py-1 bg-green-600 text-white rounded hover:bg-green-700">
-                                Marcar Chegada
-                            </button>
-                        )
-                    )}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                    {new Date(shipment.scheduledDate + 'T00:00:00').toLocaleDateString('pt-BR')}
-                  </td>
-                  {(!isClient || showActionsColumnForClient) && (
-                    <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
-                        {isClient ? (
-                            <>
-                                {onAttach && (
-                                    <button
-                                    onClick={() => onAttach(shipment)}
-                                    className="flex items-center gap-1.5 text-xs px-2 py-1 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-200 dark:hover:bg-gray-500 transition-colors whitespace-nowrap"
-                                    title="Gerenciar Anexos"
-                                    >
-                                    <PaperclipIcon className="w-4 h-4" />
-                                    <span>Gestor de Anexos</span>
-                                    </button>
-                                )}
-                            </>
-                        ) : (
-                            <div className="flex items-center justify-center space-x-1">
-                                {whatsappLink && (
-                                    <a
-                                        href={whatsappLink}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="p-2 rounded-full hover:bg-green-100 dark:hover:bg-green-800 text-green-600 dark:text-green-400"
-                                        title="Abrir WhatsApp"
-                                    >
-                                        <WhatsAppIcon className="w-5 h-5" />
-                                    </a>
-                                )}
+                  </div>
+                </div>
 
-                                {shipment.status === ShipmentStatus.Cancelado && currentUser.profile !== UserProfile.Admin ? (
-                                    <span className="text-xs text-gray-400 dark:text-gray-500 italic px-2">Cancelado</span>
-                                ) : (
-                                    <div className="relative" ref={openActionMenu === shipment.id ? actionMenuRef : null}>
-                                        <button
-                                            onClick={() => toggleActionMenu(shipment.id)}
-                                            className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500 dark:text-gray-400"
-                                            title="Mais ações"
-                                        >
-                                            <MoreVerticalIcon className="h-5 w-5" />
-                                        </button>
-                                        {openActionMenu === shipment.id && (
-                                            <div className="absolute right-0 mt-2 w-56 origin-top-right bg-white dark:bg-gray-800 rounded-md shadow-lg ring-1 ring-black ring-opacity-5 z-20">
-                                                <div className="py-1" role="menu" aria-orientation="vertical">
-                                                    {onShowHistory && <ActionMenuItem icon={HistoryIcon} text="Ver Histórico" onClick={() => onShowHistory(shipment)} />}
-                                                    {shipment.status !== ShipmentStatus.Cancelado && (
-                                                        <>
-                                                            {isActionable && onAttach && <ActionMenuItem icon={PaperclipIcon} text="Anexar e Avançar" onClick={() => onAttach(shipment)} disabled={!canAdvance} title={!canAdvance ? disabledReason : undefined} />}
-                                                            {shipment.status === ShipmentStatus.PreCadastro && onOpenCadastroAntt && <ActionMenuItem icon={ExternalLinkIcon} text="Fazer Cadastro" onClick={() => onOpenCadastroAntt(shipment)} />}
-                                                            {isActionable && onEditPrice && <ActionMenuItem icon={DollarSignIcon} text="Alterar Preço" onClick={() => onEditPrice(shipment)} />}
-                                                            {isActionable && onTransfer && <ActionMenuItem icon={TransferIcon} text="Transferir Embarque" onClick={() => onTransfer(shipment)} />}
-                                                            {shipment.status === ShipmentStatus.Finalizado && onAttach && <ActionMenuItem icon={PaperclipIcon} text="Gestor de Anexos" onClick={() => onAttach(shipment)} />}
-                                                            {isActionable && onCancel && <ActionMenuItem icon={XIcon} text="Cancelar Embarque" onClick={() => onCancel(shipment)} isDestructive />}
-                                                        </>
-                                                    )}
-                                                    {onDelete && currentUser.profile === UserProfile.Admin && <ActionMenuItem icon={Trash2} text="Excluir Embarque" onClick={() => onDelete(shipment.id)} isDestructive />}
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
-                        )}
-                    </td>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <div className="text-[10px] text-gray-400 uppercase font-bold">Motorista</div>
+                    <div className="font-medium dark:text-gray-200">{shipment.driverName}</div>
+                    <div className="text-xs text-gray-500">{shipment.horsePlate}</div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] text-gray-400 uppercase font-bold">Frete</div>
+                    <div className="font-bold dark:text-gray-200">
+                      {isClient 
+                        ? formatCurrency((cargo?.companyFreightValuePerTon || 0) * shipment.shipmentTonnage)
+                        : formatCurrency(shipment.driverFreightValue)
+                      }
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg">
+                  <div className="text-[10px] text-gray-400 uppercase font-bold mb-1">Rota (Origem → Destino)</div>
+                  {cargo ? (
+                    <div className="text-xs dark:text-gray-300">
+                      <span className="font-semibold">{cargo.origin}</span>
+                      <span className="mx-2 text-gray-400">→</span>
+                      <span className="font-semibold">{cargo.destination}</span>
+                    </div>
+                  ) : (
+                    <span className="text-red-500 font-bold text-[10px]">CARGA REMOVIDA</span>
                   )}
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+                </div>
+
+                <div className="flex items-center justify-between pt-2 border-t border-gray-50 dark:border-gray-700">
+                  <div className="flex gap-2">
+                    {whatsappLink && (
+                      <a href={whatsappLink} target="_blank" rel="noopener noreferrer" className="p-2 rounded-full bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-400">
+                        <WhatsAppIcon className="w-5 h-5" />
+                      </a>
+                    )}
+                    {onShowHistory && (
+                      <button onClick={() => onShowHistory(shipment)} className="p-2 rounded-full bg-gray-50 text-gray-600 dark:bg-gray-700 dark:text-gray-400">
+                        <HistoryIcon className="w-5 h-5" />
+                      </button>
+                    )}
+                  </div>
+                  
+                  <div className="flex gap-2">
+                    {(!isClient || showActionsColumnForClient) && (
+                      <button 
+                        onClick={() => toggleActionMenu(shipment.id)}
+                        className="flex items-center gap-2 px-3 py-1.5 bg-primary text-white text-xs rounded-md shadow-sm hover:bg-primary/90"
+                      >
+                        Ações <MoreVerticalIcon className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Desktop View - Table */}
+        <div className="hidden lg:block overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+            <thead className="bg-gray-50 dark:bg-gray-700">
+              <tr>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">Embarque / Carga</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">Motorista / Solicitante</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">Origem / Destino</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">Valor Frete</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">Status Atual</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">Data Programada</th>
+                {(!isClient || showActionsColumnForClient) && (
+                  <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">Ações</th>
+                )}
+              </tr>
+            </thead>
+            <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+              {filteredShipments.map((shipment) => {
+                const cargo = getCargoInfo(shipment.cargoId);
+                const vehicle = vehicles.find(v => v.plate === shipment.horsePlate);
+                const isActionable = shipment.status !== ShipmentStatus.Finalizado && shipment.status !== ShipmentStatus.Cancelado;
+                const whatsappLink = shipment.driverContact ? formatWhatsAppLink(shipment.driverContact) : null;
+                const advanceStatusCheck = canUserAdvanceStatus ? canUserAdvanceStatus(shipment) : { allowed: true, reason: '' };
+                const canAdvance = advanceStatusCheck.allowed;
+                const disabledReason = advanceStatusCheck.reason;
+
+                let isLate = false;
+                if (shipment.scheduledTime && !shipment.arrivalTime) {
+                  const scheduledDateTime = new Date(`${shipment.scheduledDate}T${shipment.scheduledTime}`);
+                  if (new Date() > scheduledDateTime) {
+                      isLate = true;
+                  }
+                }
+
+                return (
+                  <tr key={shipment.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      <button 
+                          onClick={() => setDetailsModalShipment(shipment)} 
+                          className="font-medium text-primary dark:text-blue-400 hover:underline text-left block"
+                      >
+                          {shipment.id}
+                      </button>
+                      {cargo && (
+                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                          Carga: 
+                          {onShowCargoDetails ? (
+                            <button onClick={() => onShowCargoDetails(cargo)} className="ml-1 font-semibold text-primary dark:text-blue-400 hover:underline">
+                              {cargo.sequenceId}
+                            </button>
+                          ) : (
+                            <span className="ml-1 font-semibold">{cargo.sequenceId}</span>
+                          )}
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900 dark:text-white">{shipment.driverName}</div>
+                      <div className="text-sm text-gray-500 dark:text-gray-400">{shipment.horsePlate}</div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                          Sol.: <span className="font-medium">{getEmbarcadorName(shipment.embarcadorId)}</span>
+                      </div>
+                      {vehicle && (
+                          <div className="mt-1">
+                          <span className="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-gray-200 text-gray-700 dark:bg-gray-600 dark:text-gray-200">
+                              {vehicle.setType} / {vehicle.bodyType}
+                          </span>
+                          </div>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white group relative">
+                      {cargo ? (
+                        <>
+                          <div>{cargo.origin}</div>
+                          <div className="text-sm text-gray-500 dark:text-gray-400">{cargo.destination}</div>
+                        </>
+                      ) : (
+                        <div className="flex flex-col">
+                          <span className="text-red-500 dark:text-red-400 font-bold text-[10px] uppercase">Carga Removida</span>
+                          <span className="text-gray-400 text-xs italic">Origem/Destino indisponíveis</span>
+                        </div>
+                      )}
+                       {cargo && onShowCargoDetails && (
+                          <button 
+                              onClick={() => onShowCargoDetails(cargo)} 
+                              className="absolute top-1/2 right-2 -translate-y-1/2 p-1 rounded-full text-gray-400 dark:text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-gray-200 dark:hover:bg-gray-600"
+                              title="Ver detalhes da Carga"
+                          >
+                              <InfoIcon className="w-4 h-4" />
+                          </button>
+                      )}
+                    </td>
+  
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      {isClient ? (
+                          <>
+                              <div className="font-semibold text-gray-900 dark:text-white">{formatCurrency((cargo?.companyFreightValuePerTon || 0) * shipment.shipmentTonnage)}</div>
+                              {shipment.shipmentTonnage > 0 && (
+                                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                                  {formatCurrency(cargo?.companyFreightValuePerTon || 0)}/ton
+                                  </div>
+                              )}
+                          </>
+                      ) : (
+                          <>
+                              <div className="font-semibold text-gray-900 dark:text-white">{formatCurrency(shipment.driverFreightValue)}</div>
+                              {shipment.shipmentTonnage > 0 && (
+                                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                                  {formatCurrency(shipment.driverFreightValue / shipment.shipmentTonnage)}/ton
+                                  </div>
+                              )}
+                          </>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">{shipment.status}</p>
+                      {shipment.scheduledTime && (
+                          <p className={`text-xs mt-1 ${isLate && !shipment.arrivalTime ? 'text-yellow-500' : 'text-gray-500'}`}>
+                              Previsto: {shipment.scheduledTime}
+                          </p>
+                      )}
+                      {shipment.arrivalTime ? (
+                          <div className="text-xs text-green-600 dark:text-green-400 font-semibold mt-1">
+                              Chegou: {new Date(shipment.arrivalTime).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                          </div>
+                      ) : (
+                          onMarkArrival && shipment.scheduledTime && (
+                              <button onClick={() => onMarkArrival(shipment.id)} className="mt-2 text-xs px-2 py-1 bg-green-600 text-white rounded hover:bg-green-700">
+                                  Marcar Chegada
+                              </button>
+                          )
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                      {new Date(shipment.scheduledDate + 'T00:00:00').toLocaleDateString('pt-BR')}
+                    </td>
+                    {(!isClient || showActionsColumnForClient) && (
+                      <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
+                          {isClient ? (
+                              <>
+                                  {onAttach && (
+                                      <button
+                                      onClick={() => onAttach(shipment)}
+                                      className="flex items-center gap-1.5 text-xs px-2 py-1 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-200 dark:hover:bg-gray-500 transition-colors whitespace-nowrap"
+                                      title="Gerenciar Anexos"
+                                      >
+                                      <PaperclipIcon className="w-4 h-4" />
+                                      <span>Gestor de Anexos</span>
+                                      </button>
+                                  )}
+                              </>
+                          ) : (
+                              <div className="flex items-center justify-center space-x-1">
+                                  {whatsappLink && (
+                                      <a
+                                          href={whatsappLink}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="p-2 rounded-full hover:bg-green-100 dark:hover:bg-green-800 text-green-600 dark:text-green-400"
+                                          title="Abrir WhatsApp"
+                                      >
+                                          <WhatsAppIcon className="w-5 h-5" />
+                                      </a>
+                                  )}
+  
+                                  {shipment.status === ShipmentStatus.Cancelado && currentUser.profile !== UserProfile.Admin ? (
+                                      <span className="text-xs text-gray-400 dark:text-gray-500 italic px-2">Cancelado</span>
+                                  ) : (
+                                      <div className="relative" ref={openActionMenu === shipment.id ? actionMenuRef : null}>
+                                          <button
+                                              onClick={() => toggleActionMenu(shipment.id)}
+                                              className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500 dark:text-gray-400"
+                                              title="Mais ações"
+                                          >
+                                              <MoreVerticalIcon className="h-5 w-5" />
+                                          </button>
+                                          {openActionMenu === shipment.id && (
+                                              <div className="absolute right-0 mt-2 w-56 origin-top-right bg-white dark:bg-gray-800 rounded-md shadow-lg ring-1 ring-black ring-opacity-5 z-20">
+                                                  <div className="py-1" role="menu" aria-orientation="vertical">
+                                                      {onShowHistory && <ActionMenuItem icon={HistoryIcon} text="Ver Histórico" onClick={() => onShowHistory(shipment)} />}
+                                                      {shipment.status !== ShipmentStatus.Cancelado && (
+                                                          <>
+                                                              {isActionable && onAttach && <ActionMenuItem icon={PaperclipIcon} text="Anexar e Avançar" onClick={() => onAttach(shipment)} disabled={!canAdvance} title={!canAdvance ? disabledReason : undefined} />}
+                                                              {shipment.status === ShipmentStatus.PreCadastro && onOpenCadastroAntt && <ActionMenuItem icon={ExternalLinkIcon} text="Fazer Cadastro" onClick={() => onOpenCadastroAntt(shipment)} />}
+                                                              {isActionable && onEditPrice && <ActionMenuItem icon={DollarSignIcon} text="Alterar Preço" onClick={() => onEditPrice(shipment)} />}
+                                                              {isActionable && onTransfer && <ActionMenuItem icon={TransferIcon} text="Transferir Embarque" onClick={() => onTransfer(shipment)} />}
+                                                              {shipment.status === ShipmentStatus.Finalizado && onAttach && <ActionMenuItem icon={PaperclipIcon} text="Gestor de Anexos" onClick={() => onAttach(shipment)} />}
+                                                              {isActionable && onCancel && <ActionMenuItem icon={XIcon} text="Cancelar Embarque" onClick={() => onCancel(shipment)} isDestructive />}
+                                                          </>
+                                                      )}
+                                                      {onDelete && currentUser.profile === UserProfile.Admin && <ActionMenuItem icon={Trash2} text="Excluir Embarque" onClick={() => onDelete(shipment.id)} isDestructive />}
+                                                  </div>
+                                              </div>
+                                          )}
+                                      </div>
+                                  )}
+                              </div>
+                          )}
+                      </td>
+                    )}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
-    </div>
+
 
     <ShipmentDetailsModal
       isOpen={!!detailsModalShipment}

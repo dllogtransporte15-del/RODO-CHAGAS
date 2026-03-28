@@ -838,7 +838,7 @@ const App: React.FC = () => {
     
     const relatedShipments = shipments.filter(s => s.cargoId === cargoId);
     const confirmMsg = relatedShipments.length > 0
-      ? `A carga ${cargoId} possui ${relatedShipments.length} embarque(s) associado(s). Se você excluir a carga, os embarques também podem ficar órfãos ou causar erros. Deseja excluir a carga e todos os embarques associados?`
+      ? `A carga ${cargoId} possui ${relatedShipments.length} embarque(s) associado(s). Se você excluir a carga, os embarques NÃO serão excluídos, mas poderão ficar sem os detalhes da carga original na visualização. Deseja excluir a carga e manter os embarques?`
       : `Tem certeza que deseja excluir permanentemente a carga ${cargoId}?`;
 
     if (window.confirm(confirmMsg)) {
@@ -846,16 +846,15 @@ const App: React.FC = () => {
             await deleteCargo(cargoId);
             setCargos(prev => prev.filter(c => c.id !== cargoId));
             
-            if (relatedShipments.length > 0) {
-                setShipments(prev => prev.filter(s => s.cargoId !== cargoId));
-            }
-            alert("Carga excluída com sucesso.");
+            // Shipments are NOT deleted anymore to preserve historical data
+            alert("Carga excluída com sucesso. Os embarques vinculados foram preservados.");
         } catch (err) {
             console.error('Erro ao excluir carga:', err);
             alert("Erro ao excluir carga. Verifique o console.");
         }
     }
   };
+
 
   const handleDeleteShipment = async (shipmentId: string) => {
     if (!currentUser || currentUser.profile !== UserProfile.Admin) return;
