@@ -154,14 +154,15 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({ shipments, cargos, client
     if (userProfile === UserProfile.Admin) return defaultResponse;
 
     if (currentStatus === ShipmentStatus.PreCadastro || currentStatus === ShipmentStatus.AguardandoSeguradora) {
-        if ([UserProfile.Fiscal].includes(userProfile)) return defaultResponse;
-        return { allowed: false, reason: 'Apenas Fiscal ou Admin podem avançar este status.' };
+        if ([UserProfile.Fiscal, UserProfile.Diretor].includes(userProfile)) return defaultResponse;
+        return { allowed: false, reason: 'Apenas Fiscal, Diretor ou Admin podem avançar este status.' };
     }
 
     if (currentStatus === ShipmentStatus.AguardandoAdiantamento || currentStatus === ShipmentStatus.AguardandoPagamentoSaldo) {
         if ([UserProfile.Financeiro, UserProfile.Diretor].includes(userProfile)) return defaultResponse;
         return { allowed: false, reason: 'Apenas Financeiro, Diretor ou Admin podem avançar.' };
     }
+
 
     return defaultResponse;
   };
