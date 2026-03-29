@@ -253,6 +253,7 @@ export interface Shipment {
   advanceValue?: number;
   tollValue?: number;
   bankDetails?: string;
+  vehicleTag?: string;
   companyFreightRateSnapshot?: number;
   driverFreightRateSnapshot?: number;
 }

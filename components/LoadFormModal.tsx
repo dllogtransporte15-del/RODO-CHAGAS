@@ -76,8 +76,10 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
     return users.filter(u => u.profile === UserProfile.Comercial);
   }, [users]);
 
+  const prevIsOpen = useRef(isOpen);
+
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && !prevIsOpen.current) {
         setStep(initialStep);
         if (loadToEdit) {
             const { history, createdAt, id, scheduledVolume, loadedVolume, ...editableLoad } = loadToEdit;
@@ -105,9 +107,11 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
             const { scheduledVolume, loadedVolume, ...initialState } = getInitialState();
             setLoad({ ...initialState, createdById: currentUser.id });
             setHasMultiLeg(false);
+            setShowSalesperson(false);
         }
     }
-  }, [loadToEdit, isOpen, currentUser, loads, initialStep]);
+    prevIsOpen.current = isOpen;
+  }, [isOpen, initialStep, currentUser]);
   
   const { totalCompanyFreight, totalDriverFreight, netMarginPercentage } = useMemo(() => {
     const legs = load.freightLegs || [];

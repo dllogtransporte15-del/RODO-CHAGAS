@@ -23,6 +23,7 @@ interface OperationalMapPageProps {
   onCreateShipment: (data: Omit<Shipment, 'id' | 'orderId' | 'status' | 'documents' | 'history' | 'createdAt' | 'createdById' | 'statusHistory'>) => void;
   currentUser: User | null;
   users: User[];
+  onModalStateChange: (isOpen: boolean) => void;
 }
 
 const P180 = Math.PI / 180;
@@ -52,7 +53,7 @@ const isInBoundingBox = (lat: number, lon: number, centerLat: number, centerLon:
   return Math.abs(lat - centerLat) <= latDegree && Math.abs(lon - centerLon) <= lonDegree;
 };
 
-const OperationalMapPage: React.FC<OperationalMapPageProps> = ({ cargos, shipments, clients, products, drivers, vehicles, onCreateShipment, currentUser, users }) => {
+const OperationalMapPage: React.FC<OperationalMapPageProps> = ({ cargos, shipments, clients, products, drivers, vehicles, onCreateShipment, currentUser, users, onModalStateChange }) => {
   const [originQuery, setOriginQuery] = useState('Catalão');
   const [originRadius, setOriginRadius] = useState(200);
   const [originCoords, setOriginCoords] = useState<{ lat: number; lng: number } | null>(null);
@@ -70,6 +71,10 @@ const OperationalMapPage: React.FC<OperationalMapPageProps> = ({ cargos, shipmen
   const [isShipmentModalOpen, setIsShipmentModalOpen] = useState(false);
   const [selectedCargoForShipment, setSelectedCargoForShipment] = useState<Cargo | null>(null);
   const [syncingAll, setSyncingAll] = useState(false);
+
+  useEffect(() => {
+    onModalStateChange(isShipmentModalOpen);
+  }, [isShipmentModalOpen, onModalStateChange]);
 
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);

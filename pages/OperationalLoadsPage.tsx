@@ -25,6 +25,7 @@ interface OperationalLoadsPageProps {
   profilePermissions: ProfilePermissions;
   users: User[];
   onDeleteLoad: (cargoId: string) => void;
+  onModalStateChange: (isOpen: boolean) => void;
 }
 
 const formatAllowedVehicleTypes = (allowed?: { setType: VehicleSetType; bodyTypes: VehicleBodyType[] }[]): string => {
@@ -47,6 +48,7 @@ const OperationalLoadsPage: React.FC<OperationalLoadsPageProps> = ({
   profilePermissions,
   users,
   onDeleteLoad,
+  onModalStateChange,
 }) => {
   const [isShipmentModalOpen, setIsShipmentModalOpen] = useState(false);
   const [selectedCargo, setSelectedCargo] = useState<Cargo | null>(null);
@@ -62,6 +64,11 @@ const OperationalLoadsPage: React.FC<OperationalLoadsPageProps> = ({
   const [detailsModalCargo, setDetailsModalCargo] = useState<Cargo | null>(null);
   const [isShipmentsPanelOpen, setIsShipmentsPanelOpen] = useState(false);
   const [selectedCargoForShipments, setSelectedCargoForShipments] = useState<Cargo | null>(null);
+
+  React.useEffect(() => {
+    const isAnyOpen = isShipmentModalOpen || isLoadFormModalOpen || isHistoryModalOpen || !!detailsModalCargo || isShipmentsPanelOpen;
+    onModalStateChange(isAnyOpen);
+  }, [isShipmentModalOpen, isLoadFormModalOpen, isHistoryModalOpen, detailsModalCargo, isShipmentsPanelOpen, onModalStateChange]);
 
   const handleShowCargoDetails = (cargo: Cargo) => {
     setDetailsModalCargo(cargo);

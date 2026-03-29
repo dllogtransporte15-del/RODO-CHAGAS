@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { supabase } from './supabase';
 import TopNavBar from './components/TopNavBar';
 import TicketModal from './components/TicketModal';
@@ -111,6 +111,13 @@ const App: React.FC = () => {
   const [activeLocks, setActiveLocks] = useState<ShipmentLock[]>([]);
   const [profilePermissions, setProfilePermissions] = useState<ProfilePermissions>(INITIAL_PERMISSIONS);
   const [isTicketModalOpen, setIsTicketModalOpen] = useState(false);
+  const [isAnyModalOpen, setIsAnyModalOpen] = useState(false);
+  const isAnyModalActive = isAnyModalOpen || isTicketModalOpen;
+  const isAnyModalActiveRef = useRef(isAnyModalActive);
+  
+  useEffect(() => {
+    isAnyModalActiveRef.current = isAnyModalActive;
+  }, [isAnyModalActive]);
 
   const [companyLogo, setCompanyLogo] = useState<string | null>(() => {
     return localStorage.getItem('rodochagas_companyLogo') || RODOCHAGAS_LOGO_BASE64;
@@ -127,8 +134,8 @@ const App: React.FC = () => {
   });
 
   // --- LOAD DATA FROM SUPABASE ---
-  const loadAllData = useCallback(async () => {
-    setIsLoading(true);
+  const loadAllData = useCallback(async (isBackground = false) => {
+    if (!isBackground) setIsLoading(true);
     setLoadError(null);
     try {
       const [dbClients, dbOwners, dbDrivers, dbVehicles, dbProducts, dbCargos, dbShipments, dbUsers, dbTickets, dbPermissions, dbSettings, dbLocks] = await Promise.all([
@@ -201,7 +208,11 @@ const App: React.FC = () => {
       .channel('schema_changes')
       .on('postgres_changes', { event: '*', schema: 'public' }, (payload) => {
         console.log('Real-time change detected:', payload);
-        loadAllData();
+        if (isAnyModalActiveRef.current) {
+          console.log('Suppressed real-time refresh because a modal is open.');
+          return;
+        }
+        loadAllData(true);
       })
       .subscribe();
 
@@ -557,6 +568,7 @@ const App: React.FC = () => {
         timestamp: new Date().toISOString(),
         userId: currentUser.id,
       }],
+      vehicleTag: data.vehicleTag,
     };
     const newShipments = [newShipment, ...shipments];
     
@@ -1155,7 +1167,7 @@ const App: React.FC = () => {
       return (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '60vh', gap: '16px' }}>
           <p style={{ color: '#ef4444', fontSize: '16px' }}>{loadError}</p>
-          <button onClick={loadAllData} style={{ padding: '8px 16px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>Tentar novamente</button>
+          <button onClick={() => loadAllData()} style={{ padding: '8px 16px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>Tentar novamente</button>
         </div>
       );
     }
@@ -1173,7 +1185,7 @@ const App: React.FC = () => {
       case 'vehicles':
         return <VehiclesPage vehicles={vehicles} setVehicles={setVehicles} onSaveVehicle={handleSaveVehicle} owners={owners} currentUser={currentUser} profilePermissions={profilePermissions} />;
       case 'loads':
-        return <LoadsPage loads={visibleLoads} setLoads={setCargos} clients={clients} products={products} onSaveLoad={handleSaveLoad} currentUser={currentUser} profilePermissions={profilePermissions} users={users} shipments={visibleShipments} onDeleteLoad={handleDeleteCargo} />;
+        return <LoadsPage loads={visibleLoads} setLoads={setCargos} clients={clients} products={products} onSaveLoad={handleSaveLoad} currentUser={currentUser} profilePermissions={profilePermissions} users={users} shipments={visibleShipments} onDeleteLoad={handleDeleteCargo} onModalStateChange={setIsAnyModalOpen} />;
       case 'products':
         return <ProductsPage products={products} onSaveProduct={handleSaveProduct} onDeleteProduct={handleDeleteProduct} currentUser={currentUser} profilePermissions={profilePermissions} />;
       case 'shipments':
@@ -1195,6 +1207,7 @@ const App: React.FC = () => {
                     onTransferShipment={handleTransferShipment}
                     onDeleteShipment={handleDeleteShipment}
                     activeLocks={activeLocks}
+                    onModalStateChange={setIsAnyModalOpen}
                 />;
       case 'operational-loads':
         return (
@@ -1211,6 +1224,7 @@ const App: React.FC = () => {
             shipments={visibleShipments}
             users={users}
             onDeleteLoad={handleDeleteCargo}
+            onModalStateChange={setIsAnyModalOpen}
           />
         );
       case 'operational-map':
@@ -1225,6 +1239,7 @@ const App: React.FC = () => {
             onCreateShipment={handleCreateShipment}
             currentUser={currentUser}
             users={users}
+            onModalStateChange={setIsAnyModalOpen}
           />
         );
       case 'financial':
@@ -1281,7 +1296,8 @@ const App: React.FC = () => {
     }
   };
 
-  if (isLoading) {
+  // Only show the full-screen loader if it's the initial load (no data yet)
+  if (isLoading && shipments.length === 0 && cargos.length === 0) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', gap: '16px', background: '#f9fafb' }}>
         <div style={{ width: '48px', height: '48px', border: '4px solid #e5e7eb', borderTopColor: '#3b82f6', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />

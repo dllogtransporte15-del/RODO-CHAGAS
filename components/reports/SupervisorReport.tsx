@@ -32,7 +32,14 @@ const SupervisorReport: React.FC<SupervisorReportProps> = ({ shipments, cargos, 
 
   const totalProfitMargin = useMemo(() => {
     return shipments.reduce((acc, s) => {
-      if (s.status === ShipmentStatus.Cancelado) return acc;
+      const countableStatuses = [
+        ShipmentStatus.AguardandoAdiantamento,
+        ShipmentStatus.AguardandoAgendamento,
+        ShipmentStatus.AguardandoDescarga,
+        ShipmentStatus.AguardandoPagamentoSaldo,
+        ShipmentStatus.Finalizado
+      ];
+      if (!countableStatuses.includes(s.status)) return acc;
       
       const cargo = cargoMap.get(s.cargoId);
       if (!cargo) return acc;

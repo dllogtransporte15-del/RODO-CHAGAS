@@ -22,9 +22,10 @@ interface LoadsPageProps {
   profilePermissions: ProfilePermissions;
   users: User[];
   onDeleteLoad: (cargoId: string) => void;
+  onModalStateChange: (isOpen: boolean) => void;
 }
 
-const LoadsPage: React.FC<LoadsPageProps> = ({ loads, setLoads, clients, products, shipments, onSaveLoad, currentUser, profilePermissions, users, onDeleteLoad }) => {
+const LoadsPage: React.FC<LoadsPageProps> = ({ loads, setLoads, clients, products, shipments, onSaveLoad, currentUser, profilePermissions, users, onDeleteLoad, onModalStateChange }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loadToEdit, setLoadToEdit] = useState<Cargo | null>(null);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
@@ -34,6 +35,11 @@ const LoadsPage: React.FC<LoadsPageProps> = ({ loads, setLoads, clients, product
   const [detailsModalCargo, setDetailsModalCargo] = useState<Cargo | null>(null);
   const [isShipmentsPanelOpen, setIsShipmentsPanelOpen] = useState(false);
   const [selectedCargoForShipments, setSelectedCargoForShipments] = useState<Cargo | null>(null);
+
+  React.useEffect(() => {
+    const isAnyOpen = isModalOpen || isHistoryModalOpen || !!detailsModalCargo || isShipmentsPanelOpen;
+    onModalStateChange(isAnyOpen);
+  }, [isModalOpen, isHistoryModalOpen, detailsModalCargo, isShipmentsPanelOpen, onModalStateChange]);
 
   const handleShowDetails = (cargo: Cargo) => {
     setDetailsModalCargo(cargo);

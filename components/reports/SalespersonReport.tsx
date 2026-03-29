@@ -44,6 +44,8 @@ const SalespersonReport: React.FC<SalespersonReportProps> = ({ shipments, cargos
     const cargoMap: Map<string, Cargo> = new Map(cargos.map(c => [c.id, c]));
 
     const loadedStatuses = [
+        ShipmentStatus.AguardandoAdiantamento,
+        ShipmentStatus.AguardandoAgendamento,
         ShipmentStatus.AguardandoDescarga,
         ShipmentStatus.AguardandoPagamentoSaldo,
         ShipmentStatus.Finalizado

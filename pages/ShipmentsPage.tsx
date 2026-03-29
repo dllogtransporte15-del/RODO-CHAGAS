@@ -34,6 +34,7 @@ interface ShipmentsPageProps {
   onMarkArrival: (shipmentId: string) => void;
   onDeleteShipment: (shipmentId: string) => void;
   activeLocks: ShipmentLock[];
+  onModalStateChange: (isOpen: boolean) => void;
 }
 
 const requiredDocumentMap: Partial<Record<ShipmentStatus, string>> = {
@@ -51,7 +52,7 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({
   shipments, cargos, clients, products, drivers, vehicles, currentUser, 
   profilePermissions, users, onUpdateAttachment, onUpdatePrice, onConfirmCancel, 
   onUpdateAnttAndBankDetails, onTransferShipment, onMarkArrival, onDeleteShipment,
-  activeLocks 
+  activeLocks, onModalStateChange 
 }) => {
   const [activeStatus, setActiveStatus] = useState<ShipmentStatus>(ShipmentStatus.AguardandoSeguradora);
   const [isAttachmentModalOpen, setAttachmentModalOpen] = useState(false);
@@ -63,6 +64,13 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({
   const [selectedShipment, setSelectedShipment] = useState<Shipment | null>(null);
   const [detailsModalCargo, setDetailsModalCargo] = useState<Cargo | null>(null);
   const lockHeartbeatRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    const isAnyOpen = isAttachmentModalOpen || isEditPriceModalOpen || isCancelModalOpen || 
+                      isHistoryModalOpen || isCadastroAnttModalOpen || isTransferModalOpen || !!detailsModalCargo;
+    onModalStateChange(isAnyOpen);
+  }, [isAttachmentModalOpen, isEditPriceModalOpen, isCancelModalOpen, isHistoryModalOpen, 
+      isCadastroAnttModalOpen, isTransferModalOpen, detailsModalCargo, onModalStateChange]);
 
   const canUpdate = can('update', currentUser, 'shipments', profilePermissions);
   const canDelete = can('delete', currentUser, 'shipments', profilePermissions);

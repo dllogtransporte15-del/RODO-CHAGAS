@@ -33,14 +33,17 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
   const [vehicleSetType, setVehicleSetType] = useState<VehicleSetType | ''>('');
   const [vehicleBodyType, setVehicleBodyType] = useState<VehicleBodyType | ''>('');
   const [bankDetails, setBankDetails] = useState('');
+  const [vehicleTag, setVehicleTag] = useState('');
   const [filesToAttach, setFilesToAttach] = useState<File[]>([]);
 
   const embarcadores = useMemo(() => {
     return users.filter(u => u.profile === UserProfile.Embarcador);
   }, [users]);
 
+  const prevIsOpen = React.useRef(isOpen);
+
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && !prevIsOpen.current) {
       setDriverName('');
       setDriverCpf('');
       setDriverCnh('');
@@ -56,6 +59,7 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
       setVehicleSetType('');
       setVehicleBodyType('');
       setBankDetails('');
+      setVehicleTag('');
       setFilesToAttach([]);
       setEmbarcadorId(
           currentUser?.profile === UserProfile.Embarcador
@@ -63,7 +67,8 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
               : ''
       );
     }
-  }, [isOpen, drivers, cargo, currentUser]);
+    prevIsOpen.current = isOpen;
+  }, [isOpen, currentUser]);
 
   useEffect(() => {
     const selectedDriver = drivers.find(d => d.name.trim().toLowerCase() === driverName.trim().toLowerCase());
@@ -177,6 +182,7 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
       vehicleSetType: vehicleSetType || undefined,
       vehicleBodyType: vehicleBodyType || undefined,
       bankDetails: bankDetails || undefined,
+      vehicleTag: vehicleTag || undefined,
       filesToAttach: filesToAttach.length > 0 ? filesToAttach : undefined,
     });
   };
@@ -307,14 +313,24 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
               </div>
             </div>
           
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Toneladas do Embarque</label>
-              <input type="number" value={shipmentTonnage} onChange={(e) => setShipmentTonnage(parseFloat(e.target.value) || 0)} placeholder="Ex: 35.5" className="mt-1 p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600" step="0.01" required />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Toneladas do Embarque</label>
+                  <input type="number" value={shipmentTonnage || ''} onChange={(e) => setShipmentTonnage(parseFloat(e.target.value) || 0)} placeholder="Ex: 35.5" className="mt-1 p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600" step="0.01" required />
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Tag do Veículo</label>
+                    <input type="text" value={vehicleTag} onChange={(e) => setVehicleTag(e.target.value)} placeholder="Opcional" className="mt-1 p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600" />
+                </div>
             </div>
 
             <div className="mt-4 p-4 bg-gray-100 dark:bg-gray-900/50 rounded-lg text-center">
-              <p className="text-sm text-gray-600 dark:text-gray-400">Valor do Frete (Motorista)</p>
-              <p className="text-2xl font-bold text-gray-800 dark:text-white">{formatCurrency(calculatedFreight)}</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Valor do Frete (Motorista)</p>
+              <div className="flex flex-col items-center">
+                  <p className="text-2xl font-bold text-gray-800 dark:text-white">
+                      {formatCurrency(cargo.driverFreightValuePerTon)} <span className="text-sm font-normal text-gray-500">/ TON</span>
+                  </p>
+              </div>
             </div>
           
             <div className="mt-8 flex justify-end space-x-4">

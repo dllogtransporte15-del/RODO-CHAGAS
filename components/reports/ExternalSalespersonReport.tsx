@@ -42,6 +42,8 @@ const ExternalSalespersonReport: React.FC<ExternalSalespersonReportProps> = ({ s
   const statsList = useMemo<ExternalSalespersonStats[]>(() => {
     const cargoMap: Map<string, Cargo> = new Map(cargos.map(c => [c.id, c]));
     const loadedStatuses = [
+        ShipmentStatus.AguardandoAdiantamento,
+        ShipmentStatus.AguardandoAgendamento,
         ShipmentStatus.AguardandoDescarga,
         ShipmentStatus.AguardandoPagamentoSaldo,
         ShipmentStatus.Finalizado
