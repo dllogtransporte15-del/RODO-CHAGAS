@@ -12,7 +12,12 @@ interface ShipmentStatusFilterProps {
 
 const ShipmentStatusFilter: React.FC<ShipmentStatusFilterProps> = ({ shipments, activeStatus, onStatusChange, currentUser }) => {
   const getStatusCount = (status: ShipmentStatus | 'all') => {
-    if (status === 'all') return shipments.length;
+    if (status === 'all') {
+      return shipments.filter(s => 
+        s.status !== ShipmentStatus.Cancelado && 
+        s.status !== ShipmentStatus.Finalizado
+      ).length;
+    }
     return shipments.filter(s => s.status === status).length;
   };
 

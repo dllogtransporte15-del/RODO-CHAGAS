@@ -76,7 +76,12 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({
   const isClient = currentUser.profile === UserProfile.Cliente;
 
   const filteredShipments = useMemo(() => {
-    if (activeStatus === 'all') return shipments;
+    if (activeStatus === 'all') {
+      return shipments.filter(s => 
+        s.status !== ShipmentStatus.Cancelado && 
+        s.status !== ShipmentStatus.Finalizado
+      );
+    }
     return shipments.filter(shipment => shipment.status === activeStatus);
   }, [shipments, activeStatus]);
   
