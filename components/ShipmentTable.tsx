@@ -260,11 +260,11 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users,
                     <div className="text-xs text-gray-500">{shipment.horsePlate}</div>
                   </div>
                   <div>
-                    <div className="text-[10px] text-gray-400 uppercase font-bold">Frete</div>
+                    <div className="text-[10px] text-gray-400 uppercase font-bold">Frete / Ton</div>
                     <div className="font-bold dark:text-gray-200">
                       {isClient 
-                        ? formatCurrency((cargo?.companyFreightValuePerTon || 0) * shipment.shipmentTonnage)
-                        : formatCurrency(shipment.driverFreightValue)
+                        ? formatCurrency(cargo?.companyFreightValuePerTon || 0)
+                        : formatCurrency(shipment.driverFreightValue / (shipment.shipmentTonnage || 1))
                       }
                     </div>
                   </div>
@@ -321,7 +321,7 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users,
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">Embarque / Carga</th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">Motorista / Solicitante</th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">Origem / Destino</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">Valor Frete</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">Frete / Ton</th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">Status Atual</th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">Data Programada</th>
                 {(!isClient || showActionsColumnForClient) && (
@@ -408,25 +408,13 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users,
                     </td>
   
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      {isClient ? (
-                          <>
-                              <div className="font-semibold text-gray-900 dark:text-white">{formatCurrency((cargo?.companyFreightValuePerTon || 0) * shipment.shipmentTonnage)}</div>
-                              {shipment.shipmentTonnage > 0 && (
-                                  <div className="text-xs text-gray-500 dark:text-gray-400">
-                                  {formatCurrency(cargo?.companyFreightValuePerTon || 0)}/ton
-                                  </div>
-                              )}
-                          </>
-                      ) : (
-                          <>
-                              <div className="font-semibold text-gray-900 dark:text-white">{formatCurrency(shipment.driverFreightValue)}</div>
-                              {shipment.shipmentTonnage > 0 && (
-                                  <div className="text-xs text-gray-500 dark:text-gray-400">
-                                  {formatCurrency(shipment.driverFreightValue / shipment.shipmentTonnage)}/ton
-                                  </div>
-                              )}
-                          </>
-                      )}
+                        <div className="font-semibold text-gray-900 dark:text-white">
+                            {isClient 
+                                ? formatCurrency(cargo?.companyFreightValuePerTon || 0)
+                                : formatCurrency(shipment.driverFreightValue / (shipment.shipmentTonnage || 1))
+                            }
+                            <span className="text-[10px] text-gray-500 font-normal ml-1">/ton</span>
+                        </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <p className="text-sm font-medium text-gray-900 dark:text-white">{shipment.status}</p>
