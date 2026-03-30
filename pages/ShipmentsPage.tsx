@@ -46,7 +46,7 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({
   onUpdateAnttAndBankDetails, onTransferShipment, onMarkArrival, onDeleteShipment,
   onRevertStatus, activeLocks, onModalStateChange 
 }) => {
-  const [activeStatus, setActiveStatus] = useState<ShipmentStatus>(ShipmentStatus.AguardandoSeguradora);
+  const [activeStatus, setActiveStatus] = useState<ShipmentStatus | 'all'>(ShipmentStatus.AguardandoSeguradora);
   const [isAttachmentModalOpen, setAttachmentModalOpen] = useState(false);
   const [isEditPriceModalOpen, setEditPriceModalOpen] = useState(false);
   const [isCancelModalOpen, setCancelModalOpen] = useState(false);
@@ -76,6 +76,7 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({
   const isClient = currentUser.profile === UserProfile.Cliente;
 
   const filteredShipments = useMemo(() => {
+    if (activeStatus === 'all') return shipments;
     return shipments.filter(shipment => shipment.status === activeStatus);
   }, [shipments, activeStatus]);
   

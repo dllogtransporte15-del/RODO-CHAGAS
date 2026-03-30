@@ -142,13 +142,15 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ cargos, shipments, users,
   }, [cargos]);
 
   const shipmentStatusData = useMemo(() => {
-    const statusOrder = Object.values(ShipmentStatus);
+    const activeStatuses = Object.values(ShipmentStatus).filter(
+      status => status !== ShipmentStatus.Finalizado && status !== ShipmentStatus.Cancelado
+    );
     const counts = shipments.reduce((acc, shipment) => {
       acc[shipment.status] = (acc[shipment.status] || 0) + 1;
       return acc;
     }, {} as Record<ShipmentStatus, number>);
 
-    return statusOrder.map(status => ({
+    return activeStatuses.map(status => ({
       label: status,
       value: counts[status] || 0,
     }));
@@ -189,7 +191,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ cargos, shipments, users,
   }, [shipments, cargos, clients]);
   
   const activeShipments = useMemo(() => {
-    return shipments.filter(s => s.status !== ShipmentStatus.Finalizado).length;
+    return shipments.filter(s => s.status !== ShipmentStatus.Finalizado && s.status !== ShipmentStatus.Cancelado).length;
   }, [shipments]);
 
   const pendingLoads = useMemo(() => {

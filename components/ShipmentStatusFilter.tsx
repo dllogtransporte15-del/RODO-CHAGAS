@@ -5,19 +5,20 @@ import type { Shipment, User } from '../types';
 
 interface ShipmentStatusFilterProps {
   shipments: Shipment[];
-  activeStatus: ShipmentStatus;
-  onStatusChange: (status: ShipmentStatus) => void;
+  activeStatus: ShipmentStatus | 'all';
+  onStatusChange: (status: ShipmentStatus | 'all') => void;
   currentUser: User;
 }
 
 const ShipmentStatusFilter: React.FC<ShipmentStatusFilterProps> = ({ shipments, activeStatus, onStatusChange, currentUser }) => {
-  const getStatusCount = (status: ShipmentStatus) => {
+  const getStatusCount = (status: ShipmentStatus | 'all') => {
+    if (status === 'all') return shipments.length;
     return shipments.filter(s => s.status === status).length;
   };
 
   const statusOrder = useMemo(() => {
-    let statuses = Object.values(ShipmentStatus).filter(
-      status => status !== ShipmentStatus.Finalizado && (status !== ShipmentStatus.Cancelado || currentUser.profile === UserProfile.Admin)
+    let statuses: (ShipmentStatus | 'all')[] = Object.values(ShipmentStatus).filter(
+      status => status !== ShipmentStatus.Finalizado && status !== ShipmentStatus.Cancelado
     );
 
     if (currentUser.profile === UserProfile.Cliente) {
@@ -26,8 +27,17 @@ const ShipmentStatusFilter: React.FC<ShipmentStatusFilterProps> = ({ shipments, 
         status !== ShipmentStatus.AguardandoPagamentoSaldo
       );
     }
+    
+    // Add "Todos" as the last tab
+    statuses.push('all');
+    
     return statuses;
   }, [currentUser]);
+
+  const getStatusLabel = (status: ShipmentStatus | 'all') => {
+    if (status === 'all') return 'Todos';
+    return status;
+  };
 
   return (
     <div className="mb-6">
@@ -43,7 +53,7 @@ const ShipmentStatusFilter: React.FC<ShipmentStatusFilterProps> = ({ shipments, 
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:border-gray-500'
               }`}
             >
-              {status}
+              {getStatusLabel(status)}
               <span className={`ml-2 inline-block py-0.5 px-2 rounded-full text-xs font-semibold ${
                  activeStatus === status
                   ? 'bg-primary text-white'
