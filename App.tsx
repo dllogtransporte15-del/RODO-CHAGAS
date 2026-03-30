@@ -14,7 +14,6 @@ import OperationalLoadsPage from './pages/OperationalLoadsPage';
 import OperationalMapPage from './pages/OperationalMapPage';
 import ReportsPage from './pages/ReportsPage';
 import UsersPage from './pages/UsersPage';
-import PlaceholderPage from './pages/PlaceholderPage';
 import LoginPage from './pages/LoginPage';
 import CommissionsPage from './pages/CommissionsPage';
 import AppearancePage from './pages/AppearancePage';
@@ -24,6 +23,7 @@ import LayoverCalculatorPage from './pages/LayoverCalculatorPage';
 import FreightQuotePage from './pages/FreightQuotePage';
 import ToolsHistoryPage from './pages/ToolsHistoryPage';
 import ProductsPage from './pages/ProductsPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
 import type { Client, Owner, Driver, Vehicle, Product, Cargo, Shipment, User, Page, ProfilePermissions, HistoryLog, Ticket, TicketHistory, ShipmentLock } from './types';
 import { CargoStatus, ShipmentStatus, UserProfile, TicketStatus, TicketPriority, DriverClassification, VehicleSetType, VehicleBodyType, REQUIRED_DOCUMENT_MAP } from './types';
 import { formatId } from './utils';
@@ -111,6 +111,7 @@ const App: React.FC = () => {
   const [activeLocks, setActiveLocks] = useState<ShipmentLock[]>([]);
   const [profilePermissions, setProfilePermissions] = useState<ProfilePermissions>(INITIAL_PERMISSIONS);
   const [isTicketModalOpen, setIsTicketModalOpen] = useState(false);
+  const [isResettingPassword, setIsResettingPassword] = useState(false);
   const [isAnyModalOpen, setIsAnyModalOpen] = useState(false);
   const isAnyModalActive = isAnyModalOpen || isTicketModalOpen;
   const isAnyModalActiveRef = useRef(isAnyModalActive);
@@ -973,6 +974,57 @@ const App: React.FC = () => {
     }
   };
 
+  // --- AUTH HANDLERS ---
+  useEffect(() => {
+    supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('Auth event:', event);
+      if (event === 'PASSWORD_RECOVERY') {
+        setIsResettingPassword(true);
+      }
+    });
+  }, []);
+
+  const handleResetPasswordRequest = async (email: string) => {
+    // 1. Check if user exists in public.app_users
+    const user = users.find(u => u.email?.toLowerCase() === email.toLowerCase());
+    if (!user) {
+      throw new Error('Não encontramos uma conta com este endereço de email.');
+    }
+
+    // 2. Request reset from Supabase Auth
+    // Use the site's origin as redirection
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin
+    });
+
+    if (error) throw error;
+  };
+
+  const handleFinalPasswordReset = async (newPassword: string) => {
+    try {
+      // 1. Update Supabase Auth password
+      const { error: authError } = await supabase.auth.updateUser({ password: newPassword });
+      if (authError) throw authError;
+
+      // 2. Get user email
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser || !authUser.email) throw new Error('Falha ao recuperar informações do usuário.');
+
+      // 3. Update public.app_users for local login compatibility
+      const appUser = users.find(u => u.email?.toLowerCase() === authUser.email?.toLowerCase());
+      if (appUser) {
+        const updatedUser = { ...appUser, password: newPassword };
+        await upsertUser(updatedUser);
+        setUsers(prev => prev.map(u => u.id === appUser.id ? updatedUser : u));
+      }
+
+      alert('Senha redefinida com sucesso!');
+      setIsResettingPassword(false);
+    } catch (err: any) {
+      console.error('Error resetting password:', err);
+      throw err;
+    }
+  };
   const handleSaveOwner = async (ownerData: Owner | Omit<Owner, 'id'>) => {
     let saved: Owner;
     if ('id' in ownerData) {
@@ -1382,8 +1434,18 @@ const App: React.FC = () => {
     );
   }
 
+  if (isResettingPassword) {
+    return (
+      <ResetPasswordPage 
+        onReset={handleFinalPasswordReset} 
+        onCancel={() => setIsResettingPassword(false)} 
+        companyLogo={companyLogo} 
+      />
+    );
+  }
+
   if (!currentUser) {
-    return <LoginPage onLogin={handleLogin} users={users} companyLogo={companyLogo} />;
+    return <LoginPage onLogin={handleLogin} users={users} companyLogo={companyLogo} onResetPasswordRequest={handleResetPasswordRequest} />;
   }
 
   const operationalPages: Page[] = ['loads', 'shipments', 'shipment-history', 'load-history', 'operational-loads', 'operational-map'];
