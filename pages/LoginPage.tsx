@@ -6,27 +6,22 @@ interface LoginPageProps {
   onLogin: (user: User) => void;
   users: User[];
   companyLogo: string | null;
-  onResetPasswordRequest: (email: string) => Promise<void>;
 }
 
-const LoginPage: React.FC<LoginPageProps> = ({ onLogin, users, companyLogo, onResetPasswordRequest }) => {
-  const [view, setView] = useState<'login' | 'forgot'>('login');
+const LoginPage: React.FC<LoginPageProps> = ({ onLogin, users, companyLogo }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (view === 'forgot') {
-      handleForgotPassword();
-      return;
-    }
-
     const cleanEmail = email.trim().toLowerCase();
     const cleanPassword = password.trim();
     
+    // Find user with extremely robust matching:
+    // 1. Case-insensitive email
+    // 2. Trimming any accidental spaces in DB records
+    // 3. Ensuring users list is available
     const user = users.find(u => {
       const dbEmail = (u.email || '').trim().toLowerCase();
       const dbPassword = (u.password || '').trim();
@@ -38,32 +33,15 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, users, companyLogo, onRe
     } else if (user && !user.active) {
       setError('Este usuário está inativo.');
     } else {
+      console.log('Login failed. Input email:', cleanEmail, 'Input password:', '***');
+      console.log('Available users in state:', users.length);
       setError('Email ou senha inválidos.');
-    }
-  };
-
-  const handleForgotPassword = async () => {
-    if (!email) {
-      setError('Por favor, informe seu email.');
-      return;
-    }
-
-    setIsLoading(true);
-    setError('');
-    setSuccess('');
-
-    try {
-      await onResetPasswordRequest(email);
-      setSuccess('Se o usuário existir, um link de redefinição foi enviado para seu email.');
-    } catch (err: any) {
-      setError(err.message || 'Erro ao solicitar redefinição de senha.');
-    } finally {
-      setIsLoading(false);
     }
   };
 
   return (
     <div className="relative flex items-center justify-center min-h-screen bg-primary overflow-hidden">
+      {/* Brand Angled Pattern Background */}
       <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
         <div className="absolute top-0 right-0 w-[80%] h-full bg-accent opacity-10 skew-x-[-25deg] origin-top-right"></div>
         <div className="absolute bottom-0 left-0 w-[40%] h-[50%] bg-accent opacity-5 skew-x-[-15deg] origin-bottom-left"></div>
@@ -79,9 +57,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, users, companyLogo, onRe
             </h1>
           )}
           <div className="mt-4 flex flex-col items-center">
-            <p className="text-lg font-bold text-primary dark:text-blue-400">
-              {view === 'login' ? 'Sistema de Gestão Logística' : 'Redefinir Senha'}
-            </p>
+            <p className="text-lg font-bold text-primary dark:text-blue-400">Sistema de Gestão Logística</p>
             <div className="h-1 w-12 bg-accent mt-1 rounded-full"></div>
           </div>
         </div>
@@ -100,20 +76,18 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, users, companyLogo, onRe
                 onChange={e => setEmail(e.target.value)}
               />
             </div>
-            {view === 'login' && (
-              <div className="relative">
-                <input
-                  id="password"
-                  name="password"
-                  type="password"
-                  required
-                  className="appearance-none block w-full px-4 py-3 border border-gray-200 dark:border-gray-700 placeholder-gray-400 text-gray-900 rounded-xl focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent sm:text-sm dark:bg-gray-800 dark:text-white transition-all"
-                  placeholder="Sua senha"
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                />
-              </div>
-            )}
+            <div className="relative">
+              <input
+                id="password"
+                name="password"
+                type="password"
+                required
+                className="appearance-none block w-full px-4 py-3 border border-gray-200 dark:border-gray-700 placeholder-gray-400 text-gray-900 rounded-xl focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent sm:text-sm dark:bg-gray-800 dark:text-white transition-all"
+                placeholder="Sua senha"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+              />
+            </div>
           </div>
 
           {error && (
@@ -122,31 +96,12 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, users, companyLogo, onRe
             </div>
           )}
 
-          {success && (
-            <div className="p-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
-               <p className="text-center text-sm text-green-600 dark:text-green-400 font-medium">{success}</p>
-            </div>
-          )}
-
-          <div className="pt-2 space-y-4">
+          <div className="pt-2">
             <button
               type="submit"
-              disabled={isLoading}
-              className="w-full flex justify-center py-3 px-4 border border-transparent text-base font-bold rounded-xl text-white bg-accent hover:bg-accent-dark focus:outline-none focus:ring-4 focus:ring-accent/50 shadow-lg shadow-accent/20 transition-all transform hover:-translate-y-1 active:scale-[0.98] disabled:opacity-50 disabled:transform-none"
+              className="w-full flex justify-center py-3 px-4 border border-transparent text-base font-bold rounded-xl text-white bg-accent hover:bg-accent-dark focus:outline-none focus:ring-4 focus:ring-accent/50 shadow-lg shadow-accent/20 transition-all transform hover:-translate-y-1 active:scale-[0.98]"
             >
-              {isLoading ? 'PROCESSANDO...' : view === 'login' ? 'ENTRAR NO SISTEMA' : 'ENVIAR LINK DE RECUPERAÇÃO'}
-            </button>
-            
-            <button
-              type="button"
-              onClick={() => {
-                setView(view === 'login' ? 'forgot' : 'login');
-                setError('');
-                setSuccess('');
-              }}
-              className="w-full text-center text-sm font-medium text-primary dark:text-blue-400 hover:underline"
-            >
-              {view === 'login' ? 'Esqueci minha senha' : 'Voltar para o Login'}
+              ENTRAR NO SISTEMA
             </button>
           </div>
         </form>
