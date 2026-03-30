@@ -41,7 +41,7 @@ const ShipmentHistoryPage: React.FC<ShipmentHistoryPageProps> = ({ shipments, ca
     setAttachmentModalOpen(true);
   };
   
-  const handleDummySave = (data: { filesToAttach: { [key: string]: File[] }, bankDetails?: string, loadedTonnage?: number, advancePercentage?: number }) => {
+  const handleDummySave = (data: { filesToAttach: { [key: string]: File[] }, bankDetails?: string, loadedTonnage?: number, advancePercentage?: number, route?: string }) => {
     // This is a read-only page, but the modal needs a function
     setAttachmentModalOpen(false);
   };
@@ -86,6 +86,7 @@ const ShipmentHistoryPage: React.FC<ShipmentHistoryPageProps> = ({ shipments, ca
             onClose={() => setAttachmentModalOpen(false)}
             onSave={handleDummySave} // No saving on this page
             shipment={selectedShipment}
+            cargo={cargos.find(c => c.id === selectedShipment.cargoId)}
             documentName="Documento"
             currentUser={currentUser}
         />

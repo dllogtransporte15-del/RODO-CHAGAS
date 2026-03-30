@@ -25,7 +25,7 @@ import FreightQuotePage from './pages/FreightQuotePage';
 import ToolsHistoryPage from './pages/ToolsHistoryPage';
 import ProductsPage from './pages/ProductsPage';
 import type { Client, Owner, Driver, Vehicle, Product, Cargo, Shipment, User, Page, ProfilePermissions, HistoryLog, Ticket, TicketHistory, ShipmentLock } from './types';
-import { CargoStatus, ShipmentStatus, UserProfile, TicketStatus, TicketPriority, DriverClassification, VehicleSetType, VehicleBodyType } from './types';
+import { CargoStatus, ShipmentStatus, UserProfile, TicketStatus, TicketPriority, DriverClassification, VehicleSetType, VehicleBodyType, REQUIRED_DOCUMENT_MAP } from './types';
 import { formatId } from './utils';
 import { INITIAL_PERMISSIONS } from './auth';
 import {
@@ -631,8 +631,8 @@ const App: React.FC = () => {
     }
   };
 
-  const handleUpdateShipmentAttachment = async (shipmentId: string, data: { filesToAttach: { [key: string]: File[] }, bankDetails?: string, loadedTonnage?: number, advancePercentage?: number, tollValue?: number }) => {
-    const { filesToAttach, bankDetails, loadedTonnage, advancePercentage, tollValue } = data;
+  const handleUpdateShipmentAttachment = async (shipmentId: string, data: { filesToAttach: { [key: string]: File[] }, bankDetails?: string, loadedTonnage?: number, advancePercentage?: number, tollValue?: number, route?: string }) => {
+    const { filesToAttach, bankDetails, loadedTonnage, advancePercentage, tollValue, route } = data;
     const originalShipment = shipments.find(s => s.id === shipmentId);
     if (!originalShipment || !currentUser) return;
 
@@ -727,6 +727,10 @@ const App: React.FC = () => {
         }
         historyLogs.push(historyMsg);
     }
+    
+    if (route) {
+        historyLogs.push(`Rota informada: ${route}`);
+    }
 
     const updatedShipment: Shipment = {
         ...originalShipment,
@@ -738,6 +742,7 @@ const App: React.FC = () => {
         advancePercentage: finalAdvancePercentage,
         advanceValue: calculatedAdvanceValue,
         tollValue: tollValue !== undefined ? tollValue : originalShipment.tollValue,
+        route: route || originalShipment.route,
         history: [...originalShipment.history, createHistoryLog(`Status alterado para ${nextStatus}. ${historyLogs.join(' ')}`)],
         statusHistory: [
             ...(originalShipment.statusHistory || []),
@@ -1157,6 +1162,67 @@ const App: React.FC = () => {
     }
   };
 
+  const handleRevertShipmentStatus = async (shipmentId: string) => {
+    const shipment = shipments.find(s => s.id === shipmentId);
+    if (!shipment || !currentUser) return;
+    
+    if (![UserProfile.Admin, UserProfile.Diretor].includes(currentUser.profile)) {
+        alert("Apenas administradores ou diretores podem reverter o status.");
+        return;
+    }
+
+    if (!shipment.statusHistory || shipment.statusHistory.length <= 1) {
+        alert("Não há histórico de status para reverter.");
+        return;
+    }
+
+    const currentStatus = shipment.status;
+    const historyCopy = [...shipment.statusHistory];
+    historyCopy.pop(); // Remove the current status entry
+    const previousStatusEntry = historyCopy[historyCopy.length - 1];
+    const previousStatus = previousStatusEntry.status;
+
+    const docTypeToRemove = REQUIRED_DOCUMENT_MAP[previousStatus];
+    const updatedDocuments = { ...(shipment.documents || {}) };
+    if (docTypeToRemove && updatedDocuments[docTypeToRemove]) {
+        delete updatedDocuments[docTypeToRemove];
+    }
+
+    let updatedCargo: Cargo | undefined;
+    if (currentStatus === ShipmentStatus.AguardandoDescarga) {
+        const cargo = cargos.find(c => c.id === shipment.cargoId);
+        if (cargo) {
+            const newLoadedVolume = Math.max(0, cargo.loadedVolume - shipment.shipmentTonnage);
+            updatedCargo = {
+                ...cargo,
+                loadedVolume: newLoadedVolume,
+                history: [...cargo.history, createHistoryLog(`Volume carregado estornado devido à reversão do embarque ${shipmentId} (Status revertido para ${previousStatus}).`)]
+            };
+        }
+    }
+
+    const updatedShipment: Shipment = {
+        ...shipment,
+        status: previousStatus,
+        statusHistory: historyCopy,
+        documents: Object.keys(updatedDocuments).length > 0 ? updatedDocuments : undefined,
+        history: [...shipment.history, createHistoryLog(`Status revertido de "${currentStatus}" para "${previousStatus}" por ${currentUser.name}. Anexos do último passo removidos.`)]
+    };
+
+    setShipments(prev => prev.map(s => s.id === shipmentId ? updatedShipment : s));
+    if (updatedCargo) {
+        setCargos(prev => prev.map(c => c.id === updatedShipment.cargoId ? updatedCargo! : c));
+    }
+
+    try {
+        await upsertShipment(updatedShipment);
+        if (updatedCargo) await upsertCargo(updatedCargo);
+    } catch (err) {
+        console.error('Erro ao reverter status:', err);
+        alert("Erro ao salvar a reversão no banco de dados.");
+    }
+  };
+
   // --- RENDER LOGIC ---
   const renderPage = () => {
     if (!currentUser) return null;
@@ -1206,6 +1272,7 @@ const App: React.FC = () => {
                     onMarkArrival={handleMarkArrival}
                     onTransferShipment={handleTransferShipment}
                     onDeleteShipment={handleDeleteShipment}
+                    onRevertStatus={handleRevertShipmentStatus}
                     activeLocks={activeLocks}
                     onModalStateChange={setIsAnyModalOpen}
                 />;

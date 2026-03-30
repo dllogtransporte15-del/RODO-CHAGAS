@@ -1,8 +1,11 @@
 
-import React, { useState, useEffect } from 'react';
-import { Shipment, ShipmentStatus, User, UserProfile } from '../types';
+import React, { useState, useEffect, useRef } from 'react';
+import { Shipment, ShipmentStatus, User, UserProfile, Cargo } from '../types';
 import { PaperclipIcon } from './icons/PaperclipIcon';
 import { ExternalLinkIcon } from './icons/ExternalLinkIcon';
+import { MapPinIcon } from './icons/MapPinIcon'; // Assuming it exists or I'll add it if needed
+import { fetchRouteGeometry, getRouteSuggestions } from '../services/routing';
+import { LoaderIcon } from './icons/LoaderIcon';
 
 interface AttachmentModalProps {
   isOpen: boolean;
@@ -11,7 +14,10 @@ interface AttachmentModalProps {
   shipment: Shipment;
   documentName: string;
   currentUser: User;
+  cargo?: Cargo;
 }
+
+declare const L: any;
 
 const fiscalDocTypes = ['Nota Fiscal', 'CT-e', 'MDF-e', 'Carta Frete', 'Demurrage'];
 const allowedDocsForClient = [
@@ -46,14 +52,20 @@ const FileInput: React.FC<{ label: string; onFileChange: (files: FileList | null
 };
 
 
-const AttachmentModal: React.FC<AttachmentModalProps> = ({ isOpen, onClose, onSave, shipment, documentName, currentUser }) => {
+const AttachmentModal: React.FC<AttachmentModalProps> = ({ isOpen, onClose, onSave, shipment, documentName, currentUser, cargo }) => {
   const [singleFiles, setSingleFiles] = useState<File[]>([]);
   const [multiFiles, setMultiFiles] = useState<{ [key: string]: File[] }>({});
   const [bankDetails, setBankDetails] = useState('');
   const [loadedTonnage, setLoadedTonnage] = useState<number | ''>('');
   const [advancePercentage, setAdvancePercentage] = useState<number | ''>('');
   const [tollValue, setTollValue] = useState<number | ''>('');
+  const [route, setRoute] = useState('');
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
   const [error, setError] = useState<string>('');
+  const mapRef = useRef<any>(null);
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const routeLayerRef = useRef<any>(null);
   
   useEffect(() => {
     if (isOpen) {
@@ -64,8 +76,93 @@ const AttachmentModal: React.FC<AttachmentModalProps> = ({ isOpen, onClose, onSa
       setLoadedTonnage('');
       setAdvancePercentage('');
       setTollValue('');
+      setRoute(shipment.route || '');
+      setSuggestions([]);
+      setIsLoadingSuggestions(false);
     }
-  }, [isOpen]);
+  }, [isOpen, shipment]);
+
+  const earlyStatuses = [
+    ShipmentStatus.AguardandoSeguradora,
+    ShipmentStatus.PreCadastro,
+    ShipmentStatus.AguardandoCarregamento,
+    ShipmentStatus.AguardandoNota,
+    ShipmentStatus.AguardandoAdiantamento,
+    ShipmentStatus.AguardandoAgendamento,
+    ShipmentStatus.AguardandoDescarga,
+    ShipmentStatus.AguardandoPagamentoSaldo,
+    ShipmentStatus.Finalizado
+  ];
+
+  const showRouteField = earlyStatuses.includes(shipment.status);
+
+  useEffect(() => {
+    if (isOpen && showRouteField && mapContainerRef.current && !mapRef.current) {
+        // Initialize map
+        const map = L.map(mapContainerRef.current).setView([-15.78, -47.92], 4);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+        }).addTo(map);
+        mapRef.current = map;
+
+        const drawRoute = async () => {
+            if (cargo && cargo.originCoords && cargo.destinationCoords) {
+                const origin = [cargo.originCoords.lat, cargo.originCoords.lng];
+                const dest = [cargo.destinationCoords.lat, cargo.destinationCoords.lng];
+
+                L.marker(origin, { title: 'Origem' }).addTo(map).bindPopup(`Origem: ${cargo.origin}`);
+                L.marker(dest, { title: 'Destino' }).addTo(map).bindPopup(`Destino: ${cargo.destination}`);
+
+                // Try to get actual road geometry
+                const roadGeometry = await fetchRouteGeometry(cargo.originCoords, cargo.destinationCoords);
+                if (roadGeometry) {
+                    if (routeLayerRef.current) map.removeLayer(routeLayerRef.current);
+                    routeLayerRef.current = L.polyline(roadGeometry.coordinates, { color: '#003399', weight: 5, opacity: 0.8 }).addTo(map);
+                    map.fitBounds(routeLayerRef.current.getBounds(), { padding: [30, 30] });
+                } else {
+                    // Fallback to straight line
+                    const line = L.polyline([origin, dest], { color: 'blue', weight: 3, opacity: 0.7, dashArray: '10, 10' }).addTo(map);
+                    map.fitBounds(line.getBounds(), { padding: [30, 30] });
+                }
+            }
+        };
+
+        drawRoute();
+        
+        // Force invalidate size after a delay to ensure it renders correctly in the modal
+        setTimeout(() => {
+            map.invalidateSize();
+        }, 300);
+    }
+
+    return () => {
+        if (mapRef.current) {
+            mapRef.current.remove();
+            mapRef.current = null;
+        }
+    };
+  }, [isOpen, showRouteField, cargo]);
+
+  const handleSuggestRoutes = async () => {
+    if (!cargo?.originCoords || !cargo?.destinationCoords) {
+        alert("Coordenadas de origem ou destino não disponíveis para gerar sugestões.");
+        return;
+    }
+
+    setIsLoadingSuggestions(true);
+    try {
+        const results = await getRouteSuggestions(cargo.originCoords, cargo.destinationCoords);
+        if (results && results.length > 0) {
+            setSuggestions(results.map(r => r.formatted));
+        } else {
+            alert("Não foi possível encontrar sugestões de cidades para esta rota.");
+        }
+    } catch (err) {
+        console.error('Error suggesting routes:', err);
+    } finally {
+        setIsLoadingSuggestions(false);
+    }
+  };
 
   const handleSave = () => {
     let filesToAttach: { [key: string]: File[] } = {};
@@ -102,7 +199,8 @@ const AttachmentModal: React.FC<AttachmentModalProps> = ({ isOpen, onClose, onSa
       bankDetails: bankDetails || undefined,
       loadedTonnage: shipment.status === ShipmentStatus.AguardandoCarregamento ? Number(loadedTonnage) : undefined,
       advancePercentage: shipment.status === ShipmentStatus.AguardandoAdiantamento ? Number(advancePercentage) : undefined,
-      tollValue: shipment.status === ShipmentStatus.AguardandoAdiantamento ? Number(tollValue || 0) : undefined
+      tollValue: shipment.status === ShipmentStatus.AguardandoAdiantamento ? Number(tollValue || 0) : undefined,
+      route: showRouteField ? route : undefined
     });
   };
   
@@ -288,6 +386,72 @@ const AttachmentModal: React.FC<AttachmentModalProps> = ({ isOpen, onClose, onSa
                                     </p>
                                 )}
                             </div>
+
+                            {/* Row for Route and Map */}
+                            {showRouteField && (
+                                <div className="col-span-12 mt-2 pt-4 border-t border-gray-100 dark:border-gray-700">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div className="space-y-4">
+                                            <div>
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">Informar Rota do Motorista</label>
+                                                    <button 
+                                                        onClick={handleSuggestRoutes}
+                                                        disabled={isLoadingSuggestions}
+                                                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-primary hover:text-white bg-primary/10 hover:bg-primary rounded-lg transition-all disabled:opacity-50"
+                                                    >
+                                                        {isLoadingSuggestions ? <LoaderIcon className="w-3 h-3 animate-spin" /> : <MapPinIcon className="w-3 h-3" />}
+                                                        Sugerir Rotas
+                                                    </button>
+                                                </div>
+                                                <textarea 
+                                                    value={route}
+                                                    onChange={(e) => setRoute(e.target.value)}
+                                                    placeholder="Ex: Seguir pela BR-050 até Uberlândia, depois BR-365 sentido Patos de Minas..."
+                                                    className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary dark:bg-gray-700 dark:border-gray-600 dark:text-white transition-all font-mono text-sm"
+                                                    rows={4}
+                                                />
+                                                <p className="text-[11px] text-gray-500 mt-2 italic flex items-center gap-1">
+                                                    <span className="inline-block w-2 h-2 rounded-full bg-blue-500"></span> 
+                                                    Baseado na rota: <span className="font-bold text-primary">{cargo?.origin} &rarr; {cargo?.destination}</span>
+                                                </p>
+
+                                                {suggestions.length > 0 && (
+                                                    <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-xl animate-in fade-in slide-in-from-top-2 duration-300">
+                                                        <h4 className="text-[10px] font-bold text-blue-800 dark:text-blue-300 uppercase tracking-wider mb-2">Sugestões Encontradas (Clique para Usar)</h4>
+                                                        <div className="space-y-2">
+                                                            {suggestions.map((s, idx) => (
+                                                                <button
+                                                                    key={idx}
+                                                                    onClick={() => setRoute(s)}
+                                                                    className="w-full text-left p-2.5 text-xs bg-white dark:bg-gray-800 border border-blue-200 dark:border-blue-700 hover:border-blue-500 dark:hover:border-blue-500 rounded-lg transition-all group"
+                                                                >
+                                                                    <span className="text-gray-600 dark:text-gray-400 group-hover:text-primary transition-colors">{s}</span>
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <div className="flex items-center justify-between">
+                                                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">Visualização do Trajeto</label>
+                                                {cargo?.originCoords && (
+                                                     <span className="text-[10px] px-2 py-0.5 bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 rounded-full font-bold uppercase">Rodovias Ativas</span>
+                                                )}
+                                            </div>
+                                            <div 
+                                                ref={mapContainerRef} 
+                                                className="w-full h-[220px] bg-gray-100 dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden z-0 shadow-inner"
+                                            />
+                                            {!cargo?.originCoords && (
+                                                <p className="text-[10px] text-yellow-600 dark:text-yellow-500 font-medium">⚠️ Coordenadas indisponíveis para visualizar no mapa.</p>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     ) : (
                         <FileInput label={documentName} files={singleFiles} onFileChange={handleSingleFileChange} />

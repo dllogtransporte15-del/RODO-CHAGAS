@@ -221,6 +221,17 @@ export enum ShipmentStatus {
   Cancelado = "Cancelado",
 }
 
+export const REQUIRED_DOCUMENT_MAP: Partial<Record<ShipmentStatus, string>> = {
+    [ShipmentStatus.PreCadastro]: 'Comprovante de Cadastro',
+    [ShipmentStatus.AguardandoSeguradora]: 'Comprovação da Liberação da Seguradora',
+    [ShipmentStatus.AguardandoCarregamento]: 'Ticket de Carregamento',
+    [ShipmentStatus.AguardandoNota]: 'Documentação Fiscal',
+    [ShipmentStatus.AguardandoAdiantamento]: 'Comprovante de Adiantamento',
+    [ShipmentStatus.AguardandoAgendamento]: 'Comprovante de Agendamento',
+    [ShipmentStatus.AguardandoDescarga]: 'Comprovante de Descarga',
+    [ShipmentStatus.AguardandoPagamentoSaldo]: 'Comprovante de Pagamento de Saldo',
+};
+
 export interface Shipment {
   id: string;
   orderId: string;
@@ -256,6 +267,7 @@ export interface Shipment {
   vehicleTag?: string;
   companyFreightRateSnapshot?: number;
   driverFreightRateSnapshot?: number;
+  route?: string;
 }
 
 export interface ProfilePermissions {

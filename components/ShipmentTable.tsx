@@ -12,7 +12,7 @@ import { ExternalLinkIcon } from './icons/ExternalLinkIcon';
 import { InfoIcon } from './icons/InfoIcon';
 import { TransferIcon } from './icons/TransferIcon';
 import { MoreVerticalIcon } from './icons/MoreVerticalIcon';
-import { Search, Filter, X, Trash2 } from 'lucide-react';
+import { Search, Filter, X, Trash2, RotateCcw } from 'lucide-react';
 import MultiSelectDropdown from './MultiSelectDropdown';
 import ShipmentDetailsModal from './ShipmentDetailsModal';
 
@@ -31,12 +31,13 @@ interface ShipmentTableProps {
   onShowCargoDetails?: (cargo: Cargo) => void;
   onMarkArrival?: (shipmentId: string) => void;
   onDelete?: (shipmentId: string) => void;
+  onRevertStatus?: (shipmentId: string) => void;
   canUserAdvanceStatus?: (shipment: Shipment) => { allowed: boolean; reason: string };
   currentUser: User;
   activeStatus: ShipmentStatus;
 }
 
-const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users, vehicles, onAttach, onEditPrice, onCancel, onTransfer, onShowHistory, onShowCargoDetails, canUserAdvanceStatus, onMarkArrival, onDelete, onOpenCadastroAntt, currentUser, activeStatus, clients }) => {
+const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users, vehicles, onAttach, onEditPrice, onCancel, onTransfer, onShowHistory, onShowCargoDetails, canUserAdvanceStatus, onMarkArrival, onDelete, onRevertStatus, onOpenCadastroAntt, currentUser, activeStatus, clients }) => {
   const [openActionMenu, setOpenActionMenu] = useState<string | null>(null);
   const [menuPosition, setMenuPosition] = useState<{ top: number, left: number, isUp: boolean } | null>(null);
   const [detailsModalShipment, setDetailsModalShipment] = useState<Shipment | null>(null);
@@ -337,6 +338,7 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users,
                 const advanceStatusCheck = canUserAdvanceStatus ? canUserAdvanceStatus(shipment) : { allowed: true, reason: '' };
                 const canAdvance = advanceStatusCheck.allowed;
                 const disabledReason = advanceStatusCheck.reason;
+                const statusHistoryCount = shipment.statusHistory?.length || 0;
 
                 let isLate = false;
                 if (shipment.scheduledTime && !shipment.arrivalTime) {
@@ -511,6 +513,17 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users,
                                                               {isActionable && onTransfer && <ActionMenuItem icon={TransferIcon} text="Transferir Embarque" onClick={() => onTransfer(shipment)} />}
                                                               {shipment.status === ShipmentStatus.Finalizado && onAttach && <ActionMenuItem icon={PaperclipIcon} text="Gestor de Anexos" onClick={() => onAttach(shipment)} />}
                                                               {isActionable && onCancel && <ActionMenuItem icon={XIcon} text="Cancelar Embarque" onClick={() => onCancel(shipment)} isDestructive />}
+                                                              {onRevertStatus && statusHistoryCount > 1 && (currentUser.profile === UserProfile.Admin || currentUser.profile === UserProfile.Diretor) && (
+                                                                  <ActionMenuItem 
+                                                                      icon={RotateCcw} 
+                                                                      text="Voltar Status Anterior" 
+                                                                      onClick={() => {
+                                                                          if (confirm(`Tem certeza que deseja REVERTER o status do embarque ${shipment.id} para o estado anterior? Isso também removerá os anexos adicionados no último passo.`)) {
+                                                                              onRevertStatus(shipment.id);
+                                                                          }
+                                                                      }} 
+                                                                  />
+                                                              )}
                                                           </>
                                                       )}
                                                       {onDelete && currentUser.profile === UserProfile.Admin && <ActionMenuItem icon={Trash2} text="Excluir Embarque" onClick={() => onDelete(shipment.id)} isDestructive />}

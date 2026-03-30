@@ -11,7 +11,7 @@ import CadastroAnttModal from '../components/CadastroAnttModal';
 import CargoDetailsModal from '../components/CargoDetailsModal';
 import TransferShipmentModal from '../components/TransferShipmentModal';
 import type { Shipment, Cargo, Client, Driver, User, ProfilePermissions, Product, Vehicle, ShipmentLock } from '../types';
-import { ShipmentStatus, UserProfile } from '../types';
+import { ShipmentStatus, UserProfile, REQUIRED_DOCUMENT_MAP } from '../types';
 import { can } from '../auth';
 import { tryAcquireShipmentLock, releaseShipmentLock } from '../lib/db';
 import { useEffect, useRef } from 'react';
@@ -26,33 +26,25 @@ interface ShipmentsPageProps {
   currentUser: User;
   profilePermissions: ProfilePermissions;
   users: User[];
-  onUpdateAttachment: (shipmentId: string, data: { filesToAttach: { [key: string]: File[] }, bankDetails?: string }) => void;
+  onUpdateAttachment: (shipmentId: string, data: { filesToAttach: { [key: string]: File[] }, bankDetails?: string, loadedTonnage?: number, advancePercentage?: number, tollValue?: number, route?: string }) => void;
   onUpdatePrice: (shipmentId: string, data: { newTotal: number, newRate?: number }) => void;
   onConfirmCancel: (shipmentId: string) => void;
   onUpdateAnttAndBankDetails: (shipmentId: string, data: { anttOwnerIdentifier: string; bankDetails?: string }) => void;
   onTransferShipment: (shipmentId: string, newEmbarcadorId: string) => void;
   onMarkArrival: (shipmentId: string) => void;
   onDeleteShipment: (shipmentId: string) => void;
+  onRevertStatus: (shipmentId: string) => void;
   activeLocks: ShipmentLock[];
   onModalStateChange: (isOpen: boolean) => void;
 }
 
-const requiredDocumentMap: Partial<Record<ShipmentStatus, string>> = {
-    [ShipmentStatus.PreCadastro]: 'Comprovante de Cadastro',
-    [ShipmentStatus.AguardandoSeguradora]: 'Comprovação da Liberação da Seguradora',
-    [ShipmentStatus.AguardandoCarregamento]: 'Ticket de Carregamento',
-    [ShipmentStatus.AguardandoNota]: 'Documentação Fiscal', // Placeholder for multi-doc
-    [ShipmentStatus.AguardandoAdiantamento]: 'Comprovante de Adiantamento',
-    [ShipmentStatus.AguardandoAgendamento]: 'Comprovante de Agendamento',
-    [ShipmentStatus.AguardandoDescarga]: 'Comprovante de Descarga',
-    [ShipmentStatus.AguardandoPagamentoSaldo]: 'Comprovante de Pagamento de Saldo',
-};
+// Removed local requiredDocumentMap as it is now in types.ts (REQUIRED_DOCUMENT_MAP)
 
 const ShipmentsPage: React.FC<ShipmentsPageProps> = ({ 
   shipments, cargos, clients, products, drivers, vehicles, currentUser, 
   profilePermissions, users, onUpdateAttachment, onUpdatePrice, onConfirmCancel, 
   onUpdateAnttAndBankDetails, onTransferShipment, onMarkArrival, onDeleteShipment,
-  activeLocks, onModalStateChange 
+  onRevertStatus, activeLocks, onModalStateChange 
 }) => {
   const [activeStatus, setActiveStatus] = useState<ShipmentStatus>(ShipmentStatus.AguardandoSeguradora);
   const [isAttachmentModalOpen, setAttachmentModalOpen] = useState(false);
@@ -132,7 +124,7 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({
     setSelectedShipment(null);
   };
 
-  const handleSaveAttachment = (data: { filesToAttach: { [key: string]: File[] }, bankDetails?: string, loadedTonnage?: number, advancePercentage?: number }) => {
+  const handleSaveAttachment = (data: { filesToAttach: { [key: string]: File[] }, bankDetails?: string, loadedTonnage?: number, advancePercentage?: number, route?: string }) => {
     if (!selectedShipment) return;
     onUpdateAttachment(selectedShipment.id, data);
     handleCloseAttachmentModal();
@@ -237,6 +229,7 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({
         canUserAdvanceStatus={canUserAdvanceStatus}
         onMarkArrival={onMarkArrival}
         onDelete={onDeleteShipment}
+        onRevertStatus={onRevertStatus}
         onOpenCadastroAntt={handleOpenCadastroAnttModal}
         currentUser={currentUser}
         activeStatus={activeStatus}
@@ -248,7 +241,8 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({
           onClose={handleCloseAttachmentModal}
           onSave={handleSaveAttachment}
           shipment={selectedShipment}
-          documentName={requiredDocumentMap[selectedShipment.status] || 'Documento'}
+          cargo={cargos.find(c => c.id === selectedShipment.cargoId)}
+          documentName={REQUIRED_DOCUMENT_MAP[selectedShipment.status] || 'Documento'}
           currentUser={currentUser}
         />
       )}
