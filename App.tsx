@@ -803,7 +803,7 @@ const App: React.FC = () => {
     }
   };
 
-  const handleUpdateShipmentPrice = async (shipmentId: string, data: { newTotal: number, newRate?: number }) => {
+  const handleUpdateShipmentPrice = async (shipmentId: string, data: { newTotal: number, newRate?: number, newCompanyRate?: number }) => {
     const shipmentToUpdate = shipments.find(s => s.id === shipmentId);
     if (!shipmentToUpdate) return;
 
@@ -812,11 +812,19 @@ const App: React.FC = () => {
     const historyMsgParts = [`${FIELD_TRANSLATIONS['driverFreightValue']} alterado de "${oldPriceFormatted}" para "${newPriceFormatted}".`];
 
     const updateObj: Partial<Shipment> = { driverFreightValue: data.newTotal };
+    
     if (data.newRate !== undefined) {
       const oldRateFormatted = (shipmentToUpdate.driverFreightRateSnapshot || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
       const newRateFormatted = data.newRate.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
       updateObj.driverFreightRateSnapshot = data.newRate;
       historyMsgParts.push(`Taxa do motorista alterada de "${oldRateFormatted}" para "${newRateFormatted}".`);
+    }
+
+    if (data.newCompanyRate !== undefined) {
+      const oldCompanyRateFormatted = (shipmentToUpdate.companyFreightRateSnapshot || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+      const newCompanyRateFormatted = data.newCompanyRate.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+      updateObj.companyFreightRateSnapshot = data.newCompanyRate;
+      historyMsgParts.push(`Frete Empresa alterado de "${oldCompanyRateFormatted}" para "${newCompanyRateFormatted}".`);
     }
 
     const updatedShipment: Shipment = { 

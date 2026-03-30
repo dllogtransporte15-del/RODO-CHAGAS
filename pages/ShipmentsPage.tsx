@@ -152,7 +152,7 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({
     setIsTransferModalOpen(true);
   };
 
-  const handleSavePrice = (data: { newTotal: number, newRate?: number }) => {
+  const handleSavePrice = (data: { newTotal: number, newRate?: number, newCompanyRate?: number }) => {
     if (!selectedShipment) return;
     onUpdatePrice(selectedShipment.id, data);
     setEditPriceModalOpen(false);
@@ -260,6 +260,7 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({
             onClose={() => setEditPriceModalOpen(false)}
             onSave={handleSavePrice}
             shipment={selectedShipment}
+            currentUser={currentUser}
         />
       )}
       {selectedShipment && (
