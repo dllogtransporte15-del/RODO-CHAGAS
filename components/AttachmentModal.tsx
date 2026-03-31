@@ -77,8 +77,9 @@ const AttachmentModal: React.FC<AttachmentModalProps> = ({ isOpen, onClose, onSa
     }
   }, [isOpen, shipment]);
 
-  const showRouteField = shipment.status === ShipmentStatus.AguardandoNota;
+  const showRouteField = shipment.status === ShipmentStatus.AguardandoCarregamento;
   const isReadOnlyRoute = [
+    ShipmentStatus.AguardandoNota,
     ShipmentStatus.AguardandoAdiantamento, 
     ShipmentStatus.AguardandoAgendamento, 
     ShipmentStatus.AguardandoDescarga, 
@@ -309,6 +310,16 @@ const AttachmentModal: React.FC<AttachmentModalProps> = ({ isOpen, onClose, onSa
                                 <FileInput key={docType} label={docType} files={multiFiles[docType] || []} onFileChange={(f) => setMultiFiles(prev => ({...prev, [docType]: f ? Array.from(f) : []}))} />
                             ))}
                         </div>
+                    </div>
+                ) : shipment.status === ShipmentStatus.AguardandoCarregamento ? (
+                    <div className="space-y-6">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <FileInput label={documentName} files={singleFiles} onFileChange={(f) => setSingleFiles(f ? Array.from(f) : [])} />
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Toneladas Carregadas</label>
+                                <input type="number" step="0.01" value={loadedTonnage} onChange={(e) => setLoadedTonnage(e.target.value === '' ? '' : Number(e.target.value))} className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600" />
+                            </div>
+                        </div>
 
                         {/* Layout de Rota e Mapa */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-6">
@@ -404,14 +415,6 @@ const AttachmentModal: React.FC<AttachmentModalProps> = ({ isOpen, onClose, onSa
                                     </button>
                                 </div>
                             </div>
-                        </div>
-                    </div>
-                ) : shipment.status === ShipmentStatus.AguardandoCarregamento ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <FileInput label={documentName} files={singleFiles} onFileChange={(f) => setSingleFiles(f ? Array.from(f) : [])} />
-                        <div>
-                            <label className="block text-sm font-medium mb-1">Toneladas Carregadas</label>
-                            <input type="number" step="0.01" value={loadedTonnage} onChange={(e) => setLoadedTonnage(e.target.value === '' ? '' : Number(e.target.value))} className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600" />
                         </div>
                     </div>
                 ) : shipment.status === ShipmentStatus.AguardandoAdiantamento ? (
