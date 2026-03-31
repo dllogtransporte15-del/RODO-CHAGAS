@@ -1,8 +1,9 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import Header from '../components/Header';
 import DriverTable from '../components/DriverTable';
 import DriverFormModal from '../components/DriverFormModal';
+import DriverFilter, { DriverFilters } from '../components/DriverFilter';
 import type { Driver, Owner, User, ProfilePermissions } from '../types';
 import { DriverClassification } from '../types';
 import { can } from '../auth';
@@ -22,11 +23,37 @@ interface DriversPageProps {
 const DriversPage: React.FC<DriversPageProps> = ({ drivers, setDrivers, onSaveDriver, owners, currentUser, profilePermissions }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [driverToEdit, setDriverToEdit] = useState<Driver | null>(null);
+  const [filters, setFilters] = useState<DriverFilters>({
+    name: '',
+    cpf: '',
+    cnh: '',
+    phone: '',
+    classification: '',
+    ownerId: '',
+    status: 'all',
+  });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const canCreate = can('create', currentUser, 'drivers', profilePermissions);
   const canUpdate = can('update', currentUser, 'drivers', profilePermissions);
   const canDelete = can('delete', currentUser, 'drivers', profilePermissions);
+
+  const filteredDrivers = useMemo(() => {
+    return drivers.filter(driver => {
+      const nameMatch = !filters.name || driver.name.toLowerCase().includes(filters.name.toLowerCase());
+      const cpfMatch = !filters.cpf || driver.cpf.includes(filters.cpf);
+      const cnhMatch = !filters.cnh || driver.cnh.includes(filters.cnh);
+      const phoneMatch = !filters.phone || driver.phone.includes(filters.phone);
+      const classificationMatch = !filters.classification || driver.classification === filters.classification;
+      const ownerMatch = !filters.ownerId || driver.ownerId === filters.ownerId;
+      
+      let statusMatch = true;
+      if (filters.status === 'active') statusMatch = driver.active;
+      else if (filters.status === 'restricted') statusMatch = !driver.active;
+
+      return nameMatch && cpfMatch && cnhMatch && phoneMatch && classificationMatch && ownerMatch && statusMatch;
+    });
+  }, [drivers, filters]);
 
   const handleOpenModal = () => {
     setDriverToEdit(null);
@@ -163,6 +190,7 @@ const DriversPage: React.FC<DriversPageProps> = ({ drivers, setDrivers, onSaveDr
                   phone: cleanNumeric(getValue('phone')),
                   classification: classification,
                   ownerId: classification === DriverClassification.Terceiro ? undefined : ownerId,
+                  active: true,
                 });
 
               } catch (error: any) {
@@ -245,8 +273,14 @@ const DriversPage: React.FC<DriversPageProps> = ({ drivers, setDrivers, onSaveDr
       
       <input type="file" ref={fileInputRef} onChange={handleFileImport} className="hidden" accept=".csv,.xls,.xlsx"/>
 
+      <DriverFilter 
+        owners={owners} 
+        filters={filters} 
+        onFilterChange={setFilters} 
+      />
+
       <DriverTable 
-        drivers={drivers} 
+        drivers={filteredDrivers} 
         owners={owners} 
         onEdit={canUpdate ? handleEditDriver : undefined} 
         onDelete={canDelete ? handleDeleteDriver : undefined} 

@@ -1,8 +1,9 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import Header from '../components/Header';
 import OwnerTable from '../components/OwnerTable';
 import OwnerFormModal from '../components/OwnerFormModal';
+import OwnerFilter, { OwnerFilters } from '../components/OwnerFilter';
 import type { Owner, User, ProfilePermissions } from '../types';
 import { OwnerType } from '../types';
 import { can } from '../auth';
@@ -18,11 +19,28 @@ interface OwnersPageProps {
 const OwnersPage: React.FC<OwnersPageProps> = ({ owners, setOwners, onSaveOwner, currentUser, profilePermissions }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [ownerToEdit, setOwnerToEdit] = useState<Owner | null>(null);
+  const [filters, setFilters] = useState<OwnerFilters>({
+    name: '',
+    cpfCnpj: '',
+    phone: '',
+    type: '',
+  });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const canCreate = can('create', currentUser, 'owners', profilePermissions);
   const canUpdate = can('update', currentUser, 'owners', profilePermissions);
   const canDelete = can('delete', currentUser, 'owners', profilePermissions);
+
+  const filteredOwners = useMemo(() => {
+    return owners.filter(owner => {
+      const nameMatch = !filters.name || owner.name.toLowerCase().includes(filters.name.toLowerCase());
+      const cpfCnpjMatch = !filters.cpfCnpj || owner.cpfCnpj.includes(filters.cpfCnpj);
+      const phoneMatch = !filters.phone || owner.phone.includes(filters.phone);
+      const typeMatch = !filters.type || owner.type === filters.type;
+
+      return nameMatch && cpfCnpjMatch && phoneMatch && typeMatch;
+    });
+  }, [owners, filters]);
 
   const handleOpenModal = () => {
     setOwnerToEdit(null);
@@ -150,8 +168,13 @@ const OwnersPage: React.FC<OwnersPageProps> = ({ owners, setOwners, onSaveOwner,
         accept=".csv"
       />
 
+      <OwnerFilter 
+        filters={filters} 
+        onFilterChange={setFilters} 
+      />
+
       <OwnerTable 
-        owners={owners} 
+        owners={filteredOwners} 
         onEdit={canUpdate ? handleEditOwner : undefined} 
         onDelete={canDelete ? handleDeleteOwner : undefined} 
       />

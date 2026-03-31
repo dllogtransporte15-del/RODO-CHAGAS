@@ -1,8 +1,9 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import Header from '../components/Header';
 import ClientTable from '../components/ClientTable';
 import ClientFormModal from '../components/ClientFormModal';
+import ClientFilter, { ClientFilters } from '../components/ClientFilter';
 import type { Client, User, ProfilePermissions } from '../types';
 import { PaymentMethod } from '../types';
 import { can } from '../auth';
@@ -18,11 +19,36 @@ interface ClientsPageProps {
 const ClientsPage: React.FC<ClientsPageProps> = ({ clients, setClients, onSaveClient, currentUser, profilePermissions }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [clientToEdit, setClientToEdit] = useState<Client | null>(null);
+  const [filters, setFilters] = useState<ClientFilters>({
+    nomeFantasia: '',
+    cnpj: '',
+    cityState: '',
+    contact: '',
+  });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const canCreate = can('create', currentUser, 'clients', profilePermissions);
   const canUpdate = can('update', currentUser, 'clients', profilePermissions);
   const canDelete = can('delete', currentUser, 'clients', profilePermissions);
+
+  const filteredClients = useMemo(() => {
+    return clients.filter(client => {
+      const nomeFantasiaMatch = !filters.nomeFantasia || client.nomeFantasia.toLowerCase().includes(filters.nomeFantasia.toLowerCase());
+      const cnpjMatch = !filters.cnpj || client.cnpj.includes(filters.cnpj);
+      
+      const cityStateLower = filters.cityState.toLowerCase();
+      const cityStateMatch = !filters.cityState || 
+        client.city.toLowerCase().includes(cityStateLower) || 
+        client.state.toLowerCase().includes(cityStateLower);
+        
+      const contactLower = filters.contact.toLowerCase();
+      const contactMatch = !filters.contact || 
+        client.phone.toLowerCase().includes(contactLower) || 
+        client.email.toLowerCase().includes(contactLower);
+
+      return nomeFantasiaMatch && cnpjMatch && cityStateMatch && contactMatch;
+    });
+  }, [clients, filters]);
 
   const handleOpenModal = () => {
     setClientToEdit(null);
@@ -165,8 +191,13 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ clients, setClients, onSaveCl
         accept=".csv"
       />
 
+      <ClientFilter 
+        filters={filters} 
+        onFilterChange={setFilters} 
+      />
+
       <ClientTable 
-        clients={clients} 
+        clients={filteredClients} 
         onEdit={canUpdate ? handleEditClient : undefined} 
         onDelete={canDelete ? handleDeleteClient : undefined} 
       />

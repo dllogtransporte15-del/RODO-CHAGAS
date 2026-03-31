@@ -1,8 +1,9 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import Header from '../components/Header';
 import VehicleTable from '../components/VehicleTable';
 import VehicleFormModal from '../components/VehicleFormModal';
+import VehicleFilter, { VehicleFilters } from '../components/VehicleFilter';
 import type { Vehicle, Owner, User, ProfilePermissions } from '../types';
 import { VehicleSetType, VehicleBodyType, DriverClassification } from '../types';
 import { can } from '../auth';
@@ -19,11 +20,30 @@ interface VehiclesPageProps {
 const VehiclesPage: React.FC<VehiclesPageProps> = ({ vehicles, setVehicles, onSaveVehicle, owners, currentUser, profilePermissions }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [vehicleToEdit, setVehicleToEdit] = useState<Vehicle | null>(null);
+  const [filters, setFilters] = useState<VehicleFilters>({
+    plate: '',
+    setType: '',
+    bodyType: '',
+    classification: '',
+    ownerId: '',
+  });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const canCreate = can('create', currentUser, 'vehicles', profilePermissions);
   const canUpdate = can('update', currentUser, 'vehicles', profilePermissions);
   const canDelete = can('delete', currentUser, 'vehicles', profilePermissions);
+
+  const filteredVehicles = useMemo(() => {
+    return vehicles.filter(vehicle => {
+      const plateMatch = !filters.plate || vehicle.plate.toLowerCase().includes(filters.plate.toLowerCase());
+      const setTypeMatch = !filters.setType || vehicle.setType === filters.setType;
+      const bodyTypeMatch = !filters.bodyType || vehicle.bodyType === filters.bodyType;
+      const classificationMatch = !filters.classification || vehicle.classification === filters.classification;
+      const ownerMatch = !filters.ownerId || vehicle.ownerId === filters.ownerId;
+
+      return plateMatch && setTypeMatch && bodyTypeMatch && classificationMatch && ownerMatch;
+    });
+  }, [vehicles, filters]);
 
   const handleOpenModal = () => {
     setVehicleToEdit(null);
@@ -125,8 +145,14 @@ const VehiclesPage: React.FC<VehiclesPageProps> = ({ vehicles, setVehicles, onSa
       
       <input type="file" ref={fileInputRef} onChange={handleFileImport} className="hidden" accept=".csv"/>
 
+      <VehicleFilter 
+        owners={owners} 
+        filters={filters} 
+        onFilterChange={setFilters} 
+      />
+
       <VehicleTable 
-        vehicles={vehicles} 
+        vehicles={filteredVehicles} 
         owners={owners} 
         onEdit={canUpdate ? handleEditVehicle : undefined} 
         onDelete={canDelete ? handleDeleteVehicle : undefined} 
