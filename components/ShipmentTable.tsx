@@ -267,6 +267,11 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users,
                         : formatCurrency(shipment.driverFreightValue / (shipment.shipmentTonnage || 1))
                       }
                     </div>
+                    {[ShipmentStatus.AguardandoNota, ShipmentStatus.AguardandoAdiantamento, ShipmentStatus.AguardandoAgendamento, ShipmentStatus.AguardandoDescarga, ShipmentStatus.AguardandoPagamentoSaldo, ShipmentStatus.Finalizado].includes(shipment.status) && (
+                      <div className="text-[11px] text-blue-600 dark:text-blue-400 font-bold mt-0.5">
+                        {shipment.shipmentTonnage.toLocaleString('pt-BR')} ton
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -415,6 +420,11 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users,
                             }
                             <span className="text-[10px] text-gray-500 font-normal ml-1">/ton</span>
                         </div>
+                        {[ShipmentStatus.AguardandoNota, ShipmentStatus.AguardandoAdiantamento, ShipmentStatus.AguardandoAgendamento, ShipmentStatus.AguardandoDescarga, ShipmentStatus.AguardandoPagamentoSaldo, ShipmentStatus.Finalizado].includes(shipment.status) && (
+                          <div className="text-[11px] text-blue-600 dark:text-blue-400 font-bold mt-1">
+                            {shipment.shipmentTonnage.toLocaleString('pt-BR')} ton
+                          </div>
+                        )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <p className="text-sm font-medium text-gray-900 dark:text-white">{shipment.status}</p>
