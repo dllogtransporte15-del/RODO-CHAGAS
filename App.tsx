@@ -642,6 +642,16 @@ const App: React.FC = () => {
         return;
     }
 
+    if (originalShipment.status === ShipmentStatus.AguardandoCarregamento && !route?.trim()) {
+        alert('A rota do motorista é obrigatória para avançar para a próxima etapa.');
+        return;
+    }
+
+    if (originalShipment.status === ShipmentStatus.AguardandoCarregamento && (!loadedTonnage || loadedTonnage <= 0)) {
+        alert('O peso carregado é obrigatório para avançar para a próxima etapa.');
+        return;
+    }
+
     let nextStatus: ShipmentStatus | undefined;
 
     if (originalShipment.status === ShipmentStatus.AguardandoAdiantamento) {

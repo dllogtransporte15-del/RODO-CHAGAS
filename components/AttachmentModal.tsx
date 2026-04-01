@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Shipment, ShipmentStatus, User, UserProfile, Cargo } from '../types';
 import { PaperclipIcon, ExternalLinkIcon, MapPinIcon, LoaderIcon } from './icons';
 import { fetchRouteGeometry, getRouteSuggestions, RouteSuggestion } from '../services/routing';
+import { formatWeightPtBr } from '../utils';
 
 interface AttachmentModalProps {
   isOpen: boolean;
@@ -232,6 +233,19 @@ const AttachmentModal: React.FC<AttachmentModalProps> = ({ isOpen, onClose, onSa
       if (singleFiles.length === 0) {
         setError('Selecione ao menos um arquivo.');
         return;
+      }
+      if (shipment.status === ShipmentStatus.AguardandoCarregamento) {
+        if (!route.trim()) {
+          setError('A rota do motorista é obrigatória para avançar.');
+          return;
+        }
+        if (!loadedTonnage || Number(loadedTonnage) <= 0) {
+          setError('O peso carregado é obrigatório para avançar.');
+          return;
+        }
+        if (!window.confirm(`Confirma o peso carregado de ${loadedTonnage} ton (${formatWeightPtBr(Number(loadedTonnage))}) para este embarque?`)) {
+          return;
+        }
       }
       filesToAttach = { [documentName]: singleFiles };
     }
