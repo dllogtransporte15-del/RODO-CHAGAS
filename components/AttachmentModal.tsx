@@ -321,14 +321,35 @@ const AttachmentModal: React.FC<AttachmentModalProps> = ({ isOpen, onClose, onSa
                             </div>
                         </div>
 
-                        {/* Layout de Rota e Mapa */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-6">
-                            {/* Coluna Esquerda: Texto e Sugestões */}
-                            <div className="space-y-4">
-                                <div className="flex items-center justify-between">
-                                    <label className="text-sm font-bold text-gray-700 dark:text-gray-300">
-                                        Informar Rota do Motorista
-                                    </label>
+                    </div>
+                ) : shipment.status === ShipmentStatus.AguardandoAdiantamento ? (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <FileInput label={documentName} files={singleFiles} onFileChange={(f) => setSingleFiles(f ? Array.from(f) : [])} />
+                        <div>
+                            <label className="block text-sm font-medium mb-1">Adiantamento (%)</label>
+                            <input type="number" value={advancePercentage} onChange={(e) => setAdvancePercentage(e.target.value === '' ? '' : Number(e.target.value))} className="w-full p-2 border rounded dark:bg-gray-700" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium mb-1">Pedágio (R$)</label>
+                            <input type="number" value={tollValue} onChange={(e) => setTollValue(e.target.value === '' ? '' : Number(e.target.value))} className="w-full p-2 border rounded dark:bg-gray-700" />
+                        </div>
+                    </div>
+                ) : (
+                    <FileInput label={documentName} files={singleFiles} onFileChange={(f) => setSingleFiles(f ? Array.from(f) : [])} />
+                )}
+
+
+
+
+                {(showRouteField || isReadOnlyRoute) && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-6 border-t dark:border-gray-700 pt-8">
+                        {/* Coluna Esquerda: Texto e Sugestões */}
+                        <div className="space-y-4">
+                            <div className="flex items-center justify-between">
+                                <label className="text-sm font-bold text-gray-700 dark:text-gray-300">
+                                    {isReadOnlyRoute ? 'Rota do Motorista' : 'Informar Rota do Motorista'}
+                                </label>
+                                {!isReadOnlyRoute && (
                                     <button 
                                         type="button"
                                         onClick={handleFetchSuggestions}
@@ -342,21 +363,28 @@ const AttachmentModal: React.FC<AttachmentModalProps> = ({ isOpen, onClose, onSa
                                         )}
                                         Sugerir Rotas
                                     </button>
-                                </div>
+                                )}
+                            </div>
 
-                                <textarea 
-                                    value={route}
-                                    onChange={(e) => setRoute(e.target.value)}
-                                    placeholder="Ex: Seguir pela BR-050 até Uberlândia, depois BR-365 sentido Patos de Minas..."
-                                    className="w-full p-4 border border-gray-200 dark:border-gray-700 rounded-2xl focus:ring-4 focus:ring-primary/10 focus:border-primary dark:bg-gray-800 transition-all font-mono text-sm min-h-[120px] shadow-sm"
-                                />
+                            <textarea 
+                                value={route}
+                                onChange={(e) => setRoute(e.target.value)}
+                                readOnly={isReadOnlyRoute}
+                                placeholder={isReadOnlyRoute ? "" : "Ex: Seguir pela BR-050 até Uberlândia, depois BR-365 sentido Patos de Minas..."}
+                                className={`w-full p-4 border border-gray-200 dark:border-gray-700 rounded-2xl focus:ring-4 focus:ring-primary/10 focus:border-primary dark:bg-gray-800 transition-all font-mono text-sm min-h-[120px] shadow-sm ${isReadOnlyRoute ? 'bg-gray-50/50 dark:bg-gray-900/50 cursor-default shadow-none' : ''}`}
+                            />
 
-                                <div className="flex items-center gap-2 text-[11px] text-gray-500 dark:text-gray-400">
-                                    <div className="w-2 h-2 bg-blue-600 rounded-full" />
+                            <div className="flex items-center gap-2 text-[11px] text-gray-500 dark:text-gray-400">
+                                <div className={`w-2 h-2 ${isReadOnlyRoute ? 'bg-emerald-500' : 'bg-blue-600'} rounded-full`} />
+                                {isReadOnlyRoute ? (
+                                    <span>Trajeto validado via <span className="font-bold">OSRM Engine</span></span>
+                                ) : (
                                     <span>Baseado na rota: <span className="font-bold text-gray-700 dark:text-gray-300">{cargo?.origin} → {cargo?.destination}</span></span>
-                                </div>
+                                )}
+                            </div>
 
-                                {/* Box de Sugestões Encontradas */}
+                            {/* Box de Sugestões Encontradas - Somente modo edição */}
+                            {!isReadOnlyRoute && (
                                 <div className="bg-blue-50/30 dark:bg-blue-900/5 rounded-2xl border border-blue-100 dark:border-blue-800/50 overflow-hidden">
                                     <div className="px-4 py-2 bg-blue-50/50 dark:bg-blue-900/10 border-b border-blue-100 dark:border-blue-800">
                                         <h4 className="text-[10px] font-bold text-blue-700 dark:text-blue-400 uppercase tracking-widest">
@@ -385,26 +413,28 @@ const AttachmentModal: React.FC<AttachmentModalProps> = ({ isOpen, onClose, onSa
                                         )}
                                     </div>
                                 </div>
-                            </div>
+                            )}
+                        </div>
 
-                            {/* Coluna Direita: Mapa */}
-                            <div className="space-y-4">
-                                <div className="flex items-center justify-between">
-                                    <label className="text-sm font-bold text-gray-700 dark:text-gray-300">
-                                        Visualização do Trajeto
-                                    </label>
-                                    <span className="px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-[10px] font-bold rounded-full uppercase tracking-wider">
-                                        Rodovias Ativas
-                                    </span>
-                                </div>
+                        {/* Coluna Direita: Mapa */}
+                        <div className="space-y-4">
+                            <div className="flex items-center justify-between">
+                                <label className="text-sm font-bold text-gray-700 dark:text-gray-300">
+                                    Visualização do Trajeto
+                                </label>
+                                <span className="px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-[10px] font-bold rounded-full uppercase tracking-wider">
+                                    Rodovias Ativas
+                                </span>
+                            </div>
+                            
+                            <div className="relative group flex-grow">
+                                <div 
+                                    ref={mapContainerRef} 
+                                    className="w-full h-[320px] bg-gray-100 dark:bg-gray-900 rounded-3xl border-2 border-gray-100 dark:border-gray-800 overflow-hidden shadow-xl" 
+                                    id="route-map-modal" 
+                                />
                                 
-                                <div className="relative group flex-grow">
-                                    <div 
-                                        ref={mapContainerRef} 
-                                        className="w-full h-[320px] bg-gray-100 dark:bg-gray-900 rounded-3xl border-2 border-gray-100 dark:border-gray-800 overflow-hidden shadow-xl" 
-                                        id="route-map-modal" 
-                                    />
-                                    
+                                {!isReadOnlyRoute && (
                                     <button 
                                         type="button"
                                         onClick={handleTraceRoute}
@@ -413,46 +443,7 @@ const AttachmentModal: React.FC<AttachmentModalProps> = ({ isOpen, onClose, onSa
                                     >
                                         <MapPinIcon className="w-5 h-5" />
                                     </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                ) : shipment.status === ShipmentStatus.AguardandoAdiantamento ? (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <FileInput label={documentName} files={singleFiles} onFileChange={(f) => setSingleFiles(f ? Array.from(f) : [])} />
-                        <div>
-                            <label className="block text-sm font-medium mb-1">Adiantamento (%)</label>
-                            <input type="number" value={advancePercentage} onChange={(e) => setAdvancePercentage(e.target.value === '' ? '' : Number(e.target.value))} className="w-full p-2 border rounded dark:bg-gray-700" />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium mb-1">Pedágio (R$)</label>
-                            <input type="number" value={tollValue} onChange={(e) => setTollValue(e.target.value === '' ? '' : Number(e.target.value))} className="w-full p-2 border rounded dark:bg-gray-700" />
-                        </div>
-                    </div>
-                ) : (
-                    <FileInput label={documentName} files={singleFiles} onFileChange={(f) => setSingleFiles(f ? Array.from(f) : [])} />
-                )}
-
-                {/* Read only Route for other statuses */}
-                {isReadOnlyRoute && route && (
-                    <div className="mt-8 border-t dark:border-gray-700 pt-8">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                            <div className="space-y-4">
-                                <label className="text-sm font-bold text-gray-700 dark:text-gray-300">Rota Definida</label>
-                                <div className="p-5 bg-blue-50/30 dark:bg-blue-900/10 rounded-2xl border border-blue-100 dark:border-blue-800/50 min-h-[140px]">
-                                    <p className="text-sm font-mono leading-relaxed text-gray-700 dark:text-gray-200 whitespace-pre-wrap">{route}</p>
-                                </div>
-                                <div className="flex items-center gap-2 text-[11px] text-gray-500 dark:text-gray-400">
-                                    <div className="w-2 h-2 bg-emerald-500 rounded-full" />
-                                    <span>Trajeto validado via <span className="font-bold">OSRM Engine</span></span>
-                                </div>
-                            </div>
-                            <div className="space-y-4">
-                                <label className="text-sm font-bold text-gray-700 dark:text-gray-300">Visualização do Trajeto</label>
-                                <div 
-                                    ref={mapContainerRef} 
-                                    className="w-full h-[240px] bg-gray-100 dark:bg-gray-950 rounded-2xl border border-gray-100 dark:border-gray-800 overflow-hidden shadow-md" 
-                                />
+                                )}
                             </div>
                         </div>
                     </div>

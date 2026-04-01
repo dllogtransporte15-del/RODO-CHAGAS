@@ -196,6 +196,7 @@ const toShipment = (row: any): Shipment => ({
   statusHistory: row.status_history || [],
   anttOwnerIdentifier: row.antt_owner_identifier,
   bankDetails: row.bank_details,
+  route: row.route,
 });
 
 const fromShipment = (s: Shipment) => ({
@@ -223,6 +224,7 @@ const fromShipment = (s: Shipment) => ({
   status_history: s.statusHistory,
   antt_owner_identifier: s.anttOwnerIdentifier,
   bank_details: s.bankDetails,
+  route: s.route,
 });
 
 const toUser = (row: any): User => ({
