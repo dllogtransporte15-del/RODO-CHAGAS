@@ -296,8 +296,8 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users,
                 <div className="flex items-center justify-between pt-2 border-t border-gray-50 dark:border-gray-700">
                   <div className="flex gap-2">
                     {whatsappLink && (
-                      <a href={whatsappLink} target="_blank" rel="noopener noreferrer" className="p-2 rounded-full bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-400">
-                        <WhatsAppIcon className="w-5 h-5" />
+                      <a href={whatsappLink} target="_blank" rel="noopener noreferrer" className="p-1 hover:opacity-80 transition-opacity">
+                        <WhatsAppIcon className="w-7 h-7" />
                       </a>
                     )}
                     {onShowHistory && (
@@ -480,10 +480,10 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users,
                                           href={whatsappLink}
                                           target="_blank"
                                           rel="noopener noreferrer"
-                                          className="p-2 rounded-full hover:bg-green-100 dark:hover:bg-green-800 text-green-600 dark:text-green-400"
+                                          className="p-1 hover:opacity-80 transition-opacity"
                                           title="Abrir WhatsApp"
                                       >
-                                          <WhatsAppIcon className="w-5 h-5" />
+                                          <WhatsAppIcon className="w-6 h-6" />
                                       </a>
                                   )}
   
