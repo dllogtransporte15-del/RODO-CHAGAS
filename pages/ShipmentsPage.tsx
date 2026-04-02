@@ -28,7 +28,7 @@ interface ShipmentsPageProps {
   users: User[];
   onUpdateAttachment: (shipmentId: string, data: { filesToAttach: { [key: string]: File[] }, bankDetails?: string, loadedTonnage?: number, advancePercentage?: number, tollValue?: number, route?: string }) => void;
   onUpdatePrice: (shipmentId: string, data: { newTotal: number, newRate?: number }) => void;
-  onConfirmCancel: (shipmentId: string) => void;
+  onConfirmCancel: (shipmentId: string, reason: string) => void;
   onUpdateAnttAndBankDetails: (shipmentId: string, data: { anttOwnerIdentifier: string; bankDetails?: string }) => void;
   onTransferShipment: (shipmentId: string, newEmbarcadorId: string) => void;
   onMarkArrival: (shipmentId: string) => void;
@@ -165,9 +165,9 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({
     setSelectedShipment(null);
   };
 
-  const handleConfirmCancel = () => {
+  const handleConfirmCancel = (reason: string) => {
     if (!selectedShipment) return;
-    onConfirmCancel(selectedShipment.id);
+    onConfirmCancel(selectedShipment.id, reason);
     setCancelModalOpen(false);
     setSelectedShipment(null);
   };

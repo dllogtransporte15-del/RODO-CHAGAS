@@ -6,6 +6,7 @@ import ShipmentHistoryFilter from '../components/ShipmentHistoryFilter';
 import HistoryModal from '../components/HistoryModal';
 import AttachmentModal from '../components/AttachmentModal';
 import CargoDetailsModal from '../components/CargoDetailsModal';
+import CancellationReasonChart from '../components/CancellationReasonChart';
 import type { Shipment, Cargo, User, Product, Client, Vehicle } from '../types';
 import { ShipmentStatus } from '../types';
 
@@ -31,6 +32,41 @@ const ShipmentHistoryPage: React.FC<ShipmentHistoryPageProps> = ({ shipments, ca
     return shipments.filter(shipment => shipment.status === activeStatus);
   }, [shipments, activeStatus]);
 
+  const cancellationReasonData = useMemo(() => {
+    const cancelledShipments = shipments.filter(s => s.status === ShipmentStatus.Cancelado);
+    const counts: Record<string, number> = {};
+    
+    cancelledShipments.forEach(s => {
+      const reason = s.cancellationReason || 'Não informado';
+      counts[reason] = (counts[reason] || 0) + 1;
+    });
+
+    const colors = [
+      'bg-red-500', 
+      'bg-orange-500', 
+      'bg-yellow-500', 
+      'bg-blue-500', 
+      'bg-emerald-500', 
+      'bg-purple-500',
+      'bg-pink-500',
+      'bg-indigo-500'
+    ];
+
+    const sorted = Object.entries(counts)
+      .map(([label, value]) => ({ label, value }))
+      .sort((a, b) => b.value - a.value);
+
+    // Limit to top 5 and group others
+    if (sorted.length > 5) {
+      const top5 = sorted.slice(0, 5);
+      const othersValue = sorted.slice(5).reduce((sum, item) => sum + item.value, 0);
+      top5.push({ label: 'Outros', value: othersValue });
+      return top5.map((item, i) => ({ ...item, color: colors[i % colors.length] }));
+    }
+
+    return sorted.map((item, i) => ({ ...item, color: colors[i % colors.length] }));
+  }, [shipments]);
+
   const handleShowHistory = (shipment: Shipment) => {
     setSelectedShipment(shipment);
     setIsHistoryModalOpen(true);
@@ -52,7 +88,9 @@ const ShipmentHistoryPage: React.FC<ShipmentHistoryPageProps> = ({ shipments, ca
 
   return (
     <>
-      <Header title="Histórico de Embarques" />
+      <Header title="Histórico de Embarques">
+        <CancellationReasonChart data={cancellationReasonData} />
+      </Header>
       <ShipmentHistoryFilter 
         shipments={shipments} 
         activeStatus={activeStatus} 

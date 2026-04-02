@@ -851,15 +851,18 @@ const App: React.FC = () => {
     }
   };
   
-  const handleConfirmCancelShipment = async (shipmentId: string) => {
+  const handleConfirmCancelShipment = async (shipmentId: string, reason: string) => {
     const shipmentToCancel = shipments.find(s => s.id === shipmentId);
     if (!shipmentToCancel || !currentUser) return;
     
     const oldStatus = shipmentToCancel.status;
+    const historyEntry = `Status alterado de "${oldStatus}" para "${ShipmentStatus.Cancelado}". Motivo: ${reason}`;
+    
     const cancelledShipment: Shipment = { 
       ...shipmentToCancel, 
-      status: ShipmentStatus.Cancelado, 
-      history: [...shipmentToCancel.history, createHistoryLog(`Status alterado de "${oldStatus}" para "${ShipmentStatus.Cancelado}".`)], 
+      status: ShipmentStatus.Cancelado,
+      cancellationReason: reason,
+      history: [...shipmentToCancel.history, createHistoryLog(historyEntry)], 
       statusHistory: [...(shipmentToCancel.statusHistory || []), { status: ShipmentStatus.Cancelado, timestamp: new Date().toISOString(), userId: currentUser.id }] 
     };
 

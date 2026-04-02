@@ -268,6 +268,7 @@ export interface Shipment {
   companyFreightRateSnapshot?: number;
   driverFreightRateSnapshot?: number;
   route?: string;
+  cancellationReason?: string;
 }
 
 export interface ProfilePermissions {

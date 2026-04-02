@@ -228,7 +228,7 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users,
             const isActionable = shipment.status !== ShipmentStatus.Finalizado && shipment.status !== ShipmentStatus.Cancelado;
 
             return (
-              <div key={shipment.id} className="p-4 space-y-3">
+              <div key={shipment.id} className="p-3 space-y-3">
                 <div className="flex justify-between items-start">
                   <div>
                     <button 
@@ -247,6 +247,16 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users,
                     <span className="text-xs font-bold px-2 py-1 rounded-full bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
                       {shipment.status}
                     </span>
+                    {shipment.status === ShipmentStatus.Cancelado && shipment.cancellationReason && (
+                        <div className="text-[10px] text-red-500 font-semibold mt-1 max-w-[120px] break-words">
+                          Motivo: {shipment.cancellationReason}
+                        </div>
+                    )}
+                    {[ShipmentStatus.AguardandoNota, ShipmentStatus.AguardandoAdiantamento, ShipmentStatus.AguardandoAgendamento, ShipmentStatus.AguardandoDescarga, ShipmentStatus.AguardandoPagamentoSaldo, ShipmentStatus.Finalizado].includes(shipment.status) && (
+                        <div className="text-[10px] text-blue-600 dark:text-blue-400 font-bold mt-1">
+                          {shipment.shipmentTonnage.toLocaleString('pt-BR')} ton
+                        </div>
+                    )}
                     <div className="text-[10px] text-gray-400 mt-1">
                       {new Date(shipment.scheduledDate + 'T00:00:00').toLocaleDateString('pt-BR')}
                     </div>
@@ -318,14 +328,14 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users,
           <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
             <thead className="bg-gray-50 dark:bg-gray-700">
               <tr>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">Embarque / Carga</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">Motorista / Solicitante</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">Origem / Destino</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">Frete / Ton</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">Status Atual</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">Data Programada</th>
+                <th scope="col" className="px-6 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">Embarque / Carga</th>
+                <th scope="col" className="px-6 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">Motorista / Solicitante</th>
+                <th scope="col" className="px-6 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">Origem / Destino</th>
+                <th scope="col" className="px-6 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">Frete / Ton</th>
+                <th scope="col" className="px-6 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">Status Atual</th>
+                <th scope="col" className="px-6 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">Data Programada</th>
                 {(!isClient || showActionsColumnForClient) && (
-                  <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">Ações</th>
+                  <th scope="col" className="px-6 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">Ações</th>
                 )}
               </tr>
             </thead>
@@ -350,7 +360,7 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users,
 
                 return (
                   <tr key={shipment.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                    <td className="px-6 py-[11px] whitespace-nowrap text-sm">
                       <button 
                           onClick={() => setDetailsModalShipment(shipment)} 
                           className="font-medium text-primary dark:text-blue-400 hover:underline text-left block"
@@ -370,7 +380,7 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users,
                         </div>
                       )}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-6 py-[11px] whitespace-nowrap">
                       <div className="text-sm text-gray-900 dark:text-white">{shipment.driverName}</div>
                       <div className="text-sm text-gray-500 dark:text-gray-400">{shipment.horsePlate}</div>
                       <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
@@ -384,7 +394,7 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users,
                           </div>
                       )}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white group relative">
+                    <td className="px-6 py-[11px] whitespace-nowrap text-sm text-gray-900 dark:text-white group relative">
                       {cargo ? (
                         <>
                           <div>{cargo.origin}</div>
@@ -407,7 +417,7 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users,
                       )}
                     </td>
   
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                    <td className="px-6 py-[11px] whitespace-nowrap text-sm">
                         <div className="font-semibold text-gray-900 dark:text-white">
                             {isClient 
                                 ? formatCurrency(cargo?.companyFreightValuePerTon || 0)
@@ -416,8 +426,18 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users,
                             <span className="text-[10px] text-gray-500 font-normal ml-1">/ton</span>
                         </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-6 py-[11px] whitespace-nowrap">
                       <p className="text-sm font-medium text-gray-900 dark:text-white">{shipment.status}</p>
+                      {shipment.status === ShipmentStatus.Cancelado && shipment.cancellationReason && (
+                        <p className="text-[11px] text-red-600 dark:text-red-400 font-medium mt-1 max-w-[150px] whitespace-normal italic">
+                          Motivo: {shipment.cancellationReason}
+                        </p>
+                      )}
+                      {[ShipmentStatus.AguardandoNota, ShipmentStatus.AguardandoAdiantamento, ShipmentStatus.AguardandoAgendamento, ShipmentStatus.AguardandoDescarga, ShipmentStatus.AguardandoPagamentoSaldo, ShipmentStatus.Finalizado].includes(shipment.status) && (
+                        <p className="text-xs text-blue-600 dark:text-blue-400 font-bold mt-1">
+                          Efetivado: {shipment.shipmentTonnage.toLocaleString('pt-BR')} ton
+                        </p>
+                      )}
                       {shipment.scheduledTime && (
                           <p className={`text-xs mt-1 ${isLate && !shipment.arrivalTime ? 'text-yellow-500' : 'text-gray-500'}`}>
                               Previsto: {shipment.scheduledTime}
@@ -435,11 +455,11 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users,
                           )
                       )}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                    <td className="px-6 py-[11px] whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                       {new Date(shipment.scheduledDate + 'T00:00:00').toLocaleDateString('pt-BR')}
                     </td>
                     {(!isClient || showActionsColumnForClient) && (
-                      <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
+                      <td className="px-6 py-[11px] whitespace-nowrap text-center text-sm font-medium">
                           {isClient ? (
                               <>
                                   {onAttach && (
