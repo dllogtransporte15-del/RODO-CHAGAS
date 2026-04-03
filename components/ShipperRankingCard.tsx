@@ -26,12 +26,24 @@ const ShipperRankingCard: React.FC<ShipperRankingCardProps> = ({ shipments, carg
   }, [currentUser]);
 
   const shipperStats = useMemo<ShipperStat[]>(() => {
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+
     const shippers = users.filter(u => u.profile === UserProfile.Embarcador);
-    // FIX: Explicitly type `cargoMap` to ensure correct type inference.
+    // Explicitly type `cargoMap` to ensure correct type inference.
     const cargoMap: Map<string, Cargo> = new Map(cargos.map(c => [c.id, c]));
 
+    const currentMonthShipments = shipments.filter(s => {
+      const shipmentDate = new Date(s.createdAt);
+      return (
+        shipmentDate.getMonth() === currentMonth && 
+        shipmentDate.getFullYear() === currentYear
+      );
+    });
+
     const stats = shippers.map(shipper => {
-      const shipperShipments = shipments.filter(s => s.embarcadorId === shipper.id);
+      const shipperShipments = currentMonthShipments.filter(s => s.embarcadorId === shipper.id);
       
       const uniqueVehicles = new Set(shipperShipments.map(s => s.horsePlate));
 
@@ -69,7 +81,8 @@ const ShipperRankingCard: React.FC<ShipperRankingCardProps> = ({ shipments, carg
 
   return (
     <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md col-span-1 lg:col-span-2">
-      <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-4">Ranking de Embarcadores (Margem Líquida)</h3>
+      <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-1">Ranking de Embarcadores</h3>
+      <p className="text-xs text-gray-500 mb-4">Resultados do mês atual</p>
       <div className="overflow-x-auto">
         <table className="min-w-full">
           <thead className="border-b dark:border-gray-700">
