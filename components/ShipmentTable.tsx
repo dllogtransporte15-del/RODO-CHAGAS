@@ -515,7 +515,15 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users,
                                                       {onShowHistory && <ActionMenuItem icon={HistoryIcon} text="Ver Histórico" onClick={() => onShowHistory(shipment)} />}
                                                       {shipment.status !== ShipmentStatus.Cancelado && (
                                                           <>
-                                                              {isActionable && onAttach && <ActionMenuItem icon={PaperclipIcon} text="Anexar e Avançar" onClick={() => onAttach(shipment)} disabled={!canAdvance} title={!canAdvance ? disabledReason : undefined} />}
+                                                              {isActionable && onAttach && (
+                                                                <ActionMenuItem 
+                                                                    icon={PaperclipIcon} 
+                                                                    text="Anexa e Avançar" 
+                                                                    onClick={() => onAttach(shipment)} 
+                                                                    disabled={!canAdvance && shipment.status !== ShipmentStatus.AguardandoAdiantamento} 
+                                                                    title={(!canAdvance && shipment.status !== ShipmentStatus.AguardandoAdiantamento) ? disabledReason : undefined} 
+                                                                />
+                                                              )}
                                                               {shipment.status === ShipmentStatus.PreCadastro && onOpenCadastroAntt && <ActionMenuItem icon={ExternalLinkIcon} text="Fazer Cadastro" onClick={() => onOpenCadastroAntt(shipment)} />}
                                                               {isActionable && onEditPrice && <ActionMenuItem icon={DollarSignIcon} text="Alterar Preço" onClick={() => onEditPrice(shipment)} />}
                                                               {isActionable && onTransfer && <ActionMenuItem icon={TransferIcon} text="Transferir Embarque" onClick={() => onTransfer(shipment)} />}

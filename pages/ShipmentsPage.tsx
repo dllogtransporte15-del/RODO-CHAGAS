@@ -250,6 +250,7 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({
           cargo={cargos.find(c => c.id === selectedShipment.cargoId)}
           documentName={REQUIRED_DOCUMENT_MAP[selectedShipment.status] || 'Documento'}
           currentUser={currentUser}
+          canSave={canUserAdvanceStatus(selectedShipment).allowed}
         />
       )}
       {selectedShipment && (

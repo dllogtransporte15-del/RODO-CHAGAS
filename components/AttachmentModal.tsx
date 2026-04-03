@@ -12,6 +12,7 @@ interface AttachmentModalProps {
   documentName: string;
   currentUser: User;
   cargo?: Cargo;
+  canSave?: boolean;
 }
 
 declare const L: any;
@@ -49,7 +50,7 @@ const FileInput: React.FC<{ label: string; onFileChange: (files: FileList | null
 };
 
 
-const AttachmentModal: React.FC<AttachmentModalProps> = ({ isOpen, onClose, onSave, shipment, documentName, currentUser, cargo }) => {
+const AttachmentModal: React.FC<AttachmentModalProps> = ({ isOpen, onClose, onSave, shipment, documentName, currentUser, cargo, canSave = true }) => {
   const [singleFiles, setSingleFiles] = useState<File[]>([]);
   const [multiFiles, setMultiFiles] = useState<{ [key: string]: File[] }>({});
   const [bankDetails, setBankDetails] = useState('');
@@ -341,11 +342,23 @@ const AttachmentModal: React.FC<AttachmentModalProps> = ({ isOpen, onClose, onSa
                         <FileInput label={documentName} files={singleFiles} onFileChange={(f) => setSingleFiles(f ? Array.from(f) : [])} />
                         <div>
                             <label className="block text-sm font-medium mb-1">Adiantamento (%)</label>
-                            <input type="number" value={advancePercentage} onChange={(e) => setAdvancePercentage(e.target.value === '' ? '' : Number(e.target.value))} className="w-full p-2 border rounded dark:bg-gray-700" />
+                            <input 
+                                type="number" 
+                                value={advancePercentage} 
+                                onChange={(e) => setAdvancePercentage(e.target.value === '' ? '' : Number(e.target.value))} 
+                                className={`w-full p-2 border rounded dark:bg-gray-700 ${!canSave ? 'bg-gray-100 dark:bg-gray-900 cursor-not-allowed text-gray-400' : ''}`} 
+                                disabled={!canSave}
+                            />
                         </div>
                         <div>
                             <label className="block text-sm font-medium mb-1">Pedágio (R$)</label>
-                            <input type="number" value={tollValue} onChange={(e) => setTollValue(e.target.value === '' ? '' : Number(e.target.value))} className="w-full p-2 border rounded dark:bg-gray-700" />
+                            <input 
+                                type="number" 
+                                value={tollValue} 
+                                onChange={(e) => setTollValue(e.target.value === '' ? '' : Number(e.target.value))} 
+                                className={`w-full p-2 border rounded dark:bg-gray-700 ${!canSave ? 'bg-gray-100 dark:bg-gray-900 cursor-not-allowed text-gray-400' : ''}`}
+                                disabled={!canSave}
+                            />
                         </div>
                     </div>
                 ) : (
@@ -482,7 +495,17 @@ const AttachmentModal: React.FC<AttachmentModalProps> = ({ isOpen, onClose, onSa
                     </div>
                     <div className="flex gap-4">
                         <button onClick={onClose} className="px-6 py-2 text-gray-500 hover:text-gray-700 font-bold transition-colors">Cancelar</button>
-                        <button onClick={handleSave} className="px-8 py-2 bg-primary text-white rounded-xl hover:bg-primary-dark font-bold shadow-lg shadow-primary/20 transition-all active:scale-95">Salvar e Avançar</button>
+                        <button 
+                            onClick={handleSave} 
+                            disabled={shipment.status === ShipmentStatus.AguardandoAdiantamento && !canSave}
+                            className={`px-8 py-2 text-white rounded-xl font-bold shadow-lg transition-all active:scale-95 ${
+                                shipment.status === ShipmentStatus.AguardandoAdiantamento && !canSave
+                                ? 'bg-gray-400 cursor-not-allowed shadow-none'
+                                : 'bg-primary hover:bg-primary-dark shadow-primary/20'
+                            }`}
+                        >
+                            Salvar e Avançar
+                        </button>
                     </div>
                 </div>
             </div>
