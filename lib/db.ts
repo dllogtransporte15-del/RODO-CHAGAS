@@ -198,6 +198,8 @@ const toShipment = (row: any): Shipment => ({
   bankDetails: row.bank_details,
   route: row.route,
   cancellationReason: row.cancellation_reason,
+  driverReferences: row.driver_references,
+  ownerContact: row.owner_contact,
 });
 
 const fromShipment = (s: Shipment) => ({
@@ -227,6 +229,8 @@ const fromShipment = (s: Shipment) => ({
   bank_details: s.bankDetails,
   route: s.route,
   cancellation_reason: s.cancellationReason,
+  driver_references: s.driverReferences,
+  owner_contact: s.ownerContact,
 });
 
 const toUser = (row: any): User => ({

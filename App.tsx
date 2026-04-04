@@ -563,6 +563,8 @@ const App: React.FC = () => {
       history: [createHistoryLogLocal(historyMsg)],
       createdAt: new Date().toISOString(),
       createdById: currentUser.id,
+      driverReferences: data.driverReferences,
+      ownerContact: data.ownerContact,
       statusHistory: [{
         status: ShipmentStatus.AguardandoSeguradora,
         timestamp: new Date().toISOString(),

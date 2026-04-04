@@ -82,7 +82,7 @@ const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({ isOpen, onC
                     <DetailItem label="Referências do Motorista">
                         <div className="mt-1 p-3 bg-gray-50 dark:bg-gray-900/50 rounded-md border dark:border-gray-700">
                             <p className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap">
-                                {(shipment as any).driverReferences || <span className="text-gray-400 italic">Não informadas</span>}
+                                {shipment.driverReferences || <span className="text-gray-400 italic">Não informadas</span>}
                             </p>
                         </div>
                     </DetailItem>

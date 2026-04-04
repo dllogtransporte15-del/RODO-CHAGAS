@@ -269,6 +269,8 @@ export interface Shipment {
   driverFreightRateSnapshot?: number;
   route?: string;
   cancellationReason?: string;
+  driverReferences?: string;
+  ownerContact?: string;
 }
 
 export interface ProfilePermissions {
