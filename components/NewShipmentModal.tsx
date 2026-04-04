@@ -19,7 +19,7 @@ interface NewShipmentModalProps {
 const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, onSave, cargo, drivers, clients, vehicles, currentUser, shipments, users }) => {
   const [driverName, setDriverName] = useState('');
   const [driverCpf, setDriverCpf] = useState('');
-  const [driverCnh, setDriverCnh] = useState('');
+  const [ownerContact, setOwnerContact] = useState('');
   const [horsePlate, setHorsePlate] = useState('');
   const [trailer1Plate, setTrailer1Plate] = useState('');
   const [trailer2Plate, setTrailer2Plate] = useState('');
@@ -35,6 +35,7 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
   const [bankDetails, setBankDetails] = useState('');
   const [vehicleTag, setVehicleTag] = useState('');
   const [filesToAttach, setFilesToAttach] = useState<File[]>([]);
+  const [driverReferences, setDriverReferences] = useState('');
 
   const embarcadores = useMemo(() => {
     return users.filter(u => u.profile === UserProfile.Embarcador);
@@ -46,7 +47,7 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
     if (isOpen && !prevIsOpen.current) {
       setDriverName('');
       setDriverCpf('');
-      setDriverCnh('');
+      setOwnerContact('');
       setHorsePlate('');
       setTrailer1Plate('');
       setTrailer2Plate('');
@@ -61,6 +62,7 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
       setBankDetails('');
       setVehicleTag('');
       setFilesToAttach([]);
+      setDriverReferences('');
       setEmbarcadorId(
           currentUser?.profile === UserProfile.Embarcador
               ? currentUser.id
@@ -74,7 +76,6 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
     const selectedDriver = drivers.find(d => d.name.trim().toLowerCase() === driverName.trim().toLowerCase());
     setDriverContact(selectedDriver?.phone || '');
     setDriverCpf(selectedDriver?.cpf || '');
-    setDriverCnh(selectedDriver?.cnh || '');
   }, [driverName, drivers]);
   
   useEffect(() => {
@@ -119,8 +120,8 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
     }
     
     const isNewDriver = !drivers.find(d => d.name.trim().toLowerCase() === driverName.trim().toLowerCase());
-    if (isNewDriver && (!driverCpf || !driverCnh)) {
-        alert('Para novos motoristas, CPF e CNH são obrigatórios.');
+    if (isNewDriver && !driverCpf) {
+        alert('Para novos motoristas, o CPF é obrigatório.');
         return;
     }
     
@@ -138,7 +139,7 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
 
     if (cargo?.allowedVehicleTypes && cargo.allowedVehicleTypes.length > 0 && vehicleInfo.setType && vehicleInfo.bodyType) {
         const isAllowed = cargo.allowedVehicleTypes.some(allowed => 
-            allowed.setType === vehicleInfo.setType && allowed.bodyTypes.includes(vehicleInfo.bodyType!)
+            allowed.setType === vehicleInfo.setType && allowed.bodyTypes.includes(vehicleInfo.bodyType as VehicleBodyType)
         );
         if (!isAllowed) {
             alert(`O tipo do veículo selecionado (${vehicleInfo.setType} - ${vehicleInfo.bodyType}) não é permitido para esta carga.`);
@@ -168,8 +169,8 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
     onSave({
       driverName,
       driverCpf,
-      driverCnh,
       driverContact,
+      ownerContact: ownerContact || undefined,
       horsePlate,
       trailer1Plate,
       trailer2Plate,
@@ -184,6 +185,7 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
       bankDetails: bankDetails || undefined,
       vehicleTag: vehicleTag || undefined,
       filesToAttach: filesToAttach.length > 0 ? filesToAttach : undefined,
+      driverReferences: driverReferences || undefined,
     });
   };
 
@@ -248,8 +250,8 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
                 <input type="text" value={driverCpf} onChange={(e) => setDriverCpf(e.target.value)} placeholder="CPF (auto-preenchido)" className="mt-1 p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600" disabled={isExistingDriver} required={!isExistingDriver} />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">CNH do Motorista</label>
-                <input type="text" value={driverCnh} onChange={(e) => setDriverCnh(e.target.value)} placeholder="CNH (auto-preenchido)" className="mt-1 p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600" disabled={isExistingDriver} required={!isExistingDriver} />
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Contato do Proprietário</label>
+                <input type="text" value={ownerContact} onChange={(e) => setOwnerContact(e.target.value)} placeholder="Telefone/WhatsApp do proprietário" className="mt-1 p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600" />
               </div>
             </div>
 
@@ -324,12 +326,24 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
                 </div>
             </div>
 
-            <div className="mt-4 p-4 bg-gray-100 dark:bg-gray-900/50 rounded-lg text-center">
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Valor do Frete (Motorista)</p>
-              <div className="flex flex-col items-center">
-                  <p className="text-2xl font-bold text-gray-800 dark:text-white">
-                      {formatCurrency(cargo.driverFreightValuePerTon)} <span className="text-sm font-normal text-gray-500">/ TON</span>
-                  </p>
+            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="p-4 bg-gray-100 dark:bg-gray-900/50 rounded-lg text-center">
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Valor do Frete (Motorista)</p>
+                <div className="flex flex-col items-center">
+                    <p className="text-2xl font-bold text-gray-800 dark:text-white">
+                        {formatCurrency(cargo.driverFreightValuePerTon)} <span className="text-sm font-normal text-gray-500">/ TON</span>
+                    </p>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Referências do Motorista</label>
+                <textarea
+                  value={driverReferences}
+                  onChange={(e) => setDriverReferences(e.target.value)}
+                  placeholder="Indicações, referências ou observações sobre o motorista..."
+                  className="mt-1 p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600 resize-y"
+                  rows={3}
+                />
               </div>
             </div>
           
