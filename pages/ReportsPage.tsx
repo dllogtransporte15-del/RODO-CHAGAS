@@ -6,7 +6,7 @@ import { BriefcaseIcon } from '../components/icons/BriefcaseIcon';
 import { ShipIcon } from '../components/icons/ShipIcon';
 import { UsersIcon } from '../components/icons/UsersIcon';
 import { ClockIcon } from '../components/icons/ClockIcon';
-import { Filter, X, Calendar, DollarSign, Package } from 'lucide-react';
+import { Filter, X, Calendar, DollarSign, Package, CheckCircle } from 'lucide-react';
 import SalespersonReport from '../components/reports/SalespersonReport';
 import SupervisorReport from '../components/reports/SupervisorReport';
 import ShipperReport from '../components/reports/ShipperReport';
@@ -75,19 +75,48 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, carg
     });
   }, [shipments, startDate, endDate, filterStatus, filterClient, filterOrigin, filterDest, cargoMap, clients]);
 
+  const currentMonthStats = useMemo(() => {
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+
+    let totalProgramado = 0;
+    let totalEfetivado = 0;
+
+    const effectiveForwardStatuses = [
+      ShipmentStatus.AguardandoAdiantamento,
+      ShipmentStatus.AguardandoAgendamento,
+      ShipmentStatus.AguardandoDescarga,
+      ShipmentStatus.AguardandoPagamentoSaldo,
+      ShipmentStatus.Finalizado
+    ];
+
+    shipments.forEach(s => {
+      const sDate = new Date(s.createdAt);
+      if (sDate.getMonth() === currentMonth && sDate.getFullYear() === currentYear && s.status !== ShipmentStatus.Cancelado) {
+        totalProgramado += s.shipmentTonnage || 0;
+        
+        if (effectiveForwardStatuses.includes(s.status)) {
+          totalEfetivado += s.shipmentTonnage || 0;
+        }
+      }
+    });
+
+    return { totalProgramado, totalEfetivado };
+  }, [shipments]);
+
   const kpis = useMemo(() => {
     let grossBilled = 0;
     let netBilled = 0;
     let profitMargin = 0;
-    let totalTonnage = 0;
+    let totalEfetivadoRange = 0;
 
     filteredShipments.forEach(s => {
        const cargo = cargoMap.get(s.cargoId);
        if (!cargo) return;
 
-       totalTonnage += s.shipmentTonnage;
-
-       // For financial stats, only count if not cancelled
+       // Filter for volume in range if we still wanted that, but for now we focus on the user's specific request.
+       // However, we still need kpis object for financial metrics.
        if (s.status !== ShipmentStatus.Cancelado) {
            const grossValue = cargo.companyFreightValuePerTon * s.shipmentTonnage;
            const icmsValue = cargo.hasIcms ? grossValue * (cargo.icmsPercentage / 100) : 0;
@@ -100,7 +129,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, carg
        }
     });
 
-    return { grossBilled, netBilled, profitMargin, totalTonnage, count: filteredShipments.length };
+    return { grossBilled, netBilled, profitMargin, count: filteredShipments.length };
   }, [filteredShipments, cargoMap]);
 
   const canViewCommercialReport = useMemo(() => {
@@ -195,23 +224,30 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, carg
       </div>
 
       {/* GLOBAL KPIs SECTION */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 mb-6">
          <div className="p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 flex items-center gap-4">
-             <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/50 flex flex-shrink-0 items-center justify-center text-blue-600 dark:text-blue-400"><ShipIcon className="w-5 h-5" /></div>
+             <div className="w-10 h-10 rounded-full bg-blue-50 dark:bg-blue-900/50 flex flex-shrink-0 items-center justify-center text-blue-600 dark:text-blue-400"><ShipIcon className="w-5 h-5" /></div>
              <div>
                 <p className="text-xs text-gray-500 uppercase font-bold">Embarques</p>
                 <p className="text-xl font-bold text-gray-800 dark:text-gray-100">{kpis.count}</p>
              </div>
          </div>
          <div className="p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 flex items-center gap-4">
-             <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-700 flex flex-shrink-0 items-center justify-center text-gray-600 dark:text-gray-400"><Package className="w-5 h-5" /></div>
+             <div className="w-10 h-10 rounded-full bg-gray-50 dark:bg-gray-700 flex flex-shrink-0 items-center justify-center text-gray-600 dark:text-gray-400"><Package className="w-5 h-5" /></div>
              <div>
-                <p className="text-xs text-gray-500 uppercase font-bold">Volume Total</p>
-                <p className="text-xl font-bold text-gray-800 dark:text-gray-100">{kpis.totalTonnage.toLocaleString('pt-BR')} ton</p>
+                <p className="text-xs text-gray-500 uppercase font-bold">Total Programado</p>
+                <p className="text-xl font-bold text-gray-800 dark:text-gray-100" title="Soma de peso de todos os embarques do mês atual">{currentMonthStats.totalProgramado.toLocaleString('pt-BR')} ton</p>
              </div>
          </div>
          <div className="p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 flex items-center gap-4">
-             <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900/50 flex flex-shrink-0 items-center justify-center text-green-600 dark:text-green-400"><DollarSign className="w-5 h-5" /></div>
+             <div className="w-10 h-10 rounded-full bg-emerald-50 dark:bg-emerald-900/30 flex flex-shrink-0 items-center justify-center text-emerald-600 dark:text-emerald-400"><CheckCircle className="w-5 h-5" /></div>
+             <div>
+                <p className="text-xs text-gray-500 uppercase font-bold">Total efetivado</p>
+                <p className="text-xl font-bold text-gray-800 dark:text-gray-100" title="Soma de embarques a partir de Ag. Adiantamento onwards (mês atual)">{currentMonthStats.totalEfetivado.toLocaleString('pt-BR')} ton</p>
+             </div>
+         </div>
+         <div className="p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 flex items-center gap-4">
+             <div className="w-10 h-10 rounded-full bg-green-50 dark:bg-green-900/50 flex flex-shrink-0 items-center justify-center text-green-600 dark:text-green-400"><DollarSign className="w-5 h-5" /></div>
              <div>
                 <p className="text-xs text-gray-500 uppercase font-bold">Fat. Bruto</p>
                 <p className="text-xl font-bold text-gray-800 dark:text-gray-100" title={formatCurrency(kpis.grossBilled)}>
@@ -220,7 +256,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, carg
              </div>
          </div>
          <div className="p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 flex items-center gap-4">
-             <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-700 flex flex-shrink-0 items-center justify-center text-gray-500 dark:text-gray-400"><DollarSign className="w-5 h-5" /></div>
+             <div className="w-10 h-10 rounded-full bg-slate-50 dark:bg-gray-700 flex flex-shrink-0 items-center justify-center text-gray-500 dark:text-gray-400"><DollarSign className="w-5 h-5" /></div>
              <div>
                 <p className="text-xs text-gray-500 uppercase font-bold">Fat. Líquido</p>
                 <p className="text-xl font-bold text-gray-800 dark:text-gray-100" title={formatCurrency(kpis.netBilled)}>
@@ -229,7 +265,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, carg
              </div>
          </div>
          <div className="p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 flex items-center gap-4">
-             <div className="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-900/50 flex flex-shrink-0 items-center justify-center text-emerald-600 dark:text-emerald-400"><DollarSign className="w-5 h-5" /></div>
+             <div className="w-10 h-10 rounded-full bg-teal-50 dark:bg-teal-900/50 flex flex-shrink-0 items-center justify-center text-teal-600 dark:text-teal-400"><DollarSign className="w-5 h-5" /></div>
              <div>
                 <p className="text-xs text-gray-500 uppercase font-bold">Margem Lucro</p>
                 <p className="text-xl font-bold text-gray-800 dark:text-gray-100" title={formatCurrency(kpis.profitMargin)}>

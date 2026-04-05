@@ -196,10 +196,20 @@ const toShipment = (row: any): Shipment => ({
   statusHistory: row.status_history || [],
   anttOwnerIdentifier: row.antt_owner_identifier,
   bankDetails: row.bank_details,
+  advancePercentage: row.advance_percentage !== null ? Number(row.advance_percentage) : undefined,
+  advanceValue: row.advance_value !== null ? Number(row.advance_value) : undefined,
+  tollValue: row.toll_value !== null ? Number(row.toll_value) : undefined,
+  vehicleTag: row.vehicle_tag,
+  companyFreightRateSnapshot: row.company_freight_rate_snapshot !== null ? Number(row.company_freight_rate_snapshot) : undefined,
+  driverFreightRateSnapshot: row.driver_freight_rate_snapshot !== null ? Number(row.driver_freight_rate_snapshot) : undefined,
   route: row.route,
   cancellationReason: row.cancellation_reason,
   driverReferences: row.driver_references,
   ownerContact: row.owner_contact,
+  balanceToReceiveValue: row.balance_to_receive_value !== null ? Number(row.balance_to_receive_value) : undefined,
+  discountValue: row.discount_value !== null ? Number(row.discount_value) : undefined,
+  netBalanceValue: row.net_balance_value !== null ? Number(row.net_balance_value) : undefined,
+  unloadedTonnage: row.unloaded_tonnage !== null ? Number(row.unloaded_tonnage) : undefined,
 });
 
 const fromShipment = (s: Shipment) => ({
@@ -227,10 +237,20 @@ const fromShipment = (s: Shipment) => ({
   status_history: s.statusHistory,
   antt_owner_identifier: s.anttOwnerIdentifier,
   bank_details: s.bankDetails,
+  advance_percentage: s.advancePercentage,
+  advance_value: s.advanceValue,
+  toll_value: s.tollValue,
+  vehicle_tag: s.vehicleTag,
+  company_freight_rate_snapshot: s.companyFreightRateSnapshot,
+  driver_freight_rate_snapshot: s.driverFreightRateSnapshot,
   route: s.route,
   cancellation_reason: s.cancellationReason,
   driver_references: s.driverReferences,
   owner_contact: s.ownerContact,
+  balance_to_receive_value: s.balanceToReceiveValue,
+  discount_value: s.discountValue,
+  net_balance_value: s.netBalanceValue,
+  unloaded_tonnage: s.unloadedTonnage,
 });
 
 const toUser = (row: any): User => ({

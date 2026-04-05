@@ -298,7 +298,7 @@ const App: React.FC = () => {
       timestamp: new Date().toISOString(),
       description: `${description}`,
     };
-    setNextIds(prev => ({...prev, history: prev.history + 1}));
+    setNextIds((prev: any) => ({...prev, history: prev.history + 1}));
     return newLog;
   }
 
@@ -357,8 +357,8 @@ const App: React.FC = () => {
           comment: `Chamado criado e atribuído a ${users.find(u => u.id === ticketData.assignedToId)?.name || 'N/A'}.`
       }],
     };
-    setTickets(prev => [newTicket, ...prev]);
-    setNextIds(prev => ({ ...prev, ticket: prev.ticket + 1 }));
+    setTickets((prev: Ticket[]) => [newTicket, ...prev]);
+    setNextIds((prev: any) => ({ ...prev, ticket: prev.ticket + 1 }));
     try { await upsertTicket(newTicket); } catch(err) { console.error('Erro ao salvar ticket:', err); }
   }
 
@@ -390,7 +390,7 @@ const App: React.FC = () => {
       history: [...ticketToUpdate.history, newHistoryEntry] 
     };
 
-    setTickets(prevTickets =>
+    setTickets((prevTickets: Ticket[]) =>
       prevTickets.map(ticket => ticket.id === ticketId ? updatedTicket : ticket)
     );
 
@@ -625,7 +625,7 @@ const App: React.FC = () => {
       history: [...shipmentToUpdate.history, createHistoryLog(`Chegada do veículo marcada em ${new Date(now).toLocaleString('pt-BR')}`)] 
     };
 
-    setShipments(prev => prev.map(s => s.id === shipmentId ? updatedShipment : s));
+    setShipments((prev: Shipment[]) => prev.map(s => s.id === shipmentId ? updatedShipment : s));
     try {
       await upsertShipment(updatedShipment);
     } catch (err) {
@@ -633,8 +633,20 @@ const App: React.FC = () => {
     }
   };
 
-  const handleUpdateShipmentAttachment = async (shipmentId: string, data: { filesToAttach: { [key: string]: File[] }, bankDetails?: string, loadedTonnage?: number, advancePercentage?: number, tollValue?: number, route?: string }) => {
-    const { filesToAttach, bankDetails, loadedTonnage, advancePercentage, tollValue, route } = data;
+  const handleUpdateShipmentAttachment = async (shipmentId: string, data: { 
+    filesToAttach: { [key: string]: File[] }, 
+    bankDetails?: string, 
+    loadedTonnage?: number, 
+    advancePercentage?: number, 
+    advanceValue?: number,
+    tollValue?: number, 
+    balanceToReceiveValue?: number,
+    discountValue?: number,
+    netBalanceValue?: number,
+    unloadedTonnage?: number,
+    route?: string 
+  }) => {
+    const { filesToAttach, bankDetails, loadedTonnage, advancePercentage, advanceValue, tollValue, balanceToReceiveValue, discountValue, netBalanceValue, unloadedTonnage, route } = data;
     const originalShipment = shipments.find(s => s.id === shipmentId);
     if (!originalShipment || !currentUser) return;
 
@@ -728,14 +740,50 @@ const App: React.FC = () => {
     let calculatedAdvanceValue = originalShipment.advanceValue;
     let finalAdvancePercentage = originalShipment.advancePercentage;
     
-    // Calcular adiantamento se a porcentagem for informada
-    if (advancePercentage !== undefined && advancePercentage > 0) {
+    // Use manually provided advanceValue if available, otherwise calculate from percentage
+    if (advanceValue !== undefined) {
+        calculatedAdvanceValue = advanceValue;
+        finalAdvancePercentage = advancePercentage || originalShipment.advancePercentage;
+        
+        const formattedAdv = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calculatedAdvanceValue);
+        let historyMsg = `Valor pago na conta de R$ ${calculatedAdvanceValue.toLocaleString('pt-BR')} registrado.`;
+        if (finalAdvancePercentage) historyMsg += ` (Equivalente a ${finalAdvancePercentage}%)`;
+        historyLogs.push(historyMsg);
+    } else if (advancePercentage !== undefined && advancePercentage > 0) {
         finalAdvancePercentage = advancePercentage;
         calculatedAdvanceValue = ((updatedDriverFreight * advancePercentage) / 100) - (tollValue || 0);
         const formattedAdv = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calculatedAdvanceValue);
         let historyMsg = `Pagamento de Adiantamento: ${advancePercentage}% registrado (${formattedAdv}).`;
         if (tollValue && tollValue > 0) {
             historyMsg += ` (Dedução de R$ ${tollValue.toLocaleString('pt-BR')} ref. pedágio)`;
+        }
+        historyLogs.push(historyMsg);
+    }
+
+    let finalBalanceToReceive = originalShipment.balanceToReceiveValue;
+    let finalDiscountValue = originalShipment.discountValue;
+    let finalNetBalanceValue = originalShipment.netBalanceValue;
+
+    if (balanceToReceiveValue !== undefined || discountValue !== undefined || netBalanceValue !== undefined) {
+        finalBalanceToReceive = balanceToReceiveValue ?? originalShipment.balanceToReceiveValue;
+        finalDiscountValue = discountValue ?? originalShipment.discountValue;
+        finalNetBalanceValue = netBalanceValue ?? originalShipment.netBalanceValue;
+
+        const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+        let historyMsg = `Pagamento de Saldo registrado: `;
+        if (balanceToReceiveValue !== undefined) historyMsg += `Bruto: ${fmt.format(balanceToReceiveValue)}. `;
+        if (discountValue !== undefined) historyMsg += `Descontos: ${fmt.format(discountValue)}. `;
+        if (netBalanceValue !== undefined) historyMsg += `Líquido pago: ${fmt.format(netBalanceValue)}.`;
+        historyLogs.push(historyMsg);
+    }
+
+    let finalUnloadedTonnage = originalShipment.unloadedTonnage;
+    if (unloadedTonnage !== undefined && unloadedTonnage > 0) {
+        finalUnloadedTonnage = unloadedTonnage;
+        let historyMsg = `Peso descarregado informado: ${unloadedTonnage.toLocaleString('pt-BR')} ton.`;
+        if (unloadedTonnage < updatedTonnage) {
+            const quebra = updatedTonnage - unloadedTonnage;
+            historyMsg += ` (QUEBRA DETECTADA: ${quebra.toLocaleString('pt-BR')} ton).`;
         }
         historyLogs.push(historyMsg);
     }
@@ -754,6 +802,10 @@ const App: React.FC = () => {
         advancePercentage: finalAdvancePercentage,
         advanceValue: calculatedAdvanceValue,
         tollValue: tollValue !== undefined ? tollValue : originalShipment.tollValue,
+        balanceToReceiveValue: finalBalanceToReceive,
+        discountValue: finalDiscountValue,
+        netBalanceValue: finalNetBalanceValue,
+        unloadedTonnage: finalUnloadedTonnage,
         route: route || originalShipment.route,
         history: [...originalShipment.history, createHistoryLog(`Status alterado para ${nextStatus}. ${historyLogs.join(' ')}`)],
         statusHistory: [
@@ -766,7 +818,7 @@ const App: React.FC = () => {
         ],
     };
     
-    setShipments(prev => prev.map(s => s.id === shipmentId ? updatedShipment : s));
+    setShipments((prev: Shipment[]) => prev.map(s => s.id === shipmentId ? updatedShipment : s));
 
     const isAdvancingToLoaded = nextStatus === ShipmentStatus.AguardandoDescarga && 
                               Object.values(ShipmentStatus).indexOf(originalShipment.status) < Object.values(ShipmentStatus).indexOf(ShipmentStatus.AguardandoDescarga);
@@ -807,7 +859,7 @@ const App: React.FC = () => {
       history: changes.length > 0 ? [...shipmentToUpdate.history, createHistoryLog(changes.join(' '))] : shipmentToUpdate.history 
     };
 
-    setShipments(prev => prev.map(s => s.id === shipmentId ? updatedShipment : s));
+    setShipments((prev: Shipment[]) => prev.map(s => s.id === shipmentId ? updatedShipment : s));
     try {
       await upsertShipment(updatedShipment);
     } catch (err) {
@@ -845,7 +897,7 @@ const App: React.FC = () => {
       history: [...shipmentToUpdate.history, createHistoryLog(historyMsgParts.join(' '))] 
     };
 
-    setShipments(prev => prev.map(s => s.id === shipmentId ? updatedShipment : s));
+    setShipments((prev: Shipment[]) => prev.map(s => s.id === shipmentId ? updatedShipment : s));
     try {
       await upsertShipment(updatedShipment);
     } catch (err) {
@@ -868,7 +920,7 @@ const App: React.FC = () => {
       statusHistory: [...(shipmentToCancel.statusHistory || []), { status: ShipmentStatus.Cancelado, timestamp: new Date().toISOString(), userId: currentUser.id }] 
     };
 
-    setShipments(prev => prev.map(s => s.id === shipmentId ? cancelledShipment : s));
+    setShipments((prev: Shipment[]) => prev.map(s => s.id === shipmentId ? cancelledShipment : s));
 
     const wasLoaded = Object.values(ShipmentStatus).indexOf(shipmentToCancel.status) >= Object.values(ShipmentStatus).indexOf(ShipmentStatus.AguardandoDescarga);
     const relatedCargo = cargos.find(c => c.id === shipmentToCancel.cargoId);
@@ -901,7 +953,7 @@ const App: React.FC = () => {
 
   const handleTransferShipment = async (shipmentId: string, newEmbarcadorId: string) => {
     let updated: Shipment | undefined;
-    setShipments(prev => prev.map(s => {
+    setShipments((prev: Shipment[]) => prev.map(s => {
         if (s.id === shipmentId) {
             const oldEmbarcadorName = users.find(u => u.id === s.embarcadorId)?.name || 'N/A';
             const newEmbarcadorName = users.find(u => u.id === newEmbarcadorId)?.name || 'N/A';
@@ -924,7 +976,7 @@ const App: React.FC = () => {
       const newId = formatId(nextIds.client, 'CLI');
       saved = { ...clientData, id: newId };
       setClients(prev => [saved, ...prev]);
-      setNextIds(prev => ({ ...prev, client: prev.client + 1 }));
+      setNextIds((prev: any) => ({ ...prev, client: prev.client + 1 }));
     }
     try { await upsertClient(saved); } catch(err) { console.error('Erro ao salvar cliente:', err); }
   };
@@ -961,7 +1013,7 @@ const App: React.FC = () => {
     if (window.confirm(`Tem certeza que deseja excluir permanentemente o embarque ${shipmentId}?`)) {
         try {
             await deleteShipment(shipmentId);
-            setShipments(prev => prev.filter(s => s.id !== shipmentId));
+            setShipments((prev: Shipment[]) => prev.filter(s => s.id !== shipmentId));
 
             // Atualizar volumes da carga
             const wasLoaded = Object.values(ShipmentStatus).indexOf(shipmentToDelete.status) >= Object.values(ShipmentStatus).indexOf(ShipmentStatus.AguardandoDescarga);
@@ -997,7 +1049,7 @@ const App: React.FC = () => {
       const newId = formatId(nextIds.owner, 'OWN');
       saved = { ...ownerData, id: newId };
       setOwners(prev => [saved, ...prev]);
-      setNextIds(prev => ({ ...prev, owner: prev.owner + 1 }));
+      setNextIds((prev: any) => ({ ...prev, owner: prev.owner + 1 }));
     }
     try { await upsertOwner(saved); } catch(err) { console.error('Erro ao salvar proprietário:', err); }
   };
@@ -1011,7 +1063,7 @@ const App: React.FC = () => {
       const newId = formatId(nextIds.driver, 'DRV');
       saved = { ...driverData, id: newId };
       setDrivers(prev => [saved, ...prev]);
-      setNextIds(prev => ({ ...prev, driver: prev.driver + 1 }));
+      setNextIds((prev: any) => ({ ...prev, driver: prev.driver + 1 }));
     }
     try { await upsertDriver(saved); } catch(err) { console.error('Erro ao salvar motorista:', err); }
   };
@@ -1025,7 +1077,7 @@ const App: React.FC = () => {
       const newId = formatId(nextIds.vehicle, 'VEH');
       saved = { ...vehicleData, id: newId };
       setVehicles(prev => [saved, ...prev]);
-      setNextIds(prev => ({ ...prev, vehicle: prev.vehicle + 1 }));
+      setNextIds((prev: any) => ({ ...prev, vehicle: prev.vehicle + 1 }));
     }
     try { await upsertVehicle(saved); } catch(err) { console.error('Erro ao salvar veículo:', err); }
   };
@@ -1039,7 +1091,7 @@ const App: React.FC = () => {
       const newId = `PRD-${String(nextIds.product).padStart(3, '0')}`;
       saved = { ...productData, id: newId };
       setProducts(prev => [saved, ...prev]);
-      setNextIds(prev => ({ ...prev, product: prev.product + 1 }));
+      setNextIds((prev: any) => ({ ...prev, product: prev.product + 1 }));
     }
     try { await upsertProduct(saved); } catch(err) { console.error('Erro ao salvar produto:', err); }
     alert('Produto salvo com sucesso!');
@@ -1147,7 +1199,7 @@ const App: React.FC = () => {
         history: [createHistoryLog(`Carga ${newId} criada`)],
       };
       setCargos(prev => [newLoad, ...prev]);
-      setNextIds(prev => ({ ...prev, cargo: prev.cargo + 1 }));
+      setNextIds((prev: any) => ({ ...prev, cargo: prev.cargo + 1 }));
       try { await insertCargo(newLoad); } catch(err) { console.error('Erro ao criar carga:', err); }
     }
   };
@@ -1161,7 +1213,7 @@ const App: React.FC = () => {
       const newId = formatId(nextIds.user, 'USR');
       saved = { ...userData, id: newId } as User;
       setUsers(prev => [saved, ...prev]);
-      setNextIds(prev => ({ ...prev, user: prev.user + 1 }));
+      setNextIds((prev: any) => ({ ...prev, user: prev.user + 1 }));
     }
     try { await upsertUser(saved); } catch(err) { console.error('Erro ao salvar usuário:', err); }
   };
@@ -1232,7 +1284,7 @@ const App: React.FC = () => {
         history: [...shipment.history, createHistoryLog(`Status revertido de "${currentStatus}" para "${previousStatus}" por ${currentUser.name}. Anexos do último passo removidos.`)]
     };
 
-    setShipments(prev => prev.map(s => s.id === shipmentId ? updatedShipment : s));
+    setShipments((prev: Shipment[]) => prev.map(s => s.id === shipmentId ? updatedShipment : s));
     if (updatedCargo) {
         setCargos(prev => prev.map(c => c.id === updatedShipment.cargoId ? updatedCargo! : c));
     }
@@ -1381,8 +1433,11 @@ const App: React.FC = () => {
         return <FreightQuotePage currentUser={currentUser} />;
       case 'tools-history':
         return <ToolsHistoryPage currentUser={currentUser} />;
+      case 'dashboard':
+        return <DashboardPage cargos={visibleLoads} shipments={visibleShipments} users={users} currentUser={currentUser} clients={clients} />;
       default:
-        return <DashboardPage cargos={visibleLoads} shipments={visibleShipments} users={users} currentUser={currentUser} />;
+        return <DashboardPage cargos={visibleLoads} shipments={visibleShipments} users={users} currentUser={currentUser} clients={clients} />;
+
     }
   };
 

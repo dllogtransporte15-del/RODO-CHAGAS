@@ -26,7 +26,19 @@ interface ShipmentsPageProps {
   currentUser: User;
   profilePermissions: ProfilePermissions;
   users: User[];
-  onUpdateAttachment: (shipmentId: string, data: { filesToAttach: { [key: string]: File[] }, bankDetails?: string, loadedTonnage?: number, advancePercentage?: number, tollValue?: number, route?: string }) => void;
+  onUpdateAttachment: (shipmentId: string, data: { 
+    filesToAttach: { [key: string]: File[] }, 
+    bankDetails?: string, 
+    loadedTonnage?: number, 
+    advancePercentage?: number, 
+    advanceValue?: number,
+    tollValue?: number, 
+    balanceToReceiveValue?: number,
+    discountValue?: number,
+    netBalanceValue?: number,
+    unloadedTonnage?: number,
+    route?: string 
+  }) => void;
   onUpdatePrice: (shipmentId: string, data: { newTotal: number, newRate?: number }) => void;
   onConfirmCancel: (shipmentId: string, reason: string) => void;
   onUpdateAnttAndBankDetails: (shipmentId: string, data: { anttOwnerIdentifier: string; bankDetails?: string }) => void;
@@ -130,7 +142,19 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({
     setSelectedShipment(null);
   };
 
-  const handleSaveAttachment = (data: { filesToAttach: { [key: string]: File[] }, bankDetails?: string, loadedTonnage?: number, advancePercentage?: number, route?: string }) => {
+  const handleSaveAttachment = (data: { 
+    filesToAttach: { [key: string]: File[] }, 
+    bankDetails?: string, 
+    loadedTonnage?: number, 
+    advancePercentage?: number, 
+    advanceValue?: number,
+    tollValue?: number, 
+    balanceToReceiveValue?: number,
+    discountValue?: number,
+    netBalanceValue?: number,
+    unloadedTonnage?: number,
+    route?: string 
+  }) => {
     if (!selectedShipment) return;
     onUpdateAttachment(selectedShipment.id, data);
     handleCloseAttachmentModal();
@@ -204,8 +228,8 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({
     }
 
     if (currentStatus === ShipmentStatus.AguardandoAdiantamento || currentStatus === ShipmentStatus.AguardandoPagamentoSaldo) {
-        if ([UserProfile.Financeiro, UserProfile.Diretor].includes(userProfile)) return defaultResponse;
-        return { allowed: false, reason: 'Apenas Financeiro, Diretor ou Admin podem avançar.' };
+        if ([UserProfile.Financeiro, UserProfile.Diretor, UserProfile.Supervisor].includes(userProfile)) return defaultResponse;
+        return { allowed: false, reason: 'Apenas Financeiro, Diretor, Supervisor ou Admin podem avançar.' };
     }
 
 

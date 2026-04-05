@@ -271,7 +271,13 @@ export interface Shipment {
   cancellationReason?: string;
   driverReferences?: string;
   ownerContact?: string;
+  balanceToReceiveValue?: number;
+  discountValue?: number;
+  netBalanceValue?: number;
+  unloadedTonnage?: number;
 }
+
+
 
 export interface ProfilePermissions {
   [profile: string]: {

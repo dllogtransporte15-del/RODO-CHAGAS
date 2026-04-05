@@ -7,7 +7,19 @@ import { formatWeightPtBr } from '../utils';
 interface AttachmentModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (data: { filesToAttach: { [key: string]: File[] }, bankDetails?: string, loadedTonnage?: number, advancePercentage?: number, tollValue?: number, route?: string }) => void;
+  onSave: (data: { 
+    filesToAttach: { [key: string]: File[] }, 
+    bankDetails?: string, 
+    loadedTonnage?: number, 
+    advancePercentage?: number, 
+    advanceValue?: number,
+    tollValue?: number, 
+    balanceToReceiveValue?: number,
+    discountValue?: number,
+    netBalanceValue?: number,
+    unloadedTonnage?: number,
+    route?: string 
+  }) => void;
   shipment: Shipment;
   documentName: string;
   currentUser: User;
@@ -56,7 +68,12 @@ const AttachmentModal: React.FC<AttachmentModalProps> = ({ isOpen, onClose, onSa
   const [bankDetails, setBankDetails] = useState('');
   const [loadedTonnage, setLoadedTonnage] = useState<number | ''>('');
   const [advancePercentage, setAdvancePercentage] = useState<number | ''>('');
+  const [advanceValue, setAdvanceValue] = useState<number | ''>('');
   const [tollValue, setTollValue] = useState<number | ''>('');
+  const [balanceToReceiveValue, setBalanceToReceiveValue] = useState<number | ''>('');
+  const [discountValue, setDiscountValue] = useState<number | ''>('');
+  const [netBalanceValue, setNetBalanceValue] = useState<number | ''>('');
+  const [unloadedTonnage, setUnloadedTonnage] = useState<number | ''>('');
   const [route, setRoute] = useState('');
   const [suggestions, setSuggestions] = useState<RouteSuggestion[]>([]);
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
@@ -71,13 +88,54 @@ const AttachmentModal: React.FC<AttachmentModalProps> = ({ isOpen, onClose, onSa
       setError('');
       setSingleFiles([]);
       setMultiFiles({});
-      setBankDetails('');
-      setLoadedTonnage('');
-      setAdvancePercentage('');
-      setTollValue('');
+      setBankDetails(shipment.bankDetails || '');
+      setLoadedTonnage(shipment.shipmentTonnage || '');
+      setAdvancePercentage(shipment.advancePercentage || '');
+      setAdvanceValue(shipment.advanceValue || '');
+      setTollValue(shipment.tollValue || '');
+      
+      // Default Balance to Receive = 20% of total Driver Freight
+      const estimatedBalance = (shipment.driverFreightValue || 0) * 0.2;
+      setBalanceToReceiveValue(shipment.balanceToReceiveValue || (estimatedBalance > 0 ? Number(estimatedBalance.toFixed(2)) : ''));
+      setDiscountValue(shipment.discountValue || '');
+      setNetBalanceValue(shipment.netBalanceValue || '');
+      setUnloadedTonnage(shipment.unloadedTonnage || '');
+      
       setRoute(shipment.route || '');
     }
   }, [isOpen, shipment]);
+
+  // AUTO-CALCULATION: Valor pago na conta = ((Frete / Ton) * (ton efetivado) * (%) do adiantamento) - (Valor pago no tag)
+  useEffect(() => {
+    if (shipment.status === ShipmentStatus.AguardandoAdiantamento) {
+        const driverFreightRate = shipment.driverFreightRateSnapshot || cargo?.driverFreightValuePerTon || 0;
+        const loadedTonnageValue = shipment.shipmentTonnage || 0;
+        const totalFreight = driverFreightRate * loadedTonnageValue;
+        
+        const advPercent = Number(advancePercentage || 0);
+        const tagVal = Number(tollValue || 0);
+        
+        const calculatedValue = (totalFreight * (advPercent / 100)) - tagVal;
+        
+        // Use a threshold to avoid unnecessary updates/floats issues
+        if (Math.abs(Number(calculatedValue.toFixed(2)) - Number(advanceValue)) > 0.001) {
+            setAdvanceValue(calculatedValue > 0 ? Number(calculatedValue.toFixed(2)) : 0);
+        }
+    }
+  }, [advancePercentage, tollValue, shipment.status, shipment.driverFreightRateSnapshot, shipment.shipmentTonnage, cargo?.driverFreightValuePerTon]);
+  
+  // AUTO-CALCULATION: Valor Liquido de Saldo = Valor de Saldo a Receber - Valor a Descontar
+  useEffect(() => {
+     if (shipment.status === ShipmentStatus.AguardandoPagamentoSaldo) {
+         const balance = Number(balanceToReceiveValue || 0);
+         const discount = Number(discountValue || 0);
+         const calculatedNet = balance - discount;
+         
+         if (Math.abs(Number(calculatedNet.toFixed(2)) - Number(netBalanceValue)) > 0.001) {
+             setNetBalanceValue(calculatedNet > 0 ? Number(calculatedNet.toFixed(2)) : 0);
+         }
+     }
+  }, [balanceToReceiveValue, discountValue, shipment.status]);
 
   const showRouteField = shipment.status === ShipmentStatus.AguardandoCarregamento;
   const isReadOnlyRoute = [
@@ -251,12 +309,30 @@ const AttachmentModal: React.FC<AttachmentModalProps> = ({ isOpen, onClose, onSa
       filesToAttach = { [documentName]: singleFiles };
     }
     
+    if (shipment.status === ShipmentStatus.AguardandoDescarga && (!unloadedTonnage || Number(unloadedTonnage) <= 0)) {
+        alert('O peso descarregado é obrigatório para informar a entrega.');
+        return;
+    }
+
+    if (shipment.status === ShipmentStatus.AguardandoPagamentoSaldo) {
+        const hasQuebra = shipment.unloadedTonnage !== undefined && shipment.shipmentTonnage !== undefined && (shipment.unloadedTonnage - shipment.shipmentTonnage) < -0.001;
+        if (hasQuebra && (!discountValue || Number(discountValue) <= 0)) {
+            alert('Atenção: Quebra de carga detectada. É obrigatório informar o valor do desconto para prosseguir.');
+            return;
+        }
+    }
+
     onSave({ 
       filesToAttach, 
       bankDetails: bankDetails || undefined,
       loadedTonnage: shipment.status === ShipmentStatus.AguardandoCarregamento ? Number(loadedTonnage) : undefined,
       advancePercentage: shipment.status === ShipmentStatus.AguardandoAdiantamento ? Number(advancePercentage) : undefined,
+      advanceValue: shipment.status === ShipmentStatus.AguardandoAdiantamento ? Number(advanceValue) : undefined,
       tollValue: shipment.status === ShipmentStatus.AguardandoAdiantamento ? Number(tollValue || 0) : undefined,
+      balanceToReceiveValue: shipment.status === ShipmentStatus.AguardandoPagamentoSaldo ? Number(balanceToReceiveValue) : undefined,
+      discountValue: shipment.status === ShipmentStatus.AguardandoPagamentoSaldo ? Number(discountValue) : undefined,
+      netBalanceValue: shipment.status === ShipmentStatus.AguardandoPagamentoSaldo ? Number(netBalanceValue) : undefined,
+      unloadedTonnage: shipment.status === ShipmentStatus.AguardandoDescarga ? Number(unloadedTonnage) : undefined,
       route: (showRouteField || isReadOnlyRoute) ? route : undefined
     });
   };
@@ -338,10 +414,20 @@ const AttachmentModal: React.FC<AttachmentModalProps> = ({ isOpen, onClose, onSa
 
                     </div>
                 ) : shipment.status === ShipmentStatus.AguardandoAdiantamento ? (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <FileInput label={documentName} files={singleFiles} onFileChange={(f) => setSingleFiles(f ? Array.from(f) : [])} />
                         <div>
-                            <label className="block text-sm font-medium mb-1">Adiantamento (%)</label>
+                            <label className="block text-sm font-medium mb-1">Valor pago no tag</label>
+                            <input 
+                                type="number" 
+                                value={tollValue} 
+                                onChange={(e) => setTollValue(e.target.value === '' ? '' : Number(e.target.value))} 
+                                className={`w-full p-2 border rounded dark:bg-gray-700 ${!canSave ? 'bg-gray-100 dark:bg-gray-900 cursor-not-allowed text-gray-400' : ''}`}
+                                disabled={!canSave}
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium mb-1">(%) do adiantamento</label>
                             <input 
                                 type="number" 
                                 value={advancePercentage} 
@@ -351,15 +437,101 @@ const AttachmentModal: React.FC<AttachmentModalProps> = ({ isOpen, onClose, onSa
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium mb-1">Pedágio (R$)</label>
+                            <label className="block text-sm font-medium mb-1">Valor pago na conta</label>
                             <input 
                                 type="number" 
-                                value={tollValue} 
-                                onChange={(e) => setTollValue(e.target.value === '' ? '' : Number(e.target.value))} 
-                                className={`w-full p-2 border rounded dark:bg-gray-700 ${!canSave ? 'bg-gray-100 dark:bg-gray-900 cursor-not-allowed text-gray-400' : ''}`}
+                                value={advanceValue} 
+                                onChange={(e) => setAdvanceValue(e.target.value === '' ? '' : Number(e.target.value))} 
+                                className={`w-full p-2 border rounded dark:bg-gray-700 ${!canSave ? 'bg-gray-100 dark:bg-gray-900 cursor-not-allowed text-gray-400' : ''}`} 
                                 disabled={!canSave}
                             />
                         </div>
+                    </div>
+                ) : shipment.status === ShipmentStatus.AguardandoDescarga ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <FileInput label={documentName} files={singleFiles} onFileChange={(f) => setSingleFiles(f ? Array.from(f) : [])} />
+                        <div>
+                            <label className="block text-sm font-medium mb-1">Peso Descarregado (Ton)</label>
+                            <input 
+                                type="number" 
+                                step="0.01" 
+                                value={unloadedTonnage} 
+                                onChange={(e) => setUnloadedTonnage(e.target.value === '' ? '' : Number(e.target.value))} 
+                                className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600"
+                                placeholder="Informe o peso conforme ticket"
+                            />
+                        </div>
+                    </div>
+                ) : shipment.status === ShipmentStatus.AguardandoPagamentoSaldo ? (
+                    <div className="space-y-6">
+                        {/* Resumo de Pesos para conferência */}
+                        {(shipment.unloadedTonnage !== undefined || shipment.shipmentTonnage !== undefined) && (
+                            <div className="bg-gray-50 dark:bg-gray-900/40 p-4 rounded-xl border dark:border-gray-700 grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                <div className="text-center">
+                                    <p className="text-[10px] text-gray-500 uppercase font-bold mb-1">Peso Carregado (A)</p>
+                                    <p className="text-sm font-mono font-bold text-gray-800 dark:text-gray-200">{shipment.shipmentTonnage?.toLocaleString('pt-BR')} ton</p>
+                                </div>
+                                <div className="text-center border-x dark:border-gray-700">
+                                    <p className="text-[10px] text-gray-500 uppercase font-bold mb-1">Peso Descarregado (B)</p>
+                                    <p className="text-sm font-mono font-bold text-gray-800 dark:text-gray-200">{shipment.unloadedTonnage?.toLocaleString('pt-BR') || '---'} ton</p>
+                                </div>
+                                <div className="text-center">
+                                    <p className="text-[10px] text-gray-500 uppercase font-bold mb-1">Diferença (B - A)</p>
+                                    {shipment.unloadedTonnage && shipment.shipmentTonnage ? (
+                                        <p className={`text-sm font-mono font-bold ${(shipment.unloadedTonnage - shipment.shipmentTonnage) < -0.001 ? 'text-red-600' : 'text-emerald-600'}`}>
+                                            {(shipment.unloadedTonnage - shipment.shipmentTonnage).toLocaleString('pt-BR')} ton
+                                        </p>
+                                    ) : <p className="text-sm font-mono font-bold text-gray-400">---</p>}
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            <FileInput label={documentName} files={singleFiles} onFileChange={(f) => setSingleFiles(f ? Array.from(f) : [])} />
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Saldo estimado</label>
+                                <input 
+                                    type="number" 
+                                    value={balanceToReceiveValue} 
+                                    onChange={(e) => setBalanceToReceiveValue(e.target.value === '' ? '' : Number(e.target.value))} 
+                                    className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Valor a Descontar</label>
+                                <input 
+                                    type="number" 
+                                    value={discountValue} 
+                                    onChange={(e) => setDiscountValue(e.target.value === '' ? '' : Number(e.target.value))} 
+                                    className={`w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 ${(shipment.unloadedTonnage !== undefined && shipment.shipmentTonnage !== undefined && (shipment.unloadedTonnage - shipment.shipmentTonnage) < -0.001 && !discountValue) ? 'border-red-500 bg-red-50 dark:bg-red-900/10' : ''}`}
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Valor Líquido de Saldo</label>
+                                <input 
+                                    type="number" 
+                                    value={netBalanceValue} 
+                                    onChange={(e) => setNetBalanceValue(e.target.value === '' ? '' : Number(e.target.value))} 
+                                    className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 font-bold text-primary"
+                                />
+                            </div>
+                        </div>
+
+                        {/* Alerta de Quebra */}
+                        {shipment.unloadedTonnage !== undefined && shipment.shipmentTonnage !== undefined && (shipment.unloadedTonnage - shipment.shipmentTonnage) < -0.001 && (
+                            <div className="bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800 p-4 rounded-xl flex items-start gap-3">
+                                <div className="text-red-600 dark:text-red-400 mt-0.5">
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                                </div>
+                                <div>
+                                    <h5 className="text-sm font-bold text-red-800 dark:text-red-300">Quebra de Carga Detectada</h5>
+                                    <p className="text-xs text-red-700 dark:text-red-400 mt-1 lowercase">
+                                        FOI CONSTATADO PESO DESCARREGADO MENOR QUE O PESO CARREGADO. <br/>
+                                        <span className="font-bold uppercase underline">PARA PROSSEGUIR, É OBRIGATÓRIO INFORMAR O VALOR DO DESCONERTO REFERENTE À QUEBRA.</span>
+                                    </p>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 ) : (
                     <FileInput label={documentName} files={singleFiles} onFileChange={(f) => setSingleFiles(f ? Array.from(f) : [])} />

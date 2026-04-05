@@ -34,7 +34,7 @@ interface ShipmentTableProps {
   onRevertStatus?: (shipmentId: string) => void;
   canUserAdvanceStatus?: (shipment: Shipment) => { allowed: boolean; reason: string };
   currentUser: User;
-  activeStatus: ShipmentStatus;
+  activeStatus: ShipmentStatus | 'all';
 }
 
 const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users, vehicles, onAttach, onEditPrice, onCancel, onTransfer, onShowHistory, onShowCargoDetails, canUserAdvanceStatus, onMarkArrival, onDelete, onRevertStatus, onOpenCadastroAntt, currentUser, activeStatus, clients }) => {
