@@ -605,8 +605,10 @@ const App: React.FC = () => {
         insertShipment(newShipment),
         updatedCargo ? upsertCargo(updatedCargo) : Promise.resolve(),
       ]);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Erro ao salvar embarque no Supabase:', err);
+      const errorMessage = err?.message || 'Erro desconhecido ao salvar no banco de dados.';
+      alert(`[ERRO CRÍTICO] O embarque não pôde ser salvo no banco de dados: ${errorMessage}. Verifique sua conexão ou contate o suporte.`);
     }
 
     setCurrentPage('shipments');
@@ -688,11 +690,11 @@ const App: React.FC = () => {
 
     // Check permissions based on the current status
     if (currentStatus === ShipmentStatus.PreCadastro || currentStatus === ShipmentStatus.AguardandoSeguradora) {
-        isUserAllowed = [UserProfile.Fiscal, UserProfile.Admin].includes(currentUser.profile);
-        alertMessage = 'Apenas os perfis Fiscal ou Administrador podem realizar esta ação.';
+        isUserAllowed = [UserProfile.Fiscal, UserProfile.Diretor, UserProfile.Supervisor, UserProfile.Admin].includes(currentUser.profile);
+        alertMessage = 'Apenas os perfis Fiscal, Diretor, Supervisor ou Administrador podem realizar esta ação.';
     } else if (currentStatus === ShipmentStatus.AguardandoAdiantamento || currentStatus === ShipmentStatus.AguardandoPagamentoSaldo) {
-        isUserAllowed = [UserProfile.Financeiro, UserProfile.Diretor, UserProfile.Admin].includes(currentUser.profile);
-        alertMessage = 'Apenas os perfis Financeiro, Diretor ou Administrador do Sistema podem realizar esta ação.';
+        isUserAllowed = [UserProfile.Financeiro, UserProfile.Diretor, UserProfile.Supervisor, UserProfile.Admin].includes(currentUser.profile);
+        alertMessage = 'Apenas os perfis Financeiro, Diretor, Supervisor ou Administrador do Sistema podem realizar esta ação.';
     }
 
     if (!isUserAllowed) {
@@ -841,7 +843,11 @@ const App: React.FC = () => {
     try {
       await upsertShipment(updatedShipment);
       if (updatedCargo) await upsertCargo(updatedCargo);
-    } catch(err) { console.error('Erro ao atualizar embarque:', err); }
+    } catch(err: any) { 
+      console.error('Erro ao atualizar embarque:', err);
+      const errorMessage = err?.message || 'Erro desconhecido ao atualizar no banco de dados.';
+      alert(`[ERRO CRÍTICO] O status do embarque não pôde ser atualizado no banco de dados: ${errorMessage}. Os dados voltarão ao estado anterior ao recarregar a página.`);
+    }
   };
 
   const handleUpdateShipmentAnttAndBankDetails = async (shipmentId: string, data: { anttOwnerIdentifier: string; bankDetails?: string }) => {
