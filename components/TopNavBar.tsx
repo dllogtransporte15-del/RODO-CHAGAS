@@ -94,8 +94,9 @@ const navItems: NavItem[] = [
 
 const TopNavBar: React.FC<TopNavBarProps> = ({ user, onLogout, currentPage, setCurrentPage, profilePermissions, companyLogo, onOpenTickets, tickets }) => {
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const mobileMenuRef = useRef<HTMLDivElement>(null);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const myOpenTicketsCount = useMemo(() => {
     return tickets.filter(
@@ -141,8 +142,12 @@ const TopNavBar: React.FC<TopNavBarProps> = ({ user, onLogout, currentPage, setC
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
+      // Check if click was outside the desktop dropdowns
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setOpenDropdown(null);
+        // AND not inside the mobile menu
+        if (!mobileMenuRef.current || !mobileMenuRef.current.contains(event.target as Node)) {
+          setOpenDropdown(null);
+        }
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -176,7 +181,7 @@ const TopNavBar: React.FC<TopNavBarProps> = ({ user, onLogout, currentPage, setC
           </div>
 
           {/* Navegação Principal */}
-          <nav className="hidden md:flex items-center space-x-1">
+          <nav className="hidden lg:flex items-center space-x-1">
             {filteredNavItems.map((item) => {
                 const isActive = currentPage === item.id || isParentOfCurrentPage(item);
                 if(item.children) {
@@ -274,7 +279,7 @@ const TopNavBar: React.FC<TopNavBarProps> = ({ user, onLogout, currentPage, setC
             </div>
 
             {/* Mobile Menu Button */}
-            <div className="md:hidden flex items-center ml-2">
+            <div className="lg:hidden flex items-center ml-2">
               <button
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
                 className="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary"
@@ -293,7 +298,10 @@ const TopNavBar: React.FC<TopNavBarProps> = ({ user, onLogout, currentPage, setC
 
       {/* Mobile Menu */}
       {isMobileMenuOpen && (
-        <div className="md:hidden border-t dark:border-gray-700 bg-white dark:bg-gray-800 absolute w-full shadow-2xl max-h-[calc(100vh-4rem)] overflow-y-auto">
+        <div 
+          ref={mobileMenuRef}
+          className="lg:hidden border-t dark:border-gray-700 bg-white dark:bg-gray-800 absolute left-0 right-0 top-full shadow-2xl max-h-[calc(100vh-4rem)] overflow-y-auto z-50 transition-all duration-300"
+        >
           <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
              {filteredNavItems.map((item) => {
                 const isActive = currentPage === item.id || isParentOfCurrentPage(item);

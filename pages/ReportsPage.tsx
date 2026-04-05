@@ -77,8 +77,10 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, carg
 
   const currentMonthStats = useMemo(() => {
     const now = new Date();
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth() + 1; // Month index starts at 0, so 1 is Jan, 2 is Feb, etc.
+    const currentMonthStr = currentMonth < 10 ? `0${currentMonth}` : `${currentMonth}`;
+    const currentYearStr = String(now.getFullYear());
+    const monthYearPrefix = `${currentYearStr}-${currentMonthStr}`; // YYYY-MM
 
     let totalProgramado = 0;
     let totalEfetivado = 0;
@@ -92,8 +94,8 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, carg
     ];
 
     shipments.forEach(s => {
-      const sDate = new Date(s.createdAt);
-      if (sDate.getMonth() === currentMonth && sDate.getFullYear() === currentYear && s.status !== ShipmentStatus.Cancelado) {
+      // Filter by scheduledDate (YYYY-MM-DD) for consistency
+      if (s.scheduledDate.startsWith(monthYearPrefix) && s.status !== ShipmentStatus.Cancelado) {
         totalProgramado += s.shipmentTonnage || 0;
         
         if (effectiveForwardStatuses.includes(s.status)) {
