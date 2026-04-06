@@ -1,15 +1,17 @@
+import { supabase } from '../supabase';
+
+// =============================================
+// Types
+// =============================================
 
 export interface Client {
   id: string;
-  companyId: string;
   name: string;
 }
 
 export interface StayRecord {
   id: string;
-  companyId: string;
   clientName?: string;
-  date: string;
   driver: string;
   plate: string;
   invoice: string;
@@ -23,11 +25,11 @@ export interface StayRecord {
   valuePerHour: number;
   tolerance: number;
   totalValue: number;
+  date: string; // = created_at, para compatibilidade com o histórico
 }
 
 export interface QuoteRecord {
   id: string;
-  companyId: string;
   clientName?: string;
   date: string;
   origin: string;
@@ -35,118 +37,274 @@ export interface QuoteRecord {
   distance: number;
   axes: number;
   cargoType: string;
-  inputMode: 'PER_KM' | 'TOTAL' | 'PER_TON';
+  inputMode: 'PER_KM' | 'PER_TON';
   valuePerKm: number;
   driverTotalValue: number;
   tollValue: number;
   anttValue: number;
   weight: number;
   margin: number;
-  icms: number;
   driverFreightPerTon: number;
   companyFreightPerTon: number;
   companyTotalFreight: number;
-  dieselPrice: number;
-  averageConsumption: number;
-  driverCommissionPercent: number;
-  dieselCost: number;
-  commissionValue: number;
   carrierNetProfit: number;
   carrierProfitMargin: number;
 }
 
+// =============================================
+// Helper: get current authenticated user UUID
+// =============================================
+async function getAuthUserId(): Promise<string | null> {
+  const { data } = await supabase.auth.getUser();
+  return data?.user?.id ?? null;
+}
+
+// =============================================
 // Client Management
-export const getToolClients = (companyId: string): Client[] => {
-  try {
-    const allClients: Client[] = JSON.parse(localStorage.getItem('dllog_clients') || '[]');
-    return allClients.filter(c => c.companyId === companyId);
-  } catch {
+// =============================================
+
+export async function getToolClients(): Promise<Client[]> {
+  const userId = await getAuthUserId();
+  if (!userId) return [];
+
+  const { data, error } = await supabase
+    .from('tool_clients')
+    .select('id, name')
+    .eq('user_id', userId)
+    .order('name');
+
+  if (error) {
+    console.error('Erro ao buscar clientes:', error);
     return [];
   }
-};
 
-export const saveToolClient = (companyId: string, name: string): Client => {
-  try {
-    const allClients: Client[] = JSON.parse(localStorage.getItem('dllog_clients') || '[]');
-    const existing = allClients.find(c => c.companyId === companyId && c.name.toLowerCase() === name.toLowerCase());
-    if (existing) return existing;
+  return (data ?? []).map(row => ({ id: row.id, name: row.name }));
+}
 
-    const id = `CLI-${String(allClients.length + 1).padStart(3, '0')}`;
-    const newClient: Client = { id, companyId, name };
-    localStorage.setItem('dllog_clients', JSON.stringify([...allClients, newClient]));
-    return newClient;
-  } catch (e) {
-    console.error('Error saving client:', e);
-    return { id: 'TEMP', companyId, name };
+export async function saveToolClient(name: string): Promise<Client | null> {
+  const userId = await getAuthUserId();
+  if (!userId || !name.trim()) return null;
+
+  const { data, error } = await supabase
+    .from('tool_clients')
+    .upsert({ user_id: userId, name: name.trim() }, { onConflict: 'user_id,name' })
+    .select('id, name')
+    .single();
+
+  if (error) {
+    console.error('Erro ao salvar cliente:', error);
+    return null;
   }
-};
 
-// Records Management
-export const getToolStays = (companyId: string): StayRecord[] => {
-  try {
-    const allStays: StayRecord[] = JSON.parse(localStorage.getItem('dllog_stays') || '[]');
-    // Filter by companyId to keep data isolated per user/company
-    return allStays.filter(stay => stay.companyId === companyId);
-  } catch {
+  return data ? { id: data.id, name: data.name } : null;
+}
+
+// =============================================
+// Stays Management
+// =============================================
+
+export async function getToolStays(): Promise<StayRecord[]> {
+  const userId = await getAuthUserId();
+  if (!userId) return [];
+
+  const { data, error } = await supabase
+    .from('tool_stays')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Erro ao buscar estadias:', error);
     return [];
   }
-};
 
-export const saveToolStay = (stay: Omit<StayRecord, 'id' | 'date'>): StayRecord => {
-  try {
-    const allStays: StayRecord[] = JSON.parse(localStorage.getItem('dllog_stays') || '[]');
-    const id = `EST-${String(allStays.length + 1).padStart(3, '0')}`;
-    const newStay: StayRecord = { ...stay, id, date: new Date().toISOString() };
-    localStorage.setItem('dllog_stays', JSON.stringify([newStay, ...allStays]));
-    return newStay;
-  } catch {
-    const id = `EST-001`;
-    const newStay: StayRecord = { ...stay, id, date: new Date().toISOString() };
-    localStorage.setItem('dllog_stays', JSON.stringify([newStay]));
-    return newStay;
+  return (data ?? []).map(row => ({
+    id: row.id,
+    clientName: row.client_name ?? undefined,
+    driver: row.driver,
+    plate: row.plate,
+    invoice: row.invoice ?? '',
+    origin: row.origin,
+    destination: row.destination,
+    location: row.location as 'Origem' | 'Destino',
+    entryDate: row.entry_date,
+    exitDate: row.exit_date,
+    totalHours: Number(row.total_hours),
+    weight: Number(row.weight),
+    valuePerHour: Number(row.value_per_hour),
+    tolerance: Number(row.tolerance),
+    totalValue: Number(row.total_value),
+    date: row.created_at,
+  }));
+}
+
+export async function saveToolStay(
+  stay: Omit<StayRecord, 'id' | 'date'>
+): Promise<StayRecord | null> {
+  const userId = await getAuthUserId();
+  if (!userId) return null;
+
+  const { data, error } = await supabase
+    .from('tool_stays')
+    .insert({
+      user_id: userId,
+      client_name: stay.clientName ?? null,
+      driver: stay.driver,
+      plate: stay.plate,
+      invoice: stay.invoice ?? null,
+      origin: stay.origin,
+      destination: stay.destination,
+      location: stay.location,
+      entry_date: stay.entryDate,
+      exit_date: stay.exitDate,
+      total_hours: stay.totalHours,
+      weight: stay.weight,
+      value_per_hour: stay.valuePerHour,
+      tolerance: stay.tolerance,
+      total_value: stay.totalValue,
+    })
+    .select('*')
+    .single();
+
+  if (error) {
+    console.error('Erro ao salvar estadia:', error);
+    return null;
   }
-};
 
-export const getToolQuotes = (companyId: string): QuoteRecord[] => {
-  try {
-    const allQuotes: QuoteRecord[] = JSON.parse(localStorage.getItem('dllog_quotes') || '[]');
-    return allQuotes.filter(quote => quote.companyId === companyId);
-  } catch {
+  return data
+    ? {
+        id: data.id,
+        clientName: data.client_name ?? undefined,
+        driver: data.driver,
+        plate: data.plate,
+        invoice: data.invoice ?? '',
+        origin: data.origin,
+        destination: data.destination,
+        location: data.location as 'Origem' | 'Destino',
+        entryDate: data.entry_date,
+        exitDate: data.exit_date,
+        totalHours: Number(data.total_hours),
+        weight: Number(data.weight),
+        valuePerHour: Number(data.value_per_hour),
+        tolerance: Number(data.tolerance),
+        totalValue: Number(data.total_value),
+        date: data.created_at,
+      }
+    : null;
+}
+
+export async function deleteToolStay(id: string): Promise<void> {
+  const { error } = await supabase.from('tool_stays').delete().eq('id', id);
+  if (error) console.error('Erro ao excluir estadia:', error);
+}
+
+// =============================================
+// Quotes Management
+// =============================================
+
+export async function getToolQuotes(): Promise<QuoteRecord[]> {
+  const userId = await getAuthUserId();
+  if (!userId) return [];
+
+  const { data, error } = await supabase
+    .from('tool_quotes')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Erro ao buscar cotações:', error);
     return [];
   }
-};
 
-export const saveToolQuote = (quote: Omit<QuoteRecord, 'id' | 'date'>): QuoteRecord => {
-  try {
-    const allQuotes: QuoteRecord[] = JSON.parse(localStorage.getItem('dllog_quotes') || '[]');
-    const id = `COT-${String(allQuotes.length + 1).padStart(3, '0')}`;
-    const newQuote: QuoteRecord = { ...quote, id, date: new Date().toISOString() };
-    localStorage.setItem('dllog_quotes', JSON.stringify([newQuote, ...allQuotes]));
-    return newQuote;
-  } catch {
-    const id = `COT-001`;
-    const newQuote: QuoteRecord = { ...quote, id, date: new Date().toISOString() };
-    localStorage.setItem('dllog_quotes', JSON.stringify([newQuote]));
-    return newQuote;
-  }
-};
+  return (data ?? []).map(row => ({
+    id: row.id,
+    clientName: row.client_name ?? undefined,
+    date: row.created_at,
+    origin: row.origin,
+    destination: row.destination,
+    distance: Number(row.distance),
+    axes: Number(row.axes),
+    cargoType: row.cargo_type,
+    inputMode: row.input_mode as 'PER_KM' | 'PER_TON',
+    valuePerKm: Number(row.value_per_km),
+    driverTotalValue: Number(row.driver_total_value),
+    tollValue: Number(row.toll_value),
+    anttValue: Number(row.antt_value),
+    weight: Number(row.weight),
+    margin: Number(row.margin),
+    driverFreightPerTon: Number(row.driver_freight_per_ton),
+    companyFreightPerTon: Number(row.company_freight_per_ton),
+    companyTotalFreight: Number(row.company_total_freight),
+    carrierNetProfit: Number(row.carrier_net_profit),
+    carrierProfitMargin: Number(row.carrier_profit_margin),
+  }));
+}
 
-export const deleteToolStay = (id: string): void => {
-  try {
-    const allStays: StayRecord[] = JSON.parse(localStorage.getItem('dllog_stays') || '[]');
-    const filtered = allStays.filter(s => s.id !== id);
-    localStorage.setItem('dllog_stays', JSON.stringify(filtered));
-  } catch (e) {
-    console.error('Error deleting stay:', e);
-  }
-};
+export async function saveToolQuote(
+  quote: Omit<QuoteRecord, 'id' | 'date'>
+): Promise<QuoteRecord | null> {
+  const userId = await getAuthUserId();
+  if (!userId) return null;
 
-export const deleteToolQuote = (id: string): void => {
-  try {
-    const allQuotes: QuoteRecord[] = JSON.parse(localStorage.getItem('dllog_quotes') || '[]');
-    const filtered = allQuotes.filter(q => q.id !== id);
-    localStorage.setItem('dllog_quotes', JSON.stringify(filtered));
-  } catch (e) {
-    console.error('Error deleting quote:', e);
+  const { data, error } = await supabase
+    .from('tool_quotes')
+    .insert({
+      user_id: userId,
+      client_name: quote.clientName ?? null,
+      origin: quote.origin,
+      destination: quote.destination,
+      distance: quote.distance,
+      axes: quote.axes,
+      cargo_type: quote.cargoType,
+      input_mode: quote.inputMode,
+      value_per_km: quote.valuePerKm,
+      driver_total_value: quote.driverTotalValue,
+      toll_value: quote.tollValue,
+      antt_value: quote.anttValue,
+      weight: quote.weight,
+      margin: quote.margin,
+      driver_freight_per_ton: quote.driverFreightPerTon,
+      company_freight_per_ton: quote.companyFreightPerTon,
+      company_total_freight: quote.companyTotalFreight,
+      carrier_net_profit: quote.carrierNetProfit,
+      carrier_profit_margin: quote.carrierProfitMargin,
+    })
+    .select('*')
+    .single();
+
+  if (error) {
+    console.error('Erro ao salvar cotação:', error);
+    return null;
   }
-};
+
+  return data
+    ? {
+        id: data.id,
+        clientName: data.client_name ?? undefined,
+        date: data.created_at,
+        origin: data.origin,
+        destination: data.destination,
+        distance: Number(data.distance),
+        axes: Number(data.axes),
+        cargoType: data.cargo_type,
+        inputMode: data.input_mode as 'PER_KM' | 'PER_TON',
+        valuePerKm: Number(data.value_per_km),
+        driverTotalValue: Number(data.driver_total_value),
+        tollValue: Number(data.toll_value),
+        anttValue: Number(data.antt_value),
+        weight: Number(data.weight),
+        margin: Number(data.margin),
+        driverFreightPerTon: Number(data.driver_freight_per_ton),
+        companyFreightPerTon: Number(data.company_freight_per_ton),
+        companyTotalFreight: Number(data.company_total_freight),
+        carrierNetProfit: Number(data.carrier_net_profit),
+        carrierProfitMargin: Number(data.carrier_profit_margin),
+      }
+    : null;
+}
+
+export async function deleteToolQuote(id: string): Promise<void> {
+  const { error } = await supabase.from('tool_quotes').delete().eq('id', id);
+  if (error) console.error('Erro ao excluir cotação:', error);
+}

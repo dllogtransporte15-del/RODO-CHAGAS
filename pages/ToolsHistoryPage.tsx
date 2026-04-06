@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { format, parseISO, isWithinInterval, startOfDay, endOfDay } from 'date-fns';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -20,8 +20,7 @@ interface ToolsHistoryPageProps {
   currentUser: AppUser | null;
 }
 
-export default function ToolsHistoryPage({ currentUser }: ToolsHistoryPageProps) {
-  const companyId = currentUser?.id || 'default';
+export default function ToolsHistoryPage({ currentUser: _currentUser }: ToolsHistoryPageProps) {
   const [activeView, setActiveView] = useState<'estadias' | 'cotacoes'>('estadias');
   const [stays, setStays] = useState<StayRecord[]>([]);
   const [quotes, setQuotes] = useState<QuoteRecord[]>([]);
@@ -34,15 +33,20 @@ export default function ToolsHistoryPage({ currentUser }: ToolsHistoryPageProps)
   const [filterClient, setFilterClient] = useState('');
   const [showFilters, setShowFilters] = useState(false);
 
+  const loadData = useCallback(async () => {
+    const [staysData, quotesData, clientsData] = await Promise.all([
+      getToolStays(),
+      getToolQuotes(),
+      getToolClients(),
+    ]);
+    setStays(staysData);
+    setQuotes(quotesData);
+    setClients(clientsData);
+  }, []);
+
   useEffect(() => {
     loadData();
-  }, [companyId]);
-
-  const loadData = () => {
-    setStays(getToolStays(companyId));
-    setQuotes(getToolQuotes(companyId));
-    setClients(getToolClients(companyId));
-  };
+  }, [loadData]);
 
   const filteredStays = useMemo(() => {
     return stays.filter(stay => {
@@ -100,15 +104,15 @@ export default function ToolsHistoryPage({ currentUser }: ToolsHistoryPageProps)
     setExpandedId(expandedId === id ? null : id);
   };
 
-  const handleDelete = (id: string, type: 'estadias' | 'cotacoes') => {
+  const handleDelete = async (id: string, type: 'estadias' | 'cotacoes') => {
     if (!confirm('Deseja realmente excluir este registro?')) return;
     
     if (type === 'estadias') {
-      deleteToolStay(id);
+      await deleteToolStay(id);
     } else {
-      deleteToolQuote(id);
+      await deleteToolQuote(id);
     }
-    loadData();
+    await loadData();
   };
 
   const exportToXML = (record: any, type: string) => {
@@ -136,7 +140,8 @@ export default function ToolsHistoryPage({ currentUser }: ToolsHistoryPageProps)
     doc.setFontSize(18);
     doc.text(`Histórico de ${isStays ? 'Estadias' : 'Cotações de Frete'}`, 14, 20);
     doc.setFontSize(10);
-    doc.text(`Identificador: ${companyId} | Gerado em: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, 14, 28);
+    doc.text(`Gerado em: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, 14, 28);
+
 
     let head: string[][] = [];
     let body: any[][] = [];

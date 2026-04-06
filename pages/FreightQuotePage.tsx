@@ -1,9 +1,9 @@
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { MapContainer, TileLayer, Marker, Polyline, useMap, ZoomControl } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { format, parseISO } from 'date-fns';
+import { format } from 'date-fns';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { 
@@ -87,15 +87,24 @@ function MapUpdater({ origin, dest, routeCoords }: { origin?: Location | null, d
   return null;
 }
 
-export default function FreightQuotePage({ currentUser }: FreightQuotePageProps) {
-  const companyId = currentUser?.id || 'default';
+export default function FreightQuotePage({ currentUser: _currentUser }: FreightQuotePageProps) {
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null);
   const [originCoords, setOriginCoords] = useState<Location | null>(null);
   const [destCoords, setDestCoords] = useState<Location | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const loadClients = useCallback(async () => {
+    const data = await getToolClients();
+    setClients(data);
+  }, []);
+
+  useEffect(() => {
+    loadClients();
+  }, [loadClients]);
 
   const initialData: QuoteData = {
     clientName: '',
@@ -119,10 +128,6 @@ export default function FreightQuotePage({ currentUser }: FreightQuotePageProps)
   };
 
   const [formData, setFormData] = useState<QuoteData>(initialData);
-
-  useEffect(() => {
-    setClients(getToolClients(companyId));
-  }, [companyId]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -253,43 +258,46 @@ export default function FreightQuotePage({ currentUser }: FreightQuotePageProps)
     };
   }, [formData, routeInfo]);
 
-  const handleSave = () => {
-    if (!results || !routeInfo) return;
+  const handleSave = async () => {
+    if (!results || !routeInfo || isSaving) return;
 
-    if (formData.clientName) {
-      saveToolClient(companyId, formData.clientName);
+    setIsSaving(true);
+    try {
+      if (formData.clientName) {
+        await saveToolClient(formData.clientName);
+        await loadClients();
+      }
+
+      const saved = await saveToolQuote({
+        clientName: formData.clientName || 'Não Informado',
+        origin: formData.origin,
+        destination: formData.destination,
+        distance: routeInfo.distance,
+        axes: parseInt(formData.axes),
+        cargoType: formData.cargoType,
+        inputMode: formData.inputMode as any,
+        valuePerKm: parseFloat(formData.driverValue) || 0,
+        driverTotalValue: results.driverTotalValue,
+        tollValue: parseFloat(formData.tollValue) || 0,
+        anttValue: parseFloat(formData.anttValue) || 0,
+        weight: parseFloat(formData.weight) || 0,
+        margin: results.marginPercent,
+        driverFreightPerTon: results.driverFreightPerTon,
+        companyFreightPerTon: results.companyFreightPerTon,
+        companyTotalFreight: results.companyTotalFreight,
+        carrierNetProfit: results.carrierNetProfit,
+        carrierProfitMargin: results.carrierProfitMargin
+      });
+
+      if (saved) {
+        setSaveSuccess(true);
+        setTimeout(() => setSaveSuccess(false), 3000);
+      } else {
+        alert('Erro ao salvar cotação. Verifique sua conexão.');
+      }
+    } finally {
+      setIsSaving(false);
     }
-
-    saveToolQuote({
-      companyId,
-      clientName: formData.clientName || 'Não Informado',
-      origin: formData.origin,
-      destination: formData.destination,
-      distance: routeInfo.distance,
-      axes: parseInt(formData.axes),
-      cargoType: formData.cargoType,
-      inputMode: formData.inputMode as any,
-      valuePerKm: parseFloat(formData.driverValue) || 0, // save here for km
-      driverTotalValue: results.driverTotalValue,
-      tollValue: parseFloat(formData.tollValue) || 0,
-      anttValue: parseFloat(formData.anttValue) || 0,
-      weight: parseFloat(formData.weight) || 0,
-      margin: results.marginPercent,
-      icms: 0,
-      driverFreightPerTon: results.driverFreightPerTon,
-      companyFreightPerTon: results.companyFreightPerTon,
-      companyTotalFreight: results.companyTotalFreight,
-      dieselPrice: 0,
-      averageConsumption: 0,
-      driverCommissionPercent: 0,
-      dieselCost: 0,
-      commissionValue: 0,
-      carrierNetProfit: results.carrierNetProfit,
-      carrierProfitMargin: results.carrierProfitMargin
-    });
-
-    setSaveSuccess(true);
-    setTimeout(() => setSaveSuccess(false), 3000);
   };
 
   const formatCurrency = (value: number) => {
@@ -588,8 +596,9 @@ export default function FreightQuotePage({ currentUser }: FreightQuotePageProps)
                         <CheckCircle2 className="w-4 h-4 mr-2" /> Cotação salva no histórico!
                       </div>
                     )}
-                    <button onClick={handleSave} className="w-full flex items-center justify-center px-4 py-3 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-all font-bold shadow-md shadow-red-200 dark:shadow-none hover:-translate-y-0.5 active:translate-y-0">
-                      <Save className="w-4 h-4 mr-2" /> Salvar no Histórico
+                    <button onClick={handleSave} disabled={isSaving} className="w-full flex items-center justify-center px-4 py-3 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-all font-bold shadow-md shadow-red-200 dark:shadow-none hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-60 disabled:translate-y-0">
+                      {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                      {isSaving ? 'Salvando...' : 'Salvar no Histórico'}
                     </button>
                     <div className="grid grid-cols-2 gap-3">
                       <button onClick={exportToPDF} className="flex items-center justify-center px-4 py-2 border border-slate-200 dark:border-gray-600 text-slate-600 dark:text-gray-300 rounded-xl hover:bg-slate-50 dark:hover:bg-gray-700 transition-colors font-medium text-xs">

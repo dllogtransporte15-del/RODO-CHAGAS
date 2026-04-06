@@ -1,12 +1,12 @@
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { differenceInMinutes, format, parseISO } from 'date-fns';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { 
   Calculator, Download, FileText, Truck, Clock, 
   MapPin, FileDigit, User, Weight, DollarSign, 
-  Save, Trash2, CheckCircle2, Building2 
+  Save, Trash2, CheckCircle2, Building2, Loader2 
 } from 'lucide-react';
 import Header from '../components/Header';
 import { saveToolStay, getToolClients, saveToolClient, Client } from '../utils/toolStorage';
@@ -31,13 +31,18 @@ interface LayoverCalculatorPageProps {
   currentUser: AppUser | null;
 }
 
-export default function LayoverCalculatorPage({ currentUser }: LayoverCalculatorPageProps) {
-  const companyId = currentUser?.id || 'default';
+export default function LayoverCalculatorPage({ currentUser: _currentUser }: LayoverCalculatorPageProps) {
   const [clients, setClients] = useState<Client[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const loadClients = useCallback(async () => {
+    const data = await getToolClients();
+    setClients(data);
+  }, []);
 
   useEffect(() => {
-    setClients(getToolClients(companyId));
-  }, [companyId]);
+    loadClients();
+  }, [loadClients]);
 
   const initialData: StayData = {
     clientName: '',
@@ -97,39 +102,47 @@ export default function LayoverCalculatorPage({ currentUser }: LayoverCalculator
     };
   }, [formData]);
 
-  const handleSave = () => {
-    if (!result) return;
+  const handleSave = async () => {
+    if (!result || isSaving) return;
     
     if (!formData.driver || !formData.plate || !formData.origin || !formData.destination) {
       alert("Por favor, preencha os campos obrigatórios (Motorista, Placa, Origem, Destino).");
       return;
     }
 
-    if (formData.clientName) {
-      saveToolClient(companyId, formData.clientName);
-      setClients(getToolClients(companyId));
+    setIsSaving(true);
+    try {
+      if (formData.clientName) {
+        await saveToolClient(formData.clientName);
+        await loadClients();
+      }
+
+      const saved = await saveToolStay({
+        clientName: formData.clientName || 'Não Informado',
+        driver: formData.driver,
+        plate: formData.plate,
+        invoice: formData.invoice,
+        origin: formData.origin,
+        destination: formData.destination,
+        location: formData.location,
+        entryDate: formData.entryDate,
+        exitDate: formData.exitDate,
+        totalHours: result.totalHours,
+        weight: parseFloat(formData.weight) || 0,
+        valuePerHour: parseFloat(formData.valuePerHour) || 0,
+        tolerance: parseFloat(formData.tolerance) || 0,
+        totalValue: result.totalValue
+      });
+
+      if (saved) {
+        setSaveSuccess(true);
+        setTimeout(() => setSaveSuccess(false), 3000);
+      } else {
+        alert('Erro ao salvar estadia. Verifique sua conexão.');
+      }
+    } finally {
+      setIsSaving(false);
     }
-
-    saveToolStay({
-      companyId,
-      clientName: formData.clientName || 'Não Informado',
-      driver: formData.driver,
-      plate: formData.plate,
-      invoice: formData.invoice,
-      origin: formData.origin,
-      destination: formData.destination,
-      location: formData.location,
-      entryDate: formData.entryDate,
-      exitDate: formData.exitDate,
-      totalHours: result.totalHours,
-      weight: parseFloat(formData.weight) || 0,
-      valuePerHour: parseFloat(formData.valuePerHour) || 0,
-      tolerance: parseFloat(formData.tolerance) || 0,
-      totalValue: result.totalValue
-    });
-
-    setSaveSuccess(true);
-    setTimeout(() => setSaveSuccess(false), 3000);
   };
 
   const formatCurrency = (value: number) => {
@@ -399,8 +412,9 @@ export default function LayoverCalculatorPage({ currentUser }: LayoverCalculator
                         Salvo com sucesso!
                       </div>
                     )}
-                    <button onClick={handleSave} className="w-full flex items-center justify-center px-4 py-3 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-colors font-medium">
-                      <Save className="w-4 h-4 mr-2" /> Salvar Estadia
+                    <button onClick={handleSave} disabled={isSaving} className="w-full flex items-center justify-center px-4 py-3 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-colors font-medium disabled:opacity-60">
+                      {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                      {isSaving ? 'Salvando...' : 'Salvar Estadia'}
                     </button>
                     <div className="grid grid-cols-2 gap-3">
                       <button onClick={exportToCSV} className="flex items-center justify-center px-4 py-2 border border-slate-300 dark:border-gray-600 text-slate-700 dark:text-gray-300 rounded-xl hover:bg-slate-50 dark:hover:bg-gray-700 font-medium text-sm">
