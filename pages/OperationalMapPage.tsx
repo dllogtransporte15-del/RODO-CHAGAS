@@ -397,8 +397,13 @@ const OperationalMapPage: React.FC<OperationalMapPageProps> = ({ cargos, shipmen
       const price = load.driverFreightValuePerTon.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
       const bodyTypes = formatAllowedVehicleTypes(load.allowedVehicleTypes);
       let text = `📍 ${origin} x ${destination} \n🌾 ${product} - 💲 R$ ${price}\t\n🚛 ${bodyTypes} 🚛`;
-      if (load.originMapLink) text += `\n📍Coleta - ${load.originMapLink}`;
-      if (load.destinationMapLink) text += `\n📍Entrega - ${load.destinationMapLink}`;
+      
+      if (load.originLocation) text += `\n🏢 Coleta: ${load.originLocation}`;
+      if (load.originMapLink) text += `\n📍Mapa Coleta: ${load.originMapLink}`;
+      
+      if (load.destinationLocation) text += `\n🏢 Entrega: ${load.destinationLocation}`;
+      if (load.destinationMapLink) text += `\n📍Mapa Entrega: ${load.destinationMapLink}`;
+      
       return text;
     }).join('\n\n');
     navigator.clipboard.writeText(header + '\n' + loadsText).then(() => {

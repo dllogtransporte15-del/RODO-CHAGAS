@@ -162,8 +162,10 @@ export interface Cargo {
   clientId: string;
   productId: string;
   origin: string;
+  originLocation?: string;
   originMapLink?: string;
   destination: string;
+  destinationLocation?: string;
   destinationMapLink?: string;
   totalVolume: number; 
   scheduledVolume: number; 

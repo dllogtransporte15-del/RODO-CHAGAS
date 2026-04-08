@@ -32,8 +32,10 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
     clientId: clients[0]?.id || '',
     productId: products[0]?.id || '',
     origin: '',
+    originLocation: '',
     originMapLink: '',
     destination: '',
+    destinationLocation: '',
     destinationMapLink: '',
     totalVolume: 0,
     scheduledVolume: 0,
@@ -100,6 +102,8 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
                 allowedVehicleTypes: editableLoad.allowedVehicleTypes || [],
                 salespersonName: editableLoad.salespersonName || '',
                 salespersonCommissionPerTon: editableLoad.salespersonCommissionPerTon || 0,
+                originLocation: editableLoad.originLocation || '',
+                destinationLocation: editableLoad.destinationLocation || '',
             });
             setHasMultiLeg(editableLoad.freightLegs ? editableLoad.freightLegs.length > 1 : false);
             setShowSalesperson(!!editableLoad.salespersonName);
@@ -352,13 +356,23 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
                     </select>
                     </div>
                     
-                    <input name="origin" value={load.origin} onChange={handleChange} placeholder="Origem" className="p-2 border rounded dark:bg-gray-700 dark:border-gray-600" required list="cities-list" />
-                    <input name="destination" value={load.destination} onChange={handleChange} placeholder="Destino" className="p-2 border rounded dark:bg-gray-700 dark:border-gray-600" required list="cities-list" />
-                     <datalist id="cities-list">
+                    <div className="space-y-4">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Origem (Cidade e Local)</label>
+                        <input name="origin" value={load.origin} onChange={handleChange} placeholder="Cidade de Origem" className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 mb-2" required list="cities-list" />
+                        <input name="originLocation" value={load.originLocation ?? ''} onChange={handleChange} placeholder="Nome do Local (Ex: Fazenda...)" className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 mb-2" />
+                        <input name="originMapLink" value={load.originMapLink ?? ''} onChange={handleChange} placeholder="Link do Google Maps (Origem)" className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600" />
+                    </div>
+                    
+                    <div className="space-y-4">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Destino (Cidade e Local)</label>
+                        <input name="destination" value={load.destination} onChange={handleChange} placeholder="Cidade de Destino" className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 mb-2" required list="cities-list" />
+                        <input name="destinationLocation" value={load.destinationLocation ?? ''} onChange={handleChange} placeholder="Nome do Local (Ex: Porto...)" className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 mb-2" />
+                        <input name="destinationMapLink" value={load.destinationMapLink ?? ''} onChange={handleChange} placeholder="Link do Google Maps (Destino)" className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600" />
+                    </div>
+
+                    <datalist id="cities-list">
                         {BRAZILIAN_CITIES.map(city => <option key={city} value={city} />)}
                     </datalist>
-                    <input name="originMapLink" value={load.originMapLink ?? ''} onChange={handleChange} placeholder="Link do Mapa (Origem)" className="p-2 border rounded dark:bg-gray-700 dark:border-gray-600" />
-                    <input name="destinationMapLink" value={load.destinationMapLink ?? ''} onChange={handleChange} placeholder="Link do Mapa (Destino)" className="p-2 border rounded dark:bg-gray-700 dark:border-gray-600" />
                 </div>
 
                 <div className="border-t dark:border-gray-600 pt-4 space-y-4">
