@@ -1328,9 +1328,9 @@ const App: React.FC = () => {
       case 'owners':
         return <OwnersPage owners={owners} setOwners={setOwners} onSaveOwner={handleSaveOwner} currentUser={currentUser} profilePermissions={profilePermissions} />;
       case 'drivers':
-        return <DriversPage drivers={drivers} setDrivers={setDrivers} onSaveDriver={handleSaveDriver} owners={owners} currentUser={currentUser} profilePermissions={profilePermissions} />;
+        return <DriversPage drivers={drivers} setDrivers={setDrivers} onSaveDriver={handleSaveDriver} owners={owners} currentUser={currentUser} profilePermissions={profilePermissions} shipments={visibleShipments} cargos={cargos} />;
       case 'vehicles':
-        return <VehiclesPage vehicles={vehicles} setVehicles={setVehicles} onSaveVehicle={handleSaveVehicle} owners={owners} currentUser={currentUser} profilePermissions={profilePermissions} />;
+        return <VehiclesPage vehicles={vehicles} setVehicles={setVehicles} onSaveVehicle={handleSaveVehicle} owners={owners} currentUser={currentUser} profilePermissions={profilePermissions} shipments={visibleShipments} cargos={cargos} />;
       case 'loads':
         return <LoadsPage loads={visibleLoads} setLoads={setCargos} clients={clients} products={products} onSaveLoad={handleSaveLoad} currentUser={currentUser} profilePermissions={profilePermissions} users={users} shipments={visibleShipments} onDeleteLoad={handleDeleteCargo} onModalStateChange={setIsAnyModalOpen} />;
       case 'products':
@@ -1372,6 +1372,7 @@ const App: React.FC = () => {
             shipments={visibleShipments}
             users={users}
             onDeleteLoad={handleDeleteCargo}
+            onUpdatePrice={handleUpdateShipmentPrice}
             onModalStateChange={setIsAnyModalOpen}
           />
         );

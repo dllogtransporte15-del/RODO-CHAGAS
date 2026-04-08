@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { History } from 'lucide-react';
 import type { Vehicle, Owner } from '../types';
 
 interface VehicleTableProps {
@@ -7,9 +8,10 @@ interface VehicleTableProps {
   owners: Owner[];
   onEdit?: (vehicle: Vehicle) => void;
   onDelete?: (vehicleId: string) => void;
+  onShowHistory?: (vehicle: Vehicle) => void;
 }
 
-const VehicleTable: React.FC<VehicleTableProps> = ({ vehicles, owners, onEdit, onDelete }) => {
+const VehicleTable: React.FC<VehicleTableProps> = ({ vehicles, owners, onEdit, onDelete, onShowHistory }) => {
   const getOwnerName = (ownerId: string) => {
     return owners.find(o => o.id === ownerId)?.name || 'Desconhecido';
   };
@@ -24,6 +26,7 @@ const VehicleTable: React.FC<VehicleTableProps> = ({ vehicles, owners, onEdit, o
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">Conjunto / Carroceria</th>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">Classificação</th>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">Proprietário</th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">Histórico</th>
               {(onEdit || onDelete) && <th scope="col" className="relative px-6 py-3"><span className="sr-only">Ações</span></th>}
             </tr>
           </thead>
@@ -37,6 +40,15 @@ const VehicleTable: React.FC<VehicleTableProps> = ({ vehicles, owners, onEdit, o
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{vehicle.classification}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{getOwnerName(vehicle.ownerId)}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                  <button 
+                    onClick={() => onShowHistory?.(vehicle)}
+                    className="p-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400 dark:hover:bg-blue-900/50 rounded-lg transition-colors"
+                    title="Ver Histórico"
+                  >
+                    <History className="w-4 h-4" />
+                  </button>
+                </td>
                 {(onEdit || onDelete) && (
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     {onEdit && <button onClick={() => onEdit(vehicle)} className="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300">Editar</button>}

@@ -44,6 +44,7 @@ const SalespersonReport: React.FC<SalespersonReportProps> = ({ shipments, cargos
     const cargoMap: Map<string, Cargo> = new Map(cargos.map(c => [c.id, c]));
 
     const loadedStatuses = [
+        ShipmentStatus.AguardandoNota,
         ShipmentStatus.AguardandoAdiantamento,
         ShipmentStatus.AguardandoAgendamento,
         ShipmentStatus.AguardandoDescarga,
@@ -68,13 +69,10 @@ const SalespersonReport: React.FC<SalespersonReportProps> = ({ shipments, cargos
           if (!cargo) return acc;
 
           const grossRate = shipment.companyFreightRateSnapshot || cargo.companyFreightValuePerTon;
-          const grossValue = grossRate * shipment.shipmentTonnage;
-          const icmsValue = cargo.hasIcms ? grossValue * (cargo.icmsPercentage / 100) : 0;
-          const netValue = grossValue - icmsValue;
-          const profit = netValue - shipment.driverFreightValue;
+          const driverRate = shipment.driverFreightRateSnapshot || cargo.driverFreightValuePerTon;
+          const profit = (grossRate - driverRate) * shipment.shipmentTonnage;
           
-          acc.grossBilled += grossValue;
-          acc.netBilled += netValue;
+          acc.grossBilled += grossRate * shipment.shipmentTonnage;
           acc.profitMargin += profit;
           acc.totalTonnage += shipment.shipmentTonnage;
           

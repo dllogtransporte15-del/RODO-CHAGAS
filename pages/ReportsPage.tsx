@@ -52,11 +52,30 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, carg
   const originOptions = Array.from(new Set(cargos.map(c => c.origin))).filter(Boolean).sort();
   const destOptions = Array.from(new Set(cargos.map(c => c.destination))).filter(Boolean).sort();
 
+  const getEffectiveDate = (s: Shipment) => {
+    const effectiveStatuses = [
+      ShipmentStatus.AguardandoNota,
+      ShipmentStatus.AguardandoAdiantamento,
+      ShipmentStatus.AguardandoAgendamento,
+      ShipmentStatus.AguardandoDescarga,
+      ShipmentStatus.AguardandoPagamentoSaldo,
+      ShipmentStatus.Finalizado
+    ];
+    
+    // Find the earliest entry in status history that matches any of these effective statuses
+    const effectiveEntry = s.statusHistory?.find(h => effectiveStatuses.includes(h.status));
+    
+    // If not loaded yet, fallback to scheduledDate so it appears in "Programado" totals for the month.
+    return effectiveEntry ? effectiveEntry.timestamp.substring(0, 10) : s.scheduledDate;
+  };
+
   const filteredShipments = useMemo(() => {
     return shipments.filter(s => {
-       // Filter by createdAt date
-       const sDate = s.createdAt.substring(0, 10);
-       if (sDate < startDate || sDate > endDate) return false;
+       // Filter by effective date (the moment it was loaded/became effective)
+       const effDate = getEffectiveDate(s);
+       if (!effDate) return false; // Not effective yet
+
+       if (effDate < startDate || effDate > endDate) return false;
 
        if (filterStatus.length > 0 && !filterStatus.includes(s.status)) return false;
 
@@ -110,28 +129,49 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, carg
   const kpis = useMemo(() => {
     let grossBilled = 0;
     let netBilled = 0;
-    let profitMargin = 0;
-    let totalEfetivadoRange = 0;
+    let profitMargin = 0; // This will now represent "Líquido Programado" (Ag. Seguradora onwards)
+    let totalProfitMargin = 0; // This will represent "Margem de Lucro Total" (Ag. Nota onwards)
+
+    const profitMarginStatuses = [
+        ShipmentStatus.AguardandoSeguradora,
+        ShipmentStatus.PreCadastro,
+        ShipmentStatus.AguardandoCarregamento,
+        ShipmentStatus.AguardandoNota,
+        ShipmentStatus.AguardandoAdiantamento,
+        ShipmentStatus.AguardandoAgendamento,
+        ShipmentStatus.AguardandoDescarga,
+        ShipmentStatus.AguardandoPagamentoSaldo,
+        ShipmentStatus.Finalizado
+    ];
+
+    const totalProfitMarginStatuses = [
+        ShipmentStatus.AguardandoNota,
+        ShipmentStatus.AguardandoAdiantamento,
+        ShipmentStatus.AguardandoAgendamento,
+        ShipmentStatus.AguardandoDescarga,
+        ShipmentStatus.AguardandoPagamentoSaldo,
+        ShipmentStatus.Finalizado
+    ];
 
     filteredShipments.forEach(s => {
        const cargo = cargoMap.get(s.cargoId);
        if (!cargo) return;
 
-       // Filter for volume in range if we still wanted that, but for now we focus on the user's specific request.
-       // However, we still need kpis object for financial metrics.
-       if (s.status !== ShipmentStatus.Cancelado) {
-           const grossValue = cargo.companyFreightValuePerTon * s.shipmentTonnage;
-           const icmsValue = cargo.hasIcms ? grossValue * (cargo.icmsPercentage / 100) : 0;
-           const netValue = grossValue - icmsValue;
-           const profit = netValue - s.driverFreightValue;
+       if (profitMarginStatuses.includes(s.status)) {
+           const grossRate = s.companyFreightRateSnapshot || cargo.companyFreightValuePerTon;
+           const driverRate = s.driverFreightRateSnapshot || cargo.driverFreightValuePerTon;
+           const profit = (grossRate - driverRate) * s.shipmentTonnage;
            
-           grossBilled += grossValue;
-           netBilled += netValue;
+           grossBilled += grossRate * s.shipmentTonnage;
            profitMargin += profit;
+
+           if (totalProfitMarginStatuses.includes(s.status)) {
+               totalProfitMargin += profit;
+           }
        }
     });
 
-    return { grossBilled, netBilled, profitMargin, count: filteredShipments.length };
+    return { grossBilled, netBilled, profitMargin, totalProfitMargin, count: filteredShipments.length };
   }, [filteredShipments, cargoMap]);
 
   const canViewCommercialReport = useMemo(() => {
@@ -261,9 +301,19 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, carg
          <div className="p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 flex items-center gap-4">
              <div className="w-10 h-10 rounded-full bg-teal-50 dark:bg-teal-900/50 flex flex-shrink-0 items-center justify-center text-teal-600 dark:text-teal-400"><DollarSign className="w-5 h-5" /></div>
              <div>
-                <p className="text-xs text-gray-500 uppercase font-bold">Liquido Programado</p>
+                <p className="text-xs text-gray-500 uppercase font-bold">Líquido Programado</p>
                 <p className="text-xl font-bold text-gray-800 dark:text-gray-100" title={formatCurrency(kpis.profitMargin)}>
                    R$ {(kpis.profitMargin / 1000).toFixed(1)}k
+                </p>
+             </div>
+         </div>
+
+         <div className="p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 flex items-center gap-4">
+             <div className="w-10 h-10 rounded-full bg-blue-50 dark:bg-blue-900/50 flex flex-shrink-0 items-center justify-center text-blue-600 dark:text-blue-400"><DollarSign className="w-5 h-5" /></div>
+             <div>
+                <p className="text-xs text-gray-500 uppercase font-bold">Margem Lucro Total</p>
+                <p className="text-xl font-bold text-gray-800 dark:text-gray-100" title={formatCurrency(kpis.totalProfitMargin)}>
+                   R$ {(kpis.totalProfitMargin / 1000).toFixed(1)}k
                 </p>
              </div>
          </div>

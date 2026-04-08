@@ -33,11 +33,12 @@ interface ShipmentTableProps {
   onDelete?: (shipmentId: string) => void;
   onRevertStatus?: (shipmentId: string) => void;
   canUserAdvanceStatus?: (shipment: Shipment) => { allowed: boolean; reason: string };
+  onUpdatePrice?: (shipmentId: string, data: { newTotal: number, newRate?: number, newCompanyRate?: number }) => void;
   currentUser: User;
   activeStatus: ShipmentStatus | 'all';
 }
 
-const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users, vehicles, onAttach, onEditPrice, onCancel, onTransfer, onShowHistory, onShowCargoDetails, canUserAdvanceStatus, onMarkArrival, onDelete, onRevertStatus, onOpenCadastroAntt, currentUser, activeStatus, clients }) => {
+const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users, vehicles, onAttach, onEditPrice, onCancel, onTransfer, onShowHistory, onShowCargoDetails, canUserAdvanceStatus, onMarkArrival, onDelete, onRevertStatus, onOpenCadastroAntt, onUpdatePrice, currentUser, activeStatus, clients }) => {
   const [openActionMenu, setOpenActionMenu] = useState<string | null>(null);
   const [menuPosition, setMenuPosition] = useState<{ top: number, left: number, isUp: boolean } | null>(null);
   const [detailsModalShipment, setDetailsModalShipment] = useState<Shipment | null>(null);
@@ -278,6 +279,48 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users,
                       }
                     </div>
                   </div>
+                  {currentUser.profile !== UserProfile.Embarcador && (
+                    <>
+                      <div className="col-span-2 mt-1">
+                        <div className="text-[10px] text-gray-400 uppercase font-bold mb-1">Detalhamento Financeiro</div>
+                        <div className="flex flex-wrap gap-x-4 gap-y-2 bg-gray-50 dark:bg-gray-700/50 p-2 rounded border dark:border-gray-600">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[9px] text-gray-500 font-bold">MTR:</span>
+                            <span className="text-xs font-bold dark:text-white">
+                              {formatCurrency(shipment.driverFreightValue / (shipment.shipmentTonnage || 1))}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[9px] text-gray-500 font-bold">EMP:</span>
+                            <span className="text-xs font-bold text-primary dark:text-blue-400">
+                              {formatCurrency(shipment.companyFreightRateSnapshot || cargo?.companyFreightValuePerTon || 0)}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[9px] text-gray-500 font-bold">MARGEM:</span>
+                            {(() => {
+                               const companyRate = shipment.companyFreightRateSnapshot || cargo?.companyFreightValuePerTon || 0;
+                               const driverRate = shipment.driverFreightValue / (shipment.shipmentTonnage || 1);
+                               const perTonProfit = companyRate - driverRate;
+                               const marginPercent = companyRate > 0 ? (perTonProfit / companyRate) * 100 : 0;
+                               
+                               let colorClass = 'text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800';
+                               if (marginPercent < 5) colorClass = 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30';
+                               else if (marginPercent < 6) colorClass = 'text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/30';
+                               else if (marginPercent < 7) colorClass = 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30';
+                               else colorClass = 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/30';
+
+                               return (
+                                 <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${colorClass}`}>
+                                   {marginPercent.toFixed(1).replace('.', ',')}%
+                                 </span>
+                               );
+                            })()}
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
 
                 <div className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg">
@@ -331,6 +374,9 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users,
                 <th scope="col" className="px-6 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">Embarque / Carga</th>
                 <th scope="col" className="px-6 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">Motorista / Solicitante</th>
                 <th scope="col" className="px-6 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">Origem / Destino</th>
+                {currentUser.profile !== UserProfile.Embarcador && (
+                  <th scope="col" className="px-6 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">Margem</th>
+                )}
                 <th scope="col" className="px-6 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">Frete / Ton</th>
                 <th scope="col" className="px-6 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">Status Atual</th>
                 <th scope="col" className="px-6 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">Data Programada</th>
@@ -416,15 +462,45 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users,
                           </button>
                       )}
                     </td>
-  
+                    {currentUser.profile !== UserProfile.Embarcador && (
+                      <td className="px-6 py-[11px] whitespace-nowrap text-sm">
+                        {(() => {
+                          const companyRate = shipment.companyFreightRateSnapshot || cargo?.companyFreightValuePerTon || 0;
+                          const driverRate = shipment.driverFreightValue / (shipment.shipmentTonnage || 1);
+                          const perTonProfit = companyRate - driverRate;
+                          const marginPercent = companyRate > 0 ? (perTonProfit / companyRate) * 100 : 0;
+                          
+                          let colorClass = 'text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800';
+                          if (marginPercent < 5) colorClass = 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30';
+                          else if (marginPercent < 6) colorClass = 'text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/30';
+                          else if (marginPercent < 7) colorClass = 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30';
+                          else colorClass = 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/30';
+
+                          return (
+                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${colorClass}`}>
+                              {marginPercent.toFixed(1).replace('.', ',')}%
+                            </span>
+                          );
+                        })()}
+                      </td>
+                    )}
                     <td className="px-6 py-[11px] whitespace-nowrap text-sm">
-                        <div className="font-semibold text-gray-900 dark:text-white">
-                            {isClient 
-                                ? formatCurrency(cargo?.companyFreightValuePerTon || 0)
-                                : formatCurrency(shipment.driverFreightValue / (shipment.shipmentTonnage || 1))
-                            }
-                            <span className="text-[10px] text-gray-500 font-normal ml-1">/ton</span>
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] text-gray-400 font-bold uppercase">Mtr:</span>
+                          <span className="font-bold text-gray-900 dark:text-white">
+                            {formatCurrency(shipment.driverFreightValue / (shipment.shipmentTonnage || 1))}
+                          </span>
                         </div>
+                        {currentUser.profile !== UserProfile.Embarcador && (
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[10px] text-gray-400 font-bold uppercase">Emp:</span>
+                            <span className="font-medium text-primary dark:text-blue-400">
+                              {formatCurrency(shipment.companyFreightRateSnapshot || cargo?.companyFreightValuePerTon || 0)}
+                            </span>
+                          </div>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-[11px] whitespace-nowrap">
                       <p className="text-sm font-medium text-gray-900 dark:text-white">{shipment.status}</p>
@@ -567,6 +643,8 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users,
       onClose={() => setDetailsModalShipment(null)}
       shipment={detailsModalShipment}
       cargo={detailsModalShipment ? getCargoInfo(detailsModalShipment.cargoId) || undefined : undefined}
+      currentUser={currentUser}
+      onUpdatePrice={onUpdatePrice}
     />
   </div>
 );

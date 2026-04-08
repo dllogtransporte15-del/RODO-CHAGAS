@@ -49,9 +49,18 @@ const ClientReport: React.FC<ClientReportProps> = ({ shipments, cargos, clients 
       statsMap.set(client.id, { totalTonnage: 0, grossBilled: 0, profitMargin: 0, totalShipments: 0 });
     });
 
-    const finalizedShipments = shipments.filter(s => s.status === ShipmentStatus.Finalizado);
+    const effectiveStatuses = [
+        ShipmentStatus.AguardandoNota,
+        ShipmentStatus.AguardandoAdiantamento,
+        ShipmentStatus.AguardandoAgendamento,
+        ShipmentStatus.AguardandoDescarga,
+        ShipmentStatus.AguardandoPagamentoSaldo,
+        ShipmentStatus.Finalizado
+    ];
 
-    finalizedShipments.forEach(shipment => {
+    const effectiveShipments = shipments.filter(s => effectiveStatuses.includes(s.status));
+
+    effectiveShipments.forEach(shipment => {
       const cargo = cargoMap.get(shipment.cargoId);
       if (!cargo) return;
 

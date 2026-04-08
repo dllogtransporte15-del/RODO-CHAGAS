@@ -261,6 +261,7 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({
         onDelete={onDeleteShipment}
         onRevertStatus={onRevertStatus}
         onOpenCadastroAntt={handleOpenCadastroAnttModal}
+        onUpdatePrice={onUpdatePrice}
         currentUser={currentUser}
         activeStatus={activeStatus}
         clients={clients}

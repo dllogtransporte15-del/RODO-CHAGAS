@@ -1,6 +1,7 @@
 import React from 'react';
 import { X, Truck, Calendar, Weight, Info } from 'lucide-react';
 import type { Cargo, Shipment, User } from '../types';
+import ShipmentDetailsModal from './ShipmentDetailsModal';
 
 interface CargoShipmentsSidePanelProps {
   isOpen: boolean;
@@ -8,6 +9,8 @@ interface CargoShipmentsSidePanelProps {
   cargo: Cargo | null;
   shipments: Shipment[];
   users: User[];
+  currentUser: User;
+  onUpdatePrice: (shipmentId: string, data: { newTotal: number, newRate?: number, newCompanyRate?: number }) => void;
 }
 
 const CargoShipmentsSidePanel: React.FC<CargoShipmentsSidePanelProps> = ({ 
@@ -15,8 +18,12 @@ const CargoShipmentsSidePanel: React.FC<CargoShipmentsSidePanelProps> = ({
   onClose, 
   cargo, 
   shipments,
-  users
+  users,
+  currentUser,
+  onUpdatePrice
 }) => {
+  const [selectedShipment, setSelectedShipment] = React.useState<Shipment | null>(null);
+
   if (!cargo) return null;
 
   const cargoShipments = shipments.filter(s => s.cargoId === cargo.id);
@@ -59,8 +66,12 @@ const CargoShipmentsSidePanel: React.FC<CargoShipmentsSidePanelProps> = ({
               cargoShipments.map((shipment) => (
                 <div 
                   key={shipment.id}
-                  className="bg-gray-50 dark:bg-gray-900/30 border border-gray-100 dark:border-gray-700 rounded-xl p-4 hover:shadow-md transition-shadow"
+                  onClick={() => setSelectedShipment(shipment)}
+                  className="bg-gray-50 dark:bg-gray-900/30 border border-gray-100 dark:border-gray-700 rounded-xl p-4 hover:shadow-md transition-shadow cursor-pointer relative"
                 >
+                  <div className="absolute top-4 right-4">
+                    <Info className="w-4 h-4 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
                   <div className="flex justify-between items-start mb-3">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
@@ -107,6 +118,15 @@ const CargoShipmentsSidePanel: React.FC<CargoShipmentsSidePanelProps> = ({
             )}
           </div>
         </div>
+
+        <ShipmentDetailsModal 
+          isOpen={!!selectedShipment}
+          onClose={() => setSelectedShipment(null)}
+          shipment={selectedShipment}
+          cargo={cargo}
+          currentUser={currentUser}
+          onUpdatePrice={onUpdatePrice}
+        />
       </div>
     </>
   );

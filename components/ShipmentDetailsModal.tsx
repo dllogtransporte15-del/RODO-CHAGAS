@@ -1,11 +1,14 @@
-import React from 'react';
-import type { Shipment, Cargo } from '../types';
+import React, { useState } from 'react';
+import type { Shipment, Cargo, User } from '../types';
+import { UserProfile } from '../types';
 
 interface ShipmentDetailsModalProps {
   isOpen: boolean;
   onClose: () => void;
   shipment: Shipment | null;
   cargo: Cargo | undefined;
+  currentUser: User;
+  onUpdatePrice?: (shipmentId: string, data: { newTotal: number, newRate?: number, newCompanyRate?: number }) => void;
 }
 
 const DetailItem: React.FC<{ label: string; value?: string | number | null; children?: React.ReactNode }> = ({ label, value, children }) => (
@@ -15,11 +18,35 @@ const DetailItem: React.FC<{ label: string; value?: string | number | null; chil
     </div>
 );
 
-const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({ isOpen, onClose, shipment, cargo }) => {
+const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({ isOpen, onClose, shipment, cargo, currentUser, onUpdatePrice }) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editRate, setEditRate] = useState<number>(0);
+  const [editCompanyRate, setEditCompanyRate] = useState<number>(0);
+
   if (!isOpen || !shipment) return null;
 
   const formatCurrency = (value: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
   const formatDate = (dateString: string) => new Date(dateString).toLocaleString('pt-BR');
+
+  const canEdit = currentUser.profile !== UserProfile.Embarcador && !!onUpdatePrice;
+
+  const handleStartEdit = () => {
+    setEditRate(shipment.driverFreightRateSnapshot || (shipment.driverFreightValue / (shipment.shipmentTonnage || 1)));
+    setEditCompanyRate(shipment.companyFreightRateSnapshot || cargo?.companyFreightValuePerTon || 0);
+    setIsEditing(true);
+  };
+
+  const handleSave = () => {
+    if (onUpdatePrice) {
+      const newTotal = editRate * shipment.shipmentTonnage;
+      onUpdatePrice(shipment.id, {
+        newTotal,
+        newRate: editRate,
+        newCompanyRate: editCompanyRate
+      });
+      setIsEditing(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4">
@@ -58,45 +85,107 @@ const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({ isOpen, onC
 
             {/* Frete e Financeiro */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t dark:border-gray-700 pt-4">
-                <DetailItem label="Valor Frete Motorista">
-                    <p className="text-lg font-bold text-green-700 dark:text-green-400">
-                        {formatCurrency(shipment.driverFreightValue)}
-                    </p>
-                </DetailItem>
-                <DetailItem label="Tonelagem">
-                    <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">
-                        {shipment.shipmentTonnage.toLocaleString('pt-BR')} ton
-                    </p>
-                </DetailItem>
-                
-                <div>
-                    <DetailItem label="Dados Bancários">
-                        <div className="mt-1 p-3 bg-gray-50 dark:bg-gray-900/50 rounded-md border dark:border-gray-700">
-                            <p className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap">
-                                {shipment.bankDetails || <span className="text-gray-400 italic">Não informados</span>}
-                            </p>
-                        </div>
-                    </DetailItem>
+                <div className="md:col-span-2 flex justify-between items-center mb-2">
+                    <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider">Informações Financeiras</h3>
+                    {canEdit && !isEditing && (
+                        <button 
+                            onClick={handleStartEdit}
+                            className="text-xs font-bold text-primary dark:text-blue-400 hover:underline flex items-center gap-1"
+                        >
+                            Editar Valores
+                        </button>
+                    )}
                 </div>
-                <div>
-                    <DetailItem label="Referências do Motorista">
-                        <div className="mt-1 p-3 bg-gray-50 dark:bg-gray-900/50 rounded-md border dark:border-gray-700">
-                            <p className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap">
-                                {shipment.driverReferences || <span className="text-gray-400 italic">Não informadas</span>}
-                            </p>
+
+                {isEditing ? (
+                    <>
+                        <div className="space-y-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border dark:border-gray-600 md:col-span-2">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Taxa Motorista (R$ / Ton)</label>
+                                    <input 
+                                        type="number" 
+                                        step="0.01"
+                                        value={editRate}
+                                        onChange={(e) => setEditRate(Number(e.target.value))}
+                                        className="w-full p-2 text-sm border rounded dark:bg-gray-800 dark:border-gray-600 dark:text-white"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Frete Empresa (R$ / Ton)</label>
+                                    <input 
+                                        type="number" 
+                                        step="0.01"
+                                        value={editCompanyRate}
+                                        onChange={(e) => setEditCompanyRate(Number(e.target.value))}
+                                        className="w-full p-2 text-sm border rounded dark:bg-gray-800 dark:border-gray-600 dark:text-white"
+                                    />
+                                </div>
+                            </div>
+                            <div className="flex justify-between items-center pt-2 border-t dark:border-gray-600 mt-2">
+                                <div className="text-sm">
+                                    <span className="text-gray-500">Novo Total: </span>
+                                    <span className="font-bold text-green-600 dark:text-green-400">{formatCurrency(editRate * shipment.shipmentTonnage)}</span>
+                                </div>
+                                <div className="flex gap-2">
+                                    <button onClick={() => setIsEditing(false)} className="px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 rounded">Cancelar</button>
+                                    <button onClick={handleSave} className="px-3 py-1.5 text-xs font-bold bg-primary text-white rounded hover:bg-primary/90 shadow-sm">Salvar Alterações</button>
+                                </div>
+                            </div>
                         </div>
-                    </DetailItem>
-                </div>
-                
-                <div className="md:col-span-2">
-                    <DetailItem label="Titular da ANTT (CPF/CNPJ)">
-                        <div className="mt-1 p-3 bg-gray-50 dark:bg-gray-900/50 rounded-md border dark:border-gray-700">
-                            <p className="text-sm font-mono text-gray-800 dark:text-gray-200">
-                                {shipment.anttOwnerIdentifier || <span className="text-gray-400 italic font-sans">Não preenchido no cadastro</span>}
+                    </>
+                ) : (
+                    <>
+                        <DetailItem label="Valor Frete Motorista">
+                            <p className="text-lg font-bold text-green-700 dark:text-green-400">
+                                {formatCurrency(shipment.driverFreightValue)}
                             </p>
+                            <span className="text-[10px] text-gray-500 font-normal">
+                                ({formatCurrency(shipment.driverFreightRateSnapshot || (shipment.driverFreightValue / (shipment.shipmentTonnage || 1)))} /ton)
+                            </span>
+                        </DetailItem>
+                        <DetailItem label="Tonelagem">
+                            <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+                                {shipment.shipmentTonnage.toLocaleString('pt-BR')} ton
+                            </p>
+                        </DetailItem>
+                        
+                        {currentUser.profile !== UserProfile.Embarcador && (
+                            <DetailItem label="Frete Empresa (Foto)">
+                                <p className="text-sm font-bold text-primary dark:text-blue-400">
+                                    {formatCurrency(shipment.companyFreightRateSnapshot || cargo?.companyFreightValuePerTon || 0)} /ton
+                                </p>
+                            </DetailItem>
+                        )}
+                        
+                        <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <DetailItem label="Dados Bancários">
+                                <div className="mt-1 p-3 bg-gray-50 dark:bg-gray-900/50 rounded-md border dark:border-gray-700">
+                                    <p className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap">
+                                        {shipment.bankDetails || <span className="text-gray-400 italic">Não informados</span>}
+                                    </p>
+                                </div>
+                            </DetailItem>
+                            <DetailItem label="Referências do Motorista">
+                                <div className="mt-1 p-3 bg-gray-50 dark:bg-gray-900/50 rounded-md border dark:border-gray-700">
+                                    <p className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap">
+                                        {shipment.driverReferences || <span className="text-gray-400 italic">Não informadas</span>}
+                                    </p>
+                                </div>
+                            </DetailItem>
                         </div>
-                    </DetailItem>
-                </div>
+                        
+                        <div className="md:col-span-2">
+                            <DetailItem label="Titular da ANTT (CPF/CNPJ)">
+                                <div className="mt-1 p-3 bg-gray-50 dark:bg-gray-900/50 rounded-md border dark:border-gray-700">
+                                    <p className="text-sm font-mono text-gray-800 dark:text-gray-200">
+                                        {shipment.anttOwnerIdentifier || <span className="text-gray-400 italic font-sans">Não preenchido no cadastro</span>}
+                                    </p>
+                                </div>
+                            </DetailItem>
+                        </div>
+                    </>
+                )}
             </div>
 
             {/* Timestamps */}

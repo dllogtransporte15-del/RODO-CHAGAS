@@ -25,6 +25,7 @@ interface OperationalLoadsPageProps {
   profilePermissions: ProfilePermissions;
   users: User[];
   onDeleteLoad: (cargoId: string) => void;
+  onUpdatePrice: (shipmentId: string, data: { newTotal: number, newRate?: number, newCompanyRate?: number }) => void;
   onModalStateChange: (isOpen: boolean) => void;
 }
 
@@ -48,6 +49,7 @@ const OperationalLoadsPage: React.FC<OperationalLoadsPageProps> = ({
   profilePermissions,
   users,
   onDeleteLoad,
+  onUpdatePrice,
   onModalStateChange,
 }) => {
   const [isShipmentModalOpen, setIsShipmentModalOpen] = useState(false);
@@ -231,6 +233,8 @@ const OperationalLoadsPage: React.FC<OperationalLoadsPageProps> = ({
         cargo={selectedCargoForShipments}
         shipments={shipments}
         users={users}
+        currentUser={currentUser}
+        onUpdatePrice={onUpdatePrice}
       />
     </>
   );

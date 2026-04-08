@@ -4,7 +4,8 @@ import Header from '../components/Header';
 import VehicleTable from '../components/VehicleTable';
 import VehicleFormModal from '../components/VehicleFormModal';
 import VehicleFilter, { VehicleFilters } from '../components/VehicleFilter';
-import type { Vehicle, Owner, User, ProfilePermissions } from '../types';
+import ShipmentHistoryModal from '../components/ShipmentHistoryModal';
+import type { Vehicle, Owner, User, ProfilePermissions, Shipment, Cargo } from '../types';
 import { VehicleSetType, VehicleBodyType, DriverClassification } from '../types';
 import { can } from '../auth';
 
@@ -15,11 +16,25 @@ interface VehiclesPageProps {
   owners: Owner[];
   currentUser: User;
   profilePermissions: ProfilePermissions;
+  shipments: Shipment[];
+  cargos: Cargo[];
 }
 
-const VehiclesPage: React.FC<VehiclesPageProps> = ({ vehicles, setVehicles, onSaveVehicle, owners, currentUser, profilePermissions }) => {
+const VehiclesPage: React.FC<VehiclesPageProps> = ({ 
+  vehicles, 
+  setVehicles, 
+  onSaveVehicle, 
+  owners, 
+  currentUser, 
+  profilePermissions,
+  shipments,
+  cargos
+}) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [vehicleToEdit, setVehicleToEdit] = useState<Vehicle | null>(null);
+  const [selectedVehicleForHistory, setSelectedVehicleForHistory] = useState<Vehicle | null>(null);
+  
   const [filters, setFilters] = useState<VehicleFilters>({
     plate: '',
     setType: '',
@@ -59,6 +74,16 @@ const VehiclesPage: React.FC<VehiclesPageProps> = ({ vehicles, setVehicles, onSa
     setIsModalOpen(true);
   };
   
+  const handleShowHistory = (vehicle: Vehicle) => {
+    setSelectedVehicleForHistory(vehicle);
+    setIsHistoryModalOpen(true);
+  };
+
+  const vehicleShipmentHistory = useMemo(() => {
+    if (!selectedVehicleForHistory) return [];
+    return shipments.filter(s => s.horsePlate === selectedVehicleForHistory.plate);
+  }, [selectedVehicleForHistory, shipments]);
+  
   const handleDeleteVehicle = (vehicleId: string) => {
     if (window.confirm('Tem certeza que deseja excluir este veículo?')) {
         setVehicles(prev => prev.filter(v => v.id !== vehicleId));
@@ -79,7 +104,7 @@ const VehiclesPage: React.FC<VehiclesPageProps> = ({ vehicles, setVehicles, onSa
     const csvRows = [
       headers.join(','),
       ...vehicles.map(vehicle =>
-        headers.map(header => `"${vehicle[header] || ''}"`).join(',')
+        headers.map(header => `"${vehicle[header as keyof Vehicle] || ''}"`).join(',')
       )
     ];
     const csvString = csvRows.join('\n');
@@ -122,7 +147,7 @@ const VehiclesPage: React.FC<VehiclesPageProps> = ({ vehicles, setVehicles, onSa
         
         newVehicles.forEach(onSaveVehicle);
         alert(`${newVehicles.length} veículos importados com sucesso!`);
-      } catch (error) {
+      } catch (error: any) {
         alert(`Erro ao importar o arquivo: ${error.message}`);
       } finally {
         if(event.target) event.target.value = '';
@@ -145,20 +170,38 @@ const VehiclesPage: React.FC<VehiclesPageProps> = ({ vehicles, setVehicles, onSa
       
       <input type="file" ref={fileInputRef} onChange={handleFileImport} className="hidden" accept=".csv"/>
 
-      <VehicleFilter 
+      <div style={{ zoom: 0.8 }}>
+        <VehicleFilter 
+          owners={owners} 
+          filters={filters} 
+          onFilterChange={setFilters} 
+        />
+
+        <VehicleTable 
+          vehicles={filteredVehicles} 
+          owners={owners} 
+          onEdit={canUpdate ? handleEditVehicle : undefined} 
+          onDelete={canDelete ? handleDeleteVehicle : undefined} 
+          onShowHistory={handleShowHistory}
+        />
+      </div>
+
+      <VehicleFormModal 
+        isOpen={isModalOpen} 
+        onClose={handleCloseModal} 
+        onSave={handleSaveVehicle} 
+        vehicleToEdit={vehicleToEdit} 
         owners={owners} 
-        filters={filters} 
-        onFilterChange={setFilters} 
+        onShowHistory={handleShowHistory}
       />
 
-      <VehicleTable 
-        vehicles={filteredVehicles} 
-        owners={owners} 
-        onEdit={canUpdate ? handleEditVehicle : undefined} 
-        onDelete={canDelete ? handleDeleteVehicle : undefined} 
+      <ShipmentHistoryModal
+        isOpen={isHistoryModalOpen}
+        onClose={() => setIsHistoryModalOpen(false)}
+        shipments={vehicleShipmentHistory}
+        cargos={cargos}
+        title={`Histórico de Embarques - Placa ${selectedVehicleForHistory?.plate}`}
       />
-
-      <VehicleFormModal isOpen={isModalOpen} onClose={handleCloseModal} onSave={handleSaveVehicle} vehicleToEdit={vehicleToEdit} owners={owners} />
     </>
   );
 };

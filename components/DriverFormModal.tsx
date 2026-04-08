@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
+import { History } from 'lucide-react';
 import type { Driver, Owner } from '../types';
 import { DriverClassification } from '../types';
 
@@ -9,9 +10,17 @@ interface DriverFormModalProps {
   onSave: (driver: Driver | Omit<Driver, 'id'>) => void;
   driverToEdit: Driver | null;
   owners: Owner[];
+  onShowHistory?: (driver: Driver) => void;
 }
 
-const DriverFormModal: React.FC<DriverFormModalProps> = ({ isOpen, onClose, onSave, driverToEdit, owners }) => {
+const DriverFormModal: React.FC<DriverFormModalProps> = ({ 
+  isOpen, 
+  onClose, 
+  onSave, 
+  driverToEdit, 
+  owners,
+  onShowHistory 
+}) => {
   const getInitialState = (): Omit<Driver, 'id'> => ({
     name: '',
     cpf: '',
@@ -67,9 +76,24 @@ const DriverFormModal: React.FC<DriverFormModalProps> = ({ isOpen, onClose, onSa
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center">
+    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4">
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <h2 className="text-2xl font-bold mb-6 text-gray-800 dark:text-white">{driverToEdit ? 'Editar Motorista' : 'Novo Motorista'}</h2>
+        <div className="flex justify-between items-start mb-6">
+          <h2 className="text-2xl font-bold text-gray-800 dark:text-white">
+            {driverToEdit ? 'Editar Motorista' : 'Novo Motorista'}
+          </h2>
+          {driverToEdit && onShowHistory && (
+             <button
+               type="button"
+               onClick={() => onShowHistory(driverToEdit)}
+               className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400 dark:hover:bg-blue-900/50 rounded-lg font-bold text-sm transition-all border border-blue-100 dark:border-blue-800 shadow-sm"
+             >
+               <History className="w-4 h-4" />
+               Ver Histórico
+             </button>
+          )}
+        </div>
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <input name="name" value={driver.name} onChange={handleChange} placeholder="Nome Completo" className="p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600" required />
           <input name="cpf" value={driver.cpf} onChange={handleChange} placeholder="CPF" className="p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600" required />
@@ -133,10 +157,10 @@ const DriverFormModal: React.FC<DriverFormModalProps> = ({ isOpen, onClose, onSa
           )}
 
           <div className="mt-8 flex justify-end space-x-4">
-            <button type="button" onClick={onClose} className="py-2 px-4 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-200 dark:hover:bg-gray-500">
+            <button type="button" onClick={onClose} className="py-2 px-4 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-200 dark:hover:bg-gray-500 font-bold">
               Cancelar
             </button>
-            <button type="submit" className="py-2 px-4 bg-primary text-white rounded-lg hover:bg-primary-dark">
+            <button type="submit" className="py-2 px-4 bg-primary text-white rounded-lg hover:bg-primary-dark font-bold shadow-md">
               Salvar
             </button>
           </div>

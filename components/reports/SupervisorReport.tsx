@@ -33,6 +33,7 @@ const SupervisorReport: React.FC<SupervisorReportProps> = ({ shipments, cargos, 
   const totalProfitMargin = useMemo(() => {
     return shipments.reduce((acc, s) => {
       const countableStatuses = [
+        ShipmentStatus.AguardandoNota,
         ShipmentStatus.AguardandoAdiantamento,
         ShipmentStatus.AguardandoAgendamento,
         ShipmentStatus.AguardandoDescarga,
@@ -45,10 +46,8 @@ const SupervisorReport: React.FC<SupervisorReportProps> = ({ shipments, cargos, 
       if (!cargo) return acc;
 
       const grossRate = s.companyFreightRateSnapshot || cargo.companyFreightValuePerTon;
-      const grossValue = grossRate * s.shipmentTonnage;
-      const icmsValue = cargo.hasIcms ? grossValue * (cargo.icmsPercentage / 100) : 0;
-      const netValue = grossValue - icmsValue;
-      const profit = netValue - s.driverFreightValue;
+      const driverRate = s.driverFreightRateSnapshot || cargo.driverFreightValuePerTon;
+      const profit = (grossRate - driverRate) * s.shipmentTonnage;
       
       return acc + profit;
     }, 0);

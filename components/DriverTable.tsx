@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { History } from 'lucide-react';
 import type { Driver, Owner } from '../types';
 
 interface DriverTableProps {
@@ -7,9 +8,10 @@ interface DriverTableProps {
   owners: Owner[];
   onEdit?: (driver: Driver) => void;
   onDelete?: (driverId: string) => void;
+  onShowHistory?: (driver: Driver) => void;
 }
 
-const DriverTable: React.FC<DriverTableProps> = ({ drivers, owners, onEdit, onDelete }) => {
+const DriverTable: React.FC<DriverTableProps> = ({ drivers, owners, onEdit, onDelete, onShowHistory }) => {
   const getOwnerName = (ownerId?: string) => {
     if (!ownerId) return 'N/A';
     return owners.find(o => o.id === ownerId)?.name || 'Desconhecido';
@@ -27,6 +29,7 @@ const DriverTable: React.FC<DriverTableProps> = ({ drivers, owners, onEdit, onDe
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">Classificação</th>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">Proprietário</th>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">Status</th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">Histórico</th>
               {(onEdit || onDelete) && <th scope="col" className="relative px-6 py-3"><span className="sr-only">Ações</span></th>}
             </tr>
           </thead>
@@ -45,8 +48,17 @@ const DriverTable: React.FC<DriverTableProps> = ({ drivers, owners, onEdit, onDe
                   {driver.active ? (
                     <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">Ativo</span>
                   ) : (
-                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400" title={driver.restrictionReason}>Restrito</span>
+                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-green-400" title={driver.restrictionReason}>Restrito</span>
                   )}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                  <button 
+                    onClick={() => onShowHistory?.(driver)}
+                    className="p-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400 dark:hover:bg-blue-900/50 rounded-lg transition-colors"
+                    title="Ver Histórico"
+                  >
+                    <History className="w-4 h-4" />
+                  </button>
                 </td>
                 {(onEdit || onDelete) && (
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">

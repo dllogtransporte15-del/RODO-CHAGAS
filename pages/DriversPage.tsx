@@ -4,7 +4,8 @@ import Header from '../components/Header';
 import DriverTable from '../components/DriverTable';
 import DriverFormModal from '../components/DriverFormModal';
 import DriverFilter, { DriverFilters } from '../components/DriverFilter';
-import type { Driver, Owner, User, ProfilePermissions } from '../types';
+import ShipmentHistoryModal from '../components/ShipmentHistoryModal';
+import type { Driver, Owner, User, ProfilePermissions, Shipment, Cargo } from '../types';
 import { DriverClassification } from '../types';
 import { can } from '../auth';
 
@@ -18,11 +19,25 @@ interface DriversPageProps {
   owners: Owner[];
   currentUser: User;
   profilePermissions: ProfilePermissions;
+  shipments: Shipment[];
+  cargos: Cargo[];
 }
 
-const DriversPage: React.FC<DriversPageProps> = ({ drivers, setDrivers, onSaveDriver, owners, currentUser, profilePermissions }) => {
+const DriversPage: React.FC<DriversPageProps> = ({ 
+  drivers, 
+  setDrivers, 
+  onSaveDriver, 
+  owners, 
+  currentUser, 
+  profilePermissions,
+  shipments,
+  cargos
+}) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [driverToEdit, setDriverToEdit] = useState<Driver | null>(null);
+  const [selectedDriverForHistory, setSelectedDriverForHistory] = useState<Driver | null>(null);
+  
   const [filters, setFilters] = useState<DriverFilters>({
     name: '',
     cpf: '',
@@ -69,6 +84,19 @@ const DriversPage: React.FC<DriversPageProps> = ({ drivers, setDrivers, onSaveDr
     setIsModalOpen(true);
   };
   
+  const handleShowHistory = (driver: Driver) => {
+    setSelectedDriverForHistory(driver);
+    setIsHistoryModalOpen(true);
+  };
+
+  const driverShipmentHistory = useMemo(() => {
+    if (!selectedDriverForHistory) return [];
+    return shipments.filter(s => 
+      s.driverCpf === selectedDriverForHistory.cpf || 
+      s.driverName === selectedDriverForHistory.name
+    );
+  }, [selectedDriverForHistory, shipments]);
+  
   const handleDeleteDriver = (driverId: string) => {
     if (window.confirm('Tem certeza que deseja excluir este motorista?')) {
         setDrivers(prev => prev.filter(d => d.id !== driverId));
@@ -89,7 +117,7 @@ const DriversPage: React.FC<DriversPageProps> = ({ drivers, setDrivers, onSaveDr
     const csvRows = [
       headers.join(','),
       ...drivers.map(driver =>
-        headers.map(header => `"${driver[header] || ''}"`).join(',')
+        headers.map(header => `"${driver[header as keyof Driver] || ''}"`).join(',')
       )
     ];
     const csvString = csvRows.join('\n');
@@ -273,20 +301,38 @@ const DriversPage: React.FC<DriversPageProps> = ({ drivers, setDrivers, onSaveDr
       
       <input type="file" ref={fileInputRef} onChange={handleFileImport} className="hidden" accept=".csv,.xls,.xlsx"/>
 
-      <DriverFilter 
+      <div style={{ zoom: 0.8 }}>
+        <DriverFilter 
+          owners={owners} 
+          filters={filters} 
+          onFilterChange={setFilters} 
+        />
+
+        <DriverTable 
+          drivers={filteredDrivers} 
+          owners={owners} 
+          onEdit={canUpdate ? handleEditDriver : undefined} 
+          onDelete={canDelete ? handleDeleteDriver : undefined} 
+          onShowHistory={handleShowHistory}
+        />
+      </div>
+
+      <DriverFormModal 
+        isOpen={isModalOpen} 
+        onClose={handleCloseModal} 
+        onSave={handleSaveDriver} 
+        driverToEdit={driverToEdit} 
         owners={owners} 
-        filters={filters} 
-        onFilterChange={setFilters} 
+        onShowHistory={handleShowHistory}
       />
 
-      <DriverTable 
-        drivers={filteredDrivers} 
-        owners={owners} 
-        onEdit={canUpdate ? handleEditDriver : undefined} 
-        onDelete={canDelete ? handleDeleteDriver : undefined} 
+      <ShipmentHistoryModal
+        isOpen={isHistoryModalOpen}
+        onClose={() => setIsHistoryModalOpen(false)}
+        shipments={driverShipmentHistory}
+        cargos={cargos}
+        title={`Histórico de Embarques - ${selectedDriverForHistory?.name}`}
       />
-
-      <DriverFormModal isOpen={isModalOpen} onClose={handleCloseModal} onSave={handleSaveDriver} driverToEdit={driverToEdit} owners={owners} />
     </>
   );
 };
