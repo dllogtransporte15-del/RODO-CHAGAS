@@ -24,6 +24,11 @@ interface LoadFormModalProps {
 
 const STEPS = ['Informações da Carga', 'Programação Diária', 'Valores e Regras'];
 
+const DEFAULT_ALLOWED_VEHICLE_TYPES = Object.values(VehicleSetType).map(setType => ({
+    setType,
+    bodyTypes: Object.values(VehicleBodyType)
+}));
+
 const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, loadToEdit, clients, products, currentUser, users, loads, initialStep = 1 }) => {
   const getInitialState = (): Omit<Cargo, 'id' | 'history' | 'createdAt' | 'createdById'> => {
     const newSequenceId = loads.length > 0 ? Math.max(...loads.map(c => c.sequenceId)) + 1 : 101;
@@ -48,7 +53,7 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
     type: CargoType.Spot,
     status: CargoStatus.EmAndamento,
     loadingDeadline: '',
-    allowedVehicleTypes: [],
+    allowedVehicleTypes: DEFAULT_ALLOWED_VEHICLE_TYPES,
     freightLegs: [
       { companyFreightValuePerTon: 0, driverFreightValuePerTon: 0, hasIcms: false, icmsPercentage: 0 },
       { companyFreightValuePerTon: 0, driverFreightValuePerTon: 0, hasIcms: false, icmsPercentage: 0 }
