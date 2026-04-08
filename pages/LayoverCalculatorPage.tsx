@@ -31,14 +31,15 @@ interface LayoverCalculatorPageProps {
   currentUser: AppUser | null;
 }
 
-export default function LayoverCalculatorPage({ currentUser: _currentUser }: LayoverCalculatorPageProps) {
+export default function LayoverCalculatorPage({ currentUser }: LayoverCalculatorPageProps) {
   const [clients, setClients] = useState<Client[]>([]);
   const [isSaving, setIsSaving] = useState(false);
 
   const loadClients = useCallback(async () => {
-    const data = await getToolClients();
+    if (!currentUser) return;
+    const data = await getToolClients(currentUser.id);
     setClients(data);
-  }, []);
+  }, [currentUser]);
 
   useEffect(() => {
     loadClients();
@@ -103,7 +104,7 @@ export default function LayoverCalculatorPage({ currentUser: _currentUser }: Lay
   }, [formData]);
 
   const handleSave = async () => {
-    if (!result || isSaving) return;
+    if (!result || isSaving || !currentUser) return;
     
     if (!formData.driver || !formData.plate || !formData.origin || !formData.destination) {
       alert("Por favor, preencha os campos obrigatórios (Motorista, Placa, Origem, Destino).");
@@ -113,11 +114,11 @@ export default function LayoverCalculatorPage({ currentUser: _currentUser }: Lay
     setIsSaving(true);
     try {
       if (formData.clientName) {
-        await saveToolClient(formData.clientName);
+        await saveToolClient(currentUser.id, formData.clientName);
         await loadClients();
       }
 
-      const saved = await saveToolStay({
+      const saved = await saveToolStay(currentUser.id, {
         clientName: formData.clientName || 'Não Informado',
         driver: formData.driver,
         plate: formData.plate,

@@ -87,7 +87,7 @@ function MapUpdater({ origin, dest, routeCoords }: { origin?: Location | null, d
   return null;
 }
 
-export default function FreightQuotePage({ currentUser: _currentUser }: FreightQuotePageProps) {
+export default function FreightQuotePage({ currentUser }: FreightQuotePageProps) {
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -98,9 +98,10 @@ export default function FreightQuotePage({ currentUser: _currentUser }: FreightQ
   const [error, setError] = useState<string | null>(null);
 
   const loadClients = useCallback(async () => {
-    const data = await getToolClients();
+    if (!currentUser) return;
+    const data = await getToolClients(currentUser.id);
     setClients(data);
-  }, []);
+  }, [currentUser]);
 
   useEffect(() => {
     loadClients();
@@ -263,12 +264,14 @@ export default function FreightQuotePage({ currentUser: _currentUser }: FreightQ
 
     setIsSaving(true);
     try {
+      if (!currentUser) throw new Error('Usuário não autenticado');
+
       if (formData.clientName) {
-        await saveToolClient(formData.clientName);
+        await saveToolClient(currentUser.id, formData.clientName);
         await loadClients();
       }
 
-      const saved = await saveToolQuote({
+      const saved = await saveToolQuote(currentUser.id, {
         clientName: formData.clientName || 'Não Informado',
         origin: formData.origin,
         destination: formData.destination,

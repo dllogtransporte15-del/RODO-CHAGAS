@@ -52,19 +52,10 @@ export interface QuoteRecord {
 }
 
 // =============================================
-// Helper: get current authenticated user UUID
-// =============================================
-async function getAuthUserId(): Promise<string | null> {
-  const { data } = await supabase.auth.getUser();
-  return data?.user?.id ?? null;
-}
-
-// =============================================
 // Client Management
 // =============================================
 
-export async function getToolClients(): Promise<Client[]> {
-  const userId = await getAuthUserId();
+export async function getToolClients(userId: string): Promise<Client[]> {
   if (!userId) return [];
 
   const { data, error } = await supabase
@@ -81,8 +72,7 @@ export async function getToolClients(): Promise<Client[]> {
   return (data ?? []).map(row => ({ id: row.id, name: row.name }));
 }
 
-export async function saveToolClient(name: string): Promise<Client | null> {
-  const userId = await getAuthUserId();
+export async function saveToolClient(userId: string, name: string): Promise<Client | null> {
   if (!userId || !name.trim()) return null;
 
   const { data, error } = await supabase
@@ -103,8 +93,7 @@ export async function saveToolClient(name: string): Promise<Client | null> {
 // Stays Management
 // =============================================
 
-export async function getToolStays(): Promise<StayRecord[]> {
-  const userId = await getAuthUserId();
+export async function getToolStays(userId: string): Promise<StayRecord[]> {
   if (!userId) return [];
 
   const { data, error } = await supabase
@@ -139,9 +128,9 @@ export async function getToolStays(): Promise<StayRecord[]> {
 }
 
 export async function saveToolStay(
+  userId: string,
   stay: Omit<StayRecord, 'id' | 'date'>
 ): Promise<StayRecord | null> {
-  const userId = await getAuthUserId();
   if (!userId) return null;
 
   const { data, error } = await supabase
@@ -202,8 +191,7 @@ export async function deleteToolStay(id: string): Promise<void> {
 // Quotes Management
 // =============================================
 
-export async function getToolQuotes(): Promise<QuoteRecord[]> {
-  const userId = await getAuthUserId();
+export async function getToolQuotes(userId: string): Promise<QuoteRecord[]> {
   if (!userId) return [];
 
   const { data, error } = await supabase
@@ -242,9 +230,9 @@ export async function getToolQuotes(): Promise<QuoteRecord[]> {
 }
 
 export async function saveToolQuote(
+  userId: string,
   quote: Omit<QuoteRecord, 'id' | 'date'>
 ): Promise<QuoteRecord | null> {
-  const userId = await getAuthUserId();
   if (!userId) return null;
 
   const { data, error } = await supabase
@@ -268,7 +256,7 @@ export async function saveToolQuote(
       company_freight_per_ton: quote.companyFreightPerTon,
       company_total_freight: quote.companyTotalFreight,
       carrier_net_profit: quote.carrierNetProfit,
-      carrier_profit_margin: quote.carrierProfitMargin,
+      carrier_profit_margin: quote.carrier_profit_margin,
     })
     .select('*')
     .single();

@@ -20,7 +20,7 @@ interface ToolsHistoryPageProps {
   currentUser: AppUser | null;
 }
 
-export default function ToolsHistoryPage({ currentUser: _currentUser }: ToolsHistoryPageProps) {
+export default function ToolsHistoryPage({ currentUser }: ToolsHistoryPageProps) {
   const [activeView, setActiveView] = useState<'estadias' | 'cotacoes'>('estadias');
   const [stays, setStays] = useState<StayRecord[]>([]);
   const [quotes, setQuotes] = useState<QuoteRecord[]>([]);
@@ -34,15 +34,16 @@ export default function ToolsHistoryPage({ currentUser: _currentUser }: ToolsHis
   const [showFilters, setShowFilters] = useState(false);
 
   const loadData = useCallback(async () => {
+    if (!currentUser) return;
     const [staysData, quotesData, clientsData] = await Promise.all([
-      getToolStays(),
-      getToolQuotes(),
-      getToolClients(),
+      getToolStays(currentUser.id),
+      getToolQuotes(currentUser.id),
+      getToolClients(currentUser.id),
     ]);
     setStays(staysData);
     setQuotes(quotesData);
     setClients(clientsData);
-  }, []);
+  }, [currentUser]);
 
   useEffect(() => {
     loadData();
