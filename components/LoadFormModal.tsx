@@ -290,11 +290,12 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
         return;
     }
     setLoad(prev => {
-        const existingIndex = prev.allowedVehicleTypes?.findIndex(avt => avt.setType === currentSetType);
+        const allowedTypes = prev.allowedVehicleTypes || [];
+        const existingIndex = allowedTypes.findIndex(avt => avt.setType === currentSetType);
         
-        if (existingIndex !== -1 && prev.allowedVehicleTypes) {
+        if (existingIndex !== -1) {
             // Update existing entry by merging body types
-            const updatedTypes = [...prev.allowedVehicleTypes];
+            const updatedTypes = [...allowedTypes];
             const existingEntry = updatedTypes[existingIndex];
             const newBodyTypes = [...new Set([...existingEntry.bodyTypes, ...currentBodyTypes])];
             updatedTypes[existingIndex] = { ...existingEntry, bodyTypes: newBodyTypes };

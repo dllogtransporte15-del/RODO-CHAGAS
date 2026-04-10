@@ -29,6 +29,10 @@ export const INITIAL_PERMISSIONS: ProfilePermissions = {
   [UserProfile.Diretor]: createPermissions(supervisorAndDiretorPages, true),
 };
 
+if (INITIAL_PERMISSIONS[UserProfile.Fiscal] && INITIAL_PERMISSIONS[UserProfile.Fiscal]!['shipments']) {
+    INITIAL_PERMISSIONS[UserProfile.Fiscal]!['shipments']!.delete = true;
+}
+
 // Specifically grant 'create' permission for 'shipments' to 'Embarcador' profile
 if (INITIAL_PERMISSIONS[UserProfile.Embarcador] && INITIAL_PERMISSIONS[UserProfile.Embarcador]!['shipments']) {
     INITIAL_PERMISSIONS[UserProfile.Embarcador]!['shipments']!.create = true;

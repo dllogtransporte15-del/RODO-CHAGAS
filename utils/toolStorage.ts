@@ -256,7 +256,7 @@ export async function saveToolQuote(
       company_freight_per_ton: quote.companyFreightPerTon,
       company_total_freight: quote.companyTotalFreight,
       carrier_net_profit: quote.carrierNetProfit,
-      carrier_profit_margin: quote.carrier_profit_margin,
+      carrier_profit_margin: quote.carrierProfitMargin,
     })
     .select('*')
     .single();

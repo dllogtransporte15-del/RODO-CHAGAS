@@ -105,6 +105,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, carg
     let totalEfetivado = 0;
 
     const effectiveForwardStatuses = [
+      ShipmentStatus.AguardandoNota,
       ShipmentStatus.AguardandoAdiantamento,
       ShipmentStatus.AguardandoAgendamento,
       ShipmentStatus.AguardandoDescarga,
@@ -285,7 +286,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, carg
              <div className="w-10 h-10 rounded-full bg-emerald-50 dark:bg-emerald-900/30 flex flex-shrink-0 items-center justify-center text-emerald-600 dark:text-emerald-400"><CheckCircle className="w-5 h-5" /></div>
              <div>
                 <p className="text-xs text-gray-500 uppercase font-bold">Total efetivado</p>
-                <p className="text-xl font-bold text-gray-800 dark:text-gray-100" title="Soma de embarques a partir de Ag. Adiantamento onwards (mês atual)">{currentMonthStats.totalEfetivado.toLocaleString('pt-BR')} ton</p>
+                <p className="text-xl font-bold text-gray-800 dark:text-gray-100" title="Soma de embarques a partir de Ag. Nota onwards (mês atual)">{currentMonthStats.totalEfetivado.toLocaleString('pt-BR')} ton</p>
              </div>
          </div>
          <div className="p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 flex items-center gap-4">
