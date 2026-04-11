@@ -168,11 +168,11 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
         }
     }
 
-    // Validation: Prevent future date/time
+    // Validation: Only allow future date/time
     const now = new Date();
     const inputDateTime = new Date(`${scheduledDate}T${scheduledTime}`);
-    if (inputDateTime > now) {
-        alert('Data/Hora Inválida: Não é permitido criar ordens com data e hora prevista posterior ao momento atual.');
+    if (inputDateTime <= now) {
+        alert('Data/Hora Inválida: A data e hora programada deve ser posterior ao momento atual.');
         return;
     }
 
