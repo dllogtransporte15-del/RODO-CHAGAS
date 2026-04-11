@@ -444,6 +444,17 @@ const App: React.FC = () => {
     visibleLoads.filter(c => c.status === CargoStatus.EmAndamento || c.status === CargoStatus.Suspensa),
     [visibleLoads]
   );
+
+  const activeLoads = useMemo(() => 
+    visibleLoads.filter(c => c.status !== CargoStatus.Fechada),
+    [visibleLoads]
+  );
+
+  const closedLoads = useMemo(() => 
+    visibleLoads.filter(c => c.status === CargoStatus.Fechada),
+    [visibleLoads]
+  );
+
   
   // --- CRUD HANDLERS ---
   const handleCreateShipment = async (data: NewShipmentRequestData) => {
@@ -1362,7 +1373,7 @@ const App: React.FC = () => {
       case 'vehicles':
         return <VehiclesPage vehicles={vehicles} setVehicles={setVehicles} onSaveVehicle={handleSaveVehicle} owners={owners} currentUser={currentUser} profilePermissions={profilePermissions} shipments={visibleShipments} cargos={cargos} />;
       case 'loads':
-        return <LoadsPage loads={visibleLoads} setLoads={setCargos} clients={clients} products={products} onSaveLoad={handleSaveLoad} currentUser={currentUser} profilePermissions={profilePermissions} users={users} shipments={visibleShipments} onDeleteLoad={handleDeleteCargo} onModalStateChange={setIsAnyModalOpen} />;
+        return <LoadsPage loads={activeLoads} setLoads={setCargos} clients={clients} products={products} onSaveLoad={handleSaveLoad} currentUser={currentUser} profilePermissions={profilePermissions} users={users} shipments={visibleShipments} onDeleteLoad={handleDeleteCargo} onModalStateChange={setIsAnyModalOpen} />;
       case 'products':
         return <ProductsPage products={products} onSaveProduct={handleSaveProduct} onDeleteProduct={handleDeleteProduct} currentUser={currentUser} profilePermissions={profilePermissions} />;
       case 'shipments':
@@ -1458,7 +1469,7 @@ const App: React.FC = () => {
                 />;
       case 'load-history':
         return <LoadHistoryPage
-                  loads={cargos}
+                  loads={closedLoads}
                   clients={clients}
                   products={products}
                   users={users}
@@ -1473,9 +1484,9 @@ const App: React.FC = () => {
       case 'tools-history':
         return <ToolsHistoryPage currentUser={currentUser} />;
       case 'dashboard':
-        return <DashboardPage cargos={visibleLoads} shipments={visibleShipments} users={users} currentUser={currentUser} clients={clients} />;
+        return <DashboardPage cargos={activeLoads} shipments={visibleShipments} users={users} currentUser={currentUser} clients={clients} />;
       default:
-        return <DashboardPage cargos={visibleLoads} shipments={visibleShipments} users={users} currentUser={currentUser} clients={clients} />;
+        return <DashboardPage cargos={activeLoads} shipments={visibleShipments} users={users} currentUser={currentUser} clients={clients} />;
 
     }
   };
