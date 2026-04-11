@@ -191,15 +191,46 @@ const LoadTable: React.FC<LoadTableProps> = ({ loads, clients, products, shipmen
                     </button>
                     <span className="text-[10px] text-gray-400 font-mono truncate w-20" title={load.id}>{load.id.substring(0, 8)}...</span>
                   </div>
-                  <span className={`inline-flex items-center justify-center h-6 w-6 text-[11px] font-bold rounded-full shadow-sm ${
-                    load.status === CargoStatus.Suspensa ? 'bg-yellow-100 text-yellow-800' :
-                    load.status === CargoStatus.Fechada ? 'bg-gray-100 text-gray-800' :
-                    dailyScheduleInfo ? statusSymbolColors[dailyScheduleInfo.type] : 'bg-gray-100 text-gray-400'
-                  }`}>
-                    {load.status === CargoStatus.Suspensa ? 'S' :
-                     load.status === CargoStatus.Fechada ? 'F' :
-                     dailyScheduleInfo ? statusSymbols[dailyScheduleInfo.type] : '-'}
+                  <span 
+                    className={`inline-flex items-center justify-center h-6 w-6 text-[11px] font-bold rounded-full shadow-sm transition-colors ${
+                      load.status === CargoStatus.Suspensa ? 'bg-yellow-100 text-yellow-800' :
+                      load.status === CargoStatus.Fechada ? 'bg-gray-100 text-gray-800' :
+                      (() => {
+                        const today = new Date().toISOString().split('T')[0];
+                        const hasCurrentOrFutureSchedule = load.dailySchedule?.some(ds => ds.date >= today);
+                        if (load.status === CargoStatus.EmAndamento && !hasCurrentOrFutureSchedule) {
+                          return 'bg-red-100 text-red-800 border border-red-200';
+                        }
+                        return dailyScheduleInfo ? statusSymbolColors[dailyScheduleInfo.type] : 'bg-gray-100 text-gray-400';
+                      })()
+                    }`}
+                    title={
+                      load.status === CargoStatus.Suspensa ? 'Carga Suspensa' :
+                      load.status === CargoStatus.Fechada ? 'Carga Fechada' :
+                      (() => {
+                        const today = new Date().toISOString().split('T')[0];
+                        const hasCurrentOrFutureSchedule = load.dailySchedule?.some(ds => ds.date >= today);
+                        if (load.status === CargoStatus.EmAndamento && !hasCurrentOrFutureSchedule) {
+                          return 'Sem Programação (Lançar programação para liberar)';
+                        }
+                        if (dailyScheduleInfo) {
+                          const meanings: Record<string, string> = { 'L': 'Livre', 'F': 'Fixo', 'V': 'Verificar' };
+                          return `Programação: ${meanings[statusSymbols[dailyScheduleInfo.type]] || statusSymbols[dailyScheduleInfo.type]}`;
+                        }
+                        return 'Sem programação para esta data';
+                      })()
+                    }
+                  >
+                    {(() => {
+                      const today = new Date().toISOString().split('T')[0];
+                      const hasCurrentOrFutureSchedule = load.dailySchedule?.some(ds => ds.date >= today);
+                      if (load.status === CargoStatus.Suspensa) return 'S';
+                      if (load.status === CargoStatus.Fechada) return 'F';
+                      if (load.status === CargoStatus.EmAndamento && !hasCurrentOrFutureSchedule) return 'SP';
+                      return dailyScheduleInfo ? statusSymbols[dailyScheduleInfo.type] : '-';
+                    })()}
                   </span>
+
                 </div>
 
                 {/* Client and Product */}
