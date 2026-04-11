@@ -10,7 +10,9 @@ import HistoryModal from '../components/HistoryModal';
 import CadastroAnttModal from '../components/CadastroAnttModal';
 import CargoDetailsModal from '../components/CargoDetailsModal';
 import TransferShipmentModal from '../components/TransferShipmentModal';
+import EditScheduledDateTimeModal from '../components/EditScheduledDateTimeModal';
 import type { Shipment, Cargo, Client, Driver, User, ProfilePermissions, Product, Vehicle, ShipmentLock } from '../types';
+
 import { ShipmentStatus, UserProfile, REQUIRED_DOCUMENT_MAP } from '../types';
 import { can } from '../auth';
 import { tryAcquireShipmentLock, releaseShipmentLock } from '../lib/db';
@@ -39,24 +41,26 @@ interface ShipmentsPageProps {
     unloadedTonnage?: number,
     route?: string 
   }) => void;
-  onUpdatePrice: (shipmentId: string, data: { newTotal: number, newRate?: number }) => void;
+  onUpdatePrice: (shipmentId: string, data: { newTotal: number, newRate?: number, newCompanyRate?: number }) => void;
   onConfirmCancel: (shipmentId: string, reason: string) => void;
   onUpdateAnttAndBankDetails: (shipmentId: string, data: { anttOwnerIdentifier: string; bankDetails?: string }) => void;
   onTransferShipment: (shipmentId: string, newEmbarcadorId: string) => void;
   onMarkArrival: (shipmentId: string) => void;
   onDeleteShipment: (shipmentId: string) => void;
   onRevertStatus: (shipmentId: string) => void;
+  onUpdateScheduledDateTime: (shipmentId: string, data: { scheduledDate: string, scheduledTime?: string }) => void;
   activeLocks: ShipmentLock[];
   onModalStateChange: (isOpen: boolean) => void;
 }
 
 // Removed local requiredDocumentMap as it is now in types.ts (REQUIRED_DOCUMENT_MAP)
 
+
 const ShipmentsPage: React.FC<ShipmentsPageProps> = ({ 
   shipments, cargos, clients, products, drivers, vehicles, currentUser, 
   profilePermissions, users, onUpdateAttachment, onUpdatePrice, onConfirmCancel, 
   onUpdateAnttAndBankDetails, onTransferShipment, onMarkArrival, onDeleteShipment,
-  onRevertStatus, activeLocks, onModalStateChange 
+  onRevertStatus, onUpdateScheduledDateTime, activeLocks, onModalStateChange 
 }) => {
   const [activeStatus, setActiveStatus] = useState<ShipmentStatus | 'all'>(ShipmentStatus.AguardandoSeguradora);
   const [isAttachmentModalOpen, setAttachmentModalOpen] = useState(false);
@@ -65,16 +69,21 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [isCadastroAnttModalOpen, setCadastroAnttModalOpen] = useState(false);
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
+  const [isEditScheduledDateTimeModalOpen, setEditScheduledDateTimeModalOpen] = useState(false);
   const [selectedShipment, setSelectedShipment] = useState<Shipment | null>(null);
+
   const [detailsModalCargo, setDetailsModalCargo] = useState<Cargo | null>(null);
   const lockHeartbeatRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     const isAnyOpen = isAttachmentModalOpen || isEditPriceModalOpen || isCancelModalOpen || 
-                      isHistoryModalOpen || isCadastroAnttModalOpen || isTransferModalOpen || !!detailsModalCargo;
+                      isHistoryModalOpen || isCadastroAnttModalOpen || isTransferModalOpen || 
+                      isEditScheduledDateTimeModalOpen || !!detailsModalCargo;
     onModalStateChange(isAnyOpen);
   }, [isAttachmentModalOpen, isEditPriceModalOpen, isCancelModalOpen, isHistoryModalOpen, 
-      isCadastroAnttModalOpen, isTransferModalOpen, detailsModalCargo, onModalStateChange]);
+      isCadastroAnttModalOpen, isTransferModalOpen, isEditScheduledDateTimeModalOpen, detailsModalCargo, onModalStateChange]);
+
+
 
   const canUpdate = can('update', currentUser, 'shipments', profilePermissions);
   const canDelete = can('delete', currentUser, 'shipments', profilePermissions);
@@ -245,6 +254,7 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({
         onStatusChange={setActiveStatus}
         currentUser={currentUser}
       />
+
       <ShipmentTable 
         shipments={filteredShipments} 
         cargos={cargos}
@@ -261,7 +271,12 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({
         onDelete={onDeleteShipment}
         onRevertStatus={onRevertStatus}
         onOpenCadastroAntt={handleOpenCadastroAnttModal}
+        onOpenEditScheduledDateTime={(shipment) => {
+          setSelectedShipment(shipment);
+          setEditScheduledDateTimeModalOpen(true);
+        }}
         onUpdatePrice={onUpdatePrice}
+
         currentUser={currentUser}
         activeStatus={activeStatus}
         clients={clients}
@@ -321,6 +336,23 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({
           users={users}
         />
       )}
+
+      {selectedShipment && (
+        <EditScheduledDateTimeModal
+          isOpen={isEditScheduledDateTimeModalOpen}
+          onClose={() => {
+            setEditScheduledDateTimeModalOpen(false);
+            setSelectedShipment(null);
+          }}
+          onSave={(data) => {
+            onUpdateScheduledDateTime(selectedShipment.id, data);
+            setEditScheduledDateTimeModalOpen(false);
+            setSelectedShipment(null);
+          }}
+          shipment={selectedShipment}
+        />
+      )}
+
       {detailsModalCargo && (
           <CargoDetailsModal
             isOpen={!!detailsModalCargo}

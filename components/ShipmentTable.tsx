@@ -12,7 +12,8 @@ import { ExternalLinkIcon } from './icons/ExternalLinkIcon';
 import { InfoIcon } from './icons/InfoIcon';
 import { TransferIcon } from './icons/TransferIcon';
 import { MoreVerticalIcon } from './icons/MoreVerticalIcon';
-import { Search, Filter, X, Trash2, RotateCcw } from 'lucide-react';
+import { Search, Filter, X, Trash2, RotateCcw, Clock } from 'lucide-react';
+
 import MultiSelectDropdown from './MultiSelectDropdown';
 import ShipmentDetailsModal from './ShipmentDetailsModal';
 
@@ -34,11 +35,13 @@ interface ShipmentTableProps {
   onRevertStatus?: (shipmentId: string) => void;
   canUserAdvanceStatus?: (shipment: Shipment) => { allowed: boolean; reason: string };
   onUpdatePrice?: (shipmentId: string, data: { newTotal: number, newRate?: number, newCompanyRate?: number }) => void;
+  onOpenEditScheduledDateTime?: (shipment: Shipment) => void;
   currentUser: User;
+
   activeStatus: ShipmentStatus | 'all';
 }
 
-const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users, vehicles, onAttach, onEditPrice, onCancel, onTransfer, onShowHistory, onShowCargoDetails, canUserAdvanceStatus, onMarkArrival, onDelete, onRevertStatus, onOpenCadastroAntt, onUpdatePrice, currentUser, activeStatus, clients }) => {
+const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users, vehicles, onAttach, onEditPrice, onCancel, onTransfer, onShowHistory, onShowCargoDetails, canUserAdvanceStatus, onMarkArrival, onDelete, onRevertStatus, onOpenCadastroAntt, onUpdatePrice, onOpenEditScheduledDateTime, currentUser, activeStatus, clients }) => {
   const [openActionMenu, setOpenActionMenu] = useState<string | null>(null);
   const [menuPosition, setMenuPosition] = useState<{ top: number, left: number, isUp: boolean } | null>(null);
   const [detailsModalShipment, setDetailsModalShipment] = useState<Shipment | null>(null);
@@ -515,10 +518,16 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users,
                         </p>
                       )}
                       {shipment.scheduledTime && (
-                          <p className={`text-xs mt-1 ${isLate && !shipment.arrivalTime ? 'text-yellow-500' : 'text-gray-500'}`}>
-                              Previsto: {shipment.scheduledTime}
+                          <p 
+                            className={`text-xs mt-1 ${isLate && !shipment.arrivalTime ? 'text-yellow-500' : 'text-gray-500'} cursor-pointer hover:underline flex items-center gap-1`}
+                            onClick={() => onOpenEditScheduledDateTime && onOpenEditScheduledDateTime(shipment)}
+                            title="Clique para alterar data/hora"
+                          >
+                            <Clock className="w-3 h-3" />
+                            Previsto: {shipment.scheduledTime}
                           </p>
                       )}
+
                       {shipment.arrivalTime ? (
                           <div className="text-xs text-green-600 dark:text-green-400 font-semibold mt-1">
                               Chegou: {new Date(shipment.arrivalTime).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
@@ -531,9 +540,17 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users,
                           )
                       )}
                     </td>
-                    <td className="px-6 py-[11px] whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                      {new Date(shipment.scheduledDate + 'T00:00:00').toLocaleDateString('pt-BR')}
+                    <td 
+                      className="px-6 py-[11px] whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 cursor-pointer hover:text-primary dark:hover:text-blue-400 transition-colors group/date"
+                      onClick={() => onOpenEditScheduledDateTime && onOpenEditScheduledDateTime(shipment)}
+                      title="Clique para alterar data/hora"
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <Clock className="w-3.5 h-3.5 opacity-0 group-hover/date:opacity-100 transition-opacity" />
+                        <span>{new Date(shipment.scheduledDate + 'T00:00:00').toLocaleDateString('pt-BR')}</span>
+                      </div>
                     </td>
+
                     {(!isClient || showActionsColumnForClient) && (
                       <td className="px-6 py-[11px] whitespace-nowrap text-center text-sm font-medium">
                           {isClient ? (
@@ -603,6 +620,7 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users,
                                                               {shipment.status === ShipmentStatus.PreCadastro && onOpenCadastroAntt && <ActionMenuItem icon={ExternalLinkIcon} text="Fazer Cadastro" onClick={() => onOpenCadastroAntt(shipment)} />}
                                                               {isActionable && onEditPrice && <ActionMenuItem icon={DollarSignIcon} text="Alterar Preço" onClick={() => onEditPrice(shipment)} />}
                                                               {isActionable && onTransfer && <ActionMenuItem icon={TransferIcon} text="Transferir Embarque" onClick={() => onTransfer(shipment)} />}
+                                                              {onOpenEditScheduledDateTime && <ActionMenuItem icon={Clock} text="Alterar Data/Hora" onClick={() => onOpenEditScheduledDateTime(shipment)} />}
                                                               {shipment.status === ShipmentStatus.Finalizado && onAttach && <ActionMenuItem icon={PaperclipIcon} text="Gestor de Anexos" onClick={() => onAttach(shipment)} />}
                                                               {isActionable && onCancel && <ActionMenuItem icon={XIcon} text="Cancelar Embarque" onClick={() => onCancel(shipment)} isDestructive />}
                                                               {onRevertStatus && statusHistoryCount > 1 && (currentUser.profile === UserProfile.Admin || currentUser.profile === UserProfile.Diretor) && (

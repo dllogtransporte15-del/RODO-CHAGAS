@@ -146,23 +146,34 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
             return;
         }
     }
-    
+
     if (cargo?.dailySchedule) {
         const scheduleRule = cargo.dailySchedule.find(rule => rule.date === scheduledDate);
-        if (scheduleRule) {
-            if (scheduleRule.type === DailyScheduleType.Verificar) {
-                alert('Atenção: A programação para este dia exige verificação com o comercial antes de marcar.');
-            } else if (scheduleRule.type === DailyScheduleType.Fixo && scheduleRule.tonnage) {
-                const alreadyScheduledTonnage = shipments
-                    .filter(s => s.cargoId === cargo.id && s.scheduledDate === scheduledDate)
-                    .reduce((sum, s) => sum + s.shipmentTonnage, 0);
-                
-                if (alreadyScheduledTonnage + shipmentTonnage > scheduleRule.tonnage) {
-                    alert(`Erro: A tonelagem para este dia excede o limite programado de ${scheduleRule.tonnage} ton. Já existem ${alreadyScheduledTonnage} ton programadas.`);
-                    return;
-                }
+        if (!scheduleRule) {
+            alert('Não é permitido criar ordens para datas sem programação lançada na carga. Verifique a Data Programada.');
+            return;
+        }
+
+        if (scheduleRule.type === DailyScheduleType.Verificar) {
+            alert('Atenção: A programação para este dia exige verificação com o comercial antes de marcar.');
+        } else if (scheduleRule.type === DailyScheduleType.Fixo && scheduleRule.tonnage) {
+            const alreadyScheduledTonnage = shipments
+                .filter(s => s.cargoId === cargo.id && s.scheduledDate === scheduledDate)
+                .reduce((sum, s) => sum + s.shipmentTonnage, 0);
+            
+            if (alreadyScheduledTonnage + shipmentTonnage > scheduleRule.tonnage) {
+                alert(`Erro: A tonelagem para este dia excede o limite programado de ${scheduleRule.tonnage} ton. Já existem ${alreadyScheduledTonnage} ton programadas.`);
+                return;
             }
         }
+    }
+
+    // Validation: Prevent future date/time
+    const now = new Date();
+    const inputDateTime = new Date(`${scheduledDate}T${scheduledTime}`);
+    if (inputDateTime > now) {
+        alert('Data/Hora Inválida: Não é permitido criar ordens com data e hora prevista posterior ao momento atual.');
+        return;
     }
 
 

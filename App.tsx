@@ -910,6 +910,36 @@ const App: React.FC = () => {
       console.error('Erro ao atualizar preço:', err);
     }
   };
+
+  const handleUpdateScheduledDateTime = async (shipmentId: string, data: { scheduledDate: string, scheduledTime?: string }) => {
+    const shipmentToUpdate = shipments.find(s => s.id === shipmentId);
+    if (!shipmentToUpdate) return;
+
+    const changes: string[] = [];
+    if (shipmentToUpdate.scheduledDate !== data.scheduledDate) {
+      changes.push(`Data Programada alterada de "${shipmentToUpdate.scheduledDate}" para "${data.scheduledDate}".`);
+    }
+    if (data.scheduledTime !== undefined && shipmentToUpdate.scheduledTime !== data.scheduledTime) {
+      changes.push(`Horário Previsto alterado de "${shipmentToUpdate.scheduledTime || 'N/A'}" para "${data.scheduledTime}".`);
+    }
+
+    if (changes.length === 0) return;
+
+    const updatedShipment: Shipment = { 
+      ...shipmentToUpdate, 
+      scheduledDate: data.scheduledDate,
+      scheduledTime: data.scheduledTime,
+      history: [...shipmentToUpdate.history, createHistoryLog(changes.join(' '))] 
+    };
+
+    setShipments((prev: Shipment[]) => prev.map(s => s.id === shipmentId ? updatedShipment : s));
+    try {
+      await upsertShipment(updatedShipment);
+    } catch (err) {
+      console.error('Erro ao atualizar agendamento:', err);
+    }
+  };
+
   
   const handleConfirmCancelShipment = async (shipmentId: string, reason: string) => {
     const shipmentToCancel = shipments.find(s => s.id === shipmentId);
@@ -1354,8 +1384,10 @@ const App: React.FC = () => {
                     onTransferShipment={handleTransferShipment}
                     onDeleteShipment={handleDeleteShipment}
                     onRevertStatus={handleRevertShipmentStatus}
+                    onUpdateScheduledDateTime={handleUpdateScheduledDateTime}
                     activeLocks={activeLocks}
                     onModalStateChange={setIsAnyModalOpen}
+
                 />;
       case 'operational-loads':
         return (

@@ -183,9 +183,23 @@ const CargoDetailsModal: React.FC<CargoDetailsModalProps> = ({ isOpen, onClose, 
                 </div>
             )}
 
+            {cargo.allowedVehicleTypes && cargo.allowedVehicleTypes.length > 0 && (
+                <div className="border-t dark:border-gray-700 pt-4">
+                    <DetailItem label="Tipos de Veículos Permitidos">
+                        <div className="flex flex-wrap gap-2 mt-1">
+                            {cargo.allowedVehicleTypes.map((vt, idx) => (
+                                <span key={idx} className="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800/50">
+                                    {vt.setType} ({vt.bodyTypes.join('/')})
+                                </span>
+                            ))}
+                        </div>
+                    </DetailItem>
+                </div>
+            )}
+
             {cargo.allowedBodyTypes && cargo.allowedBodyTypes.length > 0 && (
                 <div className="border-t dark:border-gray-700 pt-4">
-                    <DetailItem label="Tipos de Carroceria Permitidos">
+                    <DetailItem label="Tipos de Carroceria Permitidos (Legado)">
                         <div className="flex flex-wrap gap-2 mt-1">
                             {cargo.allowedBodyTypes.map(bt => (
                                 <span key={bt} className="px-2 py-1 text-xs font-semibold rounded-full bg-gray-200 text-gray-700 dark:bg-gray-600 dark:text-gray-200">
@@ -196,6 +210,7 @@ const CargoDetailsModal: React.FC<CargoDetailsModalProps> = ({ isOpen, onClose, 
                     </DetailItem>
                 </div>
             )}
+
 
         </div>
         
