@@ -1547,7 +1547,16 @@ const App: React.FC = () => {
   const isOperationalPage = operationalPages.includes(currentPage);
 
   return (
-    <div className="flex flex-col h-screen bg-light-bg dark:bg-dark-bg text-gray-800 dark:text-gray-200">
+    <div 
+      className="flex flex-col h-screen bg-light-bg dark:bg-dark-bg text-gray-800 dark:text-gray-200"
+      style={themeImage ? { 
+        backgroundImage: `url(${themeImage})`, 
+        backgroundSize: 'cover', 
+        backgroundPosition: 'center',
+        backgroundAttachment: 'fixed',
+        backgroundRepeat: 'no-repeat'
+      } : {}}
+    >
       <TopNavBar
         user={currentUser}
         onLogout={handleLogout}
