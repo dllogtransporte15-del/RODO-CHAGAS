@@ -7,7 +7,7 @@ import HistoryModal from '../components/HistoryModal';
 import CargoDetailsModal from '../components/CargoDetailsModal';
 import CargoShipmentsSidePanel from '../components/CargoShipmentsSidePanel';
 import type { Cargo, Client, Product, User, ProfilePermissions, Shipment, DailyScheduleEntry } from '../types';
-import { CargoStatus } from '../types';
+import { CargoStatus, UserProfile } from '../types';
 import { can } from '../auth';
 
 interface LoadsPageProps {
@@ -22,10 +22,13 @@ interface LoadsPageProps {
   profilePermissions: ProfilePermissions;
   users: User[];
   onDeleteLoad: (cargoId: string) => void;
+  onReactivateLoad?: (cargo: Cargo) => void;
+  onSuspendLoad?: (cargo: Cargo) => void;
+  onUpdatePrice: (shipmentId: string, data: { newTotal: number, newRate?: number, newCompanyRate?: number }) => void;
   onModalStateChange: (isOpen: boolean) => void;
 }
 
-const LoadsPage: React.FC<LoadsPageProps> = ({ loads, setLoads, clients, products, shipments, onSaveLoad, currentUser, profilePermissions, users, onDeleteLoad, onModalStateChange }) => {
+const LoadsPage: React.FC<LoadsPageProps> = ({ loads, setLoads, clients, products, shipments, onSaveLoad, onReactivateLoad, onSuspendLoad, onUpdatePrice, currentUser, profilePermissions, users, onDeleteLoad, onModalStateChange }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loadToEdit, setLoadToEdit] = useState<Cargo | null>(null);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
@@ -118,6 +121,8 @@ const LoadsPage: React.FC<LoadsPageProps> = ({ loads, setLoads, clients, product
             onEdit={canUpdate ? handleEditLoad : undefined}
             onClose={canDelete ? handleCloseLoad : undefined}
             onShowHistory={handleShowHistory}
+            onReactivate={currentUser.profile !== UserProfile.Embarcador ? onReactivateLoad : undefined}
+            onSuspend={currentUser.profile !== UserProfile.Embarcador ? onSuspendLoad : undefined}
             onEditSchedule={canUpdate ? handleEditSchedule : undefined}
             onShowDetails={handleShowDetails}
             onShowShipments={handleShowShipments}
@@ -165,6 +170,8 @@ const LoadsPage: React.FC<LoadsPageProps> = ({ loads, setLoads, clients, product
         cargo={selectedCargoForShipments}
         shipments={shipments}
         users={users}
+        currentUser={currentUser}
+        onUpdatePrice={onUpdatePrice}
       />
     </>
   );

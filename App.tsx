@@ -1345,6 +1345,42 @@ const App: React.FC = () => {
     }
   };
 
+  const handleReactivateLoad = async (cargoToReactivate: Cargo) => {
+    if (!currentUser) return;
+    
+    const updatedCargo: Cargo = {
+      ...cargoToReactivate,
+      status: CargoStatus.EmAndamento,
+      history: [...cargoToReactivate.history, createHistoryLog(`Carga reativada por ${currentUser.name}. Status alterado de "${cargoToReactivate.status}" para "Em Andamento".`)]
+    };
+
+    setCargos(prev => prev.map(c => c.id === cargoToReactivate.id ? updatedCargo : c));
+    try {
+      await upsertCargo(updatedCargo);
+    } catch (err) {
+      console.error('Erro ao reativar carga:', err);
+      alert("Erro ao reativar carga no banco de dados.");
+    }
+  };
+
+  const handleSuspendLoad = async (cargoToSuspend: Cargo) => {
+    if (!currentUser) return;
+    
+    const updatedCargo: Cargo = {
+      ...cargoToSuspend,
+      status: CargoStatus.Suspensa,
+      history: [...cargoToSuspend.history, createHistoryLog(`Carga suspensa por ${currentUser.name}.`)]
+    };
+
+    setCargos(prev => prev.map(c => c.id === cargoToSuspend.id ? updatedCargo : c));
+    try {
+      await upsertCargo(updatedCargo);
+    } catch (err) {
+      console.error('Erro ao suspender carga:', err);
+      alert("Erro ao suspender carga no banco de dados.");
+    }
+  };
+
   // --- RENDER LOGIC ---
   const renderPage = () => {
     if (!currentUser) return null;
@@ -1363,7 +1399,7 @@ const App: React.FC = () => {
 
     switch (currentPage) {
       case 'dashboard':
-        return <DashboardPage cargos={visibleLoads} shipments={visibleShipments} users={users} currentUser={currentUser} clients={clients} />;
+        return <DashboardPage cargos={activeLoads} shipments={visibleShipments} users={users} currentUser={currentUser} clients={clients} />;
       case 'clients':
         return <ClientsPage clients={clients} setClients={setClients} onSaveClient={handleSaveClient} currentUser={currentUser} profilePermissions={profilePermissions} />;
       case 'owners':
@@ -1373,7 +1409,7 @@ const App: React.FC = () => {
       case 'vehicles':
         return <VehiclesPage vehicles={vehicles} setVehicles={setVehicles} onSaveVehicle={handleSaveVehicle} owners={owners} currentUser={currentUser} profilePermissions={profilePermissions} shipments={visibleShipments} cargos={cargos} />;
       case 'loads':
-        return <LoadsPage loads={activeLoads} setLoads={setCargos} clients={clients} products={products} onSaveLoad={handleSaveLoad} currentUser={currentUser} profilePermissions={profilePermissions} users={users} shipments={visibleShipments} onDeleteLoad={handleDeleteCargo} onModalStateChange={setIsAnyModalOpen} />;
+        return <LoadsPage loads={activeLoads} setLoads={setCargos} clients={clients} products={products} onSaveLoad={handleSaveLoad} onReactivateLoad={handleReactivateLoad} onSuspendLoad={handleSuspendLoad} onUpdatePrice={handleUpdateShipmentPrice} currentUser={currentUser} profilePermissions={profilePermissions} users={users} shipments={visibleShipments} onDeleteLoad={handleDeleteCargo} onModalStateChange={setIsAnyModalOpen} />;
       case 'products':
         return <ProductsPage products={products} onSaveProduct={handleSaveProduct} onDeleteProduct={handleDeleteProduct} currentUser={currentUser} profilePermissions={profilePermissions} />;
       case 'shipments':
@@ -1410,6 +1446,8 @@ const App: React.FC = () => {
             vehicles={vehicles}
             onCreateShipment={handleCreateShipment}
             onSaveLoad={handleSaveLoad}
+            onReactivateLoad={handleReactivateLoad}
+            onSuspendLoad={handleSuspendLoad}
             currentUser={currentUser} 
             profilePermissions={profilePermissions}
             shipments={visibleShipments}
@@ -1476,6 +1514,7 @@ const App: React.FC = () => {
                   currentUser={currentUser}
                   shipments={shipments}
                   onDeleteLoad={handleDeleteCargo}
+                  onReactivateLoad={handleReactivateLoad}
                 />;
       case 'layover-calculator':
         return <LayoverCalculatorPage currentUser={currentUser} />;
@@ -1483,8 +1522,6 @@ const App: React.FC = () => {
         return <FreightQuotePage currentUser={currentUser} />;
       case 'tools-history':
         return <ToolsHistoryPage currentUser={currentUser} />;
-      case 'dashboard':
-        return <DashboardPage cargos={activeLoads} shipments={visibleShipments} users={users} currentUser={currentUser} clients={clients} />;
       default:
         return <DashboardPage cargos={activeLoads} shipments={visibleShipments} users={users} currentUser={currentUser} clients={clients} />;
 

@@ -6,6 +6,7 @@ import LoadHistoryFilter, { type LoadFilters } from '../components/LoadHistoryFi
 import HistoryModal from '../components/HistoryModal';
 import CargoDetailsModal from '../components/CargoDetailsModal';
 import type { Cargo, Client, Product, User, Shipment } from '../types';
+import { UserProfile } from '../types';
 
 interface LoadHistoryPageProps {
   loads: Cargo[];
@@ -15,9 +16,10 @@ interface LoadHistoryPageProps {
   currentUser: User;
   shipments: Shipment[];
   onDeleteLoad: (cargoId: string) => void;
+  onReactivateLoad?: (cargo: Cargo) => void;
 }
 
-const LoadHistoryPage: React.FC<LoadHistoryPageProps> = ({ loads, clients, products, users, currentUser, shipments, onDeleteLoad }) => {
+const LoadHistoryPage: React.FC<LoadHistoryPageProps> = ({ loads, clients, products, users, currentUser, shipments, onDeleteLoad, onReactivateLoad }) => {
   const [filters, setFilters] = useState<LoadFilters>({
     startDate: '',
     endDate: '',
@@ -80,6 +82,7 @@ const LoadHistoryPage: React.FC<LoadHistoryPageProps> = ({ loads, clients, produ
         dailyBalanceDate={dailyBalanceDate}
         onDailyBalanceDateChange={setDailyBalanceDate}
         onShowHistory={handleShowHistory}
+        onReactivate={currentUser.profile !== UserProfile.Embarcador ? onReactivateLoad : undefined}
         onShowDetails={handleShowDetails}
         onDelete={onDeleteLoad}
         currentUser={currentUser}

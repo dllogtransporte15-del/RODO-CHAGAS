@@ -330,7 +330,7 @@ const LoadTable: React.FC<LoadTableProps> = ({ loads, clients, products, shipmen
                               Suspender Carga
                             </button>
                           )}
-                          {onReactivate && load.status === CargoStatus.Suspensa && (
+                          {onReactivate && (load.status === CargoStatus.Suspensa || load.status === CargoStatus.Fechada) && (
                             <button onClick={() => { onReactivate(load); setOpenActionMenu(null); }} className="w-full text-left px-4 py-2 text-sm text-green-600 dark:text-green-400 hover:bg-gray-100 dark:hover:bg-gray-700">
                               Reativar Carga
                             </button>

@@ -10,7 +10,7 @@ import CargoShipmentsSidePanel from '../components/CargoShipmentsSidePanel';
 import type { Cargo, Client, Product, Driver, Shipment, Vehicle, User, ProfilePermissions, VehicleSetType, VehicleBodyType } from '../types';
 import { can } from '../auth';
 import { CopyIcon } from '../components/icons/CopyIcon';
-import { CargoStatus } from '../types';
+import { CargoStatus, UserProfile } from '../types';
 
 interface OperationalLoadsPageProps {
   loads: Cargo[];
@@ -25,6 +25,8 @@ interface OperationalLoadsPageProps {
   profilePermissions: ProfilePermissions;
   users: User[];
   onDeleteLoad: (cargoId: string) => void;
+  onReactivateLoad?: (cargo: Cargo) => void;
+  onSuspendLoad?: (cargo: Cargo) => void;
   onUpdatePrice: (shipmentId: string, data: { newTotal: number, newRate?: number, newCompanyRate?: number }) => void;
   onModalStateChange: (isOpen: boolean) => void;
 }
@@ -49,6 +51,8 @@ const OperationalLoadsPage: React.FC<OperationalLoadsPageProps> = ({
   profilePermissions,
   users,
   onDeleteLoad,
+  onReactivateLoad,
+  onSuspendLoad,
   onUpdatePrice,
   onModalStateChange,
 }) => {
@@ -176,6 +180,8 @@ const OperationalLoadsPage: React.FC<OperationalLoadsPageProps> = ({
         onDailyBalanceDateChange={setDailyBalanceDate}
         onCreateShipment={canCreateShipment ? handleOpenNewShipmentModal : undefined} 
         onShowHistory={handleShowHistory}
+        onReactivate={currentUser.profile !== UserProfile.Embarcador ? onReactivateLoad : undefined}
+        onSuspend={currentUser.profile !== UserProfile.Embarcador ? onSuspendLoad : undefined}
         onShowDetails={handleShowCargoDetails}
         onShowShipments={handleShowShipments}
         onDelete={onDeleteLoad}
