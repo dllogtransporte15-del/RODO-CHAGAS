@@ -1548,14 +1548,8 @@ const App: React.FC = () => {
 
   return (
     <div 
-      className="flex flex-col h-screen bg-light-bg dark:bg-dark-bg text-gray-800 dark:text-gray-200"
-      style={themeImage ? { 
-        backgroundImage: `url(${themeImage})`, 
-        backgroundSize: 'cover', 
-        backgroundPosition: 'center',
-        backgroundAttachment: 'fixed',
-        backgroundRepeat: 'no-repeat'
-      } : {}}
+      className="flex flex-col h-screen bg-light-bg dark:bg-dark-bg text-gray-800 dark:text-gray-200 portal-theme-bg"
+      style={{ '--theme-bg': themeImage ? `url(${themeImage})` : 'none' } as React.CSSProperties}
     >
       <TopNavBar
         user={currentUser}

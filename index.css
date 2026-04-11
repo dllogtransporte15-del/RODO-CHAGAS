@@ -91,3 +91,21 @@ body {
   opacity: 0.15;
   z-index: 0;
 }
+
+/* Premium Background Theme Implementation */
+.portal-theme-bg {
+  background-image: var(--theme-bg, none);
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+  transition: background-image 0.3s ease-in-out;
+}
+
+/* Tablet & Mobile Optimization */
+@media (max-width: 1024px) {
+  .portal-theme-bg {
+    background-attachment: scroll !important;
+    background-position: top center !important;
+  }
+}
