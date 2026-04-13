@@ -72,11 +72,65 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
     prevIsOpen.current = isOpen;
   }, [isOpen, currentUser]);
 
+    // Driver selection & Autofill logic
+  const [lastAlertedDriverId, setLastAlertedDriverId] = useState<string>('');
+  const [lastAutofilledDriverId, setLastAutofilledDriverId] = useState<string>('');
+
   useEffect(() => {
-    const selectedDriver = drivers.find(d => d.name.trim().toLowerCase() === driverName.trim().toLowerCase());
-    setDriverContact(selectedDriver?.phone || '');
-    setDriverCpf(selectedDriver?.cpf || '');
-  }, [driverName, drivers]);
+    const cleanName = driverName.trim().toLowerCase();
+    const cleanCpf = driverCpf.replace(/\D/g, '');
+
+    const driverByName = cleanName ? drivers.find(d => d.name.trim().toLowerCase() === cleanName) : undefined;
+    const driverByCpf = cleanCpf.length === 11 ? drivers.find(d => d.cpf.replace(/\D/g, '') === cleanCpf) : undefined;
+
+    const selectedDriver = driverByName || driverByCpf;
+
+    if (selectedDriver) {
+        // Sync Fields
+        if (driverByName && selectedDriver.cpf && selectedDriver.cpf.replace(/\D/g, '') !== cleanCpf) {
+            setDriverCpf(selectedDriver.cpf);
+        } else if (driverByCpf && selectedDriver.name.trim().toLowerCase() !== cleanName) {
+            setDriverName(selectedDriver.name);
+        }
+
+        setDriverContact(selectedDriver.phone || '');
+
+        // Instant Restriction Alert
+        if (!selectedDriver.active && lastAlertedDriverId !== selectedDriver.id) {
+            alert(`ATENÇÃO: Este motorista encontra-se RESTRITO!\n\nMotivo: ${selectedDriver.restrictionReason || 'Sem motivo especificado'}.\n\nO sistema impedirá a criação desta ordem.`);
+            setLastAlertedDriverId(selectedDriver.id);
+        } else if (selectedDriver.active) {
+            setLastAlertedDriverId(''); 
+        }
+
+        // History Autofill
+        if (lastAutofilledDriverId !== selectedDriver.id && selectedDriver.active) {
+            const selectedCleanCpf = selectedDriver.cpf ? selectedDriver.cpf.replace(/\D/g, '') : '';
+            const lastShipment = shipments
+                .filter(s => 
+                    (s.driverCpf && s.driverCpf.replace(/\D/g, '') === selectedCleanCpf) || 
+                    (s.driverName.trim().toLowerCase() === selectedDriver.name.trim().toLowerCase())
+                )
+                .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+
+            if (lastShipment) {
+                setHorsePlate(lastShipment.horsePlate || '');
+                setTrailer1Plate(lastShipment.trailer1Plate || '');
+                setTrailer2Plate(lastShipment.trailer2Plate || '');
+                setTrailer3Plate(lastShipment.trailer3Plate || '');
+                setOwnerContact(lastShipment.ownerContact || '');
+                setBankDetails(lastShipment.bankDetails || '');
+                setVehicleTag(lastShipment.vehicleTag || '');
+            }
+            setLastAutofilledDriverId(selectedDriver.id);
+        } else if (!selectedDriver.active) {
+            setLastAutofilledDriverId(selectedDriver.id); // Prevent repeated alerts/lookups if restricted
+        }
+    } else {
+        setLastAutofilledDriverId('');
+        setLastAlertedDriverId('');
+    }
+  }, [driverName, driverCpf, drivers, shipments, lastAlertedDriverId, lastAutofilledDriverId]);
   
   useEffect(() => {
     const vehicle = vehicles.find(v => v.plate.trim().toLowerCase() === horsePlate.trim().toLowerCase());
@@ -208,7 +262,7 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center">
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-8 max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-        <h2 className="text-2xl font-bold mb-2 text-gray-800 dark:text-white">Criar Nova Ordem de Carregamento</h2>
+        <h2 className="text-2xl font-bold mb-2 text-gray-800 dark:text-white">Solicitação de Embarque</h2>
         <div className="mb-6 p-3 bg-gray-100 dark:bg-gray-700 rounded-md">
           <p className="text-sm text-gray-600 dark:text-gray-400">Cliente: <span className="font-semibold text-gray-800 dark:text-gray-200">{clientName}</span></p>
           <p className="text-sm text-gray-600 dark:text-gray-400">Rota: <span className="font-semibold text-gray-800 dark:text-gray-200">{cargo.origin} → {cargo.destination}</span></p>
@@ -246,9 +300,8 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Motorista</label>
-                  <input value={driverName} onChange={(e) => setDriverName(e.target.value)} placeholder="Digite o nome do motorista" className="mt-1 p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600" required list="driver-names" />
-                  <datalist id="driver-names">{drivers.map(d => <option key={d.id} value={d.name} />)}</datalist>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">CPF do Motorista</label>
+                <input type="text" value={driverCpf} onChange={(e) => setDriverCpf(e.target.value)} placeholder="Digite o CPF do motorista" className="mt-1 p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600" required />
               </div>
               <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Contato (WhatsApp)</label>
@@ -257,8 +310,9 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">CPF do Motorista</label>
-                <input type="text" value={driverCpf} onChange={(e) => setDriverCpf(e.target.value)} placeholder="CPF (auto-preenchido)" className="mt-1 p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600" disabled={isExistingDriver} required={!isExistingDriver} />
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Motorista</label>
+                  <input value={driverName} onChange={(e) => setDriverName(e.target.value)} placeholder="Digite o nome do motorista" className="mt-1 p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600" required list="driver-names" />
+                  <datalist id="driver-names">{drivers.map(d => <option key={d.id} value={d.name} />)}</datalist>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Contato do Proprietário</label>
@@ -360,7 +414,7 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
           
             <div className="mt-8 flex justify-end space-x-4">
               <button type="button" onClick={onClose} className="py-2 px-4 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-200 dark:hover:bg-gray-500">Cancelar</button>
-              <button type="submit" className="py-2 px-4 bg-primary text-white rounded-lg hover:bg-primary-dark">Criar Ordem</button>
+              <button type="submit" className="py-2 px-4 bg-primary text-white rounded-lg hover:bg-primary-dark">Solicitar Embarque</button>
             </div>
         </form>
       </div>
