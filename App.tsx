@@ -1561,7 +1561,7 @@ const App: React.FC = () => {
         onOpenTickets={() => setIsTicketModalOpen(true)}
         tickets={tickets}
       />
-      <main className="flex-1 overflow-y-auto">
+      <main className="flex-1 overflow-y-auto" style={{ zoom: 0.8 }}>
         <div className={isOperationalPage ? "px-6 py-8" : "container mx-auto px-6 py-8"}>
             {renderPage()}
         </div>

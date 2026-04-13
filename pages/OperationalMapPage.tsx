@@ -543,7 +543,7 @@ const OperationalMapPage: React.FC<OperationalMapPageProps> = ({ cargos, shipmen
             <div className="mb-4 p-2.5 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-100 dark:border-yellow-800 rounded-xl flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse"></div>
               <span className="text-[10px] font-bold text-yellow-700 dark:text-yellow-400">
-                {originCoords ? `Fretistas próximos a ${originQuery}` : 'Aguardando parâmetros'}
+                {originCoords ? `Fretes próximos a ${originQuery}` : 'Aguardando parâmetros'}
               </span>
             </div>
 

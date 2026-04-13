@@ -197,11 +197,15 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, carg
     }
   };
   
+  const isEmbarcador = currentUser?.profile === UserProfile.Embarcador;
+
   const navItems = [
       ...(canViewCommercialReport ? [{ id: 'comercial', label: 'Relatório Supervisão', icon: BriefcaseIcon }] : []),
       { id: 'embarcadores', label: 'Embarcadores', icon: ShipIcon },
-      { id: 'clientes', label: 'Clientes', icon: UsersIcon },
-      { id: 'vendedores', label: 'Vendedores', icon: UsersIcon },
+      ...(!isEmbarcador ? [
+        { id: 'clientes', label: 'Clientes', icon: UsersIcon },
+        { id: 'vendedores', label: 'Vendedores', icon: UsersIcon },
+      ] : []),
       { id: 'tempo-operacao', label: 'Tempo de Operação', icon: ClockIcon },
   ];
 

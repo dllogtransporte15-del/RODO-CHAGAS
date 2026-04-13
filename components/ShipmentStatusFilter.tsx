@@ -45,31 +45,29 @@ const ShipmentStatusFilter: React.FC<ShipmentStatusFilterProps> = ({ shipments, 
   };
 
   return (
-    <div className="mb-6">
-      <div className="border-b border-gray-200 dark:border-gray-700">
-        <nav className="-mb-px flex space-x-6 overflow-x-auto" aria-label="Tabs">
-          {statusOrder.map((status) => (
-            <button
-              key={status}
-              onClick={() => onStatusChange(status)}
-              className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${
-                activeStatus === status
-                  ? 'border-primary text-primary dark:border-blue-400 dark:text-blue-400'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:border-gray-500'
-              }`}
-            >
-              {getStatusLabel(status)}
-              <span className={`ml-2 inline-block py-0.5 px-2 rounded-full text-xs font-semibold ${
-                 activeStatus === status
-                  ? 'bg-primary text-white'
-                  : 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-200'
-              }`}>
-                {getStatusCount(status)}
-              </span>
-            </button>
-          ))}
-        </nav>
-      </div>
+    <div className="mb-6 bg-white dark:bg-gray-800 p-2 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+      <nav className="flex space-x-2 overflow-x-auto pb-1 custom-scrollbar" aria-label="Tabs">
+        {statusOrder.map((status) => (
+          <button
+            key={status}
+            onClick={() => onStatusChange(status)}
+            className={`whitespace-nowrap py-2.5 px-5 rounded-xl font-bold text-[13px] transition-all duration-300 flex items-center gap-2 flex-shrink-0 border border-transparent ${
+              activeStatus === status
+                ? 'bg-primary text-white shadow-md shadow-blue-500/20 transform scale-[1.02] border-blue-400 dark:border-blue-500'
+                : 'bg-gray-50/50 dark:bg-gray-900/20 text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700/50 hover:text-primary dark:hover:text-blue-400 border-gray-100 dark:border-gray-800'
+            }`}
+          >
+            <span>{getStatusLabel(status)}</span>
+            <span className={`inline-block py-0.5 px-2 rounded-lg text-xs font-black shadow-inner transition-colors duration-300 ${
+               activeStatus === status
+                ? 'bg-white/20 text-white'
+                : 'bg-gray-200/80 text-gray-600 dark:bg-gray-800 dark:text-gray-300'
+            }`}>
+              {getStatusCount(status)}
+            </span>
+          </button>
+        ))}
+      </nav>
     </div>
   );
 };

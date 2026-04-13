@@ -13,6 +13,65 @@ interface StatusTimeStat {
   averageDurationText: string;
 }
 
+// Helper functions to calculate duration considering only business hours (08:00 to 20:00)
+const isSameDay = (d1: Date, d2: Date) => {
+    return d1.getFullYear() === d2.getFullYear() &&
+           d1.getMonth() === d2.getMonth() &&
+           d1.getDate() === d2.getDate();
+};
+
+const getStartOfDay = (dateObj: Date): Date => {
+    const d = new Date(dateObj);
+    d.setHours(0, 0, 0, 0);
+    return d;
+};
+
+const getEndOfDay = (dateObj: Date): Date => {
+    const d = new Date(dateObj);
+    d.setHours(23, 59, 59, 999);
+    return d;
+};
+
+const getDailyOverlap = (dateObj: Date, rangeStart: Date, rangeEnd: Date): number => {
+  const businessStart = new Date(dateObj);
+  businessStart.setHours(8, 0, 0, 0);
+  
+  const businessEnd = new Date(dateObj);
+  businessEnd.setHours(20, 0, 0, 0);
+  
+  const effectiveStart = Math.max(businessStart.getTime(), rangeStart.getTime());
+  const effectiveEnd = Math.min(businessEnd.getTime(), rangeEnd.getTime());
+  
+  return Math.max(0, effectiveEnd - effectiveStart);
+};
+
+const calculateBusinessDuration = (startTimeMs: number, endTimeMs: number): number => {
+  if (endTimeMs <= startTimeMs) return 0;
+  
+  let totalBusinessMs = 0;
+  const startObj = new Date(startTimeMs);
+  const endObj = new Date(endTimeMs);
+  
+  if (isSameDay(startObj, endObj)) {
+    return getDailyOverlap(startObj, startObj, endObj);
+  }
+  
+  totalBusinessMs += getDailyOverlap(startObj, startObj, getEndOfDay(startObj));
+  
+  let currentDay = new Date(startObj);
+  currentDay.setDate(currentDay.getDate() + 1);
+  currentDay.setHours(0, 0, 0, 0);
+  
+  while (!isSameDay(currentDay, endObj)) {
+    totalBusinessMs += getDailyOverlap(currentDay, getStartOfDay(currentDay), getEndOfDay(currentDay));
+    currentDay.setDate(currentDay.getDate() + 1);
+  }
+  
+  totalBusinessMs += getDailyOverlap(endObj, getStartOfDay(endObj), endObj);
+  
+  return totalBusinessMs;
+};
+
 // Helper function to format milliseconds into a readable string
 const formatDuration = (ms: number): string => {
   if (isNaN(ms) || ms < 0) return 'N/A';
@@ -44,7 +103,7 @@ const OperationalTimingReport: React.FC<OperationalTimingReportProps> = ({ shipm
 
         const startTime = new Date(currentEntry.timestamp).getTime();
         const endTime = new Date(nextEntry.timestamp).getTime();
-        const duration = endTime - startTime;
+        const duration = calculateBusinessDuration(startTime, endTime);
 
         if (!stats[currentEntry.status]) {
           stats[currentEntry.status] = { totalDuration: 0, count: 0 };
