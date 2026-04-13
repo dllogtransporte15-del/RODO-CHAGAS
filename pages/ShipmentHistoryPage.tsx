@@ -19,9 +19,10 @@ interface ShipmentHistoryPageProps {
   products: Product[];
   vehicles: Vehicle[];
   onDeleteShipment: (shipmentId: string) => void;
+  onRevertStatus?: (shipmentId: string) => void;
 }
 
-const ShipmentHistoryPage: React.FC<ShipmentHistoryPageProps> = ({ shipments, cargos, users, currentUser, clients, products, vehicles, onDeleteShipment }) => {
+const ShipmentHistoryPage: React.FC<ShipmentHistoryPageProps> = ({ shipments, cargos, users, currentUser, clients, products, vehicles, onDeleteShipment, onRevertStatus }) => {
   const [activeStatus, setActiveStatus] = useState<ShipmentStatus>(ShipmentStatus.Finalizado);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [isAttachmentModalOpen, setAttachmentModalOpen] = useState(false);
@@ -105,6 +106,7 @@ const ShipmentHistoryPage: React.FC<ShipmentHistoryPageProps> = ({ shipments, ca
         onAttach={handleOpenAttachmentModal} // Allow viewing attachments
         onShowCargoDetails={handleShowCargoDetails}
         onDelete={onDeleteShipment}
+        onRevertStatus={onRevertStatus}
         currentUser={currentUser}
         activeStatus={activeStatus}
         clients={clients}

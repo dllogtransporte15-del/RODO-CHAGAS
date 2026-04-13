@@ -580,7 +580,7 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users,
                                       </a>
                                   )}
   
-                                  {shipment.status === ShipmentStatus.Cancelado && currentUser.profile !== UserProfile.Admin ? (
+                                  {shipment.status === ShipmentStatus.Cancelado && currentUser.profile !== UserProfile.Admin && currentUser.profile !== UserProfile.Diretor ? (
                                       <span className="text-xs text-gray-400 dark:text-gray-500 italic px-2">Cancelado</span>
                                   ) : (
                                       <div className="relative">
@@ -623,18 +623,18 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users,
                                                               {onOpenEditScheduledDateTime && <ActionMenuItem icon={Clock} text="Alterar Data/Hora" onClick={() => onOpenEditScheduledDateTime(shipment)} />}
                                                               {shipment.status === ShipmentStatus.Finalizado && onAttach && <ActionMenuItem icon={PaperclipIcon} text="Gestor de Anexos" onClick={() => onAttach(shipment)} />}
                                                               {isActionable && onCancel && <ActionMenuItem icon={XIcon} text="Cancelar Embarque" onClick={() => onCancel(shipment)} isDestructive />}
-                                                              {onRevertStatus && statusHistoryCount > 1 && (currentUser.profile === UserProfile.Admin || currentUser.profile === UserProfile.Diretor) && (
-                                                                  <ActionMenuItem 
-                                                                      icon={RotateCcw} 
-                                                                      text="Voltar Status Anterior" 
-                                                                      onClick={() => {
-                                                                          if (confirm(`Tem certeza que deseja REVERTER o status do embarque ${shipment.id} para o estado anterior? Isso também removerá os anexos adicionados no último passo.`)) {
-                                                                              onRevertStatus(shipment.id);
-                                                                          }
-                                                                      }} 
-                                                                  />
-                                                              )}
                                                           </>
+                                                      )}
+                                                      {onRevertStatus && statusHistoryCount > 1 && (currentUser.profile === UserProfile.Admin || currentUser.profile === UserProfile.Diretor) && (
+                                                          <ActionMenuItem 
+                                                              icon={RotateCcw} 
+                                                              text="Voltar Status Anterior" 
+                                                              onClick={() => {
+                                                                  if (confirm(`Tem certeza que deseja REVERTER o status do embarque ${shipment.id} para o estado anterior? Isso também removerá os anexos adicionados no último passo.`)) {
+                                                                      onRevertStatus(shipment.id);
+                                                                  }
+                                                              }} 
+                                                          />
                                                       )}
                                                       {onDelete && currentUser.profile === UserProfile.Admin && <ActionMenuItem icon={Trash2} text="Excluir Embarque" onClick={() => onDelete(shipment.id)} isDestructive />}
                                                   </div>

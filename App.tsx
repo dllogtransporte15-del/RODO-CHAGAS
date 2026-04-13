@@ -1504,6 +1504,7 @@ const App: React.FC = () => {
                   products={products}
                   vehicles={vehicles}
                   onDeleteShipment={handleDeleteShipment}
+                  onRevertStatus={handleRevertShipmentStatus}
                 />;
       case 'load-history':
         return <LoadHistoryPage
