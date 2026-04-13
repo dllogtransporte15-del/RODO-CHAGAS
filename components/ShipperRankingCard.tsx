@@ -34,32 +34,54 @@ const ShipperRankingCard: React.FC<ShipperRankingCardProps> = ({ shipments, carg
     // Explicitly type `cargoMap` to ensure correct type inference.
     const cargoMap: Map<string, Cargo> = new Map(cargos.map(c => [c.id, c]));
 
-    const currentMonthShipments = shipments.filter(s => {
-      const shipmentDate = new Date(s.createdAt);
-      return (
-        shipmentDate.getMonth() === currentMonth && 
-        shipmentDate.getFullYear() === currentYear
-      );
-    });
-
     const stats = shippers.map(shipper => {
-      const shipperShipments = currentMonthShipments.filter(s => s.embarcadorId === shipper.id);
+      const shipperShipments = shipments.filter(s => s.embarcadorId === shipper.id);
       
-      const uniqueVehicles = new Set(shipperShipments.map(s => s.horsePlate));
+      const uniqueVehicles = new Set<string>();
+      let netMargin = 0;
+      let effectiveTonnage = 0;
 
-      const netMargin = shipperShipments.reduce((totalMargin, shipment) => {
-        const cargo = cargoMap.get(shipment.cargoId);
-        if (!cargo) return totalMargin;
+      shipperShipments.forEach(shipment => {
+        const isEffective = ![ShipmentStatus.PreCadastro, ShipmentStatus.AguardandoSeguradora, ShipmentStatus.AguardandoCarregamento, ShipmentStatus.Cancelado].includes(shipment.status);
         
-        const companyRate = shipment.companyFreightRateSnapshot || cargo.companyFreightValuePerTon;
-        const companyFreightValue = companyRate * shipment.shipmentTonnage;
-        const driverFreightValue = shipment.driverFreightValue;
+        let referenceDate = new Date(shipment.createdAt);
         
-        return totalMargin + (companyFreightValue - driverFreightValue);
-      }, 0);
-      
-      const effectiveShipments = shipperShipments.filter(s => ![ShipmentStatus.PreCadastro, ShipmentStatus.AguardandoSeguradora, ShipmentStatus.AguardandoCarregamento, ShipmentStatus.Cancelado].includes(s.status));
-      const effectiveTonnage = effectiveShipments.reduce((sum, s) => sum + (s.shipmentTonnage || 0), 0);
+        if (isEffective) {
+          const effectiveEntry = shipment.statusHistory?.find(h => ![ShipmentStatus.PreCadastro, ShipmentStatus.AguardandoSeguradora, ShipmentStatus.AguardandoCarregamento, ShipmentStatus.Cancelado].includes(h.status));
+          
+          if (effectiveEntry && effectiveEntry.timestamp) {
+            referenceDate = new Date(effectiveEntry.timestamp);
+          } else {
+            const currentStatusEntry = shipment.statusHistory && shipment.statusHistory.length > 0 
+              ? shipment.statusHistory[shipment.statusHistory.length - 1] 
+              : undefined;
+            if (currentStatusEntry && currentStatusEntry.timestamp) {
+               referenceDate = new Date(currentStatusEntry.timestamp);
+            }
+          }
+        }
+
+        const isCurrentMonth = referenceDate.getMonth() === currentMonth && referenceDate.getFullYear() === currentYear;
+
+        if (isCurrentMonth) {
+          if (shipment.horsePlate) {
+              uniqueVehicles.add(shipment.horsePlate);
+          }
+
+          const cargo = cargoMap.get(shipment.cargoId);
+          if (cargo) {
+            const companyRate = shipment.companyFreightRateSnapshot || cargo.companyFreightValuePerTon;
+            const companyFreightValue = companyRate * shipment.shipmentTonnage;
+            const driverFreightValue = shipment.driverFreightValue;
+            netMargin += (companyFreightValue - driverFreightValue);
+          }
+
+          if (isEffective) {
+            effectiveTonnage += (shipment.shipmentTonnage || 0);
+          }
+        }
+      });
+
       const commission = effectiveTonnage * 2;
 
       return {

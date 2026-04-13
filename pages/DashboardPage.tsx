@@ -213,8 +213,22 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ cargos, shipments, users,
     shipments.forEach(s => {
       const isEffective = ![ShipmentStatus.PreCadastro, ShipmentStatus.AguardandoSeguradora, ShipmentStatus.AguardandoCarregamento, ShipmentStatus.Cancelado].includes(s.status);
       if (isEffective) {
-        const date = new Date(s.createdAt);
-        if (date.getMonth() === currentMonth && date.getFullYear() === currentYear) {
+        let referenceDate = new Date(s.createdAt);
+        
+        const effectiveEntry = s.statusHistory?.find(h => ![ShipmentStatus.PreCadastro, ShipmentStatus.AguardandoSeguradora, ShipmentStatus.AguardandoCarregamento, ShipmentStatus.Cancelado].includes(h.status));
+        
+        if (effectiveEntry && effectiveEntry.timestamp) {
+          referenceDate = new Date(effectiveEntry.timestamp);
+        } else {
+          const currentStatusEntry = s.statusHistory && s.statusHistory.length > 0 
+            ? s.statusHistory[s.statusHistory.length - 1] 
+            : undefined;
+          if (currentStatusEntry && currentStatusEntry.timestamp) {
+             referenceDate = new Date(currentStatusEntry.timestamp);
+          }
+        }
+
+        if (referenceDate.getMonth() === currentMonth && referenceDate.getFullYear() === currentYear) {
           monthlyEffectiveTonnage += s.shipmentTonnage || 0;
         }
       }
