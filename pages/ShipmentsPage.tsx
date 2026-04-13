@@ -92,7 +92,7 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({
   const canPerformSpecialActions = currentUser && allowedProfilesForActions.includes(currentUser.profile);
   
   const canEditPrice = canUpdate && canPerformSpecialActions;
-  const canCancelShipment = canDelete && canPerformSpecialActions;
+  const canCancelShipment = canDelete && canPerformSpecialActions && currentUser.profile !== UserProfile.Fiscal;
   const canTransferShipment = canUpdate && canPerformSpecialActions;
   const isClient = currentUser.profile === UserProfile.Cliente;
 
