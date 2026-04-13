@@ -75,6 +75,7 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
     // Driver selection & Autofill logic
   const [lastAlertedDriverId, setLastAlertedDriverId] = useState<string>('');
   const [lastAutofilledDriverId, setLastAutofilledDriverId] = useState<string>('');
+  const [lastAutofilledPlate, setLastAutofilledPlate] = useState<string>('');
 
   useEffect(() => {
     const cleanName = driverName.trim().toLowerCase();
@@ -133,8 +134,10 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
   }, [driverName, driverCpf, drivers, shipments, lastAlertedDriverId, lastAutofilledDriverId]);
   
   useEffect(() => {
-    const vehicle = vehicles.find(v => v.plate.trim().toLowerCase() === horsePlate.trim().toLowerCase());
+    const cleanPlate = horsePlate.trim().toLowerCase();
+    const vehicle = vehicles.find(v => v.plate.trim().toLowerCase() === cleanPlate);
     setSelectedVehicle(vehicle || null);
+    
     if (vehicle) {
         setVehicleSetType(vehicle.setType);
         setVehicleBodyType(vehicle.bodyType);
@@ -142,7 +145,22 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
         setVehicleSetType('');
         setVehicleBodyType('');
     }
-  }, [horsePlate, vehicles]);
+
+    if (cleanPlate && cleanPlate.length >= 7 && lastAutofilledPlate !== cleanPlate) {
+        const lastShipmentByPlate = shipments
+            .filter(s => s.horsePlate && s.horsePlate.trim().toLowerCase() === cleanPlate)
+            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+
+        if (lastShipmentByPlate) {
+            setTrailer1Plate(lastShipmentByPlate.trailer1Plate || '');
+            setTrailer2Plate(lastShipmentByPlate.trailer2Plate || '');
+            setTrailer3Plate(lastShipmentByPlate.trailer3Plate || '');
+        }
+        setLastAutofilledPlate(cleanPlate);
+    } else if (!cleanPlate) {
+        setLastAutofilledPlate('');
+    }
+  }, [horsePlate, vehicles, shipments, lastAutofilledPlate]);
 
 
   const calculatedFreight = useMemo(() => {
