@@ -187,7 +187,7 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
     }
 
     if (!driverName || !horsePlate || shipmentTonnage <= 0 || !scheduledDate || !embarcadorId || !scheduledTime) {
-        alert('Por favor, preencha todos os campos obrigatórios (Data/Hora Programada, Embarcador, Motorista, Placa Cavalo e Toneladas).');
+        alert('Por favor, preencha todos os campos obrigatórios do formulário.');
         return;
     }
     
@@ -323,7 +323,7 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
               </div>
               <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Contato (WhatsApp)</label>
-                  <input type="text" value={driverContact} onChange={(e) => setDriverContact(e.target.value)} placeholder="Contato (auto-preenchido)" className="mt-1 p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600" disabled={isExistingDriver} />
+                  <input type="text" value={driverContact} onChange={(e) => setDriverContact(e.target.value)} placeholder="Contato (auto-preenchido)" className="mt-1 p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600" disabled={isExistingDriver} required />
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -362,7 +362,7 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Placa Carreta 1</label><input type="text" value={trailer1Plate} onChange={(e) => setTrailer1Plate(e.target.value.toUpperCase())} placeholder="Opcional" className="mt-1 p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600" /></div>
+              <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Placa Carreta 1</label><input type="text" value={trailer1Plate} onChange={(e) => setTrailer1Plate(e.target.value.toUpperCase())} placeholder="Obrigatório" className="mt-1 p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600" required /></div>
               <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Placa Carreta 2</label><input type="text" value={trailer2Plate} onChange={(e) => setTrailer2Plate(e.target.value.toUpperCase())} placeholder="Opcional" className="mt-1 p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600" /></div>
               <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Placa Carreta 3</label><input type="text" value={trailer3Plate} onChange={(e) => setTrailer3Plate(e.target.value.toUpperCase())} placeholder="Opcional" className="mt-1 p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600" /></div>
             </div>
@@ -376,6 +376,7 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
                     placeholder="Banco, Agência, Conta, PIX, etc." 
                     className="mt-1 p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600 resize-y" 
                     rows={2} 
+                    required
                   />
               </div>
               
@@ -405,7 +406,7 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
                 </div>
                 <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Tag do Veículo</label>
-                    <input type="text" value={vehicleTag} onChange={(e) => setVehicleTag(e.target.value)} placeholder="Opcional" className="mt-1 p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600" />
+                    <input type="text" value={vehicleTag} onChange={(e) => setVehicleTag(e.target.value)} placeholder="Obrigatório" className="mt-1 p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600" required />
                 </div>
             </div>
 
@@ -426,6 +427,7 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
                   placeholder="Indicações, referências ou observações sobre o motorista..."
                   className="mt-1 p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600 resize-y"
                   rows={3}
+                  required
                 />
               </div>
             </div>
