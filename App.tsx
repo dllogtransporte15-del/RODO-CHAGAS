@@ -1232,8 +1232,10 @@ const App: React.FC = () => {
       setCargos(prev => prev.map(l => l.id === loadData.id ? updatedCargo : l));
       try {
         await upsertCargo(updatedCargo);
-      } catch (err) {
+      } catch (err: any) {
         console.error('Erro ao atualizar carga:', err);
+        const errorMessage = err?.message || 'Erro desconhecido ao salvar no banco de dados.';
+        alert(`[ERRO CRÍTICO] A carga não pôde ser atualizada no banco de dados: ${errorMessage}`);
       }
     } else { 
       if (!currentUser) return;
@@ -1247,7 +1249,13 @@ const App: React.FC = () => {
       };
       setCargos(prev => [newLoad, ...prev]);
       setNextIds((prev: any) => ({ ...prev, cargo: prev.cargo + 1 }));
-      try { await insertCargo(newLoad); } catch(err) { console.error('Erro ao criar carga:', err); }
+      try {
+        await insertCargo(newLoad);
+      } catch (err: any) {
+        console.error('Erro ao criar carga:', err);
+        const errorMessage = err?.message || 'Erro desconhecido ao salvar no banco de dados.';
+        alert(`[ERRO CRÍTICO] A carga não pôde ser salva no banco de dados: ${errorMessage}. Ao atualizar a página os dados serão perdidos. Verifique as informações preenchidas.`);
+      }
     }
   };
 

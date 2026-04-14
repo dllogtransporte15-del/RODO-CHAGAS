@@ -139,6 +139,8 @@ const toCargo = (row: any): Cargo => ({
   attachments: row.attachments || [],
   originCoords: row.origin_coords,
   destinationCoords: row.destination_coords,
+  salespersonName: row.salesperson_name,
+  salespersonCommissionPerTon: Number(row.salesperson_commission_per_ton),
 });
 
 const fromCargo = (c: Cargo) => ({
@@ -173,6 +175,8 @@ const fromCargo = (c: Cargo) => ({
   attachments: c.attachments || [],
   origin_coords: c.originCoords,
   destination_coords: c.destinationCoords,
+  salesperson_name: c.salespersonName,
+  salesperson_commission_per_ton: c.salespersonCommissionPerTon,
 });
 
 const toShipment = (row: any): Shipment => ({
