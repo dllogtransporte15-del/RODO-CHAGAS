@@ -170,16 +170,33 @@ const App: React.FC = () => {
       }
       setActiveLocks(dbLocks);
       // Update nextIds from DB counts
+      const getMaxId = (items: any[], startOffset: number) => {
+        if (!items || items.length === 0) return startOffset;
+        let maxNum = startOffset - 1;
+        for (const item of items) {
+          if (item?.id && typeof item.id === 'string') {
+            const parts = item.id.split('-');
+            if (parts.length > 1) {
+              const num = parseInt(parts[1], 10);
+              if (!isNaN(num) && num > maxNum) {
+                maxNum = num;
+              }
+            }
+          }
+        }
+        return maxNum + 1;
+      };
+
       setNextIds({
-        client: dbClients.length + 100,
-        owner: dbOwners.length + 100,
-        driver: dbDrivers.length + 100,
-        vehicle: dbVehicles.length + 100,
-        product: (dbProducts.length || 0) + 100,
-        shipment: dbShipments.length + 100,
-        cargo: dbCargos.length + 100,
-        user: dbUsers.length + 100,
-        ticket: dbTickets.length + 1,
+        client: getMaxId(dbClients, 100),
+        owner: getMaxId(dbOwners, 100),
+        driver: getMaxId(dbDrivers, 100),
+        vehicle: getMaxId(dbVehicles, 100),
+        product: getMaxId(dbProducts, 100),
+        shipment: getMaxId(dbShipments, 100),
+        cargo: getMaxId(dbCargos, 100),
+        user: getMaxId(dbUsers, 100),
+        ticket: getMaxId(dbTickets, 1),
         history: 9999,
       });
     } catch (err: any) {
