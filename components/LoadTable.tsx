@@ -241,7 +241,7 @@ const LoadTable: React.FC<LoadTableProps> = ({ loads, clients, products, shipmen
 
                 {/* Programação Futura (Calendário) */}
                 <div 
-                  className={`hidden xl:flex flex-col flex-1 min-w-[170px] gap-1 px-4 border-l border-r border-gray-50 dark:border-gray-700/50 ${onEditSchedule ? 'hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors cursor-pointer group py-1 rounded-md -my-1 relative top-1 bottom-1' : ''}`}
+                  className={`flex flex-col flex-1 min-w-[170px] gap-1 pt-3 xl:pt-0 mt-1 xl:mt-0 xl:px-4 border-t xl:border-t-0 xl:border-l xl:border-r border-gray-100 dark:border-gray-700/50 ${onEditSchedule ? 'hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors cursor-pointer group py-1 xl:rounded-md xl:-my-1 relative xl:top-1 xl:bottom-1' : ''}`}
                   onClick={onEditSchedule ? () => onEditSchedule(load) : undefined}
                   role={onEditSchedule ? "button" : undefined}
                   title={onEditSchedule ? "Editar Programação da Carga" : undefined}
