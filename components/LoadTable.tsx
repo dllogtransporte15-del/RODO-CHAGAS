@@ -234,9 +234,60 @@ const LoadTable: React.FC<LoadTableProps> = ({ loads, clients, products, shipmen
                 </div>
 
                 {/* Client and Product */}
-                <div className="flex-1 min-w-[200px]">
-                  <div className="text-sm font-bold text-gray-900 dark:text-white truncate">{getClientName(load.clientId)}</div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{getProductName(load.productId)}</div>
+                <div className="flex-1 xl:flex-none xl:w-[260px] min-w-[200px]">
+                  <div className="text-sm font-bold text-gray-900 dark:text-white truncate" title={getClientName(load.clientId)}>{getClientName(load.clientId)}</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400 truncate" title={getProductName(load.productId)}>{getProductName(load.productId)}</div>
+                </div>
+
+                {/* Programação Futura (Calendário) */}
+                <div 
+                  className={`hidden xl:flex flex-col flex-1 min-w-[170px] gap-1 px-4 border-l border-r border-gray-50 dark:border-gray-700/50 ${onEditSchedule ? 'hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors cursor-pointer group py-1 rounded-md -my-1 relative top-1 bottom-1' : ''}`}
+                  onClick={onEditSchedule ? () => onEditSchedule(load) : undefined}
+                  role={onEditSchedule ? "button" : undefined}
+                  title={onEditSchedule ? "Editar Programação da Carga" : undefined}
+                >
+                  <span className={`text-[9px] uppercase font-bold text-gray-400 w-full text-left ${onEditSchedule ? 'group-hover:text-primary dark:group-hover:text-blue-400 transition-colors' : ''}`}>Programação</span>
+                  <div className="flex flex-wrap gap-1.5 w-full justify-start">
+                    {(() => {
+                      const today = new Date().toISOString().split('T')[0];
+                      const upcoming = (load.dailySchedule || [])
+                        .filter(ds => ds.date >= today)
+                        .sort((a, b) => a.date.localeCompare(b.date));
+                        
+                      const toShow = upcoming.slice(0, 3);
+                      if (upcoming.length === 0) {
+                         return <span className={`text-[11px] text-gray-400 font-medium italic mt-1 pb-1 ${onEditSchedule ? 'group-hover:text-gray-500 dark:group-hover:text-gray-300' : ''}`}>Sem lançamentos</span>;
+                      }
+
+                      return (
+                        <>
+                          {toShow.map((ds, idx) => {
+                             const d = new Date(ds.date + 'T12:00:00Z');
+                             const dayStr = d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+                             const weekday = d.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '').toUpperCase();
+                             const typeDisplay = ds.type === 'fixo' ? `F ${ds.tonnage || 0}t` : (statusSymbols[ds.type as DailyScheduleType] || ds.type);
+                             
+                             return (
+                               <div key={idx} className="flex flex-col items-center overflow-hidden bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-md shadow-sm w-[46px] h-[36px] shrink-0" title={`Data: ${ds.date} | Tipo: ${ds.type} | Vol: ${ds.tonnage || 'Livre'}`}>
+                                  <div className="bg-indigo-50 dark:bg-indigo-900/40 border-b border-indigo-100 dark:border-indigo-800 w-full text-center h-[13px] flex items-center justify-center">
+                                    <span className="text-[8px] text-indigo-700 dark:text-indigo-300 font-bold uppercase tracking-wider">{weekday}</span>
+                                  </div>
+                                  <div className="w-full flex-1 flex flex-col items-center justify-center bg-white dark:bg-gray-800">
+                                    <span className="text-[10px] font-bold text-gray-800 dark:text-gray-100 leading-none tracking-tighter">{dayStr}</span>
+                                    <span className="text-[7px] font-bold text-gray-500 dark:text-gray-400 leading-none mt-[2px]">{typeDisplay}</span>
+                                  </div>
+                               </div>
+                             );
+                          })}
+                          {upcoming.length > 3 && (
+                             <div className="flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-md w-[32px] h-[36px] shrink-0" title={`Mais ${upcoming.length - 3} lançamentos`}>
+                               <span className="text-[10px] font-bold text-gray-500 dark:text-gray-400">+{upcoming.length - 3}</span>
+                             </div>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </div>
                 </div>
 
                 {/* Route */}
