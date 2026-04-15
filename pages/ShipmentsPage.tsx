@@ -77,7 +77,15 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({
   const lockedShipmentIdRef = useRef<string | null>(null);
 
   useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (lockedShipmentIdRef.current && currentUser?.id) {
+        releaseShipmentLock(lockedShipmentIdRef.current, currentUser.id).catch(console.error);
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
     return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
       if (lockHeartbeatRef.current) {
         clearInterval(lockHeartbeatRef.current);
         lockHeartbeatRef.current = null;
@@ -124,8 +132,11 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({
     // First, check if someone else has a lock
     const existingLock = activeLocks.find(l => l.shipmentId === shipment.id);
     if (existingLock && existingLock.userId !== currentUser.id) {
-        alert(`Atenção: O usuário ${existingLock.userName} está editando os anexos deste embarque no momento. Tente novamente mais tarde.`);
-        return;
+        const isExpired = new Date(existingLock.expiresAt) < new Date();
+        if (!isExpired) {
+            alert(`Atenção: O usuário ${existingLock.userName} está editando os anexos deste embarque no momento. Tente novamente mais tarde.`);
+            return;
+        }
     }
 
     try {
@@ -138,7 +149,9 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({
             // Set up heartbeat to keep lock alive (every 45 seconds, since it expires in 60s)
             if (lockHeartbeatRef.current) clearInterval(lockHeartbeatRef.current);
             lockHeartbeatRef.current = setInterval(async () => {
-                await tryAcquireShipmentLock(shipment.id, currentUser.id, currentUser.name);
+                if (lockedShipmentIdRef.current === shipment.id) {
+                    await tryAcquireShipmentLock(shipment.id, currentUser.id, currentUser.name);
+                }
             }, 45 * 1000);
         } else {
             alert(`Este embarque foi bloqueado para edição por ${result.lockedBy}.`);
