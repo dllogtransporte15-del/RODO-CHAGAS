@@ -74,6 +74,20 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({
 
   const [detailsModalCargo, setDetailsModalCargo] = useState<Cargo | null>(null);
   const lockHeartbeatRef = useRef<NodeJS.Timeout | null>(null);
+  const lockedShipmentIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (lockHeartbeatRef.current) {
+        clearInterval(lockHeartbeatRef.current);
+        lockHeartbeatRef.current = null;
+      }
+      if (lockedShipmentIdRef.current && currentUser?.id) {
+        releaseShipmentLock(lockedShipmentIdRef.current, currentUser.id).catch(console.error);
+        lockedShipmentIdRef.current = null;
+      }
+    };
+  }, [currentUser?.id]);
 
   useEffect(() => {
     const isAnyOpen = isAttachmentModalOpen || isEditPriceModalOpen || isCancelModalOpen || 
@@ -117,6 +131,7 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({
     try {
         const result = await tryAcquireShipmentLock(shipment.id, currentUser.id, currentUser.name);
         if (result.success) {
+            lockedShipmentIdRef.current = shipment.id;
             setSelectedShipment(shipment);
             setAttachmentModalOpen(true);
             
@@ -140,8 +155,9 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({
   };
 
   const handleCloseAttachmentModal = () => {
-    if (selectedShipment) {
-        releaseShipmentLock(selectedShipment.id, currentUser.id).catch(console.error);
+    if (lockedShipmentIdRef.current) {
+        releaseShipmentLock(lockedShipmentIdRef.current, currentUser.id).catch(console.error);
+        lockedShipmentIdRef.current = null;
     }
     if (lockHeartbeatRef.current) {
         clearInterval(lockHeartbeatRef.current);
