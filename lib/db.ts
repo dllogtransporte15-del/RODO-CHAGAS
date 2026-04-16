@@ -269,6 +269,7 @@ const toUser = (row: any): User => ({
   active: row.active,
   password: row.password,
   clientId: row.client_id,
+  requirePasswordChange: row.require_password_change,
 });
 
 const fromUser = (u: User | Omit<User, 'id'>) => ({
@@ -279,6 +280,7 @@ const fromUser = (u: User | Omit<User, 'id'>) => ({
   active: u.active,
   password: u.password,
   client_id: u.clientId,
+  require_password_change: u.requirePasswordChange,
 });
 
 const toTicket = (row: any): Ticket => ({

@@ -22,6 +22,7 @@ export interface User {
   active: boolean;
   password?: string;
   clientId?: string;
+  requirePasswordChange?: boolean;
 }
 
 export enum PaymentMethod {

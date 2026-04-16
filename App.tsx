@@ -3,6 +3,7 @@ import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import { supabase } from './supabase';
 import TopNavBar from './components/TopNavBar';
 import TicketModal from './components/TicketModal';
+import PasswordChangeModal from './components/PasswordChangeModal';
 import DashboardPage from './pages/DashboardPage';
 import ClientsPage from './pages/ClientsPage';
 import OwnersPage from './pages/OwnersPage';
@@ -327,6 +328,19 @@ const App: React.FC = () => {
 
   const handleLogout = () => {
     setCurrentUser(null);
+  };
+
+  const handlePasswordChange = async (newPassword: string) => {
+    if (!currentUser) return;
+    const updatedUser = { ...currentUser, password: newPassword, requirePasswordChange: false };
+    try {
+      await upsertUser(updatedUser);
+      setCurrentUser(updatedUser);
+      setUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
+    } catch (err) {
+      console.error('Erro ao atualizar senha:', err);
+      throw new Error('Falha ao atualizar a senha no servidor.');
+    }
   };
 
   const handleSavePermissions = async (newPermissions: ProfilePermissions) => {
@@ -1601,6 +1615,12 @@ const App: React.FC = () => {
         onSave={handleSaveTicket}
         onUpdate={handleUpdateTicket}
       />
+      {currentUser?.requirePasswordChange && (
+        <PasswordChangeModal 
+          user={currentUser} 
+          onPasswordChange={handlePasswordChange} 
+        />
+      )}
     </div>
   );
 };
