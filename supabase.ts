@@ -1,15 +1,14 @@
 import { createClient } from '@supabase/supabase-js';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+const SUPABASE_ANON_KEY = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY) as string;
 
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
   throw new Error(
     '[RODO-CHAGAS] Variáveis de ambiente do Supabase não encontradas!\n' +
-    'Configure as seguintes variáveis no Vercel Dashboard → Settings → Environment Variables:\n' +
+    'Configure pelo menos as seguintes variáveis no Vercel Dashboard:\n' +
     '  • VITE_SUPABASE_URL\n' +
-    '  • VITE_SUPABASE_ANON_KEY\n' +
-    'Para segurança máxima, use a chave moderna (sb_publishable_...).'
+    '  • VITE_SUPABASE_PUBLISHABLE_KEY (recomendado: sb_publishable_...)'
   );
 }
 

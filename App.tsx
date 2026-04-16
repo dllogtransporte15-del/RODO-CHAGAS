@@ -325,6 +325,22 @@ const App: React.FC = () => {
         const profile = users.find(u => u.email.toLowerCase() === session.user.email?.toLowerCase());
         if (profile) {
           setCurrentUser(profile);
+          
+          // Auto-link: If auth_id is not set, link it now in the database
+          if (!profile.auth_id) {
+            console.log(`Vínculo automático: Associando ${profile.email} ao Auth ID ${session.user.id}`);
+            const { error: linkError } = await supabase
+              .from('app_users')
+              .update({ auth_id: session.user.id })
+              .eq('id', profile.id);
+            
+            if (linkError) {
+              console.error('Erro ao vincular conta:', linkError);
+            } else {
+              // Update local state to avoid redundant updates
+              setUsers(prev => prev.map(u => u.id === profile.id ? { ...u, auth_id: session.user.id } : u));
+            }
+          }
         }
       }
     };
