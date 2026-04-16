@@ -1,16 +1,15 @@
 import { createClient } from '@supabase/supabase-js';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+const SUPABASE_KEY = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY) as string | undefined;
 
-if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+if (!SUPABASE_URL || !SUPABASE_KEY) {
   throw new Error(
     '[RODO-CHAGAS] Variáveis de ambiente do Supabase não encontradas!\n' +
-    'Configure as seguintes variáveis no Vercel Dashboard → Settings → Environment Variables:\n' +
+    'Configure as seguintes variáveis no seu painel ou arquivo .env:\n' +
     '  • VITE_SUPABASE_URL\n' +
-    '  • VITE_SUPABASE_ANON_KEY\n' +
-    'Para desenvolvimento local, crie um arquivo .env na raiz do projeto.'
+    '  • VITE_SUPABASE_PUBLISHABLE_KEY (recomendado) ou VITE_SUPABASE_ANON_KEY'
   );
 }
 
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
