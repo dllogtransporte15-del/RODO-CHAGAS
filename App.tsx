@@ -88,18 +88,15 @@ interface NewShipmentRequestData extends Omit<Shipment, 'id' | 'orderId' | 'stat
 }
 
 const App: React.FC = () => {
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [isAuthLoading, setIsAuthLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState<User | null>(() => {
+    const saved = localStorage.getItem('rodochagas_currentUser');
+    return saved ? JSON.parse(saved) : null;
+  });
   const [currentPage, setCurrentPage] = useState<Page>(() => {
     return (localStorage.getItem('rodochagas_currentPage') as Page) || 'dashboard';
   });
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-
-  // Keep localStorage only for UI preferences (last login is now via session)
-  useEffect(() => {
-    localStorage.setItem('rodochagas_currentPage', currentPage);
-  }, [currentPage]);
 
   // Centralized State Management — persisted via Supabase
   const [clients, setClients] = useState<Client[]>([]);
@@ -172,7 +169,7 @@ const App: React.FC = () => {
         if (dbSettings.theme_image) setThemeImage(dbSettings.theme_image);
       }
       setActiveLocks(dbLocks);
-      
+      // Update nextIds from DB counts
       const getMaxId = (items: any[], startOffset: number) => {
         if (!items || items.length === 0) return startOffset;
         let maxNum = startOffset - 1;
@@ -209,6 +206,18 @@ const App: React.FC = () => {
       setIsLoading(false);
     }
   }, []);
+
+  useEffect(() => {
+    if (currentUser) {
+      localStorage.setItem('rodochagas_currentUser', JSON.stringify(currentUser));
+    } else {
+      localStorage.removeItem('rodochagas_currentUser');
+    }
+  }, [currentUser]);
+
+  useEffect(() => {
+    localStorage.setItem('rodochagas_currentPage', currentPage);
+  }, [currentPage]);
 
   // --- REAL-TIME UPDATES ---
   useEffect(() => {
@@ -251,6 +260,8 @@ const App: React.FC = () => {
   useEffect(() => {
     if (companyLogo) {
       localStorage.setItem('rodochagas_companyLogo', companyLogo);
+      
+      // Update favicon
       const link = (document.querySelector("link[rel*='icon']") as HTMLLinkElement) || document.createElement('link');
       link.type = 'image/x-icon';
       link.rel = 'shortcut icon';
@@ -262,7 +273,6 @@ const App: React.FC = () => {
       localStorage.removeItem('rodochagas_companyLogo');
     }
   }, [companyLogo]);
-  
   useEffect(() => {
     if (themeImage) {
       localStorage.setItem('rodochagas_themeImage', themeImage);
@@ -284,68 +294,6 @@ const App: React.FC = () => {
       document.body.style.backgroundAttachment = '';
     }
   }, [themeImage]);
-
-  // --- SUPABASE AUTH STATE LISTENER ---
-  useEffect(() => {
-    // 1. Check current session on mount
-    const checkSession = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user) {
-          // If we have a session, we need to find the profile in our users list
-          // Note: users list might not be loaded yet, handled by loadAllData
-        }
-      } catch (err) {
-        console.error('Error checking auth session:', err);
-      } finally {
-        setIsAuthLoading(false);
-      }
-    };
-
-    checkSession();
-
-    // 2. Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log(`Auth event: ${event}`);
-      if (session?.user) {
-        // When session is found, we'll sync with users list in another useEffect
-      } else {
-        setCurrentUser(null);
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  // Sync session user with profile data from users list
-  useEffect(() => {
-    const syncUserProfile = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user && users.length > 0) {
-        const profile = users.find(u => u.email.toLowerCase() === session.user.email?.toLowerCase());
-        if (profile) {
-          setCurrentUser(profile);
-          
-          // Auto-link: If auth_id is not set, link it now in the database
-          if (!profile.auth_id) {
-            console.log(`Vínculo automático: Associando ${profile.email} ao Auth ID ${session.user.id}`);
-            const { error: linkError } = await supabase
-              .from('app_users')
-              .update({ auth_id: session.user.id })
-              .eq('id', profile.id);
-            
-            if (linkError) {
-              console.error('Erro ao vincular conta:', linkError);
-            } else {
-              // Update local state to avoid redundant updates
-              setUsers(prev => prev.map(u => u.id === profile.id ? { ...u, auth_id: session.user.id } : u));
-            }
-          }
-        }
-      }
-    };
-    syncUserProfile();
-  }, [users]); // Trigger when users are loaded
 
   const nextStatusMap: Partial<Record<ShipmentStatus, ShipmentStatus>> = {
     [ShipmentStatus.AguardandoSeguradora]: ShipmentStatus.PreCadastro,
@@ -377,14 +325,8 @@ const App: React.FC = () => {
     setCurrentPage('dashboard');
   };
 
-  const handleLogout = async () => {
-    try {
-      await supabase.auth.signOut();
-      setCurrentUser(null);
-    } catch (err) {
-      console.error('Erro ao sair:', err);
-      setCurrentUser(null); // Fallback
-    }
+  const handleLogout = () => {
+    setCurrentUser(null);
   };
 
   const handleSavePermissions = async (newPermissions: ProfilePermissions) => {

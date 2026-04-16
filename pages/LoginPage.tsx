@@ -1,7 +1,6 @@
 
 import React, { useState } from 'react';
 import type { User } from '../types';
-import { supabase } from '../supabase';
 
 interface LoginPageProps {
   onLogin: (user: User) => void;
@@ -12,52 +11,31 @@ interface LoginPageProps {
 const LoginPage: React.FC<LoginPageProps> = ({ onLogin, users, companyLogo }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
-    setError('');
-
     const cleanEmail = email.trim().toLowerCase();
     const cleanPassword = password.trim();
     
-    try {
-      // Autenticação oficial do Supabase
-      const { data, error: authError } = await supabase.auth.signInWithPassword({
-        email: cleanEmail,
-        password: cleanPassword,
-      });
-
-      if (authError) {
-        if (authError.message === 'Invalid login credentials') {
-          setError('Email ou senha inválidos.');
-        } else {
-          setError(authError.message);
-        }
-        return;
-      }
-
-      if (data.user) {
-        // Busca o perfil na nossa tabela app_users vinculada pelo email
-        const userProfile = users.find(u => u.email.toLowerCase() === cleanEmail);
-        
-        if (userProfile && userProfile.active) {
-          onLogin(userProfile);
-        } else if (userProfile && !userProfile.active) {
-          setError('Este usuário está inativo.');
-          await supabase.auth.signOut();
-        } else {
-          setError('Perfil de usuário não encontrado. Contate o administrador.');
-          await supabase.auth.signOut();
-        }
-      }
-    } catch (err: any) {
-      console.error('Erro no login:', err);
-      setError('Ocorreu um erro ao tentar entrar no sistema.');
-    } finally {
-      setIsLoading(false);
+    // Find user with extremely robust matching:
+    // 1. Case-insensitive email
+    // 2. Trimming any accidental spaces in DB records
+    // 3. Ensuring users list is available
+    const user = users.find(u => {
+      const dbEmail = (u.email || '').trim().toLowerCase();
+      const dbPassword = (u.password || '').trim();
+      return dbEmail === cleanEmail && dbPassword === cleanPassword;
+    });
+    
+    if (user && user.active) {
+      onLogin(user);
+    } else if (user && !user.active) {
+      setError('Este usuário está inativo.');
+    } else {
+      console.log('Login failed. Input email:', cleanEmail, 'Input password:', '***');
+      console.log('Available users in state:', users.length);
+      setError('Email ou senha inválidos.');
     }
   };
 
