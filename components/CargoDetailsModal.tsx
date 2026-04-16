@@ -197,19 +197,7 @@ const CargoDetailsModal: React.FC<CargoDetailsModalProps> = ({ isOpen, onClose, 
                 </div>
             )}
 
-            {cargo.allowedBodyTypes && cargo.allowedBodyTypes.length > 0 && (
-                <div className="border-t dark:border-gray-700 pt-4">
-                    <DetailItem label="Tipos de Carroceria Permitidos (Legado)">
-                        <div className="flex flex-wrap gap-2 mt-1">
-                            {cargo.allowedBodyTypes.map(bt => (
-                                <span key={bt} className="px-2 py-1 text-xs font-semibold rounded-full bg-gray-200 text-gray-700 dark:bg-gray-600 dark:text-gray-200">
-                                    {bt}
-                                </span>
-                            ))}
-                        </div>
-                    </DetailItem>
-                </div>
-            )}
+
 
 
         </div>

@@ -19,6 +19,7 @@ const PAGE_NAMES: Record<Page, string> = {
   'drivers': 'Motoristas',
   'vehicles': 'Veículos',
   'loads': 'Cargas (Cadastro)',
+  'products': 'Produtos',
   'shipments': 'Embarques',
   'shipment-history': 'Histórico de Embarques',
   'load-history': 'Histórico de Cargas',

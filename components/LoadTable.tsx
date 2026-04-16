@@ -265,7 +265,7 @@ const LoadTable: React.FC<LoadTableProps> = ({ loads, clients, products, shipmen
                              const d = new Date(ds.date + 'T12:00:00Z');
                              const dayStr = d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
                              const weekday = d.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '').toUpperCase();
-                             const typeDisplay = ds.type === 'fixo' ? `F ${ds.tonnage || 0}t` : (statusSymbols[ds.type as DailyScheduleType] || ds.type);
+                             const typeDisplay = ds.type === DailyScheduleType.Fixo ? `F ${ds.tonnage || 0}t` : (statusSymbols[ds.type as DailyScheduleType] || ds.type);
                              
                              return (
                                <div key={idx} className="flex flex-col items-center overflow-hidden bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-md shadow-sm w-[46px] h-[36px] shrink-0" title={`Data: ${ds.date} | Tipo: ${ds.type} | Vol: ${ds.tonnage || 'Livre'}`}>
