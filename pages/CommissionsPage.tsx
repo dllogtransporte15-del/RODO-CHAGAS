@@ -26,7 +26,7 @@ const CommissionsPage: React.FC<CommissionsPageProps> = ({ shipments, cargos, us
       case 'comercial':
         return <SupervisorReport shipments={shipments} cargos={cargos} users={users} />;
       case 'embarcador':
-        return <ShipperReport shipments={shipments} users={users} />;
+        return <ShipperReport shipments={shipments} users={users} currentUser={null} />;
       case 'vendedor-externo':
         return <ExternalSalespersonReport shipments={shipments} cargos={cargos} />;
       default:

@@ -21,6 +21,7 @@ const TicketModal: React.FC<TicketModalProps> = ({ isOpen, onClose, tickets, use
   const [newTicket, setNewTicket] = useState({
     title: '',
     description: '',
+    status: TicketStatus.Aberto,
     priority: TicketPriority.Media,
     assignedToId: currentUser.id,
   });
@@ -68,6 +69,7 @@ const TicketModal: React.FC<TicketModalProps> = ({ isOpen, onClose, tickets, use
     setNewTicket({
       title: '',
       description: '',
+      status: TicketStatus.Aberto,
       priority: TicketPriority.Media,
       assignedToId: currentUser.id,
     });
@@ -79,6 +81,7 @@ const TicketModal: React.FC<TicketModalProps> = ({ isOpen, onClose, tickets, use
      setNewTicket({
       title: '',
       description: '',
+      status: TicketStatus.Aberto,
       priority: TicketPriority.Media,
       assignedToId: currentUser.id,
     });

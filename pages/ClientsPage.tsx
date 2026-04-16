@@ -87,7 +87,7 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ clients, setClients, onSaveCl
     const csvRows = [
       headers.join(','),
       ...clients.map(client =>
-        headers.map(header => `"${client[header]}"`).join(',')
+        headers.map(header => `"${client[header as keyof Client]}"`).join(',')
       )
     ];
     const csvString = csvRows.join('\n');
@@ -143,7 +143,7 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ clients, setClients, onSaveCl
         newClients.forEach(onSaveClient);
         alert(`${newClients.length} clientes importados com sucesso!`);
       } catch (error) {
-        alert(`Erro ao importar o arquivo: ${error.message}`);
+        alert(`Erro ao importar o arquivo: ${error instanceof Error ? error.message : String(error)}`);
       } finally {
         // Reset file input
         if(event.target) event.target.value = '';

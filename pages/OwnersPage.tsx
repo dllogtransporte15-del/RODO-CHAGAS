@@ -76,7 +76,7 @@ const OwnersPage: React.FC<OwnersPageProps> = ({ owners, setOwners, onSaveOwner,
     const csvRows = [
       headers.join(','),
       ...owners.map(owner =>
-        headers.map(header => `"${owner[header]}"`).join(',')
+        headers.map(header => `"${owner[header as keyof Owner]}"`).join(',')
       )
     ];
     const csvString = csvRows.join('\n');
@@ -121,7 +121,7 @@ const OwnersPage: React.FC<OwnersPageProps> = ({ owners, setOwners, onSaveOwner,
         newOwners.forEach(onSaveOwner);
         alert(`${newOwners.length} proprietários importados com sucesso!`);
       } catch (error) {
-        alert(`Erro ao importar o arquivo: ${error.message}`);
+        alert(`Erro ao importar o arquivo: ${error instanceof Error ? error.message : String(error)}`);
       } finally {
         if(event.target) event.target.value = '';
       }

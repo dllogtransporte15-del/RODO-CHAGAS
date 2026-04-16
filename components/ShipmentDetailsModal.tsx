@@ -7,7 +7,7 @@ interface ShipmentDetailsModalProps {
   onClose: () => void;
   shipment: Shipment | null;
   cargo: Cargo | undefined;
-  currentUser: User;
+  currentUser?: User | null;
   onUpdatePrice?: (shipmentId: string, data: { newTotal: number, newRate?: number, newCompanyRate?: number }) => void;
 }
 
@@ -28,7 +28,7 @@ const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({ isOpen, onC
   const formatCurrency = (value: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
   const formatDate = (dateString: string) => new Date(dateString).toLocaleString('pt-BR');
 
-  const canEdit = currentUser.profile !== UserProfile.Embarcador && !!onUpdatePrice;
+  const canEdit = currentUser?.profile !== UserProfile.Embarcador && !!onUpdatePrice;
 
   const handleStartEdit = () => {
     setEditRate(shipment.driverFreightRateSnapshot || (shipment.driverFreightValue / (shipment.shipmentTonnage || 1)));
@@ -150,7 +150,7 @@ const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({ isOpen, onC
                             </p>
                         </DetailItem>
                         
-                        {currentUser.profile !== UserProfile.Embarcador && (
+                        {currentUser?.profile !== UserProfile.Embarcador && (
                             <DetailItem label="Frete Empresa (Foto)">
                                 <p className="text-sm font-bold text-primary dark:text-blue-400">
                                     {formatCurrency(shipment.companyFreightRateSnapshot || cargo?.companyFreightValuePerTon || 0)} /ton
