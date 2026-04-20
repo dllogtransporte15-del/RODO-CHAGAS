@@ -49,7 +49,6 @@ interface ShipmentsPageProps {
   onDeleteShipment: (shipmentId: string) => void;
   onRevertStatus: (shipmentId: string) => void;
   onUpdateScheduledDateTime: (shipmentId: string, data: { scheduledDate: string, scheduledTime?: string }) => void;
-  activeLocks: ShipmentLock[];
   onModalStateChange: (isOpen: boolean) => void;
   companyLogo?: string | null;
 }
@@ -62,7 +61,7 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({
   shipments, cargos, clients, products, drivers, vehicles, currentUser, 
   profilePermissions, users, onUpdateAttachment, onUpdatePrice, onConfirmCancel, 
   onUpdateAnttAndBankDetails, onTransferShipment, onMarkArrival, onDeleteShipment,
-  onRevertStatus, onUpdateScheduledDateTime, activeLocks, onModalStateChange,
+  onRevertStatus, onUpdateScheduledDateTime, onModalStateChange,
   companyLogo
 }) => {
 
@@ -77,29 +76,8 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({
   const [selectedShipment, setSelectedShipment] = useState<Shipment | null>(null);
 
   const [detailsModalCargo, setDetailsModalCargo] = useState<Cargo | null>(null);
-  const lockHeartbeatRef = useRef<NodeJS.Timeout | null>(null);
-  const lockedShipmentIdRef = useRef<string | null>(null);
 
-  useEffect(() => {
-    const handleBeforeUnload = () => {
-      if (lockedShipmentIdRef.current && currentUser?.id) {
-        releaseShipmentLock(lockedShipmentIdRef.current, currentUser.id).catch(console.error);
-      }
-    };
-    window.addEventListener('beforeunload', handleBeforeUnload);
 
-    return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-      if (lockHeartbeatRef.current) {
-        clearInterval(lockHeartbeatRef.current);
-        lockHeartbeatRef.current = null;
-      }
-      if (lockedShipmentIdRef.current && currentUser?.id) {
-        releaseShipmentLock(lockedShipmentIdRef.current, currentUser.id).catch(console.error);
-        lockedShipmentIdRef.current = null;
-      }
-    };
-  }, [currentUser?.id]);
 
   useEffect(() => {
     const isAnyOpen = isAttachmentModalOpen || isEditPriceModalOpen || isCancelModalOpen || 
@@ -133,37 +111,8 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({
   }, [shipments, activeStatus]);
   
   const handleOpenAttachmentModal = async (shipment: Shipment) => {
-    // First, check if someone else has a lock
-    const existingLock = activeLocks.find(l => l.shipmentId === shipment.id);
-    if (existingLock && existingLock.userId !== currentUser.id) {
-        const isExpired = new Date(existingLock.expiresAt) < new Date();
-        if (!isExpired) {
-            alert(`Atenção: O usuário ${existingLock.userName} está editando os anexos deste embarque no momento. Tente novamente mais tarde.`);
-            return;
-        }
-    }
-
-    try {
-        const result = await tryAcquireShipmentLock(shipment.id, currentUser.id, currentUser.name);
-        if (result.success) {
-            lockedShipmentIdRef.current = shipment.id;
-            setSelectedShipment(shipment);
-            setAttachmentModalOpen(true);
-            
-            // Set up heartbeat to keep lock alive (every 45 seconds, since it expires in 60s)
-            if (lockHeartbeatRef.current) clearInterval(lockHeartbeatRef.current);
-            lockHeartbeatRef.current = setInterval(async () => {
-                if (lockedShipmentIdRef.current === shipment.id) {
-                    await tryAcquireShipmentLock(shipment.id, currentUser.id, currentUser.name);
-                }
-            }, 45 * 1000);
-        } else {
-            alert(`Este embarque foi bloqueado para edição por ${result.lockedBy}.`);
-        }
-    } catch (error) {
-        console.error('Erro ao adquirir trava:', error);
-        alert('Erro ao verificar disponibilidade do embarque. Tente novamente.');
-    }
+    setSelectedShipment(shipment);
+    setAttachmentModalOpen(true);
   };
   
   const handleOpenCadastroAnttModal = (shipment: Shipment) => {
@@ -172,14 +121,6 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({
   };
 
   const handleCloseAttachmentModal = () => {
-    if (lockedShipmentIdRef.current) {
-        releaseShipmentLock(lockedShipmentIdRef.current, currentUser.id).catch(console.error);
-        lockedShipmentIdRef.current = null;
-    }
-    if (lockHeartbeatRef.current) {
-        clearInterval(lockHeartbeatRef.current);
-        lockHeartbeatRef.current = null;
-    }
     setAttachmentModalOpen(false);
     setSelectedShipment(null);
   };
