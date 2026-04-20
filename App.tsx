@@ -110,6 +110,7 @@ const App: React.FC = () => {
   const [shipments, setShipments] = useState<Shipment[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [activeLocks, setActiveLocks] = useState<ShipmentLock[]>([]);
   const [profilePermissions, setProfilePermissions] = useState<ProfilePermissions>(INITIAL_PERMISSIONS);
   const [isTicketModalOpen, setIsTicketModalOpen] = useState(false);
   const [isAnyModalOpen, setIsAnyModalOpen] = useState(false);
@@ -139,7 +140,7 @@ const App: React.FC = () => {
     if (!isBackground) setIsLoading(true);
     setLoadError(null);
     try {
-      const [dbClients, dbOwners, dbDrivers, dbVehicles, dbProducts, dbCargos, dbShipments, dbUsers, dbTickets, dbPermissions, dbSettings] = await Promise.all([
+      const [dbClients, dbOwners, dbDrivers, dbVehicles, dbProducts, dbCargos, dbShipments, dbUsers, dbTickets, dbPermissions, dbSettings, dbLocks] = await Promise.all([
         fetchClients(),
         fetchOwners(),
         fetchDrivers(),
@@ -151,6 +152,7 @@ const App: React.FC = () => {
         fetchTickets(),
         fetchProfilePermissions(),
         fetchAppSettings(),
+        fetchShipmentLocks(),
       ]);
       setClients(dbClients);
       setOwners(dbOwners);
@@ -168,6 +170,7 @@ const App: React.FC = () => {
         if (dbSettings.company_logo) setCompanyLogo(dbSettings.company_logo);
         if (dbSettings.theme_image) setThemeImage(dbSettings.theme_image);
       }
+      setActiveLocks(dbLocks);
       // Update nextIds from DB counts
       const getMaxId = (items: any[], startOffset: number) => {
         if (!items || items.length === 0) return startOffset;
@@ -1469,6 +1472,7 @@ const App: React.FC = () => {
                     onDeleteShipment={handleDeleteShipment}
                     onRevertStatus={handleRevertShipmentStatus}
                     onUpdateScheduledDateTime={handleUpdateScheduledDateTime}
+                    activeLocks={activeLocks}
                     onModalStateChange={setIsAnyModalOpen}
                     companyLogo={companyLogo}
                 />;

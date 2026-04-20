@@ -49,6 +49,7 @@ interface ShipmentsPageProps {
   onDeleteShipment: (shipmentId: string) => void;
   onRevertStatus: (shipmentId: string) => void;
   onUpdateScheduledDateTime: (shipmentId: string, data: { scheduledDate: string, scheduledTime?: string }) => void;
+  activeLocks: ShipmentLock[];
   onModalStateChange: (isOpen: boolean) => void;
   companyLogo?: string | null;
 }
@@ -61,7 +62,7 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({
   shipments, cargos, clients, products, drivers, vehicles, currentUser, 
   profilePermissions, users, onUpdateAttachment, onUpdatePrice, onConfirmCancel, 
   onUpdateAnttAndBankDetails, onTransferShipment, onMarkArrival, onDeleteShipment,
-  onRevertStatus, onUpdateScheduledDateTime, onModalStateChange,
+  onRevertStatus, onUpdateScheduledDateTime, activeLocks, onModalStateChange,
   companyLogo
 }) => {
 
@@ -77,7 +78,9 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({
 
   const [detailsModalCargo, setDetailsModalCargo] = useState<Cargo | null>(null);
 
-
+  useEffect(() => {
+    // Locking heartbeat and beforeunload logic removed per user request
+  }, []);
 
   useEffect(() => {
     const isAnyOpen = isAttachmentModalOpen || isEditPriceModalOpen || isCancelModalOpen || 
@@ -111,6 +114,7 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({
   }, [shipments, activeStatus]);
   
   const handleOpenAttachmentModal = async (shipment: Shipment) => {
+    // Locking logic removed per user request
     setSelectedShipment(shipment);
     setAttachmentModalOpen(true);
   };
@@ -121,6 +125,7 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({
   };
 
   const handleCloseAttachmentModal = () => {
+    // Locking logic removed per user request
     setAttachmentModalOpen(false);
     setSelectedShipment(null);
   };
