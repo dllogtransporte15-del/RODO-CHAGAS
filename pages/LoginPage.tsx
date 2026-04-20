@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import { supabase } from '../supabase';
 import type { User } from '../types';
 
 interface LoginPageProps {
@@ -12,30 +11,46 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, users, companyLogo }) =>
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsLoading(true);
+    setError('');
+
     const cleanEmail = email.trim().toLowerCase();
     const cleanPassword = password.trim();
-    
-    // Find user with extremely robust matching:
-    // 1. Case-insensitive email
-    // 2. Trimming any accidental spaces in DB records
-    // 3. Ensuring users list is available
-    const user = users.find(u => {
-      const dbEmail = (u.email || '').trim().toLowerCase();
-      const dbPassword = (u.password || '').trim();
-      return dbEmail === cleanEmail && dbPassword === cleanPassword;
-    });
-    
-    if (user && user.active) {
-      onLogin(user);
-    } else if (user && !user.active) {
-      setError('Este usuário está inativo.');
-    } else {
-      console.log('Login failed. Input email:', cleanEmail, 'Input password:', '***');
-      console.log('Available users in state:', users.length);
-      setError('Email ou senha inválidos.');
+
+    try {
+      // 1. Authenticate with Supabase Auth
+      const { data, error: authError } = await supabase.auth.signInWithPassword({
+        email: cleanEmail,
+        password: cleanPassword,
+      });
+
+      if (authError) {
+        setIsLoading(false);
+        setError('Email ou senha inválidos.');
+        return;
+      }
+
+      // 2. Map to local user record
+      const user = users.find(u => (u.email || '').trim().toLowerCase() === cleanEmail);
+      
+      if (user) {
+        if (user.active) {
+          onLogin(user);
+        } else {
+          setError('Este usuário está inativo.');
+        }
+      } else {
+        setError('Usuário autenticado, mas não encontrado no registro local.');
+      }
+    } catch (err) {
+      console.error('Erro no login:', err);
+      setError('Ocorreu um erro ao tentar entrar. Tente novamente.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -99,9 +114,10 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, users, companyLogo }) =>
           <div className="pt-2">
             <button
               type="submit"
-              className="w-full flex justify-center py-3 px-4 border border-transparent text-base font-bold rounded-xl text-white bg-accent hover:bg-accent-dark focus:outline-none focus:ring-4 focus:ring-accent/50 shadow-lg shadow-accent/20 transition-all transform hover:-translate-y-1 active:scale-[0.98]"
+              disabled={isLoading}
+              className="w-full flex justify-center py-3 px-4 border border-transparent text-base font-bold rounded-xl text-white bg-accent hover:bg-accent-dark focus:outline-none focus:ring-4 focus:ring-accent/50 shadow-lg shadow-accent/20 transition-all transform hover:-translate-y-1 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
             >
-              ENTRAR NO SISTEMA
+              {isLoading ? 'AUTENTICANDO...' : 'ENTRAR NO SISTEMA'}
             </button>
           </div>
         </form>
