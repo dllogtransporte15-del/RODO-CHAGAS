@@ -1,4 +1,5 @@
 
+// Triggering new build - commit sync fix
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { supabase } from './supabase';
 import TopNavBar from './components/TopNavBar';
