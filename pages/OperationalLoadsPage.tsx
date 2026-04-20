@@ -241,6 +241,9 @@ const OperationalLoadsPage: React.FC<OperationalLoadsPageProps> = ({
         users={users}
         currentUser={currentUser}
         onUpdatePrice={onUpdatePrice}
+        clients={clients}
+        products={products}
+        vehicles={vehicles}
       />
     </>
   );

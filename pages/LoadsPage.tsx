@@ -6,7 +6,7 @@ import LoadFormModal from '../components/LoadFormModal';
 import HistoryModal from '../components/HistoryModal';
 import CargoDetailsModal from '../components/CargoDetailsModal';
 import CargoShipmentsSidePanel from '../components/CargoShipmentsSidePanel';
-import type { Cargo, Client, Product, User, ProfilePermissions, Shipment, DailyScheduleEntry } from '../types';
+import type { Cargo, Client, Product, User, ProfilePermissions, Shipment, DailyScheduleEntry, Vehicle } from '../types';
 import { CargoStatus, UserProfile } from '../types';
 import { can } from '../auth';
 
@@ -16,6 +16,7 @@ interface LoadsPageProps {
   clients: Client[];
   products: Product[];
   shipments: Shipment[];
+  vehicles: Vehicle[];
   // FIX: Changed Omit to use a union type for the keys to be omitted.
   onSaveLoad: (loadData: Cargo | Omit<Cargo, 'id' | 'history' | 'createdAt' | 'createdById'>) => void;
   currentUser: User;
@@ -26,9 +27,12 @@ interface LoadsPageProps {
   onSuspendLoad?: (cargo: Cargo) => void;
   onUpdatePrice: (shipmentId: string, data: { newTotal: number, newRate?: number, newCompanyRate?: number }) => void;
   onModalStateChange: (isOpen: boolean) => void;
+  companyLogo?: string | null;
 }
 
-const LoadsPage: React.FC<LoadsPageProps> = ({ loads, setLoads, clients, products, shipments, onSaveLoad, onReactivateLoad, onSuspendLoad, onUpdatePrice, currentUser, profilePermissions, users, onDeleteLoad, onModalStateChange }) => {
+
+const LoadsPage: React.FC<LoadsPageProps> = ({ loads, setLoads, clients, products, shipments, onSaveLoad, onReactivateLoad, onSuspendLoad, onUpdatePrice, currentUser, profilePermissions, users, onDeleteLoad, onModalStateChange, companyLogo, vehicles }) => {
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loadToEdit, setLoadToEdit] = useState<Cargo | null>(null);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
@@ -172,7 +176,12 @@ const LoadsPage: React.FC<LoadsPageProps> = ({ loads, setLoads, clients, product
         users={users}
         currentUser={currentUser}
         onUpdatePrice={onUpdatePrice}
+        clients={clients}
+        products={products}
+        companyLogo={companyLogo}
+        vehicles={vehicles}
       />
+
     </>
   );
 };

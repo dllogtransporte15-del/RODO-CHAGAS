@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import type { Shipment, Cargo, User, Vehicle, Client } from '../types';
+import type { Shipment, Cargo, User, Vehicle, Client, Product } from '../types';
 import { ShipmentStatus, UserProfile } from '../types';
 import { PaperclipIcon } from './icons/PaperclipIcon';
 import { DollarSignIcon } from './icons/DollarSignIcon';
@@ -23,6 +23,7 @@ interface ShipmentTableProps {
   users: User[];
   vehicles: Vehicle[];
   clients: Client[];
+  products: Product[];
   onAttach?: (shipment: Shipment) => void;
   onEditPrice?: (shipment: Shipment) => void;
   onCancel?: (shipment: Shipment) => void;
@@ -39,9 +40,12 @@ interface ShipmentTableProps {
   currentUser: User;
 
   activeStatus: ShipmentStatus | 'all';
+  companyLogo?: string | null;
 }
 
-const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users, vehicles, onAttach, onEditPrice, onCancel, onTransfer, onShowHistory, onShowCargoDetails, canUserAdvanceStatus, onMarkArrival, onDelete, onRevertStatus, onOpenCadastroAntt, onUpdatePrice, onOpenEditScheduledDateTime, currentUser, activeStatus, clients }) => {
+const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users, vehicles, onAttach, onEditPrice, onCancel, onTransfer, onShowHistory, onShowCargoDetails, canUserAdvanceStatus, onMarkArrival, onDelete, onRevertStatus, onOpenCadastroAntt, onUpdatePrice, onOpenEditScheduledDateTime, currentUser, activeStatus, clients, products, companyLogo }) => {
+
+
   const [openActionMenu, setOpenActionMenu] = useState<string | null>(null);
   const [menuPosition, setMenuPosition] = useState<{ top: number, left: number, isUp: boolean } | null>(null);
   const [detailsModalShipment, setDetailsModalShipment] = useState<Shipment | null>(null);
@@ -663,7 +667,14 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users,
       cargo={detailsModalShipment ? getCargoInfo(detailsModalShipment.cargoId) || undefined : undefined}
       currentUser={currentUser}
       onUpdatePrice={onUpdatePrice}
+      clients={clients}
+      products={products}
+      companyLogo={companyLogo}
+      vehicles={vehicles}
+      users={users}
     />
+
+
   </div>
 );
 };

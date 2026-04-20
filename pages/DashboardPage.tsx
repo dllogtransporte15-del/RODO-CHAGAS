@@ -10,7 +10,7 @@ import { PackageIcon } from '../components/icons/PackageIcon';
 import { DollarSignIcon } from '../components/icons/DollarSignIcon';
 import { ClientsIcon } from '../components/icons/ClientsIcon';
 import { CargoStatus, ShipmentStatus, UserProfile } from '../types';
-import type { Cargo, Shipment, User, Client } from '../types';
+import type { Cargo, Shipment, User, Client, Product, Vehicle } from '../types';
 import ShipmentDetailsModal from '../components/ShipmentDetailsModal';
 
 interface DashboardPageProps {
@@ -19,7 +19,12 @@ interface DashboardPageProps {
   users: User[];
   currentUser: User | null;
   clients: Client[];
+  products: Product[];
+  companyLogo?: string | null;
+  vehicles: Vehicle[];
 }
+
+
 
 interface ShipmentListCardProps {
   title: string;
@@ -125,7 +130,9 @@ const ShipmentListCard: React.FC<ShipmentListCardProps> = ({ title, shipments, u
 };
 
 
-const DashboardPage: React.FC<DashboardPageProps> = ({ cargos, shipments, users, currentUser, clients }) => {
+const DashboardPage: React.FC<DashboardPageProps> = ({ cargos, shipments, users, currentUser, clients, products, companyLogo, vehicles }) => {
+
+
   const [detailsModalShipment, setDetailsModalShipment] = React.useState<Shipment | null>(null);
 
   const cargoStatusData = useMemo(() => {
@@ -345,7 +352,14 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ cargos, shipments, users,
           onClose={() => setDetailsModalShipment(null)}
           shipment={detailsModalShipment}
           cargo={detailsModalShipment ? cargos.find(c => c.id === detailsModalShipment.cargoId) : undefined}
+          clients={clients}
+          products={products}
+          companyLogo={companyLogo}
+          vehicles={vehicles}
+          users={users}
         />
+
+
       </>
     );
   }
@@ -394,7 +408,13 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ cargos, shipments, users,
           onClose={() => setDetailsModalShipment(null)}
           shipment={detailsModalShipment}
           cargo={detailsModalShipment ? cargos.find(c => c.id === detailsModalShipment.cargoId) : undefined}
+          clients={clients}
+          products={products}
+          companyLogo={companyLogo}
+          vehicles={vehicles}
+          users={users}
         />
+
       </>
     );
   }
@@ -492,7 +512,14 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ cargos, shipments, users,
         onClose={() => setDetailsModalShipment(null)}
         shipment={detailsModalShipment}
         cargo={detailsModalShipment ? cargos.find(c => c.id === detailsModalShipment.cargoId) : undefined}
+        clients={clients}
+        products={products}
+        companyLogo={companyLogo}
+        vehicles={vehicles}
+        users={users}
       />
+
+
     </>
   );
 };

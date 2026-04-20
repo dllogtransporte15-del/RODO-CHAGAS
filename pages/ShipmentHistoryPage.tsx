@@ -110,6 +110,8 @@ const ShipmentHistoryPage: React.FC<ShipmentHistoryPageProps> = ({ shipments, ca
         currentUser={currentUser}
         activeStatus={activeStatus}
         clients={clients}
+        products={products}
+        companyLogo={null} // History doesn't typically need PDF generation but the prop is required
       />
       {selectedShipment && (
         <HistoryModal

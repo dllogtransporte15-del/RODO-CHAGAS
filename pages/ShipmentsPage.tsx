@@ -51,7 +51,9 @@ interface ShipmentsPageProps {
   onUpdateScheduledDateTime: (shipmentId: string, data: { scheduledDate: string, scheduledTime?: string }) => void;
   activeLocks: ShipmentLock[];
   onModalStateChange: (isOpen: boolean) => void;
+  companyLogo?: string | null;
 }
+
 
 // Removed local requiredDocumentMap as it is now in types.ts (REQUIRED_DOCUMENT_MAP)
 
@@ -60,8 +62,10 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({
   shipments, cargos, clients, products, drivers, vehicles, currentUser, 
   profilePermissions, users, onUpdateAttachment, onUpdatePrice, onConfirmCancel, 
   onUpdateAnttAndBankDetails, onTransferShipment, onMarkArrival, onDeleteShipment,
-  onRevertStatus, onUpdateScheduledDateTime, activeLocks, onModalStateChange 
+  onRevertStatus, onUpdateScheduledDateTime, activeLocks, onModalStateChange,
+  companyLogo
 }) => {
+
   const [activeStatus, setActiveStatus] = useState<ShipmentStatus | 'all'>(ShipmentStatus.AguardandoSeguradora);
   const [isAttachmentModalOpen, setAttachmentModalOpen] = useState(false);
   const [isEditPriceModalOpen, setEditPriceModalOpen] = useState(false);
@@ -309,7 +313,10 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({
         currentUser={currentUser}
         activeStatus={activeStatus}
         clients={clients}
+        products={products}
+        companyLogo={companyLogo}
       />
+
       {selectedShipment && (
         <AttachmentModal
           isOpen={isAttachmentModalOpen}

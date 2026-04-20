@@ -1,6 +1,6 @@
 import React from 'react';
 import { X, Truck, Calendar, Weight, Info } from 'lucide-react';
-import type { Cargo, Shipment, User } from '../types';
+import type { Cargo, Shipment, User, Client, Product, Vehicle } from '../types';
 import ShipmentDetailsModal from './ShipmentDetailsModal';
 
 interface CargoShipmentsSidePanelProps {
@@ -11,7 +11,13 @@ interface CargoShipmentsSidePanelProps {
   users: User[];
   currentUser: User;
   onUpdatePrice: (shipmentId: string, data: { newTotal: number, newRate?: number, newCompanyRate?: number }) => void;
+  clients: Client[];
+  products: Product[];
+  companyLogo?: string | null;
+  vehicles: Vehicle[];
 }
+
+
 
 const CargoShipmentsSidePanel: React.FC<CargoShipmentsSidePanelProps> = ({ 
   isOpen, 
@@ -20,8 +26,14 @@ const CargoShipmentsSidePanel: React.FC<CargoShipmentsSidePanelProps> = ({
   shipments,
   users,
   currentUser,
-  onUpdatePrice
+  onUpdatePrice,
+  clients,
+  products,
+  companyLogo,
+  vehicles
 }) => {
+
+
   const [selectedShipment, setSelectedShipment] = React.useState<Shipment | null>(null);
 
   if (!cargo) return null;
@@ -126,7 +138,14 @@ const CargoShipmentsSidePanel: React.FC<CargoShipmentsSidePanelProps> = ({
           cargo={cargo}
           currentUser={currentUser}
           onUpdatePrice={onUpdatePrice}
+          clients={clients}
+          products={products}
+          companyLogo={companyLogo}
+          vehicles={vehicles}
+          users={users}
         />
+
+
       </div>
     </>
   );

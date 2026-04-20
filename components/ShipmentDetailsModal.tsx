@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
-import type { Shipment, Cargo, User } from '../types';
-import { UserProfile } from '../types';
+import type { Shipment, Cargo, User, Client, Product, Vehicle } from '../types';
+import { UserProfile, ShipmentStatus } from '../types';
+import { generateLoadingOrderPDF } from '../utils/pdfGenerator';
+import { FileTextIcon } from 'lucide-react';
+
 
 interface ShipmentDetailsModalProps {
   isOpen: boolean;
@@ -9,7 +12,13 @@ interface ShipmentDetailsModalProps {
   cargo: Cargo | undefined;
   currentUser?: User | null;
   onUpdatePrice?: (shipmentId: string, data: { newTotal: number, newRate?: number, newCompanyRate?: number }) => void;
+  clients: Client[];
+  products: Product[];
+  vehicles: Vehicle[];
+  users: User[];
+  companyLogo?: string | null;
 }
+
 
 const DetailItem: React.FC<{ label: string; value?: string | number | null; children?: React.ReactNode }> = ({ label, value, children }) => (
     <div>
@@ -18,7 +27,10 @@ const DetailItem: React.FC<{ label: string; value?: string | number | null; chil
     </div>
 );
 
-const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({ isOpen, onClose, shipment, cargo, currentUser, onUpdatePrice }) => {
+const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({ 
+  isOpen, onClose, shipment, cargo, currentUser, onUpdatePrice, clients, products, vehicles, users, companyLogo 
+}) => {
+
   const [isEditing, setIsEditing] = useState(false);
   const [editRate, setEditRate] = useState<number>(0);
   const [editCompanyRate, setEditCompanyRate] = useState<number>(0);
@@ -35,6 +47,10 @@ const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({ isOpen, onC
     setEditCompanyRate(shipment.companyFreightRateSnapshot || cargo?.companyFreightValuePerTon || 0);
     setIsEditing(true);
   };
+
+  const mainVehicle = vehicles.find(v => v.plate === shipment.horsePlate);
+  const embarcador = users.find(u => u.id === shipment.embarcadorId);
+  const product = products.find(p => p.id === cargo?.productId);
 
   const handleSave = () => {
     if (onUpdatePrice) {
@@ -53,9 +69,21 @@ const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({ isOpen, onC
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 max-w-2xl w-full max-h-[90vh] flex flex-col">
         <div className="flex justify-between items-start mb-4 border-b pb-4 dark:border-gray-700">
             <div>
-                <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Detalhes do Embarque</h2>
+                <div className="flex items-center gap-3">
+                    <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Detalhes do Embarque</h2>
+                    {shipment && ![ShipmentStatus.AguardandoSeguradora, ShipmentStatus.PreCadastro, ShipmentStatus.Cancelado].includes(shipment.status) && (
+                        <button
+                            onClick={() => cargo && generateLoadingOrderPDF(shipment, cargo, clients, products, vehicles, companyLogo)}
+                            title="Gerar Ordem de Carregamento (PDF)"
+                            className="p-1.5 bg-indigo-50 text-indigo-600 rounded-md hover:bg-indigo-600 hover:text-white transition-all shadow-sm border border-indigo-100 dark:bg-indigo-900/30 dark:text-indigo-400 dark:border-indigo-800/50"
+                        >
+                            <FileTextIcon size={18} />
+                        </button>
+                    )}
+                </div>
                 <p className="text-sm font-mono text-primary dark:text-blue-400 mt-1">{shipment.id}</p>
             </div>
+
             <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition">&times;</button>
         </div>
         
@@ -65,8 +93,10 @@ const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({ isOpen, onC
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-blue-50/50 dark:bg-blue-900/20 rounded-lg border border-blue-100 dark:border-blue-800/50">
                 <DetailItem label="Origem da Carga" value={cargo?.origin} />
                 <DetailItem label="Destino da Carga" value={cargo?.destination} />
+                <DetailItem label="Produto" value={product?.name} />
                 <DetailItem label="Carga Vinculada" value={cargo?.sequenceId ? `#${cargo.sequenceId}` : cargo?.id} />
-                <DetailItem label="Status Atual do Embarque" value={shipment.status} />
+                <DetailItem label="Status Atual" value={shipment.status} />
+                <DetailItem label="Comercial (Embarcador)" value={embarcador?.name || 'N/A'} />
                 {shipment.status === 'Cancelado' && shipment.cancellationReason && (
                     <div className="md:col-span-2 mt-2 p-3 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800/50 rounded-md">
                         <p className="text-xs font-medium text-red-800 dark:text-red-400">Motivo do Cancelamento</p>
@@ -76,11 +106,20 @@ const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({ isOpen, onC
             </div>
 
             {/* Informações do Motorista e Veículo */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t dark:border-gray-700 pt-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 border-t dark:border-gray-700 pt-4">
                 <DetailItem label="Motorista" value={shipment.driverName} />
-                <DetailItem label="Placa do Cavalo" value={shipment.horsePlate} />
-                <DetailItem label="Contato do Motorista" value={shipment.driverContact} />
                 <DetailItem label="Documento (CPF)" value={shipment.driverCpf} />
+                <DetailItem label="Contato" value={shipment.driverContact} />
+                
+                <div className="md:col-span-2 lg:col-span-3 h-px bg-gray-100 dark:bg-gray-700 my-2" />
+                
+                <DetailItem label="Placa do Cavalo" value={shipment.horsePlate} />
+                <DetailItem label="Placa Carreta 1" value={shipment.trailer1Plate} />
+                <DetailItem label="Placa Carreta 2" value={shipment.trailer2Plate || 'N/A'} />
+                <DetailItem label="Placa Carreta 3" value={shipment.trailer3Plate || 'N/A'} />
+                <DetailItem label="Tag do Veículo" value={shipment.vehicleTag || 'N/A'} />
+                <DetailItem label="Tipo de Veículo" value={mainVehicle?.setType || 'N/A'} />
+                <DetailItem label="Carroceria" value={mainVehicle?.bodyType || 'N/A'} />
             </div>
 
             {/* Frete e Financeiro */}
@@ -207,6 +246,26 @@ const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({ isOpen, onC
                                 </div>
                             </DetailItem>
                         </div>
+
+                        {shipment.documents && shipment.documents['Arquivos Iniciais'] && shipment.documents['Arquivos Iniciais'].length > 0 && (
+                            <div className="md:col-span-2 mt-4">
+                                <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2">Arquivos da Solicitação</h3>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                    {shipment.documents['Arquivos Iniciais'].map((url, idx) => (
+                                        <a 
+                                            key={idx} 
+                                            href={url} 
+                                            target="_blank" 
+                                            rel="noopener noreferrer"
+                                            className="flex items-center p-2 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800/50 rounded-md text-xs font-medium text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors"
+                                        >
+                                            <FileTextIcon size={14} className="mr-2" />
+                                            Ver Anexo {idx + 1}
+                                        </a>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </>
                 )}
             </div>
