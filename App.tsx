@@ -276,6 +276,8 @@ const App: React.FC = () => {
     loadPublicSettings();
     if (localStorage.getItem('rodochagas_currentUser')) {
       loadAllData();
+    } else {
+      setIsLoading(false);
     }
   }, [loadAllData, loadPublicSettings]);
 
