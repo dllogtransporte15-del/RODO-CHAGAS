@@ -199,46 +199,56 @@ const App: React.FC = () => {
     }
   }, [themeImage]);
 
-  // Auth state listener - dependency array must be EMPTY to avoid infinite re-subscription loop.
-  // The subscription is created once on mount. currentUser is read via a ref to avoid stale closures.
-  const currentUserRef = useRef(currentUser);
-  useEffect(() => {
-    currentUserRef.current = currentUser;
-  }, [currentUser]);
-
-  useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN' && session?.user) {
-        // Only fetch the profile if we don't already have a logged-in user to avoid redundant fetches
-        if (!currentUserRef.current) {
-          const { data: profile, error } = await supabase.from('app_users').select('*').eq('auth_id', session.user.id).single();
-          if (!error && profile) {
-            setCurrentUser({
-              id: profile.id,
-              name: profile.name,
-              email: profile.email,
-              profile: profile.profile,
-              active: profile.active,
-              password: profile.password,
-              clientId: profile.client_id,
-              requirePasswordChange: profile.require_password_change,
-              authId: profile.auth_id
-            });
+  const verifySession = useCallback(async () => {
+    setIsAuthChecking(true);
+    console.log('[Auth] Verificando sessão local...');
+    
+    try {
+      const savedUserEmail = localStorage.getItem('rodo_user_email');
+      
+      if (savedUserEmail) {
+        console.log('[Auth] Usuário encontrado no cache:', savedUserEmail);
+        const { data: dbUser, error: dbError } = await supabase
+          .from('app_users')
+          .select('*')
+          .eq('email', savedUserEmail)
+          .single();
+          
+        if (!dbError && dbUser) {
+          const userProfile: User = {
+            id: dbUser.id,
+            name: dbUser.name,
+            email: dbUser.email,
+            profile: dbUser.profile,
+            active: dbUser.active,
+            password: dbUser.password,
+            clientId: dbUser.client_id,
+            requirePasswordChange: dbUser.require_password_change,
+            authId: dbUser.auth_id
+          };
+          
+          if (userProfile.active) {
+            setCurrentUser(userProfile);
+            console.log('[Auth] Sessão restaurada para:', userProfile.name);
+          } else {
+            console.warn('[Auth] Usuário inativo no banco.');
+            localStorage.removeItem('rodo_user_email');
           }
+        } else {
+          console.error('[Auth] Erro ao recuperar perfil:', dbError);
+          localStorage.removeItem('rodo_user_email');
         }
-        // loadAllData is triggered automatically by useDatabase when currentUser changes.
-        // No need to call it explicitly here.
-      } else if (event === 'SIGNED_OUT') {
-        setCurrentUser(null);
-        setCurrentPage('dashboard');
       }
-    });
+    } catch (err) {
+      console.error('[Auth] Erro crítico na verificação:', err);
+    } finally {
+      setIsAuthChecking(false);
+    }
+  }, []);
 
-    return () => {
-      subscription.unsubscribe();
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Empty deps: subscribe once on mount, unsubscribe on unmount.
+  useEffect(() => {
+    verifySession();
+  }, [verifySession]);
 
   const nextStatusMap: Partial<Record<ShipmentStatus, ShipmentStatus>> = {
     [ShipmentStatus.AguardandoSeguradora]: ShipmentStatus.PreCadastro,
@@ -266,40 +276,45 @@ const App: React.FC = () => {
 
   // --- AUTH HANDLERS ---
   const handleLogin = (user: User) => {
+    localStorage.setItem('rodo_user_email', user.email);
     setCurrentUser(user);
     setCurrentPage('dashboard');
   };
 
   const handleLogout = () => {
+    localStorage.removeItem('rodo_user_email');
     setCurrentUser(null);
+    setCurrentPage('dashboard');
   };
 
   const handlePasswordChange = async (newPassword: string, currentPassword: string) => {
     if (!currentUser) return;
     
     try {
-      // 1. Update Supabase Auth password first
-      const { error: authError } = await supabase.auth.updateUser({
-        password: newPassword,
-        current_password: currentPassword
-      });
+      // 1. Update ONLY the database table
+      const { error: dbError } = await supabase
+        .from('app_users')
+        .update({ 
+          password: newPassword,
+          require_password_change: false 
+        })
+        .eq('email', currentUser.email)
+        .eq('password', currentPassword);
       
-      if (authError) {
-        console.error('Erro ao atualizar senha no Auth:', authError);
-        throw new Error(`Erro no serviço de autenticação: ${authError.message}`);
+      if (dbError) {
+        console.error('Erro ao atualizar senha no Banco:', dbError);
+        throw new Error('A senha atual está incorreta ou houve um erro no banco.');
       }
 
-      // 2. Update profile in app_users
+      // Update local state
       const updatedUser = { ...currentUser, password: newPassword, requirePasswordChange: false };
-      await upsertUser(updatedUser);
-      
       setCurrentUser(updatedUser);
       setUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
       
-      alert('Senha atualizada com sucesso no sistema e no serviço de autenticação!');
+      alert('Senha atualizada com sucesso no sistema!');
     } catch (err: any) {
-      console.error('Erro ao atualizar senha:', err);
-      throw new Error(err.message || 'Falha ao atualizar a senha no servidor.');
+      console.error('Erro geral no handlePasswordChange:', err);
+      throw err;
     }
   };
 

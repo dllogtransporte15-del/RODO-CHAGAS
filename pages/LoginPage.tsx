@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { supabase } from '../supabase';
 import type { User } from '../types';
 
@@ -25,82 +25,48 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, users, companyLogo }) =>
     const cleanEmail = email.trim().toLowerCase();
     const cleanPassword = password.trim();
 
-    // Safety net: timeout after 10 seconds if Supabase doesn't respond
-    const timeoutId = setTimeout(() => {
-      if (isLoading) {
-        setIsLoading(false);
-        setError('O servidor está demorando muito para responder. Verifique sua conexão ou se os logins por e-mail estão ativados no painel do Supabase.');
-      }
-    }, 10000);
+    console.log('[LoginPage] Iniciando login interno para:', cleanEmail);
     
     try {
-      const { data, error: authError } = await supabase.auth.signInWithPassword({
-        email: cleanEmail,
-        password: cleanPassword
-      });
+      // Direct query to app_users instead of Supabase Auth
+      const { data: dbUser, error: dbError } = await supabase
+        .from('app_users')
+        .select('*')
+        .eq('email', cleanEmail)
+        .eq('password', cleanPassword)
+        .single();
 
-      clearTimeout(timeoutId);
-
-      if (authError) {
-        if (authError.message === 'Invalid login credentials') {
-          setError('Email ou senha inválidos.');
-        } else if (authError.message.includes('Email logins are disabled')) {
-           setError('Logins por e-mail estão desativados no painel do administrador do Supabase.');
-        } else {
-          setError(authError.message);
-        }
+      if (dbError || !dbUser) {
+        console.error('[LoginPage] Erro de login:', dbError);
+        setError('Email ou senha inválidos no sistema interno.');
         setIsLoading(false);
         return;
       }
 
-      if (data.user) {
-        // Find matching profile in app_users
-        let userProfile = users.find(u => 
-          (u.authId === data.user?.id) || 
-          ((u.email || '').trim().toLowerCase() === cleanEmail)
-        );
-        
-        if (!userProfile) {
-          const { data: dbUser, error: dbError } = await supabase
-            .from('app_users')
-            .select('*')
-            .eq('email', cleanEmail)
-            .single();
-            
-          if (!dbError && dbUser) {
-            userProfile = {
-              id: dbUser.id,
-              name: dbUser.name,
-              email: dbUser.email,
-              profile: dbUser.profile,
-              active: dbUser.active,
-              password: dbUser.password,
-              clientId: dbUser.client_id,
-              requirePasswordChange: dbUser.require_password_change,
-              authId: dbUser.auth_id
-            };
-          }
-        }
-        
-        if (userProfile) {
-          if (!userProfile.active) {
-            setError('Este usuário está inativo.');
-            await supabase.auth.signOut();
-            setIsLoading(false);
-            return;
-          }
-          onLogin(userProfile);
-          // Note: we don't set isLoading(false) here because App.tsx will show its own loader
-        } else {
-          setError('Perfil de usuário não encontrado no sistema.');
-          await supabase.auth.signOut();
-          setIsLoading(false);
-        }
+      const userProfile: User = {
+        id: dbUser.id,
+        name: dbUser.name,
+        email: dbUser.email,
+        profile: dbUser.profile,
+        active: dbUser.active,
+        password: dbUser.password,
+        clientId: dbUser.client_id,
+        requirePasswordChange: dbUser.require_password_change,
+        authId: dbUser.auth_id
+      };
+
+      if (!userProfile.active) {
+        setError('Este usuário está inativo.');
+        setIsLoading(false);
+        return;
       }
+
+      console.log('[LoginPage] Login bem-sucedido:', userProfile.name);
+      onLogin(userProfile);
+      
     } catch (err: any) {
-      clearTimeout(timeoutId);
       console.error('Login error:', err);
-      setError('Ocorreu um erro ao tentar entrar. Tente novamente.');
+      setError('Ocorreu um erro interno ao tentar entrar.');
       setIsLoading(false);
     }
   };
@@ -158,7 +124,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, users, companyLogo }) =>
           </div>
 
           {error && (
-            <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 animate-pulse">
+            <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
                <p className="text-center text-sm text-red-600 dark:text-red-400 font-medium">{error}</p>
             </div>
           )}

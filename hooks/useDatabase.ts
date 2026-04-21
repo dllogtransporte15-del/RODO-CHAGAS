@@ -83,13 +83,15 @@ export function useDatabase(currentUser: User | null) {
     }, 15000);
 
     try {
-      // getSession() is inside try so any error is caught and finally always runs
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session && !isBackground) {
-        console.warn('[useDatabase] Attempted to load data without a valid Supabase session.');
-        return; // finally will still run
+      // Note: We now rely on the local session/user state from App.tsx 
+      // instead of checking Supabase Auth every time.
+      if (!currentUser) {
+        console.warn('[DB] Tentativa de carga sem usuário logado.');
+        setIsLoading(false);
+        return;
       }
+
+      console.log('[DB] Carregando dados para:', currentUser.email);
 
       const [
         dbClients, dbOwners, dbDrivers, dbVehicles, dbProducts, dbCargos, 
