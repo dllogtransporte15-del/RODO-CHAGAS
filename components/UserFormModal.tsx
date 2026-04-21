@@ -111,13 +111,32 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSave, 
             <label htmlFor="active" className="ml-2 block text-sm text-gray-900 dark:text-gray-300">Usuário Ativo</label>
           </div>
 
-          <div className="mt-8 flex justify-end space-x-4">
-            <button type="button" onClick={onClose} className="py-2 px-4 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-200 dark:hover:bg-gray-500">
-              Cancelar
-            </button>
-            <button type="submit" className="py-2 px-4 bg-primary text-white rounded-lg hover:bg-primary-dark">
-              Salvar
-            </button>
+          <div className="mt-8 flex justify-between items-center">
+            <div>
+              {userToEdit && (
+                <button 
+                  type="button" 
+                  onClick={() => {
+                    setUser(prev => ({ ...prev, password: 'rodo2026', requirePasswordChange: true }));
+                    alert('Senha resetada para "rodo2026".\nAtenção: A alteração só será gravada ao clicar em "SALVAR".');
+                  }} 
+                  className="py-2 px-4 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors font-medium flex items-center gap-2"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M4 2a2 2 0 00-2 2v11a3 3 0 106 0V4a2 2 0 00-2-2H4zm1 14a1 1 0 100-2 1 1 0 000 2zm5-1.757l3.9-3.9a.75.75 0 111.06 1.06l-4.5 4.5a.75.75 0 01-1.06 0l-4.5-4.5a.75.75 0 111.06-1.06l3.9 3.9V3.75a.75.75 0 011.5 0v10.493z" clipRule="evenodd" />
+                  </svg>
+                  Resetar Senha
+                </button>
+              )}
+            </div>
+            <div className="flex space-x-4">
+              <button type="button" onClick={onClose} className="py-2 px-4 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-200 dark:hover:bg-gray-500">
+                Cancelar
+              </button>
+              <button type="submit" className="py-2 px-4 bg-primary text-white rounded-lg hover:bg-primary-dark shadow-md">
+                Salvar
+              </button>
+            </div>
           </div>
         </form>
       </div>
