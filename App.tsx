@@ -132,46 +132,25 @@ const App: React.FC = () => {
 
   const isAnyModalActive = isAnyModalOpen || isTicketModalOpen;
   
-  // Sync the external modal state with the hook's internal ref for real-time suppression
+  // Sincronização de modais para supressão de real-time
   useEffect(() => {
     isAnyModalActiveRef.current = isAnyModalActive;
   }, [isAnyModalActive, isAnyModalActiveRef]);
 
-  // Persist local preferences
+  // Persistência local do usuário logado
   useEffect(() => {
     if (currentUser) {
       localStorage.setItem('rodochagas_currentUser', JSON.stringify(currentUser));
+      localStorage.setItem('rodo_user_email', currentUser.email);
     } else {
       localStorage.removeItem('rodochagas_currentUser');
+      localStorage.removeItem('rodo_user_email');
     }
   }, [currentUser]);
 
   useEffect(() => {
     localStorage.setItem('rodochagas_currentPage', currentPage);
   }, [currentPage]);
-
-  // Initial Session Verification
-  useEffect(() => {
-    const verifySession = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) {
-          if (currentUser) {
-            console.warn('[RODO-CHAGAS] No session found, but currentUser was in localStorage. Clearing state.');
-            setCurrentUser(null);
-          }
-        }
-      } catch (err) {
-        console.error('[RODO-CHAGAS] Error verifying session:', err);
-        setCurrentUser(null);
-      } finally {
-        setIsAuthChecking(false);
-      }
-    };
-    // Safety net: force auth check to finish after 8s no matter what
-    const timeout = setTimeout(() => setIsAuthChecking(false), 8000);
-    verifySession().then(() => clearTimeout(timeout));
-  }, []);
 
   // UI Effects (Branding & Theme)
   useEffect(() => {
@@ -201,13 +180,15 @@ const App: React.FC = () => {
 
   const verifySession = useCallback(async () => {
     setIsAuthChecking(true);
-    console.log('[Auth] Verificando sessão local...');
+    console.log('[Auth] Iniciando verificação de sessão...');
     
     try {
-      const savedUserEmail = localStorage.getItem('rodo_user_email');
+      // 1. Tenta recuperar e-mail do localStorage ou da sessão do Supabase
+      const { data: { session } } = await supabase.auth.getSession();
+      const savedUserEmail = session?.user?.email || localStorage.getItem('rodo_user_email');
       
       if (savedUserEmail) {
-        console.log('[Auth] Usuário encontrado no cache:', savedUserEmail);
+        console.log('[Auth] Recuperando perfil para:', savedUserEmail);
         const { data: dbUser, error: dbError } = await supabase
           .from('app_users')
           .select('*')
@@ -229,15 +210,21 @@ const App: React.FC = () => {
           
           if (userProfile.active) {
             setCurrentUser(userProfile);
-            console.log('[Auth] Sessão restaurada para:', userProfile.name);
+            console.log('[Auth] Sessão restaurada com sucesso:', userProfile.name);
           } else {
             console.warn('[Auth] Usuário inativo no banco.');
-            localStorage.removeItem('rodo_user_email');
+            setCurrentUser(null);
           }
         } else {
-          console.error('[Auth] Erro ao recuperar perfil:', dbError);
-          localStorage.removeItem('rodo_user_email');
+          if (dbError) console.error('[Auth] Erro ao recuperar perfil:', dbError.message);
+          // Se o usuário não existe no app_users, limpa a sessão
+          if (dbError?.code === 'PGRST116') {
+            setCurrentUser(null);
+          }
         }
+      } else {
+        console.log('[Auth] Nenhuma sessão encontrada.');
+        setCurrentUser(null);
       }
     } catch (err) {
       console.error('[Auth] Erro crítico na verificação:', err);

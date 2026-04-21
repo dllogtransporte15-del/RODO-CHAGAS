@@ -131,7 +131,7 @@ export function useDatabase(currentUser: User | null) {
       clearTimeout(timeoutId);
       setIsLoading(false); // ALWAYS runs — no more eternal spinner
     }
-  }, []);
+  }, [currentUser]);
 
   useEffect(() => {
     if (currentUser) {
