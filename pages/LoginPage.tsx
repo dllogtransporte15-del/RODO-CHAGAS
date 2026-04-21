@@ -1,5 +1,6 @@
 
 import React, { useState } from 'react';
+import { supabase } from '../supabase';
 import type { User } from '../types';
 
 interface LoginPageProps {
@@ -13,29 +14,73 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, users, companyLogo }) =>
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError('');
     const cleanEmail = email.trim().toLowerCase();
     const cleanPassword = password.trim();
     
-    // Find user with extremely robust matching:
-    // 1. Case-insensitive email
-    // 2. Trimming any accidental spaces in DB records
-    // 3. Ensuring users list is available
-    const user = users.find(u => {
-      const dbEmail = (u.email || '').trim().toLowerCase();
-      const dbPassword = (u.password || '').trim();
-      return dbEmail === cleanEmail && dbPassword === cleanPassword;
-    });
-    
-    if (user && user.active) {
-      onLogin(user);
-    } else if (user && !user.active) {
-      setError('Este usuário está inativo.');
-    } else {
-      console.log('Login failed. Input email:', cleanEmail, 'Input password:', '***');
-      console.log('Available users in state:', users.length);
-      setError('Email ou senha inválidos.');
+    try {
+      const { data, error: authError } = await supabase.auth.signInWithPassword({
+        email: cleanEmail,
+        password: cleanPassword
+      });
+
+      if (authError) {
+        if (authError.message === 'Invalid login credentials') {
+          setError('Email ou senha inválidos.');
+        } else {
+          setError(authError.message);
+        }
+        return;
+      }
+
+      if (data.user) {
+        // Find matching profile in app_users
+        // Note: some users might have authId set, others we match by email
+        let userProfile = users.find(u => 
+          (u.authId === data.user?.id) || 
+          ((u.email || '').trim().toLowerCase() === cleanEmail)
+        );
+        
+        // If profile not found in local state (common due to RLS), fetch it directly
+        if (!userProfile) {
+          const { data: dbUser, error: dbError } = await supabase
+            .from('app_users')
+            .select('*')
+            .eq('email', cleanEmail)
+            .single();
+            
+          if (!dbError && dbUser) {
+            userProfile = {
+              id: dbUser.id,
+              name: dbUser.name,
+              email: dbUser.email,
+              profile: dbUser.profile,
+              active: dbUser.active,
+              password: dbUser.password,
+              clientId: dbUser.client_id,
+              requirePasswordChange: dbUser.require_password_change,
+              authId: dbUser.auth_id
+            };
+          }
+        }
+        
+        if (userProfile) {
+          if (!userProfile.active) {
+            setError('Este usuário está inativo.');
+            await supabase.auth.signOut();
+            return;
+          }
+          onLogin(userProfile);
+        } else {
+          setError('Perfil de usuário não encontrado no sistema.');
+          await supabase.auth.signOut();
+        }
+      }
+    } catch (err: any) {
+      console.error('Login error:', err);
+      setError('Ocorreu um erro ao tentar entrar. Tente novamente.');
     }
   };
 

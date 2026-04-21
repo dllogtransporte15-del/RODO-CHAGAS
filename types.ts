@@ -23,6 +23,7 @@ export interface User {
   password?: string;
   clientId?: string;
   requirePasswordChange?: boolean;
+  authId?: string;
 }
 
 export enum PaymentMethod {

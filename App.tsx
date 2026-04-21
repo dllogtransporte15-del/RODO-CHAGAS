@@ -137,7 +137,25 @@ const App: React.FC = () => {
   });
 
   // --- LOAD DATA FROM SUPABASE ---
+  const loadPublicSettings = useCallback(async () => {
+    try {
+      const settings = await fetchAppSettings();
+      if (settings) {
+        if (settings.company_logo) setCompanyLogo(settings.company_logo);
+        if (settings.theme_image) setThemeImage(settings.theme_image);
+      }
+    } catch (err) {
+      console.error('Erro ao carregar configurações públicas:', err);
+    }
+  }, []);
+
   const loadAllData = useCallback(async (isBackground = false) => {
+    // Only attempt to load private data if we have a user
+    if (!localStorage.getItem('rodochagas_currentUser') && !isBackground) {
+      console.log('Skipping private data load: No user session found.');
+      return;
+    }
+
     if (!isBackground) setIsLoading(true);
     setLoadError(null);
     try {
@@ -255,8 +273,52 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    loadAllData();
-  }, [loadAllData]);
+    loadPublicSettings();
+    if (localStorage.getItem('rodochagas_currentUser')) {
+      loadAllData();
+    }
+  }, [loadAllData, loadPublicSettings]);
+
+  // Auth state listener
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('Auth event:', event);
+      if (event === 'SIGNED_IN' && session?.user) {
+        // If we don't have a currentUser yet, try to find it
+        if (!currentUser) {
+          // Wait for users to be loaded if they aren't yet
+          const { data: dbUsers, error } = await supabase.from('app_users').select('*');
+          if (!error && dbUsers) {
+            const profile = dbUsers.find(u => 
+              u.auth_id === session.user.id || 
+              (u.email || '').trim().toLowerCase() === (session.user.email || '').trim().toLowerCase()
+            );
+            if (profile) {
+              setCurrentUser({
+                id: profile.id,
+                name: profile.name,
+                email: profile.email,
+                profile: profile.profile,
+                active: profile.active,
+                password: profile.password,
+                clientId: profile.client_id,
+                requirePasswordChange: profile.require_password_change,
+                authId: profile.auth_id
+              });
+            }
+          }
+        }
+        loadAllData(true);
+      } else if (event === 'SIGNED_OUT') {
+        setCurrentUser(null);
+        setCurrentPage('dashboard');
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [currentUser, loadAllData]);
 
   // Keep localStorage only for UI preferences
   useEffect(() => { localStorage.setItem('rodochagas_nextIds', JSON.stringify(nextIds)); }, [nextIds]);
