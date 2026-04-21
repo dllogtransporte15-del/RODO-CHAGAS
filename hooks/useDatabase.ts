@@ -90,18 +90,25 @@ export function useDatabase(currentUser: User | null) {
         return maxNum + 1;
       };
 
-      setNextIds({
-        client: getMaxId(dbClients, 100),
-        owner: getMaxId(dbOwners, 100),
-        driver: getMaxId(dbDrivers, 100),
-        vehicle: getMaxId(dbVehicles, 100),
-        product: getMaxId(dbProducts, 100),
-        shipment: getMaxId(dbShipments, 100),
-        cargo: getMaxId(dbCargos, 100),
-        user: getMaxId(dbUsers, 100),
-        ticket: getMaxId(dbTickets, 1),
-        history: 9999,
-      });
+      const calculateNextIds = (
+        dbClients: any[], dbOwners: any[], dbDrivers: any[], dbVehicles: any[], 
+        dbProducts: any[], dbShipments: any[], dbCargos: any[], dbUsers: any[], dbTickets: any[]
+      ) => {
+        return {
+          client: getMaxId(dbClients, 100),
+          owner: getMaxId(dbOwners, 100),
+          driver: getMaxId(dbDrivers, 100),
+          vehicle: getMaxId(dbVehicles, 100),
+          product: getMaxId(dbProducts, 100),
+          shipment: getMaxId(dbShipments, 100),
+          cargo: getMaxId(dbCargos, 100),
+          user: getMaxId(dbUsers, 100),
+          ticket: getMaxId(dbTickets, 1),
+          history: 9999,
+        };
+      };
+
+      setNextIds(calculateNextIds(dbClients, dbOwners, dbDrivers, dbVehicles, dbProducts, dbShipments, dbCargos, dbUsers, dbTickets));
 
     } catch (err) {
       console.error('Erro ao carregar dados:', err);
@@ -123,24 +130,92 @@ export function useDatabase(currentUser: User | null) {
   useEffect(() => {
     if (!currentUser) return;
 
+    const handlePostgresChange = async (payload: any) => {
+      if (isAnyModalActiveRef.current) return;
+      
+      const { table, eventType } = payload;
+      console.log(`[useDatabase] Change detected in ${table} (${eventType}). Updating...`);
+
+      try {
+        switch (table) {
+          case 'clients':
+            const dbClients = await fetchClients();
+            setClients(dbClients);
+            setNextIds(prev => ({ ...prev, client: getMaxId(dbClients, 100) }));
+            break;
+          case 'owners':
+            const dbOwners = await fetchOwners();
+            setOwners(dbOwners);
+            setNextIds(prev => ({ ...prev, owner: getMaxId(dbOwners, 100) }));
+            break;
+          case 'drivers':
+            const dbDrivers = await fetchDrivers();
+            setDrivers(dbDrivers);
+            setNextIds(prev => ({ ...prev, driver: getMaxId(dbDrivers, 100) }));
+            break;
+          case 'vehicles':
+            const dbVehicles = await fetchVehicles();
+            setVehicles(dbVehicles);
+            setNextIds(prev => ({ ...prev, vehicle: getMaxId(dbVehicles, 100) }));
+            break;
+          case 'products':
+            const dbProducts = await fetchProducts();
+            setProducts(dbProducts);
+            setNextIds(prev => ({ ...prev, product: getMaxId(dbProducts, 100) }));
+            break;
+          case 'cargos':
+            const dbCargos = await fetchCargos();
+            setCargos(dbCargos);
+            setNextIds(prev => ({ ...prev, cargo: getMaxId(dbCargos, 100) }));
+            break;
+          case 'shipments':
+            const dbShipments = await fetchShipments();
+            setShipments(dbShipments);
+            setNextIds(prev => ({ ...prev, shipment: getMaxId(dbShipments, 100) }));
+            break;
+          case 'app_users':
+            const dbUsers = await fetchUsers();
+            setUsers(dbUsers);
+            setNextIds(prev => ({ ...prev, user: getMaxId(dbUsers, 100) }));
+            break;
+          case 'tickets':
+            const dbTickets = await fetchTickets();
+            setTickets(dbTickets);
+            setNextIds(prev => ({ ...prev, ticket: getMaxId(dbTickets, 1) }));
+            break;
+          case 'shipment_locks':
+            const dbLocks = await fetchShipmentLocks();
+            setActiveLocks(dbLocks);
+            break;
+          case 'profile_permissions':
+            const dbPermissions = await fetchProfilePermissions();
+            if (dbPermissions) setProfilePermissions(dbPermissions);
+            break;
+          case 'app_settings':
+            const dbSettings = await fetchAppSettings();
+            if (dbSettings) {
+              if (dbSettings.company_logo) setCompanyLogo(dbSettings.company_logo);
+              if (dbSettings.theme_image) setThemeImage(dbSettings.theme_image);
+            }
+            break;
+          default:
+            // If unknown table or major change, fallback to background reload
+            loadAllData(true);
+        }
+      } catch (err) {
+        console.error(`[useDatabase] Error during surgical update for ${table}:`, err);
+        // Fallback
+        loadAllData(true);
+      }
+    };
+
     const channel = supabase
       .channel('db_changes')
-      .on('postgres_changes', { event: '*', schema: 'public' }, (payload) => {
-        if (isAnyModalActiveRef.current) return;
-        loadAllData(true);
-      })
-      .subscribe();
-
-    const lockChannel = supabase
-      .channel('lock_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'shipment_locks' }, () => {
-        fetchShipmentLocks().then(setActiveLocks);
-      })
+      .on('postgres_changes', { event: '*', schema: 'public' }, handlePostgresChange)
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
-      supabase.removeChannel(lockChannel);
     };
   }, [currentUser, loadAllData]);
 
