@@ -59,7 +59,14 @@ const ShipperReport: React.FC<ShipperReportProps> = ({ shipments, users, current
                   acc.emAndamento += 1;
                 }
 
-                const isEffective = ![ShipmentStatus.PreCadastro, ShipmentStatus.AguardandoSeguradora, ShipmentStatus.AguardandoCarregamento, ShipmentStatus.Cancelado].includes(shipment.status);
+                const isEffective = [
+                    ShipmentStatus.AguardandoNota,
+                    ShipmentStatus.AguardandoAdiantamento,
+                    ShipmentStatus.AguardandoAgendamento,
+                    ShipmentStatus.AguardandoDescarga,
+                    ShipmentStatus.AguardandoPagamentoSaldo,
+                    ShipmentStatus.Finalizado
+                ].includes(shipment.status);
                 if (isEffective) {
                     acc.effectiveTonnage += shipment.shipmentTonnage || 0;
                 }

@@ -53,19 +53,10 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, carg
   const destOptions = Array.from(new Set(cargos.map(c => c.destination))).filter(Boolean).sort();
 
   const getEffectiveDate = (s: Shipment) => {
-    const effectiveStatuses = [
-      ShipmentStatus.AguardandoNota,
-      ShipmentStatus.AguardandoAdiantamento,
-      ShipmentStatus.AguardandoAgendamento,
-      ShipmentStatus.AguardandoDescarga,
-      ShipmentStatus.AguardandoPagamentoSaldo,
-      ShipmentStatus.Finalizado
-    ];
+    // Find when it reached Aguardando Nota (effective volume)
+    const effectiveEntry = s.statusHistory?.find(h => h.status === ShipmentStatus.AguardandoNota);
     
-    // Find the earliest entry in status history that matches any of these effective statuses
-    const effectiveEntry = s.statusHistory?.find(h => effectiveStatuses.includes(h.status));
-    
-    // If not loaded yet, fallback to scheduledDate so it appears in "Programado" totals for the month.
+    // Return the effective timestamp date string, or scheduledDate if not effective yet
     return effectiveEntry ? effectiveEntry.timestamp.substring(0, 10) : s.scheduledDate;
   };
 
@@ -114,11 +105,16 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, carg
     ];
 
     shipments.forEach(s => {
-      // Filter by scheduledDate (YYYY-MM-DD) for consistency
+      // Total Programado: Based on scheduledDate for the current month
       if (s.scheduledDate.startsWith(monthYearPrefix) && s.status !== ShipmentStatus.Cancelado) {
         totalProgramado += s.shipmentTonnage || 0;
-        
-        if (effectiveForwardStatuses.includes(s.status)) {
+      }
+
+      // Total Efetivado: Based on reaching 'Ag. Nota' THIS MONTH
+      const effectiveEntry = s.statusHistory?.find(h => h.status === ShipmentStatus.AguardandoNota);
+      if (effectiveEntry) {
+        const date = new Date(effectiveEntry.timestamp);
+        if (date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear()) {
           totalEfetivado += s.shipmentTonnage || 0;
         }
       }

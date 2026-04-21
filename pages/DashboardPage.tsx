@@ -170,10 +170,10 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ cargos, shipments, users,
     const volumesByClient: Record<string, number> = {};
 
     shipments.forEach(s => {
-      // Find when it was loaded (AguardandoDescarga status)
-      const loadedEntry = s.statusHistory?.find(h => h.status === ShipmentStatus.AguardandoDescarga);
-      if (loadedEntry) {
-        const date = new Date(loadedEntry.timestamp);
+      // Find when it reached Aguardando Nota (effective volume)
+      const effectiveEntry = s.statusHistory?.find(h => h.status === ShipmentStatus.AguardandoNota);
+      if (effectiveEntry) {
+        const date = new Date(effectiveEntry.timestamp);
         if (date.getMonth() === currentMonth && date.getFullYear() === currentYear) {
           const cargo = cargos.find(c => c.id === s.cargoId);
           if (cargo) {
@@ -218,24 +218,10 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ cargos, shipments, users,
     let monthlyEffectiveTonnage = 0;
     
     shipments.forEach(s => {
-      const isEffective = ![ShipmentStatus.PreCadastro, ShipmentStatus.AguardandoSeguradora, ShipmentStatus.AguardandoCarregamento, ShipmentStatus.Cancelado].includes(s.status);
-      if (isEffective) {
-        let referenceDate = new Date(s.createdAt);
-        
-        const effectiveEntry = s.statusHistory?.find(h => ![ShipmentStatus.PreCadastro, ShipmentStatus.AguardandoSeguradora, ShipmentStatus.AguardandoCarregamento, ShipmentStatus.Cancelado].includes(h.status));
-        
-        if (effectiveEntry && effectiveEntry.timestamp) {
-          referenceDate = new Date(effectiveEntry.timestamp);
-        } else {
-          const currentStatusEntry = s.statusHistory && s.statusHistory.length > 0 
-            ? s.statusHistory[s.statusHistory.length - 1] 
-            : undefined;
-          if (currentStatusEntry && currentStatusEntry.timestamp) {
-             referenceDate = new Date(currentStatusEntry.timestamp);
-          }
-        }
-
-        if (referenceDate.getMonth() === currentMonth && referenceDate.getFullYear() === currentYear) {
+      const effectiveEntry = s.statusHistory?.find(h => h.status === ShipmentStatus.AguardandoNota);
+      if (effectiveEntry) {
+        const date = new Date(effectiveEntry.timestamp);
+        if (date.getMonth() === currentMonth && date.getFullYear() === currentYear) {
           monthlyEffectiveTonnage += s.shipmentTonnage || 0;
         }
       }
@@ -279,12 +265,12 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ cargos, shipments, users,
     
     shipments.forEach(s => {
         // Volume calculations
-        const loadedEntry = s.statusHistory?.find(h => h.status === ShipmentStatus.AguardandoDescarga);
-        if (loadedEntry) {
-            const loadedDate = new Date(loadedEntry.timestamp);
-            if (loadedDate.getFullYear() === currentYear) {
+        const effectiveEntry = s.statusHistory?.find(h => h.status === ShipmentStatus.AguardandoNota);
+        if (effectiveEntry) {
+            const effectiveDate = new Date(effectiveEntry.timestamp);
+            if (effectiveDate.getFullYear() === currentYear) {
                 volumeLoadedThisYear += s.shipmentTonnage;
-                if (loadedDate.getMonth() === currentMonth) {
+                if (effectiveDate.getMonth() === currentMonth) {
                     volumeLoadedThisMonth += s.shipmentTonnage;
                 }
             }

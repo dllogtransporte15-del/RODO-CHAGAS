@@ -42,41 +42,25 @@ const ShipperRankingCard: React.FC<ShipperRankingCardProps> = ({ shipments, carg
       let effectiveTonnage = 0;
 
       shipperShipments.forEach(shipment => {
-        const isEffective = ![ShipmentStatus.PreCadastro, ShipmentStatus.AguardandoSeguradora, ShipmentStatus.AguardandoCarregamento, ShipmentStatus.Cancelado].includes(shipment.status);
+        const effectiveEntry = shipment.statusHistory?.find(h => h.status === ShipmentStatus.AguardandoNota);
         
-        let referenceDate = new Date(shipment.createdAt);
-        
-        if (isEffective) {
-          const effectiveEntry = shipment.statusHistory?.find(h => ![ShipmentStatus.PreCadastro, ShipmentStatus.AguardandoSeguradora, ShipmentStatus.AguardandoCarregamento, ShipmentStatus.Cancelado].includes(h.status));
-          
-          if (effectiveEntry && effectiveEntry.timestamp) {
-            referenceDate = new Date(effectiveEntry.timestamp);
-          } else {
-            const currentStatusEntry = shipment.statusHistory && shipment.statusHistory.length > 0 
-              ? shipment.statusHistory[shipment.statusHistory.length - 1] 
-              : undefined;
-            if (currentStatusEntry && currentStatusEntry.timestamp) {
-               referenceDate = new Date(currentStatusEntry.timestamp);
+        if (effectiveEntry) {
+          const referenceDate = new Date(effectiveEntry.timestamp);
+          const isCurrentMonth = referenceDate.getMonth() === currentMonth && referenceDate.getFullYear() === currentYear;
+
+          if (isCurrentMonth) {
+            if (shipment.horsePlate) {
+                uniqueVehicles.add(shipment.horsePlate);
             }
-          }
-        }
 
-        const isCurrentMonth = referenceDate.getMonth() === currentMonth && referenceDate.getFullYear() === currentYear;
+            const cargo = cargoMap.get(shipment.cargoId);
+            if (cargo) {
+              const companyRate = shipment.companyFreightRateSnapshot || cargo.companyFreightValuePerTon;
+              const companyFreightValue = companyRate * shipment.shipmentTonnage;
+              const driverFreightValue = shipment.driverFreightValue;
+              netMargin += (companyFreightValue - driverFreightValue);
+            }
 
-        if (isCurrentMonth) {
-          if (shipment.horsePlate) {
-              uniqueVehicles.add(shipment.horsePlate);
-          }
-
-          const cargo = cargoMap.get(shipment.cargoId);
-          if (cargo) {
-            const companyRate = shipment.companyFreightRateSnapshot || cargo.companyFreightValuePerTon;
-            const companyFreightValue = companyRate * shipment.shipmentTonnage;
-            const driverFreightValue = shipment.driverFreightValue;
-            netMargin += (companyFreightValue - driverFreightValue);
-          }
-
-          if (isEffective) {
             effectiveTonnage += (shipment.shipmentTonnage || 0);
           }
         }
