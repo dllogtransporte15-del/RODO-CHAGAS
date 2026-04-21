@@ -339,19 +339,19 @@ export async function fetchOwners(): Promise<Owner[]> {
 
 export async function fetchDrivers(): Promise<Driver[]> {
   const { data, error } = await supabase.from('drivers').select('*').order('name');
-  if (error) throw error;
+  if (error) return handleAuthError(error, []);
   return (data || []).map(toDriver);
 }
 
 export async function fetchVehicles(): Promise<Vehicle[]> {
   const { data, error } = await supabase.from('vehicles').select('*').order('plate');
-  if (error) throw error;
+  if (error) return handleAuthError(error, []);
   return (data || []).map(toVehicle);
 }
 
 export async function fetchProducts(): Promise<Product[]> {
   const { data, error } = await supabase.from('products').select('*').order('name');
-  if (error) throw error;
+  if (error) return handleAuthError(error, []);
   return (data || []).map(toProduct);
 }
 
@@ -369,19 +369,19 @@ export async function fetchShipments(): Promise<Shipment[]> {
 
 export async function fetchUsers(): Promise<User[]> {
   const { data, error } = await supabase.from('app_users').select('*').order('name');
-  if (error) throw error;
+  if (error) return handleAuthError(error, []);
   return (data || []).map(toUser);
 }
 
 export async function fetchTickets(): Promise<Ticket[]> {
   const { data, error } = await supabase.from('tickets').select('*').order('created_at', { ascending: false });
-  if (error) throw error;
+  if (error) return handleAuthError(error, []);
   return (data || []).map(toTicket);
 }
 
 export async function fetchShipmentLocks(): Promise<ShipmentLock[]> {
   const { data, error } = await supabase.from('shipment_locks').select('*');
-  if (error) throw error;
+  if (error) return handleAuthError(error, []);
   return (data || []).map(row => ({
     id: row.id,
     shipmentId: row.shipment_id,
