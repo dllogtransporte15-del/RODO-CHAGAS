@@ -8,13 +8,13 @@ This contains everything you need to run your app locally.
 
 View your app in AI Studio: https://ai.studio/apps/a597f491-02f5-409f-8677-9c95384e6638
 
-## Run Locally
+## Deployment
 
-**Prerequisites:**  Node.js
+This project is configured for deployment on **Vercel**. 
 
+- **Primary Host**: Vercel
+- **Netlify**: Paused (configuration disabled in `netlify.toml.disabled` or commented out)
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+### Configuration
+- `vercel.json`: Handles SPA routing and clean URLs.
+- `netlify.toml`: Disabled to prevent redundant deployments.
