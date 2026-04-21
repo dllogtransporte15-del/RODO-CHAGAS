@@ -191,11 +191,18 @@ const App: React.FC = () => {
     }
   }, [themeImage]);
 
-  // Auth state listener
+  // Auth state listener - dependency array must be EMPTY to avoid infinite re-subscription loop.
+  // The subscription is created once on mount. currentUser is read via a ref to avoid stale closures.
+  const currentUserRef = useRef(currentUser);
+  useEffect(() => {
+    currentUserRef.current = currentUser;
+  }, [currentUser]);
+
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session?.user) {
-        if (!currentUser) {
+        // Only fetch the profile if we don't already have a logged-in user to avoid redundant fetches
+        if (!currentUserRef.current) {
           const { data: profile, error } = await supabase.from('app_users').select('*').eq('auth_id', session.user.id).single();
           if (!error && profile) {
             setCurrentUser({
@@ -211,7 +218,8 @@ const App: React.FC = () => {
             });
           }
         }
-        loadAllData(true);
+        // loadAllData is triggered automatically by useDatabase when currentUser changes.
+        // No need to call it explicitly here.
       } else if (event === 'SIGNED_OUT') {
         setCurrentUser(null);
         setCurrentPage('dashboard');
@@ -221,7 +229,8 @@ const App: React.FC = () => {
     return () => {
       subscription.unsubscribe();
     };
-  }, [currentUser, loadAllData]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty deps: subscribe once on mount, unsubscribe on unmount.
 
   const nextStatusMap: Partial<Record<ShipmentStatus, ShipmentStatus>> = {
     [ShipmentStatus.AguardandoSeguradora]: ShipmentStatus.PreCadastro,
