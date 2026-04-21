@@ -61,8 +61,8 @@ export function useDatabase(currentUser: User | null) {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   
-  const [companyLogo, setCompanyLogo] = useState<string | null>(null);
-  const [themeImage, setThemeImage] = useState<string | null>(null);
+  const [companyLogo, setCompanyLogo] = useState<string | null>(() => localStorage.getItem('rodochagas_companyLogo'));
+  const [themeImage, setThemeImage] = useState<string | null>(() => localStorage.getItem('rodochagas_themeImage'));
 
   const [nextIds, setNextIds] = useState(() => {
     const saved = localStorage.getItem('rodochagas_nextIds');
@@ -138,6 +138,13 @@ export function useDatabase(currentUser: User | null) {
       loadAllData();
     } else {
       setIsLoading(false);
+      // Even without a user, try to load branding settings for the login page
+      fetchAppSettings().then(settings => {
+        if (settings) {
+          if (settings.company_logo) setCompanyLogo(settings.company_logo);
+          if (settings.theme_image) setThemeImage(settings.theme_image);
+        }
+      });
     }
   }, [currentUser, loadAllData]);
 
@@ -156,55 +163,55 @@ export function useDatabase(currentUser: User | null) {
           case 'clients': {
             const dbClients = await fetchClients();
             setClients(dbClients);
-            setNextIds(prev => ({ ...prev, client: getMaxId(dbClients, 100) }));
+            setNextIds((prev: any) => ({ ...prev, client: getMaxId(dbClients, 100) }));
             break;
           }
           case 'owners': {
             const dbOwners = await fetchOwners();
             setOwners(dbOwners);
-            setNextIds(prev => ({ ...prev, owner: getMaxId(dbOwners, 100) }));
+            setNextIds((prev: any) => ({ ...prev, owner: getMaxId(dbOwners, 100) }));
             break;
           }
           case 'drivers': {
             const dbDrivers = await fetchDrivers();
             setDrivers(dbDrivers);
-            setNextIds(prev => ({ ...prev, driver: getMaxId(dbDrivers, 100) }));
+            setNextIds((prev: any) => ({ ...prev, driver: getMaxId(dbDrivers, 100) }));
             break;
           }
           case 'vehicles': {
             const dbVehicles = await fetchVehicles();
             setVehicles(dbVehicles);
-            setNextIds(prev => ({ ...prev, vehicle: getMaxId(dbVehicles, 100) }));
+            setNextIds((prev: any) => ({ ...prev, vehicle: getMaxId(dbVehicles, 100) }));
             break;
           }
           case 'products': {
             const dbProducts = await fetchProducts();
             setProducts(dbProducts);
-            setNextIds(prev => ({ ...prev, product: getMaxId(dbProducts, 100) }));
+            setNextIds((prev: any) => ({ ...prev, product: getMaxId(dbProducts, 100) }));
             break;
           }
           case 'cargos': {
             const dbCargos = await fetchCargos();
             setCargos(dbCargos);
-            setNextIds(prev => ({ ...prev, cargo: getMaxId(dbCargos, 100) }));
+            setNextIds((prev: any) => ({ ...prev, cargo: getMaxId(dbCargos, 100) }));
             break;
           }
           case 'shipments': {
             const dbShipments = await fetchShipments();
             setShipments(dbShipments);
-            setNextIds(prev => ({ ...prev, shipment: getMaxId(dbShipments, 100) }));
+            setNextIds((prev: any) => ({ ...prev, shipment: getMaxId(dbShipments, 100) }));
             break;
           }
           case 'app_users': {
             const dbUsers = await fetchUsers();
             setUsers(dbUsers);
-            setNextIds(prev => ({ ...prev, user: getMaxId(dbUsers, 100) }));
+            setNextIds((prev: any) => ({ ...prev, user: getMaxId(dbUsers, 100) }));
             break;
           }
           case 'tickets': {
             const dbTickets = await fetchTickets();
             setTickets(dbTickets);
-            setNextIds(prev => ({ ...prev, ticket: getMaxId(dbTickets, 1) }));
+            setNextIds((prev: any) => ({ ...prev, ticket: getMaxId(dbTickets, 1) }));
             break;
           }
           case 'shipment_locks': {
