@@ -1,10 +1,39 @@
 
-// Triggering new build - commit sync fix
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { supabase } from './supabase';
 import { useDatabase } from './hooks/useDatabase';
 import type { Client, Owner, Driver, Vehicle, Product, Cargo, Shipment, User, Page, ProfilePermissions, HistoryLog, Ticket, TicketHistory, ShipmentLock } from './types';
 import { CargoStatus, ShipmentStatus, UserProfile, TicketStatus, TicketPriority, DriverClassification, VehicleSetType, VehicleBodyType, REQUIRED_DOCUMENT_MAP } from './types';
 import { formatId } from './utils';
 import { INITIAL_PERMISSIONS } from './auth';
+
+// Page Imports
+import DashboardPage from './pages/DashboardPage';
+import LoginPage from './pages/LoginPage';
+import ClientsPage from './pages/ClientsPage';
+import OwnersPage from './pages/OwnersPage';
+import DriversPage from './pages/DriversPage';
+import VehiclesPage from './pages/VehiclesPage';
+import LoadsPage from './pages/LoadsPage';
+import ProductsPage from './pages/ProductsPage';
+import ShipmentsPage from './pages/ShipmentsPage';
+import OperationalLoadsPage from './pages/OperationalLoadsPage';
+import OperationalMapPage from './pages/OperationalMapPage';
+import CommissionsPage from './pages/CommissionsPage';
+import ReportsPage from './pages/ReportsPage';
+import UsersPage from './pages/UsersPage';
+import AppearancePage from './pages/AppearancePage';
+import ShipmentHistoryPage from './pages/ShipmentHistoryPage';
+import LoadHistoryPage from './pages/LoadHistoryPage';
+import LayoverCalculatorPage from './pages/LayoverCalculatorPage';
+import FreightQuotePage from './pages/FreightQuotePage';
+import ToolsHistoryPage from './pages/ToolsHistoryPage';
+
+// Component Imports
+import TopNavBar from './components/TopNavBar';
+import TicketModal from './components/TicketModal';
+import PasswordChangeModal from './components/PasswordChangeModal';
+
 import {
   upsertClient, upsertOwner, upsertDriver, upsertVehicle, upsertCargo, insertCargo,
   upsertShipment, insertShipment, upsertUser, upsertTicket, saveProfilePermissions,
@@ -66,8 +95,13 @@ interface NewShipmentRequestData extends Omit<Shipment, 'id' | 'orderId' | 'stat
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
     const saved = localStorage.getItem('rodochagas_currentUser');
-    return saved ? JSON.parse(saved) : null;
+    try {
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
   });
+  const [isAuthChecking, setIsAuthChecking] = useState(true);
   const [currentPage, setCurrentPage] = useState<Page>(() => {
     return (localStorage.getItem('rodochagas_currentPage') as Page) || 'dashboard';
   });
@@ -115,6 +149,21 @@ const App: React.FC = () => {
   useEffect(() => {
     localStorage.setItem('rodochagas_currentPage', currentPage);
   }, [currentPage]);
+
+  // Initial Session Verification
+  useEffect(() => {
+    const verifySession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        if (currentUser) {
+          console.warn('[RODO-CHAGAS] No session found, but currentUser was in localStorage. Clearing state.');
+          setCurrentUser(null);
+        }
+      }
+      setIsAuthChecking(false);
+    };
+    verifySession();
+  }, []);
 
   // UI Effects (Branding & Theme)
   useEffect(() => {
@@ -1461,8 +1510,8 @@ const App: React.FC = () => {
     }
   };
 
-  // Only show the full-screen loader if it's the initial load (no data yet)
-  if (isLoading && shipments.length === 0 && cargos.length === 0) {
+  // Only show the full-screen loader if it's the initial load (no data yet) or checking auth
+  if (isAuthChecking || (isLoading && shipments.length === 0 && cargos.length === 0)) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', gap: '16px', background: '#f9fafb' }}>
         <div style={{ width: '48px', height: '48px', border: '4px solid #e5e7eb', borderTopColor: '#3b82f6', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />

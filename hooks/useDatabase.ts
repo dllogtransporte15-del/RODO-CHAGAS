@@ -39,7 +39,14 @@ export function useDatabase(currentUser: User | null) {
   const isAnyModalActiveRef = useRef(false);
 
   const loadAllData = useCallback(async (isBackground = false) => {
-    if (!localStorage.getItem('rodochagas_currentUser') && !isBackground) return;
+    // Check both local storage AND actual Supabase session
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (!session && !isBackground) {
+        console.warn('[useDatabase] Attempted to load data without a valid Supabase session.');
+        setIsLoading(false);
+        return;
+    }
 
     if (!isBackground) setIsLoading(true);
     setLoadError(null);

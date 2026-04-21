@@ -3,6 +3,9 @@ import { createClient } from '@supabase/supabase-js';
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const SUPABASE_KEY = (import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY) as string | undefined;
 
+console.log('[RODO-CHAGAS] Supabase URL:', SUPABASE_URL);
+console.log('[RODO-CHAGAS] Supabase Key exists:', !!SUPABASE_KEY);
+
 if (!SUPABASE_URL || !SUPABASE_KEY) {
   throw new Error(
     '[RODO-CHAGAS] Variáveis de ambiente do Supabase não encontradas!\n' +

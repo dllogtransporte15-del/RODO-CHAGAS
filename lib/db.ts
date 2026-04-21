@@ -310,18 +310,30 @@ const fromTicket = (t: Ticket | Omit<Ticket, 'id' | 'history' | 'createdAt' | 'c
 });
 
 // ─────────────────────────────────────────────
+// FETCH HELPERS: Handle Auth Errors
+// ─────────────────────────────────────────────
+
+const handleAuthError = (error: any, defaultValue: any) => {
+  if (error.code === 'PGRST116' || error.status === 406 || error.status === 401) {
+    console.warn('[DB] Auth/RLS error or no data found:', error.message);
+    return defaultValue;
+  }
+  throw error;
+};
+
+// ─────────────────────────────────────────────
 // FETCH ALL
 // ─────────────────────────────────────────────
 
 export async function fetchClients(): Promise<Client[]> {
   const { data, error } = await supabase.from('clients').select('*').order('nome_fantasia');
-  if (error) throw error;
+  if (error) return handleAuthError(error, []);
   return (data || []).map(toClient);
 }
 
 export async function fetchOwners(): Promise<Owner[]> {
   const { data, error } = await supabase.from('owners').select('*').order('name');
-  if (error) throw error;
+  if (error) return handleAuthError(error, []);
   return (data || []).map(toOwner);
 }
 
@@ -345,13 +357,13 @@ export async function fetchProducts(): Promise<Product[]> {
 
 export async function fetchCargos(): Promise<Cargo[]> {
   const { data, error } = await supabase.from('cargos').select('*').order('created_at', { ascending: false });
-  if (error) throw error;
+  if (error) return handleAuthError(error, []);
   return (data || []).map(toCargo);
 }
 
 export async function fetchShipments(): Promise<Shipment[]> {
   const { data, error } = await supabase.from('shipments').select('*').order('created_at', { ascending: false });
-  if (error) throw error;
+  if (error) return handleAuthError(error, []);
   return (data || []).map(toShipment);
 }
 
