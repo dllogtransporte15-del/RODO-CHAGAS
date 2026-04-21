@@ -153,16 +153,24 @@ const App: React.FC = () => {
   // Initial Session Verification
   useEffect(() => {
     const verifySession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        if (currentUser) {
-          console.warn('[RODO-CHAGAS] No session found, but currentUser was in localStorage. Clearing state.');
-          setCurrentUser(null);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+          if (currentUser) {
+            console.warn('[RODO-CHAGAS] No session found, but currentUser was in localStorage. Clearing state.');
+            setCurrentUser(null);
+          }
         }
+      } catch (err) {
+        console.error('[RODO-CHAGAS] Error verifying session:', err);
+        setCurrentUser(null);
+      } finally {
+        setIsAuthChecking(false);
       }
-      setIsAuthChecking(false);
     };
-    verifySession();
+    // Safety net: force auth check to finish after 8s no matter what
+    const timeout = setTimeout(() => setIsAuthChecking(false), 8000);
+    verifySession().then(() => clearTimeout(timeout));
   }, []);
 
   // UI Effects (Branding & Theme)

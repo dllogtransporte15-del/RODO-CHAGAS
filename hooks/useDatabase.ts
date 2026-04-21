@@ -12,6 +12,40 @@ import {
   fetchAppSettings, fetchShipmentLocks
 } from '../lib/db';
 
+// ─── Module-level helpers (accessible from both loadAllData and realtime handler) ───
+
+function getMaxId(items: any[], startOffset: number): number {
+  if (!items || items.length === 0) return startOffset;
+  let maxNum = startOffset - 1;
+  for (const item of items) {
+    if (item?.id && typeof item.id === 'string' && item.id.includes('-')) {
+      const num = parseInt(item.id.split('-')[1], 10);
+      if (!isNaN(num) && num > maxNum) maxNum = num;
+    }
+  }
+  return maxNum + 1;
+}
+
+function calculateNextIds(
+  dbClients: any[], dbOwners: any[], dbDrivers: any[], dbVehicles: any[], 
+  dbProducts: any[], dbShipments: any[], dbCargos: any[], dbUsers: any[], dbTickets: any[]
+) {
+  return {
+    client: getMaxId(dbClients, 100),
+    owner: getMaxId(dbOwners, 100),
+    driver: getMaxId(dbDrivers, 100),
+    vehicle: getMaxId(dbVehicles, 100),
+    product: getMaxId(dbProducts, 100),
+    shipment: getMaxId(dbShipments, 100),
+    cargo: getMaxId(dbCargos, 100),
+    user: getMaxId(dbUsers, 100),
+    ticket: getMaxId(dbTickets, 1),
+    history: 9999,
+  };
+}
+
+// ─────────────────────────────────────────────
+
 export function useDatabase(currentUser: User | null) {
   const [clients, setClients] = useState<Client[]>([]);
   const [owners, setOwners] = useState<Owner[]>([]);
@@ -39,18 +73,24 @@ export function useDatabase(currentUser: User | null) {
   const isAnyModalActiveRef = useRef(false);
 
   const loadAllData = useCallback(async (isBackground = false) => {
-    // Check both local storage AND actual Supabase session
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    if (!session && !isBackground) {
-        console.warn('[useDatabase] Attempted to load data without a valid Supabase session.');
-        setIsLoading(false);
-        return;
-    }
-
     if (!isBackground) setIsLoading(true);
     setLoadError(null);
+    
+    // Safety net: if loading takes more than 15 seconds, force it to stop
+    const timeoutId = setTimeout(() => {
+      console.error('[useDatabase] loadAllData timed out after 15s. Forcing isLoading=false.');
+      setIsLoading(false);
+    }, 15000);
+
     try {
+      // getSession() is inside try so any error is caught and finally always runs
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session && !isBackground) {
+        console.warn('[useDatabase] Attempted to load data without a valid Supabase session.');
+        return; // finally will still run
+      }
+
       const [
         dbClients, dbOwners, dbDrivers, dbVehicles, dbProducts, dbCargos, 
         dbShipments, dbUsers, dbTickets, dbPermissions, dbSettings, dbLocks
@@ -77,44 +117,17 @@ export function useDatabase(currentUser: User | null) {
         if (dbSettings.theme_image) setThemeImage(dbSettings.theme_image);
       }
 
-      // Update nextIds helper
-      const getMaxId = (items: any[], startOffset: number) => {
-        if (!items || items.length === 0) return startOffset;
-        let maxNum = startOffset - 1;
-        for (const item of items) {
-          if (item?.id && typeof item.id === 'string' && item.id.includes('-')) {
-            const num = parseInt(item.id.split('-')[1], 10);
-            if (!isNaN(num) && num > maxNum) maxNum = num;
-          }
-        }
-        return maxNum + 1;
-      };
-
-      const calculateNextIds = (
-        dbClients: any[], dbOwners: any[], dbDrivers: any[], dbVehicles: any[], 
-        dbProducts: any[], dbShipments: any[], dbCargos: any[], dbUsers: any[], dbTickets: any[]
-      ) => {
-        return {
-          client: getMaxId(dbClients, 100),
-          owner: getMaxId(dbOwners, 100),
-          driver: getMaxId(dbDrivers, 100),
-          vehicle: getMaxId(dbVehicles, 100),
-          product: getMaxId(dbProducts, 100),
-          shipment: getMaxId(dbShipments, 100),
-          cargo: getMaxId(dbCargos, 100),
-          user: getMaxId(dbUsers, 100),
-          ticket: getMaxId(dbTickets, 1),
-          history: 9999,
-        };
-      };
-
-      setNextIds(calculateNextIds(dbClients, dbOwners, dbDrivers, dbVehicles, dbProducts, dbShipments, dbCargos, dbUsers, dbTickets));
+      setNextIds(calculateNextIds(
+        dbClients, dbOwners, dbDrivers, dbVehicles,
+        dbProducts, dbShipments, dbCargos, dbUsers, dbTickets
+      ));
 
     } catch (err) {
       console.error('Erro ao carregar dados:', err);
       setLoadError('Erro ao conectar ao banco de dados.');
     } finally {
-      setIsLoading(false);
+      clearTimeout(timeoutId);
+      setIsLoading(false); // ALWAYS runs — no more eternal spinner
     }
   }, []);
 
@@ -138,74 +151,85 @@ export function useDatabase(currentUser: User | null) {
 
       try {
         switch (table) {
-          case 'clients':
+          case 'clients': {
             const dbClients = await fetchClients();
             setClients(dbClients);
             setNextIds(prev => ({ ...prev, client: getMaxId(dbClients, 100) }));
             break;
-          case 'owners':
+          }
+          case 'owners': {
             const dbOwners = await fetchOwners();
             setOwners(dbOwners);
             setNextIds(prev => ({ ...prev, owner: getMaxId(dbOwners, 100) }));
             break;
-          case 'drivers':
+          }
+          case 'drivers': {
             const dbDrivers = await fetchDrivers();
             setDrivers(dbDrivers);
             setNextIds(prev => ({ ...prev, driver: getMaxId(dbDrivers, 100) }));
             break;
-          case 'vehicles':
+          }
+          case 'vehicles': {
             const dbVehicles = await fetchVehicles();
             setVehicles(dbVehicles);
             setNextIds(prev => ({ ...prev, vehicle: getMaxId(dbVehicles, 100) }));
             break;
-          case 'products':
+          }
+          case 'products': {
             const dbProducts = await fetchProducts();
             setProducts(dbProducts);
             setNextIds(prev => ({ ...prev, product: getMaxId(dbProducts, 100) }));
             break;
-          case 'cargos':
+          }
+          case 'cargos': {
             const dbCargos = await fetchCargos();
             setCargos(dbCargos);
             setNextIds(prev => ({ ...prev, cargo: getMaxId(dbCargos, 100) }));
             break;
-          case 'shipments':
+          }
+          case 'shipments': {
             const dbShipments = await fetchShipments();
             setShipments(dbShipments);
             setNextIds(prev => ({ ...prev, shipment: getMaxId(dbShipments, 100) }));
             break;
-          case 'app_users':
+          }
+          case 'app_users': {
             const dbUsers = await fetchUsers();
             setUsers(dbUsers);
             setNextIds(prev => ({ ...prev, user: getMaxId(dbUsers, 100) }));
             break;
-          case 'tickets':
+          }
+          case 'tickets': {
             const dbTickets = await fetchTickets();
             setTickets(dbTickets);
             setNextIds(prev => ({ ...prev, ticket: getMaxId(dbTickets, 1) }));
             break;
-          case 'shipment_locks':
+          }
+          case 'shipment_locks': {
             const dbLocks = await fetchShipmentLocks();
             setActiveLocks(dbLocks);
             break;
-          case 'profile_permissions':
+          }
+          case 'profile_permissions': {
             const dbPermissions = await fetchProfilePermissions();
             if (dbPermissions) setProfilePermissions(dbPermissions);
             break;
-          case 'app_settings':
+          }
+          case 'app_settings': {
             const dbSettings = await fetchAppSettings();
             if (dbSettings) {
               if (dbSettings.company_logo) setCompanyLogo(dbSettings.company_logo);
               if (dbSettings.theme_image) setThemeImage(dbSettings.theme_image);
             }
             break;
+          }
           default:
-            // If unknown table or major change, fallback to background reload
+            // If unknown table, fallback to background reload
             loadAllData(true);
         }
       } catch (err) {
         console.error(`[useDatabase] Error during surgical update for ${table}:`, err);
-        // Fallback
-        loadAllData(true);
+        loadAllData(true); // Fallback to full reload
       }
     };
 
