@@ -4,10 +4,11 @@ import type { User } from '../types';
 
 interface PasswordChangeModalProps {
   user: User;
-  onPasswordChange: (newPassword: string) => Promise<void>;
+  onPasswordChange: (newPassword: string, currentPassword: string) => Promise<void>;
 }
 
 const PasswordChangeModal: React.FC<PasswordChangeModalProps> = ({ user, onPasswordChange }) => {
+  const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
@@ -17,19 +18,24 @@ const PasswordChangeModal: React.FC<PasswordChangeModalProps> = ({ user, onPassw
     e.preventDefault();
     setError('');
 
+    if (!currentPassword) {
+      setError('A senha atual é obrigatória.');
+      return;
+    }
+
     if (newPassword.length < 4) {
-      setError('A senha deve ter pelo menos 4 caracteres.');
+      setError('A nova senha deve ter pelo menos 4 caracteres.');
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      setError('As senhas não coincidem.');
+      setError('As novas senhas não coincidem.');
       return;
     }
 
     setIsSubmitting(true);
     try {
-      await onPasswordChange(newPassword);
+      await onPasswordChange(newPassword, currentPassword);
     } catch (err: any) {
       setError(err.message || 'Ocorreu um erro ao atualizar a senha.');
       setIsSubmitting(false);
@@ -45,13 +51,30 @@ const PasswordChangeModal: React.FC<PasswordChangeModalProps> = ({ user, onPassw
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
             </svg>
           </div>
-          <h2 className="text-2xl font-black text-primary dark:text-white tracking-tight">CRIAR NOVA SENHA</h2>
+          <h2 className="text-2xl font-black text-primary dark:text-white tracking-tight text-center uppercase">SEGURANÇA DE ACESSO</h2>
           <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-            Olá, <span className="font-bold text-gray-700 dark:text-white">{user.name}</span>. Por segurança, é necessário criar uma nova senha para continuar acessando o sistema.
+            Olá, <span className="font-bold text-gray-700 dark:text-white">{user.name}</span>. Por segurança, forneça sua senha atual e crie uma nova senha.
           </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
+          <div>
+            <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 ml-1">
+              Senha Atual
+            </label>
+            <input
+              type="password"
+              className="w-full px-4 py-3 bg-red-50/30 dark:bg-red-900/10 border-2 border-red-100 dark:border-red-900/30 rounded-xl focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent text-gray-700 dark:text-white transition-all placeholder-gray-400"
+              placeholder="Digite sua senha atual"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              required
+              disabled={isSubmitting}
+            />
+          </div>
+
+          <hr className="border-gray-100 dark:border-gray-800" />
+
           <div>
             <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 ml-1">
               Nova Senha

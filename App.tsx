@@ -274,13 +274,14 @@ const App: React.FC = () => {
     setCurrentUser(null);
   };
 
-  const handlePasswordChange = async (newPassword: string) => {
+  const handlePasswordChange = async (newPassword: string, currentPassword: string) => {
     if (!currentUser) return;
     
     try {
       // 1. Update Supabase Auth password first
       const { error: authError } = await supabase.auth.updateUser({
-        password: newPassword
+        password: newPassword,
+        current_password: currentPassword
       });
       
       if (authError) {
