@@ -15,7 +15,10 @@ import {
 // ─── Module-level helpers (accessible from both loadAllData and realtime handler) ───
 
 function getMaxId(items: any[], startOffset: number): number {
-  if (!items || items.length === 0) return startOffset;
+  if (!items || items.length === 0) {
+    console.log(`[getMaxId] No items found, returning startOffset: ${startOffset}`);
+    return startOffset;
+  }
   let maxNum = startOffset - 1;
   for (const item of items) {
     if (item?.id && typeof item.id === 'string' && item.id.includes('-')) {
@@ -23,14 +26,16 @@ function getMaxId(items: any[], startOffset: number): number {
       if (!isNaN(num) && num > maxNum) maxNum = num;
     }
   }
-  return maxNum + 1;
+  const nextId = maxNum + 1;
+  console.log(`[getMaxId] Items count: ${items.length}, Max found: ${maxNum}, Next ID: ${nextId}`);
+  return nextId;
 }
 
 function calculateNextIds(
   dbClients: any[], dbOwners: any[], dbDrivers: any[], dbVehicles: any[], 
   dbProducts: any[], dbShipments: any[], dbCargos: any[], dbUsers: any[], dbTickets: any[]
 ) {
-  return {
+  const result = {
     client: getMaxId(dbClients, 100),
     owner: getMaxId(dbOwners, 100),
     driver: getMaxId(dbDrivers, 100),
@@ -42,6 +47,8 @@ function calculateNextIds(
     ticket: getMaxId(dbTickets, 1),
     history: 9999,
   };
+  console.log('[DB] Next IDs calculated:', result);
+  return result;
 }
 
 // ─────────────────────────────────────────────

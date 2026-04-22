@@ -185,9 +185,12 @@ const App: React.FC = () => {
     try {
       // 1. Tenta recuperar e-mail do localStorage ou da sessão do Supabase
       const { data: { session } } = await supabase.auth.getSession();
-      const savedUserEmail = session?.user?.email || localStorage.getItem('rodo_user_email');
+      const savedUserEmail = localStorage.getItem('rodo_user_email') || session?.user?.email;
       
       if (savedUserEmail) {
+        if (localStorage.getItem('rodo_user_email') && session?.user?.email && localStorage.getItem('rodo_user_email') !== session?.user?.email) {
+          console.warn('[Auth] Mismatch detected between localStorage and Supabase session.');
+        }
         console.log('[Auth] Recuperando perfil para:', savedUserEmail);
         const { data: dbUser, error: dbError } = await supabase
           .from('app_users')

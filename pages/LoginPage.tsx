@@ -28,6 +28,8 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, users, companyLogo }) =>
     console.log('[LoginPage] Iniciando login interno para:', cleanEmail);
     
     try {
+      // Clear any existing Supabase Auth session before starting a new internal login
+      await supabase.auth.signOut();
       // Direct query to app_users instead of Supabase Auth
       const { data: dbUser, error: dbError } = await supabase
         .from('app_users')
