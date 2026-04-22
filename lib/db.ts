@@ -143,8 +143,8 @@ const toCargo = (row: any): Cargo => ({
   salespersonCommissionPerTon: Number(row.salesperson_commission_per_ton),
 });
 
-const fromCargo = (c: Cargo) => ({
-  id: c.id,
+const fromCargo = (c: Cargo | Omit<Cargo, 'id'>) => ({
+  id: (c as Cargo).id,
   sequence_id: c.sequenceId,
   client_id: c.clientId,
   product_id: c.productId,
@@ -437,8 +437,13 @@ export async function upsertCargo(cargo: Cargo): Promise<void> {
     const result = await supabase.from('cargos').update(payload).eq('id', cargo.id);
     error = result.error;
   } else {
-    const result = await supabase.from('cargos').insert(payload);
+    const result = await supabase.from('cargos').insert(payload).select().single();
     error = result.error;
+    if (!error && result.data) {
+      // Update the input object with the generated ID if possible
+      // (though this function returns void, so the caller might not see it)
+      (cargo as any).id = result.data.id;
+    }
   }
   if (error) {
     console.error('[upsertCargo] Error:', error);
@@ -484,15 +489,16 @@ export async function upsertTicket(ticket: Ticket): Promise<void> {
   }
 }
 
-export async function insertCargo(cargo: Cargo): Promise<void> {
+export async function insertCargo(cargo: Cargo | Omit<Cargo, 'id'>): Promise<Cargo> {
   const payload = fromCargo(cargo);
-  console.log('[insertCargo] Inserting new cargo:', cargo.id);
-  const { error } = await supabase.from('cargos').insert(payload);
+  console.log('[insertCargo] Inserting new cargo:', (cargo as Cargo).id || 'NEW');
+  const { data, error } = await supabase.from('cargos').insert(payload).select().single();
   if (error) {
     console.error('[insertCargo] Error:', error);
     throw error;
   }
-  console.log('[insertCargo] Success for cargo:', cargo.id);
+  console.log('[insertCargo] Success for cargo:', data.id);
+  return toCargo(data);
 }
 
 export async function insertShipment(shipment: Shipment): Promise<void> {

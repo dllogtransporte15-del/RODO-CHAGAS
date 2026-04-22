@@ -1232,22 +1232,38 @@ const App: React.FC = () => {
       }
     } else { 
       if (!currentUser) return;
-      const newId = formatId(nextIds.cargo, 'CRG');
+      
+      // Gerar um ID temporário para atualização otimista na UI
+      const tempId = `TEMP-${Date.now()}`;
       const newLoad: Cargo = {
         ...loadData,
-        id: newId,
+        id: tempId,
         createdAt: new Date().toISOString(),
         createdById: (loadData as any).createdById || currentUser.id,
-        history: [createHistoryLog(`Carga ${newId} criada`)],
-      };
+        history: [createHistoryLog(`Carga iniciada (Aguardando ID do servidor)`)],
+      } as Cargo;
+      
+      // Atualização otimista
       setCargos(prev => [newLoad, ...prev]);
-      setNextIds((prev: any) => ({ ...prev, cargo: prev.cargo + 1 }));
+      
       try {
-        await insertCargo(newLoad);
+        // O servidor irá ignorar o tempId e gerar o real CRG-XXX via Trigger
+        const savedCargo = await insertCargo(newLoad);
+        
+        // Atualiza o estado local com o ID real retornado pelo banco
+        setCargos(prev => prev.map(c => c.id === tempId ? savedCargo : c));
+        
+        // Sincroniza o contador local de IDs para evitar saltos desnecessários (opcional)
+        const newNum = parseInt(savedCargo.id.split('-')[1], 10);
+        setNextIds((prev: any) => ({ ...prev, cargo: Math.max(prev.cargo, newNum + 1) }));
+        
       } catch (err: any) {
         console.error('Erro ao criar carga:', err);
+        // Remove a carga temporária em caso de erro (rollback)
+        setCargos(prev => prev.filter(c => c.id !== tempId));
+        
         const errorMessage = err?.message || 'Erro desconhecido ao salvar no banco de dados.';
-        alert(`[ERRO CRÍTICO] A carga não pôde ser salva no banco de dados: ${errorMessage}. Ao atualizar a página os dados serão perdidos. Verifique as informações preenchidas.`);
+        alert(`[ERRO CRÍTICO] A carga não pôde ser salva no banco de dados: ${errorMessage}. Verifique as informações preenchidas.`);
       }
     }
   };
