@@ -85,43 +85,35 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, carg
     });
   }, [shipments, startDate, endDate, filterStatus, filterClient, filterOrigin, filterDest, cargoMap, clients]);
 
-  const currentMonthStats = useMemo(() => {
-    const now = new Date();
-    const currentMonth = now.getMonth() + 1; // Month index starts at 0, so 1 is Jan, 2 is Feb, etc.
-    const currentMonthStr = currentMonth < 10 ? `0${currentMonth}` : `${currentMonth}`;
-    const currentYearStr = String(now.getFullYear());
-    const monthYearPrefix = `${currentYearStr}-${currentMonthStr}`; // YYYY-MM
-
+  const filteredStats = useMemo(() => {
     let totalProgramado = 0;
     let totalEfetivado = 0;
 
-    const effectiveForwardStatuses = [
-      ShipmentStatus.AguardandoNota,
-      ShipmentStatus.AguardandoAdiantamento,
-      ShipmentStatus.AguardandoAgendamento,
-      ShipmentStatus.AguardandoDescarga,
-      ShipmentStatus.AguardandoPagamentoSaldo,
-      ShipmentStatus.Finalizado
+    const programmedStatuses = [
+      ShipmentStatus.AguardandoSeguradora,
+      ShipmentStatus.PreCadastro,
+      ShipmentStatus.AguardandoCarregamento
     ];
 
     shipments.forEach(s => {
-      // Total Programado: Based on scheduledDate for the current month
-      if (s.scheduledDate.startsWith(monthYearPrefix) && s.status !== ShipmentStatus.Cancelado) {
+      // Total Programado: Based on requested statuses and date range
+      const isProgrammedStatus = programmedStatuses.includes(s.status);
+      if (isProgrammedStatus && s.scheduledDate >= startDate && s.scheduledDate <= endDate) {
         totalProgramado += s.shipmentTonnage || 0;
       }
 
-      // Total Efetivado: Based on reaching 'Ag. Nota' THIS MONTH
+      // Total Efetivado: Based on reaching 'Ag. Nota' WITHIN FILTER RANGE
       const effectiveEntry = s.statusHistory?.find(h => h.status === ShipmentStatus.AguardandoNota);
       if (effectiveEntry) {
-        const date = new Date(effectiveEntry.timestamp);
-        if (date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear()) {
+        const effDateStr = effectiveEntry.timestamp.substring(0, 10);
+        if (effDateStr >= startDate && effDateStr <= endDate) {
           totalEfetivado += s.shipmentTonnage || 0;
         }
       }
     });
 
     return { totalProgramado, totalEfetivado };
-  }, [shipments]);
+  }, [shipments, startDate, endDate]);
 
   const kpis = useMemo(() => {
     let grossBilled = 0;
@@ -279,14 +271,14 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, carg
              <div className="w-10 h-10 rounded-full bg-gray-50 dark:bg-gray-700 flex flex-shrink-0 items-center justify-center text-gray-600 dark:text-gray-400"><Package className="w-5 h-5" /></div>
              <div>
                 <p className="text-xs text-gray-500 uppercase font-bold">Total Programado</p>
-                <p className="text-xl font-bold text-gray-800 dark:text-gray-100" title="Soma de peso de todos os embarques do mês atual">{currentMonthStats.totalProgramado.toLocaleString('pt-BR')} ton</p>
+                <p className="text-xl font-bold text-gray-800 dark:text-gray-100" title="Soma de peso dos embarques em Ag. Seguradora, Pré-cadastro ou Ag. Carregamento no período">{filteredStats.totalProgramado.toLocaleString('pt-BR')} ton</p>
              </div>
          </div>
          <div className="p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 flex items-center gap-4">
              <div className="w-10 h-10 rounded-full bg-emerald-50 dark:bg-emerald-900/30 flex flex-shrink-0 items-center justify-center text-emerald-600 dark:text-emerald-400"><CheckCircle className="w-5 h-5" /></div>
              <div>
                 <p className="text-xs text-gray-500 uppercase font-bold">Total efetivado</p>
-                <p className="text-xl font-bold text-gray-800 dark:text-gray-100" title="Soma de embarques a partir de Ag. Nota onwards (mês atual)">{currentMonthStats.totalEfetivado.toLocaleString('pt-BR')} ton</p>
+                <p className="text-xl font-bold text-gray-800 dark:text-gray-100" title="Soma de embarques que atingiram o status 'Ag. Nota' no período">{filteredStats.totalEfetivado.toLocaleString('pt-BR')} ton</p>
              </div>
          </div>
          <div className="p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 flex items-center gap-4">
