@@ -53,7 +53,7 @@ const PasswordChangeModal: React.FC<PasswordChangeModalProps> = ({ user, onPassw
           </div>
           <h2 className="text-2xl font-black text-primary dark:text-white tracking-tight text-center uppercase">SEGURANÇA DE ACESSO</h2>
           <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-            Olá, <span className="font-bold text-gray-700 dark:text-white">{user.name}</span>. Por segurança, forneça sua senha atual e crie uma nova senha.
+            Olá, <span className="font-bold text-gray-700 dark:text-white">{user.name}</span>. Por segurança, sua senha deve ser renovada a cada 30 dias. Forneça sua senha atual e crie uma nova.
           </p>
         </div>
 

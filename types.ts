@@ -24,6 +24,7 @@ export interface User {
   clientId?: string;
   requirePasswordChange?: boolean;
   authId?: string;
+  passwordUpdatedAt?: string;
 }
 
 export enum PaymentMethod {

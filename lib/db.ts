@@ -261,7 +261,7 @@ const fromShipment = (s: Shipment) => ({
   unloaded_tonnage: s.unloadedTonnage,
 });
 
-const toUser = (row: any): User => ({
+export const toUser = (row: any): User => ({
   id: row.id,
   name: row.name,
   email: row.email,
@@ -271,9 +271,10 @@ const toUser = (row: any): User => ({
   clientId: row.client_id,
   requirePasswordChange: row.require_password_change,
   authId: row.auth_id,
+  passwordUpdatedAt: row.password_updated_at,
 });
 
-const fromUser = (u: User | Omit<User, 'id'>) => ({
+export const fromUser = (u: User | Omit<User, 'id'>) => ({
   id: (u as User).id,
   name: u.name,
   email: u.email,
@@ -283,6 +284,7 @@ const fromUser = (u: User | Omit<User, 'id'>) => ({
   client_id: u.clientId,
   require_password_change: u.requirePasswordChange,
   auth_id: u.authId,
+  password_updated_at: u.passwordUpdatedAt,
 });
 
 const toTicket = (row: any): Ticket => ({
