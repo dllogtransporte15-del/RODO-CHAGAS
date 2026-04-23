@@ -50,6 +50,7 @@ interface ShipmentsPageProps {
   onDeleteShipment: (shipmentId: string) => void;
   onRevertStatus: (shipmentId: string) => void;
   onUpdateScheduledDateTime: (shipmentId: string, data: { scheduledDate: string, scheduledTime?: string }) => void;
+  onUpdateShipmentData: (shipmentId: string, data: Partial<Shipment>) => void;
   activeLocks: ShipmentLock[];
   onModalStateChange: (isOpen: boolean) => void;
   companyLogo?: string | null;
@@ -63,7 +64,7 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({
   shipments, cargos, clients, products, drivers, vehicles, currentUser, 
   profilePermissions, users, onUpdateAttachment, onAddAttachments, onUpdatePrice, onConfirmCancel, 
   onUpdateAnttAndBankDetails, onTransferShipment, onMarkArrival, onDeleteShipment,
-  onRevertStatus, onUpdateScheduledDateTime, activeLocks, onModalStateChange,
+  onRevertStatus, onUpdateScheduledDateTime, onUpdateShipmentData, activeLocks, onModalStateChange,
   companyLogo
 }) => {
 
@@ -259,7 +260,7 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({
           setEditScheduledDateTimeModalOpen(true);
         }}
         onUpdatePrice={onUpdatePrice}
-
+        onUpdateShipmentData={onUpdateShipmentData}
         currentUser={currentUser}
         activeStatus={activeStatus}
         clients={clients}

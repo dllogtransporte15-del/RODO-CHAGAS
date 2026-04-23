@@ -944,6 +944,43 @@ const App: React.FC = () => {
     }
   };
 
+  const handleUpdateShipmentData = async (shipmentId: string, data: Partial<Shipment>) => {
+    const shipmentToUpdate = shipments.find(s => s.id === shipmentId);
+    if (!shipmentToUpdate) return;
+
+    const changes: string[] = [];
+    const fieldsToTrack: (keyof Shipment)[] = [
+      'driverName', 'driverCpf', 'driverContact', 
+      'horsePlate', 'trailer1Plate', 'trailer2Plate', 'trailer3Plate', 
+      'vehicleTag'
+    ];
+
+    fieldsToTrack.forEach(field => {
+      if (data[field] !== undefined && data[field] !== shipmentToUpdate[field]) {
+        const oldVal = shipmentToUpdate[field] || 'Vazio';
+        const newVal = data[field] || 'Vazio';
+        changes.push(`${FIELD_TRANSLATIONS[field] || field} alterado de "${oldVal}" para "${newVal}".`);
+      }
+    });
+
+    if (changes.length === 0) return;
+
+    const updatedShipment: Shipment = { 
+      ...shipmentToUpdate, 
+      ...data, 
+      history: [...shipmentToUpdate.history, createHistoryLog(`Dados do embarque corrigidos: ${changes.join(' ')}`)] 
+    };
+
+    setShipments((prev: Shipment[]) => prev.map(s => s.id === shipmentId ? updatedShipment : s));
+    try {
+      await upsertShipment(updatedShipment);
+      showToast('Dados do embarque atualizados com sucesso!', 'success');
+    } catch (err) {
+      console.error('Erro ao atualizar dados do embarque:', err);
+      showToast('Erro ao salvar alterações no banco de dados.', 'error');
+    }
+  };
+
   const handleUpdateShipmentPrice = async (shipmentId: string, data: { newTotal: number, newRate?: number, newCompanyRate?: number }) => {
     const shipmentToUpdate = shipments.find(s => s.id === shipmentId);
     if (!shipmentToUpdate) return;
@@ -1515,6 +1552,7 @@ const App: React.FC = () => {
                     onDeleteShipment={handleDeleteShipment}
                     onRevertStatus={handleRevertShipmentStatus}
                     onUpdateScheduledDateTime={handleUpdateScheduledDateTime}
+                    onUpdateShipmentData={handleUpdateShipmentData}
                     activeLocks={activeLocks}
                     onModalStateChange={setIsAnyModalOpen}
                     companyLogo={companyLogo}

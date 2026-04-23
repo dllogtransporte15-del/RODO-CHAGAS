@@ -12,6 +12,7 @@ interface ShipmentDetailsModalProps {
   cargo: Cargo | undefined;
   currentUser?: User | null;
   onUpdatePrice?: (shipmentId: string, data: { newTotal: number, newRate?: number, newCompanyRate?: number }) => void;
+  onUpdateShipmentData?: (shipmentId: string, data: Partial<Shipment>) => void;
   onAddAttachments?: (shipmentId: string, files: File[]) => Promise<void>;
   clients: Client[];
   products: Product[];
@@ -29,12 +30,14 @@ const DetailItem: React.FC<{ label: string; value?: string | number | null; chil
 );
 
 const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({ 
-  isOpen, onClose, shipment, cargo, currentUser, onUpdatePrice, onAddAttachments, clients, products, vehicles, users, companyLogo 
+  isOpen, onClose, shipment, cargo, currentUser, onUpdatePrice, onUpdateShipmentData, onAddAttachments, clients, products, vehicles, users, companyLogo 
 }) => {
 
   const [isEditing, setIsEditing] = useState(false);
   const [editRate, setEditRate] = useState<number>(0);
   const [editCompanyRate, setEditCompanyRate] = useState<number>(0);
+  const [isEditingData, setIsEditingData] = useState(false);
+  const [editedData, setEditedData] = useState<Partial<Shipment>>({});
   const [filesToAttach, setFilesToAttach] = useState<File[]>([]);
   const [isUploading, setIsUploading] = useState(false);
 
@@ -64,6 +67,27 @@ const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
         newCompanyRate: editCompanyRate
       });
       setIsEditing(false);
+    }
+  };
+
+  const handleStartEditData = () => {
+    setEditedData({
+      driverName: shipment.driverName,
+      driverCpf: shipment.driverCpf,
+      driverContact: shipment.driverContact,
+      horsePlate: shipment.horsePlate,
+      trailer1Plate: shipment.trailer1Plate,
+      trailer2Plate: shipment.trailer2Plate,
+      trailer3Plate: shipment.trailer3Plate,
+      vehicleTag: shipment.vehicleTag,
+    });
+    setIsEditingData(true);
+  };
+
+  const handleSaveData = () => {
+    if (onUpdateShipmentData) {
+      onUpdateShipmentData(shipment.id, editedData);
+      setIsEditingData(false);
     }
   };
 
@@ -120,20 +144,128 @@ const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
             </div>
 
             {/* Informações do Motorista e Veículo */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 border-t dark:border-gray-700 pt-4">
-                <DetailItem label="Motorista" value={shipment.driverName} />
-                <DetailItem label="Documento (CPF)" value={shipment.driverCpf} />
-                <DetailItem label="Contato" value={shipment.driverContact} />
-                
-                <div className="md:col-span-2 lg:col-span-3 h-px bg-gray-100 dark:bg-gray-700 my-2" />
-                
-                <DetailItem label="Placa do Cavalo" value={shipment.horsePlate} />
-                <DetailItem label="Placa Carreta 1" value={shipment.trailer1Plate} />
-                <DetailItem label="Placa Carreta 2" value={shipment.trailer2Plate || 'N/A'} />
-                <DetailItem label="Placa Carreta 3" value={shipment.trailer3Plate || 'N/A'} />
-                <DetailItem label="Tag do Veículo" value={shipment.vehicleTag || 'N/A'} />
-                <DetailItem label="Tipo de Veículo" value={mainVehicle?.setType || 'N/A'} />
-                <DetailItem label="Carroceria" value={mainVehicle?.bodyType || 'N/A'} />
+            <div className="border-t dark:border-gray-700 pt-4">
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Motorista e Veículo</h3>
+                    {!isEditingData ? (
+                        <button 
+                            onClick={handleStartEditData}
+                            className="text-xs font-semibold text-primary hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 flex items-center gap-1"
+                        >
+                            <span>Editar Dados</span>
+                        </button>
+                    ) : (
+                        <div className="flex gap-2">
+                            <button 
+                                onClick={handleSaveData}
+                                className="px-3 py-1 bg-green-600 text-white text-xs font-bold rounded hover:bg-green-700 transition"
+                            >
+                                Salvar
+                            </button>
+                            <button 
+                                onClick={() => setIsEditingData(false)}
+                                className="px-3 py-1 bg-gray-500 text-white text-xs font-bold rounded hover:bg-gray-600 transition"
+                            >
+                                Cancelar
+                            </button>
+                        </div>
+                    )}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {isEditingData ? (
+                        <>
+                            <div>
+                                <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Motorista</label>
+                                <input 
+                                    type="text"
+                                    className="w-full mt-1 p-1.5 text-sm border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                    value={editedData.driverName || ''}
+                                    onChange={e => setEditedData({...editedData, driverName: e.target.value})}
+                                />
+                            </div>
+                            <div>
+                                <label className="text-xs font-medium text-gray-500 dark:text-gray-400">CPF</label>
+                                <input 
+                                    type="text"
+                                    className="w-full mt-1 p-1.5 text-sm border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                    value={editedData.driverCpf || ''}
+                                    onChange={e => setEditedData({...editedData, driverCpf: e.target.value})}
+                                />
+                            </div>
+                            <div>
+                                <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Contato</label>
+                                <input 
+                                    type="text"
+                                    className="w-full mt-1 p-1.5 text-sm border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                    value={editedData.driverContact || ''}
+                                    onChange={e => setEditedData({...editedData, driverContact: e.target.value})}
+                                />
+                            </div>
+                            <div>
+                                <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Placa Cavalo</label>
+                                <input 
+                                    type="text"
+                                    className="w-full mt-1 p-1.5 text-sm border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                    value={editedData.horsePlate || ''}
+                                    onChange={e => setEditedData({...editedData, horsePlate: e.target.value.toUpperCase()})}
+                                />
+                            </div>
+                            <div>
+                                <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Placa Carreta 1</label>
+                                <input 
+                                    type="text"
+                                    className="w-full mt-1 p-1.5 text-sm border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                    value={editedData.trailer1Plate || ''}
+                                    onChange={e => setEditedData({...editedData, trailer1Plate: e.target.value.toUpperCase()})}
+                                />
+                            </div>
+                            <div>
+                                <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Placa Carreta 2</label>
+                                <input 
+                                    type="text"
+                                    className="w-full mt-1 p-1.5 text-sm border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                    value={editedData.trailer2Plate || ''}
+                                    onChange={e => setEditedData({...editedData, trailer2Plate: e.target.value.toUpperCase()})}
+                                />
+                            </div>
+                            <div>
+                                <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Placa Carreta 3</label>
+                                <input 
+                                    type="text"
+                                    className="w-full mt-1 p-1.5 text-sm border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                    value={editedData.trailer3Plate || ''}
+                                    onChange={e => setEditedData({...editedData, trailer3Plate: e.target.value.toUpperCase()})}
+                                />
+                            </div>
+                            <div>
+                                <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Tag do Veículo</label>
+                                <input 
+                                    type="text"
+                                    className="w-full mt-1 p-1.5 text-sm border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                    value={editedData.vehicleTag || ''}
+                                    onChange={e => setEditedData({...editedData, vehicleTag: e.target.value})}
+                                />
+                            </div>
+                        </>
+                    ) : (
+                        <>
+                            <DetailItem label="Motorista" value={shipment.driverName} />
+                            <DetailItem label="Documento (CPF)" value={shipment.driverCpf} />
+                            <DetailItem label="Contato" value={shipment.driverContact} />
+                            
+                            <div className="md:col-span-2 lg:col-span-3 h-px bg-gray-100 dark:bg-gray-700 my-2" />
+                            
+                            <DetailItem label="Placa do Cavalo" value={shipment.horsePlate} />
+                            <DetailItem label="Placa Carreta 1" value={shipment.trailer1Plate} />
+                            <DetailItem label="Placa Carreta 2" value={shipment.trailer2Plate || 'N/A'} />
+                            <DetailItem label="Placa Carreta 3" value={shipment.trailer3Plate || 'N/A'} />
+                            <DetailItem label="Tag do Veículo" value={shipment.vehicleTag || 'N/A'} />
+                            <DetailItem label="Tipo de Veículo" value={mainVehicle?.setType || 'N/A'} />
+                            <DetailItem label="Carroceria" value={mainVehicle?.bodyType || 'N/A'} />
+                        </>
+                    )}
+                </div>
             </div>
 
             {/* Frete e Financeiro */}
