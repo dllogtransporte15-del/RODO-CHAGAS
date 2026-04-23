@@ -654,6 +654,49 @@ const App: React.FC = () => {
     }
   };
 
+
+  const handleAddShipmentAttachments = async (shipmentId: string, files: File[]) => {
+    if (!currentUser) {
+      showToast('Usuário não autenticado.', 'error');
+      return;
+    }
+    
+    const shipment = shipments.find(s => s.id === shipmentId);
+    if (!shipment) {
+      showToast('Embarque não encontrado.', 'error');
+      return;
+    }
+
+    try {
+      const updatedDocuments = { ...(shipment.documents || {}) };
+      const newUrls: string[] = [];
+      const fileNames: string[] = [];
+
+      for (const file of files) {
+        const path = await uploadShipmentAttachment(shipmentId, 'Arquivos Iniciais', file);
+        const url = getShipmentAttachmentUrl(path);
+        newUrls.push(url);
+        fileNames.push(file.name);
+      }
+
+      const existingDocs = updatedDocuments['Arquivos Iniciais'] || [];
+      updatedDocuments['Arquivos Iniciais'] = [...existingDocs, ...newUrls];
+
+      const updatedShipment: Shipment = {
+        ...shipment,
+        documents: updatedDocuments,
+        history: [...shipment.history, createHistoryLog(`Novos anexos adicionados: ${fileNames.join(', ')}.`)]
+      };
+
+      await upsertShipment(updatedShipment);
+      setShipments(prev => prev.map(s => s.id === shipmentId ? updatedShipment : s));
+      showToast('Documentos anexados com sucesso!', 'success');
+    } catch (error) {
+      console.error('Erro ao anexar documentos:', error);
+      showToast('Erro ao anexar documentos. Verifique sua conexão.', 'error');
+    }
+  };
+
   const handleUpdateShipmentAttachment = async (shipmentId: string, data: { 
     filesToAttach: { [key: string]: File[] }, 
     bankDetails?: string, 
@@ -1416,7 +1459,7 @@ const App: React.FC = () => {
       await upsertCargo(updatedCargo);
     } catch (err) {
       console.error('Erro ao suspender carga:', err);
-      alert("Erro ao suspender carga no banco de dados.");
+      showToast("Erro ao suspender carga no banco de dados.", 'error');
     }
   };
 
@@ -1463,6 +1506,7 @@ const App: React.FC = () => {
                     profilePermissions={profilePermissions} 
                     users={users}
                     onUpdateAttachment={handleUpdateShipmentAttachment}
+                    onAddAttachments={handleAddShipmentAttachments}
                     onUpdatePrice={handleUpdateShipmentPrice}
                     onConfirmCancel={handleConfirmCancelShipment}
                     onUpdateAnttAndBankDetails={handleUpdateShipmentAnttAndBankDetails}

@@ -41,6 +41,7 @@ interface ShipmentsPageProps {
     unloadedTonnage?: number,
     route?: string 
   }) => Promise<void>;
+  onAddAttachments?: (shipmentId: string, files: File[]) => Promise<void>;
   onUpdatePrice: (shipmentId: string, data: { newTotal: number, newRate?: number, newCompanyRate?: number }) => void;
   onConfirmCancel: (shipmentId: string, reason: string) => void;
   onUpdateAnttAndBankDetails: (shipmentId: string, data: { anttOwnerIdentifier: string; bankDetails?: string }) => void;
@@ -60,7 +61,7 @@ interface ShipmentsPageProps {
 
 const ShipmentsPage: React.FC<ShipmentsPageProps> = ({ 
   shipments, cargos, clients, products, drivers, vehicles, currentUser, 
-  profilePermissions, users, onUpdateAttachment, onUpdatePrice, onConfirmCancel, 
+  profilePermissions, users, onUpdateAttachment, onAddAttachments, onUpdatePrice, onConfirmCancel, 
   onUpdateAnttAndBankDetails, onTransferShipment, onMarkArrival, onDeleteShipment,
   onRevertStatus, onUpdateScheduledDateTime, activeLocks, onModalStateChange,
   companyLogo
@@ -242,6 +243,7 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({
         users={users}
         vehicles={vehicles}
         onAttach={(canUpdate || isClient) ? handleOpenAttachmentModal : undefined}
+        onAddAttachments={onAddAttachments}
         onEditPrice={canEditPrice ? handleEditPrice : undefined}
         onCancel={canCancelShipment ? handleCancelShipment : undefined}
         onTransfer={canTransferShipment ? handleOpenTransferModal : undefined}

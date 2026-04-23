@@ -12,6 +12,7 @@ interface ShipmentDetailsModalProps {
   cargo: Cargo | undefined;
   currentUser?: User | null;
   onUpdatePrice?: (shipmentId: string, data: { newTotal: number, newRate?: number, newCompanyRate?: number }) => void;
+  onAddAttachments?: (shipmentId: string, files: File[]) => Promise<void>;
   clients: Client[];
   products: Product[];
   vehicles: Vehicle[];
@@ -28,12 +29,14 @@ const DetailItem: React.FC<{ label: string; value?: string | number | null; chil
 );
 
 const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({ 
-  isOpen, onClose, shipment, cargo, currentUser, onUpdatePrice, clients, products, vehicles, users, companyLogo 
+  isOpen, onClose, shipment, cargo, currentUser, onUpdatePrice, onAddAttachments, clients, products, vehicles, users, companyLogo 
 }) => {
 
   const [isEditing, setIsEditing] = useState(false);
   const [editRate, setEditRate] = useState<number>(0);
   const [editCompanyRate, setEditCompanyRate] = useState<number>(0);
+  const [filesToAttach, setFilesToAttach] = useState<File[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
 
   if (!isOpen || !shipment) return null;
 
@@ -61,6 +64,17 @@ const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
         newCompanyRate: editCompanyRate
       });
       setIsEditing(false);
+    }
+  };
+
+  const handleConfirmAttachments = async () => {
+    if (!onAddAttachments || filesToAttach.length === 0) return;
+    setIsUploading(true);
+    try {
+      await onAddAttachments(shipment.id, filesToAttach);
+      setFilesToAttach([]);
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -264,6 +278,60 @@ const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
                                         </a>
                                     ))}
                                 </div>
+                            </div>
+                        )}
+
+                        {onAddAttachments && (
+                            <div className="md:col-span-2 mt-6 pt-6 border-t dark:border-gray-700">
+                                <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">Anexar Novos Documentos</h3>
+                                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                                    <div className="flex items-center">
+                                        <label className="cursor-pointer bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 py-2 px-4 rounded-lg inline-flex items-center transition-colors border border-gray-200 dark:border-gray-600 shadow-sm">
+                                            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"></path></svg>
+                                            <span className="text-sm font-medium">Selecionar Arquivos</span>
+                                            <input type="file" multiple className="hidden" onChange={(e) => {
+                                                if (e.target.files) {
+                                                    setFilesToAttach(Array.from(e.target.files));
+                                                }
+                                            }} />
+                                        </label>
+                                        <span className="ml-3 text-xs text-gray-500 dark:text-gray-400 font-medium">
+                                            {filesToAttach.length > 0 ? `${filesToAttach.length} selecionado(s)` : 'Nenhum arquivo'}
+                                        </span>
+                                    </div>
+
+                                    {filesToAttach.length > 0 && (
+                                        <button
+                                            type="button"
+                                            onClick={handleConfirmAttachments}
+                                            disabled={isUploading}
+                                            className={`py-2 px-4 rounded-lg text-sm font-bold transition-all shadow-sm flex items-center ${
+                                                isUploading 
+                                                ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+                                                : 'bg-green-600 text-white hover:bg-green-700'
+                                            }`}
+                                        >
+                                            {isUploading ? (
+                                                <>
+                                                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                                    Enviando...
+                                                </>
+                                            ) : (
+                                                'Confirmar e Enviar'
+                                            )}
+                                        </button>
+                                    )}
+                                </div>
+                                {filesToAttach.length > 0 && (
+                                    <div className="mt-2 space-y-1">
+                                        {filesToAttach.map((f, i) => (
+                                            <div key={i} className="text-[10px] text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                                                <div className="w-1 h-1 bg-gray-400 rounded-full" />
+                                                {f.name}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                         )}
                     </>
