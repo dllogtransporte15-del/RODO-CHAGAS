@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import type { Shipment, Cargo, User, Client, Product, Vehicle } from '../types';
-import { UserProfile, ShipmentStatus } from '../types';
+import { UserProfile, ShipmentStatus, VehicleSetType, VehicleBodyType } from '../types';
 import { generateLoadingOrderPDF } from '../utils/pdfGenerator';
 import { FileTextIcon } from 'lucide-react';
 
@@ -80,6 +80,8 @@ const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
       trailer2Plate: shipment.trailer2Plate,
       trailer3Plate: shipment.trailer3Plate,
       vehicleTag: shipment.vehicleTag,
+      vehicleSetType: shipment.vehicleSetType || mainVehicle?.setType,
+      vehicleBodyType: shipment.vehicleBodyType || mainVehicle?.bodyType,
     });
     setIsEditingData(true);
   };
@@ -247,6 +249,28 @@ const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
                                     onChange={e => setEditedData({...editedData, vehicleTag: e.target.value})}
                                 />
                             </div>
+                            <div>
+                                <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Tipo de Veículo</label>
+                                <select 
+                                    className="w-full mt-1 p-1.5 text-sm border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                    value={editedData.vehicleSetType || ''}
+                                    onChange={e => setEditedData({...editedData, vehicleSetType: e.target.value as VehicleSetType})}
+                                >
+                                    <option value="" disabled>Selecione...</option>
+                                    {Object.values(VehicleSetType).map(t => <option key={t} value={t}>{t}</option>)}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Carroceria</label>
+                                <select 
+                                    className="w-full mt-1 p-1.5 text-sm border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                    value={editedData.vehicleBodyType || ''}
+                                    onChange={e => setEditedData({...editedData, vehicleBodyType: e.target.value as VehicleBodyType})}
+                                >
+                                    <option value="" disabled>Selecione...</option>
+                                    {Object.values(VehicleBodyType).map(t => <option key={t} value={t}>{t}</option>)}
+                                </select>
+                            </div>
                         </>
                     ) : (
                         <>
@@ -261,8 +285,8 @@ const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
                             <DetailItem label="Placa Carreta 2" value={shipment.trailer2Plate || 'N/A'} />
                             <DetailItem label="Placa Carreta 3" value={shipment.trailer3Plate || 'N/A'} />
                             <DetailItem label="Tag do Veículo" value={shipment.vehicleTag || 'N/A'} />
-                            <DetailItem label="Tipo de Veículo" value={mainVehicle?.setType || 'N/A'} />
-                            <DetailItem label="Carroceria" value={mainVehicle?.bodyType || 'N/A'} />
+                            <DetailItem label="Tipo de Veículo" value={shipment.vehicleSetType || mainVehicle?.setType || 'N/A'} />
+                            <DetailItem label="Carroceria" value={shipment.vehicleBodyType || mainVehicle?.bodyType || 'N/A'} />
                         </>
                     )}
                 </div>

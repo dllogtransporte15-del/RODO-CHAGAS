@@ -280,6 +280,8 @@ export interface Shipment {
   discountValue?: number;
   netBalanceValue?: number;
   unloadedTonnage?: number;
+  vehicleSetType?: VehicleSetType;
+  vehicleBodyType?: VehicleBodyType;
 }
 
 

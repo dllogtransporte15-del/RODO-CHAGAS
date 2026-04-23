@@ -84,6 +84,8 @@ const FIELD_TRANSLATIONS: Record<string, string> = {
   trailer3Plate: 'Placa Carreta 3',
   shipmentTonnage: 'Toneladas do Embarque',
   driverFreightValue: 'Valor Frete Motorista',
+  vehicleSetType: 'Tipo de Veículo',
+  vehicleBodyType: 'Tipo de Carroceria',
 };
 
 interface NewShipmentRequestData extends Omit<Shipment, 'id' | 'orderId' | 'status' | 'documents' | 'history' | 'createdAt' | 'createdById' | 'statusHistory'> {
@@ -590,6 +592,8 @@ const App: React.FC = () => {
         userId: currentUser.id,
       }],
       vehicleTag: data.vehicleTag,
+      vehicleSetType: data.vehicleSetType,
+      vehicleBodyType: data.vehicleBodyType,
     };
     const newShipments = [newShipment, ...shipments];
     
@@ -952,7 +956,7 @@ const App: React.FC = () => {
     const fieldsToTrack: (keyof Shipment)[] = [
       'driverName', 'driverCpf', 'driverContact', 
       'horsePlate', 'trailer1Plate', 'trailer2Plate', 'trailer3Plate', 
-      'vehicleTag'
+      'vehicleTag', 'vehicleSetType', 'vehicleBodyType'
     ];
 
     fieldsToTrack.forEach(field => {
