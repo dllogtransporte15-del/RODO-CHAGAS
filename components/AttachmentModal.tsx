@@ -8,7 +8,7 @@ import { useToast } from '../hooks/useToast';
 interface AttachmentModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (data: { 
+    onSave: (data: { 
     filesToAttach: { [key: string]: File[] }, 
     bankDetails?: string, 
     loadedTonnage?: number, 
@@ -20,7 +20,7 @@ interface AttachmentModalProps {
     netBalanceValue?: number,
     unloadedTonnage?: number,
     route?: string 
-  }) => void;
+  }) => Promise<void>;
   shipment: Shipment;
   documentName: string;
   currentUser: User;
@@ -78,6 +78,7 @@ const AttachmentModal: React.FC<AttachmentModalProps> = ({ isOpen, onClose, onSa
   const [route, setRoute] = useState('');
   const [suggestions, setSuggestions] = useState<RouteSuggestion[]>([]);
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string>('');
   const { showToast } = useToast();
   
@@ -277,7 +278,7 @@ const AttachmentModal: React.FC<AttachmentModalProps> = ({ isOpen, onClose, onSa
     drawRouteOnMap();
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     let filesToAttach: { [key: string]: File[] } = {};
     if (shipment.status === ShipmentStatus.AguardandoNota) {
       const someFiles = Object.values(multiFiles).some(arr => Array.isArray(arr) && arr.length > 0);
@@ -324,19 +325,28 @@ const AttachmentModal: React.FC<AttachmentModalProps> = ({ isOpen, onClose, onSa
         }
     }
 
-    onSave({ 
-      filesToAttach, 
-      bankDetails: bankDetails || undefined,
-      loadedTonnage: shipment.status === ShipmentStatus.AguardandoCarregamento ? Number(loadedTonnage) : undefined,
-      advancePercentage: shipment.status === ShipmentStatus.AguardandoAdiantamento ? Number(advancePercentage) : undefined,
-      advanceValue: shipment.status === ShipmentStatus.AguardandoAdiantamento ? Number(advanceValue) : undefined,
-      tollValue: shipment.status === ShipmentStatus.AguardandoAdiantamento ? Number(tollValue || 0) : undefined,
-      balanceToReceiveValue: shipment.status === ShipmentStatus.AguardandoPagamentoSaldo ? Number(balanceToReceiveValue) : undefined,
-      discountValue: shipment.status === ShipmentStatus.AguardandoPagamentoSaldo ? Number(discountValue) : undefined,
-      netBalanceValue: shipment.status === ShipmentStatus.AguardandoPagamentoSaldo ? Number(netBalanceValue) : undefined,
-      unloadedTonnage: shipment.status === ShipmentStatus.AguardandoDescarga ? Number(unloadedTonnage) : undefined,
-      route: (showRouteField || isReadOnlyRoute) ? route : undefined
-    });
+    setError('');
+    setIsSaving(true);
+    try {
+      await onSave({ 
+        filesToAttach, 
+        bankDetails: bankDetails || undefined,
+        loadedTonnage: shipment.status === ShipmentStatus.AguardandoCarregamento ? Number(loadedTonnage) : undefined,
+        advancePercentage: shipment.status === ShipmentStatus.AguardandoAdiantamento ? Number(advancePercentage) : undefined,
+        advanceValue: shipment.status === ShipmentStatus.AguardandoAdiantamento ? Number(advanceValue) : undefined,
+        tollValue: shipment.status === ShipmentStatus.AguardandoAdiantamento ? Number(tollValue || 0) : undefined,
+        balanceToReceiveValue: shipment.status === ShipmentStatus.AguardandoPagamentoSaldo ? Number(balanceToReceiveValue) : undefined,
+        discountValue: shipment.status === ShipmentStatus.AguardandoPagamentoSaldo ? Number(discountValue) : undefined,
+        netBalanceValue: shipment.status === ShipmentStatus.AguardandoPagamentoSaldo ? Number(netBalanceValue) : undefined,
+        unloadedTonnage: shipment.status === ShipmentStatus.AguardandoDescarga ? Number(unloadedTonnage) : undefined,
+        route: (showRouteField || isReadOnlyRoute) ? route : undefined
+      });
+    } catch (err: any) {
+      console.error('Error in handleSave:', err);
+      setError(err?.message || 'Ocorreu um erro ao salvar o embarque. Verifique os dados e tente novamente.');
+    } finally {
+      setIsSaving(false);
+    }
   };
   
   const handleClose = () => { onClose(); }
@@ -671,14 +681,18 @@ const AttachmentModal: React.FC<AttachmentModalProps> = ({ isOpen, onClose, onSa
                         <button onClick={onClose} className="px-6 py-2 text-gray-500 hover:text-gray-700 font-bold transition-colors">Cancelar</button>
                         <button 
                             onClick={handleSave} 
-                            disabled={shipment.status === ShipmentStatus.AguardandoAdiantamento && !canSave}
-                            className={`px-8 py-2 text-white rounded-xl font-bold shadow-lg transition-all active:scale-95 ${
-                                shipment.status === ShipmentStatus.AguardandoAdiantamento && !canSave
+                            disabled={isSaving || (shipment.status === ShipmentStatus.AguardandoAdiantamento && !canSave)}
+                            className={`px-8 py-2 text-white rounded-xl font-bold shadow-lg transition-all active:scale-95 flex items-center gap-2 ${
+                                (isSaving || (shipment.status === ShipmentStatus.AguardandoAdiantamento && !canSave))
                                 ? 'bg-gray-400 cursor-not-allowed shadow-none'
                                 : 'bg-primary hover:bg-primary-dark shadow-primary/20'
                             }`}
                         >
-                            Salvar e Avançar
+                            {isSaving ? (
+                                <>
+                                    <LoaderIcon className="w-4 h-4 animate-spin" /> Salvando...
+                                </>
+                            ) : 'Salvar e Avançar'}
                         </button>
                     </div>
                 </div>

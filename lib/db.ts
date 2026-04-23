@@ -565,6 +565,7 @@ export async function uploadShipmentAttachment(shipmentId: string, docType: stri
     .upload(filePath, file, { upsert: true });
 
   if (error) {
+    console.error(`[uploadShipmentAttachment] Error uploading ${docType} for shipment ${shipmentId}:`, error);
     throw error;
   }
   

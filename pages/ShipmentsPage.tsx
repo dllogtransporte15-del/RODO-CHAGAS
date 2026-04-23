@@ -40,7 +40,7 @@ interface ShipmentsPageProps {
     netBalanceValue?: number,
     unloadedTonnage?: number,
     route?: string 
-  }) => void;
+  }) => Promise<void>;
   onUpdatePrice: (shipmentId: string, data: { newTotal: number, newRate?: number, newCompanyRate?: number }) => void;
   onConfirmCancel: (shipmentId: string, reason: string) => void;
   onUpdateAnttAndBankDetails: (shipmentId: string, data: { anttOwnerIdentifier: string; bankDetails?: string }) => void;
@@ -130,7 +130,7 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({
     setSelectedShipment(null);
   };
 
-  const handleSaveAttachment = (data: { 
+  const handleSaveAttachment = async (data: { 
     filesToAttach: { [key: string]: File[] }, 
     bankDetails?: string, 
     loadedTonnage?: number, 
@@ -144,7 +144,9 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({
     route?: string 
   }) => {
     if (!selectedShipment) return;
-    onUpdateAttachment(selectedShipment.id, data);
+    
+    // We await here so that if it throws, the modal doesn't close
+    await onUpdateAttachment(selectedShipment.id, data);
     handleCloseAttachmentModal();
   };
   

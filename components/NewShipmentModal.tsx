@@ -221,7 +221,7 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
 
   const calculatedFreight = useMemo(() => {
     if (!cargo || shipmentTonnage <= 0) return 0;
-    return cargo.driverFreightValuePerTon * shipmentTonnage;
+    return (cargo?.driverFreightValuePerTon || 0) * shipmentTonnage;
   }, [cargo, shipmentTonnage]);
 
   const formatCurrency = (value: number) => {
@@ -230,6 +230,7 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!cargo) return;
 
     // Check for Restricted Driver
     const selectedDriverObj = drivers.find(d => 
@@ -500,7 +501,7 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Valor do Frete (Motorista)</p>
                 <div className="flex flex-col items-center">
                     <p className="text-2xl font-bold text-gray-800 dark:text-white">
-                        {formatCurrency(cargo.driverFreightValuePerTon)} <span className="text-sm font-normal text-gray-500">/ TON</span>
+                        {formatCurrency(cargo?.driverFreightValuePerTon || 0)} <span className="text-sm font-normal text-gray-500">/ TON</span>
                     </p>
                 </div>
               </div>

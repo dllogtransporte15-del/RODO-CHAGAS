@@ -669,7 +669,16 @@ const App: React.FC = () => {
   }) => {
     const { filesToAttach, bankDetails, loadedTonnage, advancePercentage, advanceValue, tollValue, balanceToReceiveValue, discountValue, netBalanceValue, unloadedTonnage, route } = data;
     const originalShipment = shipments.find(s => s.id === shipmentId);
-    if (!originalShipment || !currentUser) return;
+    
+    if (!originalShipment) {
+      showToast('Embarque não encontrado.', 'error');
+      throw new Error('Embarque não encontrado');
+    }
+    
+    if (!currentUser) {
+      showToast('Usuário não autenticado.', 'error');
+      throw new Error('Usuário não autenticado');
+    }
 
     // Validation for "Aguardando Nota" transition
     if (originalShipment.status === ShipmentStatus.AguardandoNota && !originalShipment.bankDetails && !bankDetails) {
@@ -700,8 +709,10 @@ const App: React.FC = () => {
         nextStatus = nextStatusMap[originalShipment.status];
     }
     
-    if (!nextStatus) return;
-
+    if (!nextStatus) {
+      console.warn(`[handleUpdateShipmentAttachment] No next status found for ${originalShipment.status}`);
+      return;
+    }
 
     const currentStatus = originalShipment.status;
     let isUserAllowed = true;
@@ -721,13 +732,17 @@ const App: React.FC = () => {
         return;
     }
 
+    // 1. Upload Files
     const updatedDocuments = { ...(originalShipment.documents || {}) };
     const attachedFileNames: string[] = [];
 
     try {
       for (const docType in filesToAttach) {
+        const files = filesToAttach[docType];
+        if (!Array.isArray(files) || files.length === 0) continue;
+        
         const newDocUrls = [];
-        for (const file of filesToAttach[docType]) {
+        for (const file of files) {
           const path = await uploadShipmentAttachment(shipmentId, docType, file);
           const url = getShipmentAttachmentUrl(path);
           newDocUrls.push(url);
@@ -738,10 +753,11 @@ const App: React.FC = () => {
       }
     } catch (error) {
       console.error('Erro ao fazer upload dos anexos:', error);
-      showToast('Ocorreu um erro ao enviar os arquivos. Tente novamente.', 'error');
-      return;
+      showToast('Ocorreu um erro ao enviar os arquivos. Verifique sua conexão e tente novamente.', 'error');
+      throw error;
     }
     
+    // 2. Prepare Updates
     const historyLogs = [];
     if(attachedFileNames.length > 0) historyLogs.push(`anexo(s): ${attachedFileNames.join(', ')}`);
     if(bankDetails) historyLogs.push(`Dados bancários preenchidos.`);
@@ -749,69 +765,44 @@ const App: React.FC = () => {
     let updatedTonnage = originalShipment.shipmentTonnage;
     let updatedDriverFreight = originalShipment.driverFreightValue;
     
-    // Recalcular frete se a tonelagem carregada for informada
     if (loadedTonnage !== undefined && loadedTonnage > 0) {
         updatedTonnage = loadedTonnage;
         const rateToUse = originalShipment.driverFreightRateSnapshot || cargos.find(c => c.id === originalShipment.cargoId)?.driverFreightValuePerTon || 0;
         updatedDriverFreight = rateToUse * loadedTonnage;
         const formattedVal = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(updatedDriverFreight);
-        historyLogs.push(`Tonelagem ajustada após carregamento para ${loadedTonnage.toLocaleString('pt-BR')} ton. Frete atualizado com base na taxa de ${rateToUse.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'})} para ${formattedVal}.`);
+        historyLogs.push(`Tonelagem ajustada para ${loadedTonnage.toLocaleString('pt-BR')} ton. Frete atualizado para ${formattedVal}.`);
     }
     
     let calculatedAdvanceValue = originalShipment.advanceValue;
     let finalAdvancePercentage = originalShipment.advancePercentage;
     
-    // Use manually provided advanceValue if available, otherwise calculate from percentage
     if (advanceValue !== undefined) {
         calculatedAdvanceValue = advanceValue;
         finalAdvancePercentage = advancePercentage || originalShipment.advancePercentage;
-        
-        const formattedAdv = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calculatedAdvanceValue);
-        let historyMsg = `Valor pago na conta de R$ ${calculatedAdvanceValue.toLocaleString('pt-BR')} registrado.`;
-        if (finalAdvancePercentage) historyMsg += ` (Equivalente a ${finalAdvancePercentage}%)`;
-        historyLogs.push(historyMsg);
+        historyLogs.push(`Valor pago na conta de R$ ${calculatedAdvanceValue.toLocaleString('pt-BR')} registrado.`);
     } else if (advancePercentage !== undefined && advancePercentage > 0) {
         finalAdvancePercentage = advancePercentage;
         calculatedAdvanceValue = ((updatedDriverFreight * advancePercentage) / 100) - (tollValue || 0);
         const formattedAdv = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calculatedAdvanceValue);
-        let historyMsg = `Pagamento de Adiantamento: ${advancePercentage}% registrado (${formattedAdv}).`;
-        if (tollValue && tollValue > 0) {
-            historyMsg += ` (Dedução de R$ ${tollValue.toLocaleString('pt-BR')} ref. pedágio)`;
-        }
-        historyLogs.push(historyMsg);
+        historyLogs.push(`Pagamento de Adiantamento: ${advancePercentage}% registrado (${formattedAdv}).`);
     }
 
-    let finalBalanceToReceive = originalShipment.balanceToReceiveValue;
-    let finalDiscountValue = originalShipment.discountValue;
-    let finalNetBalanceValue = originalShipment.netBalanceValue;
+    let finalBalanceToReceive = balanceToReceiveValue ?? originalShipment.balanceToReceiveValue;
+    let finalDiscountValue = discountValue ?? originalShipment.discountValue;
+    let finalNetBalanceValue = netBalanceValue ?? originalShipment.netBalanceValue;
 
     if (balanceToReceiveValue !== undefined || discountValue !== undefined || netBalanceValue !== undefined) {
-        finalBalanceToReceive = balanceToReceiveValue ?? originalShipment.balanceToReceiveValue;
-        finalDiscountValue = discountValue ?? originalShipment.discountValue;
-        finalNetBalanceValue = netBalanceValue ?? originalShipment.netBalanceValue;
-
-        const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
-        let historyMsg = `Pagamento de Saldo registrado: `;
-        if (balanceToReceiveValue !== undefined) historyMsg += `Bruto: ${fmt.format(balanceToReceiveValue)}. `;
-        if (discountValue !== undefined) historyMsg += `Descontos: ${fmt.format(discountValue)}. `;
-        if (netBalanceValue !== undefined) historyMsg += `Líquido pago: ${fmt.format(netBalanceValue)}.`;
-        historyLogs.push(historyMsg);
+        historyLogs.push(`Pagamento de Saldo registrado.`);
     }
 
-    let finalUnloadedTonnage = originalShipment.unloadedTonnage;
+    let finalUnloadedTonnage = unloadedTonnage ?? originalShipment.unloadedTonnage;
     if (unloadedTonnage !== undefined && unloadedTonnage > 0) {
-        finalUnloadedTonnage = unloadedTonnage;
-        let historyMsg = `Peso descarregado informado: ${unloadedTonnage.toLocaleString('pt-BR')} ton.`;
-        if (unloadedTonnage < updatedTonnage) {
-            const quebra = updatedTonnage - unloadedTonnage;
-            historyMsg += ` (QUEBRA DETECTADA: ${quebra.toLocaleString('pt-BR')} ton).`;
-        }
-        historyLogs.push(historyMsg);
+        historyLogs.push(`Peso descarregado: ${unloadedTonnage.toLocaleString('pt-BR')} ton.`);
     }
     
-    if (route) {
-        historyLogs.push(`Rota informada: ${route}`);
-    }
+    if (route) historyLogs.push(`Rota informada: ${route}`);
+
+    const statusChangeLog = createHistoryLog(`Status alterado para ${nextStatus}. ${historyLogs.join(' ')}`);
 
     const updatedShipment: Shipment = {
         ...originalShipment,
@@ -828,7 +819,7 @@ const App: React.FC = () => {
         netBalanceValue: finalNetBalanceValue,
         unloadedTonnage: finalUnloadedTonnage,
         route: route || originalShipment.route,
-        history: [...originalShipment.history, createHistoryLog(`Status alterado para ${nextStatus}. ${historyLogs.join(' ')}`)],
+        history: [...originalShipment.history, statusChangeLog],
         statusHistory: [
             ...(originalShipment.statusHistory || []),
             {
@@ -838,34 +829,52 @@ const App: React.FC = () => {
             }
         ],
     };
-    
-    setShipments((prev: Shipment[]) => prev.map(s => s.id === shipmentId ? updatedShipment : s));
+
+    // 3. Prepare Cargo Update (if applicable)
+    const statusOrder = [
+        ShipmentStatus.AguardandoSeguradora, ShipmentStatus.PreCadastro,
+        ShipmentStatus.AguardandoCarregamento, ShipmentStatus.AguardandoNota,
+        ShipmentStatus.AguardandoAdiantamento, ShipmentStatus.AguardandoAgendamento,
+        ShipmentStatus.AguardandoDescarga, ShipmentStatus.AguardandoPagamentoSaldo,
+        ShipmentStatus.Finalizado
+    ];
 
     const isAdvancingToLoaded = nextStatus === ShipmentStatus.AguardandoDescarga && 
-                              Object.values(ShipmentStatus).indexOf(originalShipment.status) < Object.values(ShipmentStatus).indexOf(ShipmentStatus.AguardandoDescarga);
+                               statusOrder.indexOf(originalShipment.status) < statusOrder.indexOf(ShipmentStatus.AguardandoDescarga);
 
     let updatedCargo: Cargo | undefined;
     if (isAdvancingToLoaded) {
-      setCargos(prevCargos =>
-        prevCargos.map(cargo => {
-          if (cargo.id === originalShipment.cargoId) {
-            const newLoadedVolume = cargo.loadedVolume + originalShipment.shipmentTonnage;
-            updatedCargo = { ...cargo, loadedVolume: newLoadedVolume, history: [...cargo.history, createHistoryLog(`Volume carregado atualizado para ${newLoadedVolume.toFixed(2)} ton. Embarque ${shipmentId} aguarda descarga.`)] };
-            return updatedCargo;
-          }
-          return cargo;
-        })
-      );
+        const cargo = cargos.find(c => c.id === originalShipment.cargoId);
+        if (cargo) {
+            const newLoadedVolume = (cargo.loadedVolume || 0) + updatedShipment.shipmentTonnage;
+            updatedCargo = { 
+                ...cargo, 
+                loadedVolume: newLoadedVolume, 
+                history: [...cargo.history, createHistoryLog(`Volume carregado atualizado para ${newLoadedVolume.toFixed(2)} ton via embarque ${shipmentId}.`)] 
+            };
+        }
     }
 
-    // Persist to Supabase
+    // 4. Persist to Supabase
     try {
       await upsertShipment(updatedShipment);
-      if (updatedCargo) await upsertCargo(updatedCargo);
+      if (updatedCargo) {
+        await upsertCargo(updatedCargo);
+      }
+      
+      // 5. Update local state on SUCCESS
+      setShipments((prev: Shipment[]) => prev.map(s => s.id === shipmentId ? updatedShipment : s));
+      if (updatedCargo) {
+        const cargoToUpdate = updatedCargo; // capture for closure
+        setCargos(prev => prev.map(c => c.id === cargoToUpdate.id ? cargoToUpdate : c));
+      }
+      
+      showToast('Embarque atualizado com sucesso!', 'success');
     } catch(err: any) { 
-      console.error('Erro ao atualizar embarque no Supabase:', err);
+      console.error('Erro ao salvar no Supabase:', err);
       const errorMessage = err?.message || 'Erro desconhecido ao salvar no banco de dados.';
-      showToast(`[ERRO CRÍTICO] O status do embarque não pôde ser atualizado no banco de dados: ${errorMessage}. Os dados voltarão ao estado anterior ao recarregar a página.`, 'error');
+      showToast(`[ERRO CRÍTICO] Falha ao persistir dados: ${errorMessage}`, 'error');
+      throw err;
     }
   };
 
@@ -1045,11 +1054,11 @@ const App: React.FC = () => {
       : `Tem certeza que deseja excluir permanentemente a carga ${cargoId}?`;
 
     if (confirm(confirmMsg)) {
-        const { error } = await deleteCargo(cargoId);
-        if (!error) {
+        try {
+            await deleteCargo(cargoId);
             setCargos(prev => prev.filter(c => c.id !== cargoId));
             showToast("Carga excluída com sucesso. Os embarques vinculados foram preservados.", 'success');
-        } else {
+        } catch (error) {
             console.error('Erro ao excluir carga:', error);
             showToast("Erro ao excluir carga. Verifique o console.", 'error');
         }
@@ -1065,34 +1074,29 @@ const App: React.FC = () => {
 
     if (confirm(`Tem certeza que deseja excluir permanentemente o embarque ${shipmentId}?`)) {
         try {
-            const { error } = await deleteShipment(shipmentId);
-            if (!error) {
-                setShipments(prev => prev.filter(s => s.id !== shipmentId));
+            await deleteShipment(shipmentId);
+            setShipments(prev => prev.filter(s => s.id !== shipmentId));
 
-                // Atualizar volumes da carga
-                const wasLoaded = Object.values(ShipmentStatus).indexOf(shipmentToDelete.status) >= Object.values(ShipmentStatus).indexOf(ShipmentStatus.AguardandoDescarga);
-                const relatedCargo = cargos.find(c => c.id === shipmentToDelete.cargoId);
+            // Atualizar volumes da carga
+            const wasLoaded = Object.values(ShipmentStatus).indexOf(shipmentToDelete.status) >= Object.values(ShipmentStatus).indexOf(ShipmentStatus.AguardandoDescarga);
+            const relatedCargo = cargos.find(c => c.id === shipmentToDelete.cargoId);
+            
+            if (relatedCargo) {
+                const newScheduledVolume = Math.max(0, relatedCargo.scheduledVolume - shipmentToDelete.shipmentTonnage);
+                const newLoadedVolume = wasLoaded ? Math.max(0, relatedCargo.loadedVolume - shipmentToDelete.shipmentTonnage) : relatedCargo.loadedVolume;
+                const updatedCargo: Cargo = { 
+                    ...relatedCargo, 
+                    scheduledVolume: newScheduledVolume, 
+                    loadedVolume: newLoadedVolume,
+                    history: [...relatedCargo.history, createHistoryLog(`Embarque ${shipmentId} EXCLUÍDO pelo Administrador. Volumes ajustados.`)]
+                };
                 
-                if (relatedCargo) {
-                    const newScheduledVolume = Math.max(0, relatedCargo.scheduledVolume - shipmentToDelete.shipmentTonnage);
-                    const newLoadedVolume = wasLoaded ? Math.max(0, relatedCargo.loadedVolume - shipmentToDelete.shipmentTonnage) : relatedCargo.loadedVolume;
-                    const updatedCargo: Cargo = { 
-                        ...relatedCargo, 
-                        scheduledVolume: newScheduledVolume, 
-                        loadedVolume: newLoadedVolume,
-                        history: [...relatedCargo.history, createHistoryLog(`Embarque ${shipmentId} EXCLUÍDO pelo Administrador. Volumes ajustados.`)]
-                    };
-                    
-                    setCargos(prevCargos => prevCargos.map(cargo => cargo.id === relatedCargo.id ? updatedCargo : cargo));
-                    await upsertCargo(updatedCargo);
-                }
-                showToast("Embarque excluído com sucesso e volumes da carga recalculados.", 'success');
-            } else {
-                console.error('Erro ao excluir shipment:', error);
-                showToast("Erro ao excluir shipment. Verifique o console.", 'error');
+                setCargos(prevCargos => prevCargos.map(cargo => cargo.id === relatedCargo.id ? updatedCargo : cargo));
+                await upsertCargo(updatedCargo);
             }
-        } catch (err) {
-            console.error('Erro ao excluir embarque:', err);
+            showToast("Embarque excluído com sucesso e volumes da carga recalculados.", 'success');
+        } catch (error) {
+            console.error('Erro ao excluir embarque:', error);
             showToast("Erro ao excluir embarque. Verifique o console.", 'error');
         }
     }
@@ -1157,13 +1161,9 @@ const App: React.FC = () => {
 
   const handleDeleteProduct = async (productId: string) => {
     try {
-      const { error } = await deleteProduct(productId);
-      if (!error) {
-        setProducts(prev => prev.filter(p => p.id !== productId));
-        showToast('Produto excluído com sucesso.', 'success');
-      } else {
-        showToast('Erro ao excluir produto.', 'error');
-      }
+      await deleteProduct(productId);
+      setProducts(prev => prev.filter(p => p.id !== productId));
+      showToast('Produto excluído com sucesso.', 'success');
     } catch (err) {
       console.error('Erro ao excluir produto:', err);
       showToast('Erro ao excluir produto.', 'error');
@@ -1312,11 +1312,11 @@ const App: React.FC = () => {
     }
     
     if (confirm('Tem certeza que deseja excluir este usuário?')) {
-        const { error } = await deleteUser(userId);
-        if (!error) {
+        try {
+            await deleteUser(userId);
             setUsers(prev => prev.filter(u => u.id !== userId));
             showToast("Usuário excluído com sucesso.", 'success');
-        } else {
+        } catch (error) {
             console.error('Erro ao excluir usuário:', error);
             showToast("Erro ao excluir usuário. Verifique o console.", 'error');
         }
