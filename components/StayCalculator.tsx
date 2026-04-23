@@ -4,6 +4,7 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Calculator, Download, FileText, Truck, Clock, MapPin, FileDigit, User, Weight, DollarSign, Save, Trash2, CheckCircle2, Building2 } from 'lucide-react';
 import { saveStay, getClients, saveClient, Client } from '../utils/storage';
+import { useToast } from '../hooks/useToast';
 
 interface StayData {
   clientName: string;
@@ -26,6 +27,7 @@ interface StayCalculatorProps {
 
 export default function StayCalculator({ companyId }: StayCalculatorProps) {
   const [clients, setClients] = useState<Client[]>([]);
+  const { showToast } = useToast();
 
   useEffect(() => {
     setClients(getClients(companyId));
@@ -84,7 +86,7 @@ export default function StayCalculator({ companyId }: StayCalculatorProps) {
     if (!result) return;
     
     if (!formData.driver || !formData.plate || !formData.origin || !formData.destination) {
-      alert("Por favor, preencha os campos obrigatórios (Motorista, Placa, Origem, Destino).");
+      showToast("Por favor, preencha os campos obrigatórios (Motorista, Placa, Origem, Destino).", 'warning');
       return;
     }
 

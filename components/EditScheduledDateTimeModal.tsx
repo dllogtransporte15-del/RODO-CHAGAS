@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
 import type { Shipment } from '../types';
+import { useToast } from '../hooks/useToast';
 
 interface EditScheduledDateTimeModalProps {
   isOpen: boolean;
@@ -11,6 +11,7 @@ interface EditScheduledDateTimeModalProps {
 const EditScheduledDateTimeModal: React.FC<EditScheduledDateTimeModalProps> = ({ 
   isOpen, onClose, onSave, shipment 
 }) => {
+  const { showToast } = useToast();
   const [scheduledDate, setScheduledDate] = useState('');
   const [scheduledTime, setScheduledTime] = useState('');
 
@@ -23,7 +24,7 @@ const EditScheduledDateTimeModal: React.FC<EditScheduledDateTimeModalProps> = ({
 
   const handleSave = () => {
     if (!scheduledDate) {
-      alert('A data programada é obrigatória.');
+      showToast('A data programada é obrigatória.', 'warning');
       return;
     }
     onSave({ scheduledDate, scheduledTime });

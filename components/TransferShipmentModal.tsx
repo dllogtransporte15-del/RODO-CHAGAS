@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import type { Shipment, User } from '../types';
 import { UserProfile } from '../types';
+import { useToast } from '../hooks/useToast';
 
 interface TransferShipmentModalProps {
   isOpen: boolean;
@@ -12,6 +13,7 @@ interface TransferShipmentModalProps {
 }
 
 const TransferShipmentModal: React.FC<TransferShipmentModalProps> = ({ isOpen, onClose, onSave, shipment, users }) => {
+  const { showToast } = useToast();
   const [selectedEmbarcadorId, setSelectedEmbarcadorId] = useState('');
 
   const embarcadores = useMemo(() => {
@@ -26,7 +28,7 @@ const TransferShipmentModal: React.FC<TransferShipmentModalProps> = ({ isOpen, o
 
   const handleSave = () => {
     if (!selectedEmbarcadorId) {
-      alert('Por favor, selecione um embarcador.');
+      showToast('Por favor, selecione um embarcador.', 'warning');
       return;
     }
     onSave(selectedEmbarcadorId);

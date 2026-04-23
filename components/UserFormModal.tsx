@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import type { User, Client } from '../types';
 import { UserProfile } from '../types';
+import { useToast } from '../hooks/useToast';
 
 interface UserFormModalProps {
   isOpen: boolean;
@@ -12,6 +13,7 @@ interface UserFormModalProps {
 }
 
 const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSave, userToEdit, clients }) => {
+  const { showToast } = useToast();
   const getInitialState = (): Omit<User, 'id'> => ({
     name: '',
     email: '',
@@ -55,7 +57,7 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSave, 
     e.preventDefault();
     
     if (user.profile === UserProfile.Cliente && !user.clientId) {
-      alert('Por favor, selecione um cliente para associar a este usuário.');
+      showToast('Por favor, selecione um cliente para associar a este usuário.', 'warning');
       return;
     }
 
@@ -70,7 +72,7 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSave, 
     } else {
       // Password is required for new users
       if (!user.password) {
-        alert('O campo de senha é obrigatório para novos usuários.');
+        showToast('O campo de senha é obrigatório para novos usuários.', 'warning');
         return;
       }
     }
@@ -118,7 +120,7 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSave, 
                   type="button" 
                   onClick={() => {
                     setUser(prev => ({ ...prev, password: 'rodo2026', requirePasswordChange: true }));
-                    alert('Senha resetada para "rodo2026".\nAtenção: A alteração só será gravada ao clicar em "SALVAR".');
+                    showToast('Senha resetada para "rodo2026". Atenção: A alteração só será gravada ao clicar em "SALVAR".', 'info', 6000);
                   }} 
                   className="py-2 px-4 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors font-medium flex items-center gap-2"
                 >

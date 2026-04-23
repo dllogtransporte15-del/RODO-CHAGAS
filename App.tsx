@@ -6,6 +6,7 @@ import type { Client, Owner, Driver, Vehicle, Product, Cargo, Shipment, User, Pa
 import { CargoStatus, ShipmentStatus, UserProfile, TicketStatus, TicketPriority, DriverClassification, VehicleSetType, VehicleBodyType, REQUIRED_DOCUMENT_MAP } from './types';
 import { formatId } from './utils';
 import { INITIAL_PERMISSIONS } from './auth';
+import { useToast } from './hooks/useToast';
 
 // Page Imports
 import DashboardPage from './pages/DashboardPage';
@@ -129,6 +130,8 @@ const App: React.FC = () => {
     loadAllData,
     isAnyModalActiveRef
   } = useDatabase(currentUser);
+
+  const { showToast } = useToast();
 
   const isAnyModalActive = isAnyModalOpen || isTicketModalOpen;
   
@@ -310,7 +313,7 @@ const App: React.FC = () => {
       setCurrentUser(updatedUser);
       setUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
       
-      alert('Senha atualizada com sucesso no sistema! Próxima atualização em 30 dias.');
+      showToast('Senha atualizada com sucesso no sistema! Próxima atualização em 30 dias.', 'success');
     } catch (err: any) {
       console.error('Erro geral no handlePasswordChange:', err);
       throw err;
@@ -324,7 +327,7 @@ const App: React.FC = () => {
     } catch (err) {
       console.error('Erro ao salvar permissões:', err);
     }
-    alert("Permissões salvas com sucesso!");
+    showToast("Permissões salvas com sucesso!", 'success');
   };
   
   const handleSaveLogo = async (logo: string) => {
@@ -334,7 +337,7 @@ const App: React.FC = () => {
     } catch (err) {
       console.error('Erro ao salvar logo no Supabase:', err);
     }
-    alert("Logo da empresa atualizado com sucesso!");
+    showToast("Logo da empresa atualizado com sucesso!", 'success');
   };
 
   const handleSaveThemeImage = async (image: string) => {
@@ -344,7 +347,7 @@ const App: React.FC = () => {
     } catch (err) {
       console.error('Erro ao salvar tema no Supabase:', err);
     }
-    alert("Tema de fundo atualizado com sucesso!");
+    showToast("Tema de fundo atualizado com sucesso!", 'success');
   };
 
   const handleSaveTicket = async (ticketData: Omit<Ticket, 'id' | 'history' | 'createdAt' | 'createdById'>) => {
@@ -502,7 +505,7 @@ const App: React.FC = () => {
     let addedVehicles: Vehicle[] = [];
     const defaultOwner = owners.find(o => o.name === 'PROPRIETÁRIO PADRÃO TERCEIRO');
     if (!defaultOwner) {
-        alert("Erro crítico: Proprietário padrão para veículos de terceiros não encontrado. Contate o suporte.");
+        showToast("Erro crítico: Proprietário padrão para veículos de terceiros não encontrado. Contate o suporte.", 'error');
         return;
     }
 
@@ -547,7 +550,7 @@ const App: React.FC = () => {
         documentsUrlMap['Arquivos Iniciais'] = newDocUrls;
       } catch (error) {
         console.error('Erro ao fazer upload dos anexos iniciais:', error);
-        alert('Ocorreu um erro ao enviar os arquivos. O embarque foi criado, mas os arquivos não puderam ser salvos.');
+        showToast('Ocorreu um erro ao enviar os arquivos. O embarque foi criado, mas os arquivos não puderam ser salvos.', 'warning');
       }
     }
     
@@ -624,11 +627,11 @@ const App: React.FC = () => {
     } catch (err: any) {
       console.error('Erro ao salvar embarque no Supabase:', err);
       const errorMessage = err?.message || 'Erro desconhecido ao salvar no banco de dados.';
-      alert(`[ERRO CRÍTICO] O embarque não pôde ser salvo no banco de dados: ${errorMessage}. Verifique sua conexão ou contate o suporte.`);
+      showToast(`[ERRO CRÍTICO] O embarque não pôde ser salvo no banco de dados: ${errorMessage}. Verifique sua conexão ou contate o suporte.`, 'error');
     }
 
     setCurrentPage('shipments');
-    alert(`Novo embarque ${newShipmentId} criado com sucesso! Motoristas/Veículos não cadastrados foram adicionados automaticamente.`);
+    showToast(`Novo embarque ${newShipmentId} criado com sucesso! Motoristas/Veículos não cadastrados foram adicionados automaticamente.`, 'success');
   };
 
   const handleMarkArrival = async (shipmentId: string) => {
@@ -670,17 +673,17 @@ const App: React.FC = () => {
 
     // Validation for "Aguardando Nota" transition
     if (originalShipment.status === ShipmentStatus.AguardandoNota && !originalShipment.bankDetails && !bankDetails) {
-        alert('Dados bancários são obrigatórios para avançar para a etapa de adiantamento.');
+        showToast('Dados bancários são obrigatórios para avançar para a etapa de adiantamento.', 'warning');
         return;
     }
 
     if (originalShipment.status === ShipmentStatus.AguardandoCarregamento && !route?.trim()) {
-        alert('A rota do motorista é obrigatória para avançar para a próxima etapa.');
+        showToast('A rota do motorista é obrigatória para avançar para a próxima etapa.', 'warning');
         return;
     }
 
     if (originalShipment.status === ShipmentStatus.AguardandoCarregamento && (!loadedTonnage || loadedTonnage <= 0)) {
-        alert('O peso carregado é obrigatório para avançar para a próxima etapa.');
+        showToast('O peso carregado é obrigatório para avançar para a próxima etapa.', 'warning');
         return;
     }
 
@@ -714,7 +717,7 @@ const App: React.FC = () => {
     }
 
     if (!isUserAllowed) {
-        alert(`Você não tem permissão para alterar o status deste embarque. ${alertMessage}`);
+        showToast(`Você não tem permissão para alterar o status deste embarque. ${alertMessage}`, 'error');
         return;
     }
 
@@ -735,7 +738,7 @@ const App: React.FC = () => {
       }
     } catch (error) {
       console.error('Erro ao fazer upload dos anexos:', error);
-      alert('Ocorreu um erro ao enviar os arquivos. Tente novamente.');
+      showToast('Ocorreu um erro ao enviar os arquivos. Tente novamente.', 'error');
       return;
     }
     
@@ -860,9 +863,9 @@ const App: React.FC = () => {
       await upsertShipment(updatedShipment);
       if (updatedCargo) await upsertCargo(updatedCargo);
     } catch(err: any) { 
-      console.error('Erro ao atualizar embarque:', err);
-      const errorMessage = err?.message || 'Erro desconhecido ao atualizar no banco de dados.';
-      alert(`[ERRO CRÍTICO] O status do embarque não pôde ser atualizado no banco de dados: ${errorMessage}. Os dados voltarão ao estado anterior ao recarregar a página.`);
+      console.error('Erro ao atualizar embarque no Supabase:', err);
+      const errorMessage = err?.message || 'Erro desconhecido ao salvar no banco de dados.';
+      showToast(`[ERRO CRÍTICO] O status do embarque não pôde ser atualizado no banco de dados: ${errorMessage}. Os dados voltarão ao estado anterior ao recarregar a página.`, 'error');
     }
   };
 
@@ -1041,16 +1044,14 @@ const App: React.FC = () => {
       ? `A carga ${cargoId} possui ${relatedShipments.length} embarque(s) associado(s). Se você excluir a carga, os embarques NÃO serão excluídos, mas poderão ficar sem os detalhes da carga original na visualização. Deseja excluir a carga e manter os embarques?`
       : `Tem certeza que deseja excluir permanentemente a carga ${cargoId}?`;
 
-    if (window.confirm(confirmMsg)) {
-        try {
-            await deleteCargo(cargoId);
+    if (confirm(confirmMsg)) {
+        const { error } = await deleteCargo(cargoId);
+        if (!error) {
             setCargos(prev => prev.filter(c => c.id !== cargoId));
-            
-            // Shipments are NOT deleted anymore to preserve historical data
-            alert("Carga excluída com sucesso. Os embarques vinculados foram preservados.");
-        } catch (err) {
-            console.error('Erro ao excluir carga:', err);
-            alert("Erro ao excluir carga. Verifique o console.");
+            showToast("Carga excluída com sucesso. Os embarques vinculados foram preservados.", 'success');
+        } else {
+            console.error('Erro ao excluir carga:', error);
+            showToast("Erro ao excluir carga. Verifique o console.", 'error');
         }
     }
   };
@@ -1062,32 +1063,37 @@ const App: React.FC = () => {
     const shipmentToDelete = shipments.find(s => s.id === shipmentId);
     if (!shipmentToDelete) return;
 
-    if (window.confirm(`Tem certeza que deseja excluir permanentemente o embarque ${shipmentId}?`)) {
+    if (confirm(`Tem certeza que deseja excluir permanentemente o embarque ${shipmentId}?`)) {
         try {
-            await deleteShipment(shipmentId);
-            setShipments((prev: Shipment[]) => prev.filter(s => s.id !== shipmentId));
+            const { error } = await deleteShipment(shipmentId);
+            if (!error) {
+                setShipments(prev => prev.filter(s => s.id !== shipmentId));
 
-            // Atualizar volumes da carga
-            const wasLoaded = Object.values(ShipmentStatus).indexOf(shipmentToDelete.status) >= Object.values(ShipmentStatus).indexOf(ShipmentStatus.AguardandoDescarga);
-            const relatedCargo = cargos.find(c => c.id === shipmentToDelete.cargoId);
-            
-            if (relatedCargo) {
-                const newScheduledVolume = Math.max(0, relatedCargo.scheduledVolume - shipmentToDelete.shipmentTonnage);
-                const newLoadedVolume = wasLoaded ? Math.max(0, relatedCargo.loadedVolume - shipmentToDelete.shipmentTonnage) : relatedCargo.loadedVolume;
-                const updatedCargo: Cargo = { 
-                    ...relatedCargo, 
-                    scheduledVolume: newScheduledVolume, 
-                    loadedVolume: newLoadedVolume,
-                    history: [...relatedCargo.history, createHistoryLog(`Embarque ${shipmentId} EXCLUÍDO pelo Administrador. Volumes ajustados.`)]
-                };
+                // Atualizar volumes da carga
+                const wasLoaded = Object.values(ShipmentStatus).indexOf(shipmentToDelete.status) >= Object.values(ShipmentStatus).indexOf(ShipmentStatus.AguardandoDescarga);
+                const relatedCargo = cargos.find(c => c.id === shipmentToDelete.cargoId);
                 
-                setCargos(prevCargos => prevCargos.map(cargo => cargo.id === relatedCargo.id ? updatedCargo : cargo));
-                await upsertCargo(updatedCargo);
+                if (relatedCargo) {
+                    const newScheduledVolume = Math.max(0, relatedCargo.scheduledVolume - shipmentToDelete.shipmentTonnage);
+                    const newLoadedVolume = wasLoaded ? Math.max(0, relatedCargo.loadedVolume - shipmentToDelete.shipmentTonnage) : relatedCargo.loadedVolume;
+                    const updatedCargo: Cargo = { 
+                        ...relatedCargo, 
+                        scheduledVolume: newScheduledVolume, 
+                        loadedVolume: newLoadedVolume,
+                        history: [...relatedCargo.history, createHistoryLog(`Embarque ${shipmentId} EXCLUÍDO pelo Administrador. Volumes ajustados.`)]
+                    };
+                    
+                    setCargos(prevCargos => prevCargos.map(cargo => cargo.id === relatedCargo.id ? updatedCargo : cargo));
+                    await upsertCargo(updatedCargo);
+                }
+                showToast("Embarque excluído com sucesso e volumes da carga recalculados.", 'success');
+            } else {
+                console.error('Erro ao excluir shipment:', error);
+                showToast("Erro ao excluir shipment. Verifique o console.", 'error');
             }
-            alert("Embarque excluído com sucesso e volumes da carga recalculados.");
         } catch (err) {
             console.error('Erro ao excluir embarque:', err);
-            alert("Erro ao excluir embarque. Verifique o console.");
+            showToast("Erro ao excluir embarque. Verifique o console.", 'error');
         }
     }
   };
@@ -1146,17 +1152,21 @@ const App: React.FC = () => {
       setNextIds((prev: any) => ({ ...prev, product: prev.product + 1 }));
     }
     try { await upsertProduct(saved); } catch(err) { console.error('Erro ao salvar produto:', err); }
-    alert('Produto salvo com sucesso!');
+    showToast('Produto salvo com sucesso!', 'success');
   };
 
   const handleDeleteProduct = async (productId: string) => {
     try {
-      await deleteProduct(productId);
-      setProducts(prev => prev.filter(p => p.id !== productId));
-      alert('Produto excluído com sucesso.');
+      const { error } = await deleteProduct(productId);
+      if (!error) {
+        setProducts(prev => prev.filter(p => p.id !== productId));
+        showToast('Produto excluído com sucesso.', 'success');
+      } else {
+        showToast('Erro ao excluir produto.', 'error');
+      }
     } catch (err) {
       console.error('Erro ao excluir produto:', err);
-      alert('Erro ao excluir produto.');
+      showToast('Erro ao excluir produto.', 'error');
     }
   };
   
@@ -1238,9 +1248,9 @@ const App: React.FC = () => {
       try {
         await upsertCargo(updatedCargo);
       } catch (err: any) {
-        console.error('Erro ao atualizar carga:', err);
+        console.error('Erro ao salvar carga no Supabase:', err);
         const errorMessage = err?.message || 'Erro desconhecido ao salvar no banco de dados.';
-        alert(`[ERRO CRÍTICO] A carga não pôde ser atualizada no banco de dados: ${errorMessage}`);
+        showToast(`[ERRO CRÍTICO] A carga não pôde ser atualizada no banco de dados: ${errorMessage}`, 'error');
       }
     } else { 
       if (!currentUser) return;
@@ -1270,12 +1280,12 @@ const App: React.FC = () => {
         setNextIds((prev: any) => ({ ...prev, cargo: Math.max(prev.cargo, newNum + 1) }));
         
       } catch (err: any) {
-        console.error('Erro ao criar carga:', err);
+        console.error('Erro ao salvar carga no Supabase:', err);
         // Remove a carga temporária em caso de erro (rollback)
         setCargos(prev => prev.filter(c => c.id !== tempId));
         
         const errorMessage = err?.message || 'Erro desconhecido ao salvar no banco de dados.';
-        alert(`[ERRO CRÍTICO] A carga não pôde ser salva no banco de dados: ${errorMessage}. Verifique as informações preenchidas.`);
+        showToast(`[ERRO CRÍTICO] A carga não pôde ser salva no banco de dados: ${errorMessage}. Verifique as informações preenchidas.`, 'error');
       }
     }
   };
@@ -1297,18 +1307,18 @@ const App: React.FC = () => {
   const handleDeleteUser = async (userId: string) => {
     if (!currentUser || currentUser.profile !== UserProfile.Admin) return;
     if (userId === currentUser.id) {
-        alert("Você não pode excluir seu próprio usuário.");
+        showToast("Você não pode excluir seu próprio usuário.", 'warning');
         return;
     }
     
-    if (window.confirm('Tem certeza que deseja excluir permanentemente este usuário?')) {
-        try {
-            await deleteUser(userId);
+    if (confirm('Tem certeza que deseja excluir este usuário?')) {
+        const { error } = await deleteUser(userId);
+        if (!error) {
             setUsers(prev => prev.filter(u => u.id !== userId));
-            alert("Usuário excluído com sucesso.");
-        } catch (err) {
-            console.error('Erro ao excluir usuário:', err);
-            alert("Erro ao excluir usuário. Verifique o console.");
+            showToast("Usuário excluído com sucesso.", 'success');
+        } else {
+            console.error('Erro ao excluir usuário:', error);
+            showToast("Erro ao excluir usuário. Verifique o console.", 'error');
         }
     }
   };
@@ -1318,12 +1328,12 @@ const App: React.FC = () => {
     if (!shipment || !currentUser) return;
     
     if (![UserProfile.Admin, UserProfile.Diretor].includes(currentUser.profile)) {
-        alert("Apenas administradores ou diretores podem reverter o status.");
+        showToast("Apenas administradores ou diretores podem reverter o status.", 'warning');
         return;
     }
 
     if (!shipment.statusHistory || shipment.statusHistory.length <= 1) {
-        alert("Não há histórico de status para reverter.");
+        showToast("Não há histórico de status para reverter.", 'info');
         return;
     }
 
@@ -1369,8 +1379,8 @@ const App: React.FC = () => {
         await upsertShipment(updatedShipment);
         if (updatedCargo) await upsertCargo(updatedCargo);
     } catch (err) {
-        console.error('Erro ao reverter status:', err);
-        alert("Erro ao salvar a reversão no banco de dados.");
+        console.error('Erro ao salvar reversão:', err);
+        showToast("Erro ao salvar a reversão no banco de dados.", 'error');
     }
   };
 
@@ -1388,7 +1398,7 @@ const App: React.FC = () => {
       await upsertCargo(updatedCargo);
     } catch (err) {
       console.error('Erro ao reativar carga:', err);
-      alert("Erro ao reativar carga no banco de dados.");
+      showToast("Erro ao reativar carga no banco de dados.", 'error');
     }
   };
 

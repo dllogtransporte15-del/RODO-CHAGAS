@@ -3,6 +3,7 @@ import { Shipment, ShipmentStatus, User, UserProfile, Cargo } from '../types';
 import { PaperclipIcon, ExternalLinkIcon, MapPinIcon, LoaderIcon } from './icons';
 import { fetchRouteGeometry, getRouteSuggestions, RouteSuggestion } from '../services/routing';
 import { formatWeightPtBr } from '../utils';
+import { useToast } from '../hooks/useToast';
 
 interface AttachmentModalProps {
   isOpen: boolean;
@@ -78,6 +79,7 @@ const AttachmentModal: React.FC<AttachmentModalProps> = ({ isOpen, onClose, onSa
   const [suggestions, setSuggestions] = useState<RouteSuggestion[]>([]);
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
   const [error, setError] = useState<string>('');
+  const { showToast } = useToast();
   
   const mapRef = useRef<any>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -269,7 +271,7 @@ const AttachmentModal: React.FC<AttachmentModalProps> = ({ isOpen, onClose, onSa
 
   const handleTraceRoute = async () => {
     if (!cargo?.originCoords || !cargo?.destinationCoords) {
-        alert("Coordenadas de origem ou destino não disponíveis.");
+        showToast("Coordenadas de origem ou destino não disponíveis.", 'warning');
         return;
     }
     drawRouteOnMap();
@@ -310,14 +312,14 @@ const AttachmentModal: React.FC<AttachmentModalProps> = ({ isOpen, onClose, onSa
     }
     
     if (shipment.status === ShipmentStatus.AguardandoDescarga && (!unloadedTonnage || Number(unloadedTonnage) <= 0)) {
-        alert('O peso descarregado é obrigatório para informar a entrega.');
+        showToast('O peso descarregado é obrigatório para informar a entrega.', 'warning');
         return;
     }
 
     if (shipment.status === ShipmentStatus.AguardandoPagamentoSaldo) {
         const hasQuebra = shipment.unloadedTonnage !== undefined && shipment.shipmentTonnage !== undefined && (shipment.unloadedTonnage - shipment.shipmentTonnage) < -0.001;
         if (hasQuebra && (!discountValue || Number(discountValue) <= 0)) {
-            alert('Atenção: Quebra de carga detectada. É obrigatório informar o valor do desconto para prosseguir.');
+            showToast('Atenção: Quebra de carga detectada. É obrigatório informar o valor do desconto para prosseguir.', 'warning');
             return;
         }
     }

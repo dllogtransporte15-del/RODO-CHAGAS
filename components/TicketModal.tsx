@@ -2,6 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import type { Ticket, User, TicketHistory } from '../types';
 import { TicketStatus, TicketPriority } from '../types';
+import { useToast } from '../hooks/useToast';
 
 interface TicketModalProps {
   isOpen: boolean;
@@ -16,6 +17,7 @@ interface TicketModalProps {
 type FilterType = 'meus' | 'abertos' | 'todos';
 
 const TicketModal: React.FC<TicketModalProps> = ({ isOpen, onClose, tickets, users, currentUser, onSave, onUpdate }) => {
+  const { showToast } = useToast();
   const [isCreating, setIsCreating] = useState(false);
   const [filter, setFilter] = useState<FilterType>('meus');
   const [newTicket, setNewTicket] = useState({
@@ -107,7 +109,7 @@ const TicketModal: React.FC<TicketModalProps> = ({ isOpen, onClose, tickets, use
   const handleCloseTicket = () => {
     if (attendingTicketId) {
       if (!observation.trim()) {
-        alert("Por favor, adicione uma observação para fechar o chamado.");
+        showToast("Por favor, adicione uma observação para fechar o chamado.", 'warning');
         return;
       }
       onUpdate(attendingTicketId, TicketStatus.Fechado, observation);

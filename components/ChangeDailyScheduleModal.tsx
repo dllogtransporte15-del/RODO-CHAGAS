@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import type { Cargo, DailyScheduleEntry } from '../types';
 import { DailyScheduleType } from '../types';
+import { useToast } from '../hooks/useToast';
 
 interface ChangeDailyScheduleModalProps {
   isOpen: boolean;
@@ -12,6 +13,7 @@ interface ChangeDailyScheduleModalProps {
 }
 
 const ChangeDailyScheduleModal: React.FC<ChangeDailyScheduleModalProps> = ({ isOpen, onClose, onSave, cargo, date }) => {
+  const { showToast } = useToast();
   const [scheduleType, setScheduleType] = useState<DailyScheduleType>(DailyScheduleType.Livre);
   const [tonnage, setTonnage] = useState<number | undefined>(undefined);
   const [existingEntry, setExistingEntry] = useState<DailyScheduleEntry | null>(null);
@@ -32,7 +34,7 @@ const ChangeDailyScheduleModal: React.FC<ChangeDailyScheduleModalProps> = ({ isO
   const handleSave = () => {
     if (!date) return;
     if (scheduleType === DailyScheduleType.Fixo && (!tonnage || tonnage <= 0)) {
-        alert('Para Demanda Fixa, a tonelagem deve ser maior que zero.');
+        showToast('Para Demanda Fixa, a tonelagem deve ser maior que zero.', 'warning');
         return;
     }
 

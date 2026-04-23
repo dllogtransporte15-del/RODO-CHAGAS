@@ -3,6 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { History } from 'lucide-react';
 import type { Driver, Owner } from '../types';
 import { DriverClassification } from '../types';
+import { useToast } from '../hooks/useToast';
 
 interface DriverFormModalProps {
   isOpen: boolean;
@@ -21,6 +22,7 @@ const DriverFormModal: React.FC<DriverFormModalProps> = ({
   owners,
   onShowHistory 
 }) => {
+  const { showToast } = useToast();
   const getInitialState = (): Omit<Driver, 'id'> => ({
     name: '',
     cpf: '',
@@ -60,7 +62,7 @@ const DriverFormModal: React.FC<DriverFormModalProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (isOwnerRelevant && !driver.ownerId) {
-      alert('Para esta classificação, o campo Proprietário é obrigatório.');
+      showToast('Para esta classificação, o campo Proprietário é obrigatório.', 'warning');
       return;
     }
     if (driverToEdit) {

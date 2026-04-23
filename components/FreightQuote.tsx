@@ -7,6 +7,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { format } from 'date-fns';
 import { saveQuote, getClients, saveClient, Client } from '../utils/storage';
+import { useToast } from '../hooks/useToast';
 
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -65,6 +66,7 @@ interface FreightQuoteProps {
 
 export default function FreightQuote({ companyId }: FreightQuoteProps) {
   const [clients, setClients] = useState<Client[]>([]);
+  const { showToast } = useToast();
 
   useEffect(() => {
     setClients(getClients(companyId));
@@ -266,7 +268,7 @@ export default function FreightQuote({ companyId }: FreightQuoteProps) {
     if (!result) return;
     
     if (!formData.origin || !formData.destination || !formData.distance) {
-      alert("Por favor, preencha os campos obrigatórios (Origem, Destino, Distância).");
+      showToast("Por favor, preencha os campos obrigatórios (Origem, Destino, Distância).", 'warning');
       return;
     }
 

@@ -1,6 +1,5 @@
-
-import React, { useState, useEffect } from 'react';
 import type { Shipment } from '../types';
+import { useToast } from '../hooks/useToast';
 
 interface CadastroAnttModalProps {
   isOpen: boolean;
@@ -10,6 +9,7 @@ interface CadastroAnttModalProps {
 }
 
 const CadastroAnttModal: React.FC<CadastroAnttModalProps> = ({ isOpen, onClose, onSave, shipment }) => {
+  const { showToast } = useToast();
   const [anttOwnerIdentifier, setAnttOwnerIdentifier] = useState('');
   const [bankDetails, setBankDetails] = useState('');
 
@@ -22,7 +22,7 @@ const CadastroAnttModal: React.FC<CadastroAnttModalProps> = ({ isOpen, onClose, 
 
   const handleSave = () => {
     if (!anttOwnerIdentifier) {
-      alert('O CPF/CNPJ do titular da ANTT é obrigatório.');
+      showToast('O CPF/CNPJ do titular da ANTT é obrigatório.', 'warning');
       return;
     }
     onSave({ anttOwnerIdentifier, bankDetails });

@@ -8,6 +8,7 @@ import { PaperclipIcon } from './icons/PaperclipIcon';
 import { UserPlusIcon } from './icons/UserPlusIcon';
 import { BRAZILIAN_CITIES } from '../brazilianCities';
 import { geocodeCity } from '../utils/geocoding';
+import { useToast } from '../hooks/useToast';
 
 interface LoadFormModalProps {
   isOpen: boolean;
@@ -78,6 +79,7 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
   // State for the new allowed vehicle types UI
   const [currentSetType, setCurrentSetType] = useState<VehicleSetType>(VehicleSetType.LSSimples);
   const [currentBodyTypes, setCurrentBodyTypes] = useState<VehicleBodyType[]>([]);
+  const { showToast } = useToast();
 
   const commercialUsers = useMemo(() => {
     return users.filter(u => u.profile === UserProfile.Comercial);
@@ -243,15 +245,15 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
   
   const handleAddSchedule = () => {
     if (!newScheduleDate) {
-        alert('Por favor, selecione uma data.');
+        showToast('Por favor, selecione uma data.', 'warning');
         return;
     }
     if ((load.dailySchedule || []).some(e => e.date === newScheduleDate)) {
-        alert('Já existe uma programação para esta data. Remova a antiga primeiro.');
+        showToast('Já existe uma programação para esta data. Remova a antiga primeiro.', 'warning');
         return;
     }
     if (newScheduleType === DailyScheduleType.Fixo && (!newScheduleTonnage || newScheduleTonnage <= 0)) {
-        alert('Para Demanda Fixa, a tonelagem deve ser maior que zero.');
+        showToast('Para Demanda Fixa, a tonelagem deve ser maior que zero.', 'warning');
         return;
     }
 
@@ -286,7 +288,7 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
   
   const handleAddAllowedType = () => {
     if (currentBodyTypes.length === 0) {
-        alert("Selecione ao menos um tipo de carroceria.");
+        showToast("Selecione ao menos um tipo de carroceria.", 'warning');
         return;
     }
     setLoad(prev => {
