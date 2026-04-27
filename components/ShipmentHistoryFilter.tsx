@@ -7,17 +7,65 @@ interface ShipmentHistoryFilterProps {
   shipments: Shipment[];
   activeStatus: ShipmentStatus;
   onStatusChange: (status: ShipmentStatus) => void;
+  startDate: string;
+  endDate: string;
+  onStartDateChange: (date: string) => void;
+  onEndDateChange: (date: string) => void;
 }
 
-const ShipmentHistoryFilter: React.FC<ShipmentHistoryFilterProps> = ({ shipments, activeStatus, onStatusChange }) => {
+const ShipmentHistoryFilter: React.FC<ShipmentHistoryFilterProps> = ({ 
+  shipments, 
+  activeStatus, 
+  onStatusChange,
+  startDate,
+  endDate,
+  onStartDateChange,
+  onEndDateChange
+}) => {
   const getStatusCount = (status: ShipmentStatus) => {
-    return shipments.filter(s => s.status === status).length;
+    return shipments.filter(s => {
+      const matchesStatus = s.status === status;
+      let matchesDate = true;
+      if (startDate) matchesDate = matchesDate && s.scheduledDate >= startDate;
+      if (endDate) matchesDate = matchesDate && s.scheduledDate <= endDate;
+      return matchesStatus && matchesDate;
+    }).length;
   };
 
   const statusOrder = [ShipmentStatus.Finalizado, ShipmentStatus.Cancelado];
 
   return (
-    <div className="mb-6">
+    <div className="mb-6 space-y-4">
+      <div className="flex flex-wrap items-end gap-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-700">
+        <div className="flex flex-col gap-1.5">
+          <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider ml-1">De:</label>
+          <input 
+            type="date" 
+            value={startDate} 
+            onChange={(e) => onStartDateChange(e.target.value)}
+            className="px-3 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-primary/20 outline-none transition-all dark:text-white"
+          />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider ml-1">Até:</label>
+          <input 
+            type="date" 
+            value={endDate} 
+            onChange={(e) => onEndDateChange(e.target.value)}
+            className="px-3 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-primary/20 outline-none transition-all dark:text-white"
+          />
+        </div>
+        <button 
+          onClick={() => {
+            onStartDateChange('');
+            onEndDateChange('');
+          }}
+          className="px-4 py-2 text-xs font-bold text-gray-400 hover:text-red-500 transition-colors uppercase"
+        >
+          Limpar Datas
+        </button>
+      </div>
+
       <div className="border-b border-gray-200 dark:border-gray-700">
         <nav className="-mb-px flex space-x-6 overflow-x-auto" aria-label="Tabs">
           {statusOrder.map((status) => (

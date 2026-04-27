@@ -29,6 +29,8 @@ const ShipmentHistoryPage: React.FC<ShipmentHistoryPageProps> = ({ shipments, ca
   const [isAttachmentModalOpen, setAttachmentModalOpen] = useState(false);
   const [selectedShipment, setSelectedShipment] = useState<Shipment | null>(null);
   const [detailsModalCargo, setDetailsModalCargo] = useState<Cargo | null>(null);
+  const [startDate, setStartDate] = useState<string>('');
+  const [endDate, setEndDate] = useState<string>('');
 
   // Sync selected shipment with latest data from props
   useEffect(() => {
@@ -41,8 +43,20 @@ const ShipmentHistoryPage: React.FC<ShipmentHistoryPageProps> = ({ shipments, ca
   }, [shipments, selectedShipment]);
 
   const filteredShipments = useMemo(() => {
-    return shipments.filter(shipment => shipment.status === activeStatus);
-  }, [shipments, activeStatus]);
+    return shipments.filter(shipment => {
+        const matchesStatus = shipment.status === activeStatus;
+        let matchesDate = true;
+        
+        if (startDate) {
+            matchesDate = matchesDate && shipment.scheduledDate >= startDate;
+        }
+        if (endDate) {
+            matchesDate = matchesDate && shipment.scheduledDate <= endDate;
+        }
+        
+        return matchesStatus && matchesDate;
+    });
+  }, [shipments, activeStatus, startDate, endDate]);
 
   const cancellationReasonData = useMemo(() => {
     const cancelledShipments = shipments.filter(s => s.status === ShipmentStatus.Cancelado);
@@ -119,6 +133,10 @@ const ShipmentHistoryPage: React.FC<ShipmentHistoryPageProps> = ({ shipments, ca
         shipments={shipments} 
         activeStatus={activeStatus} 
         onStatusChange={setActiveStatus}
+        startDate={startDate}
+        endDate={endDate}
+        onStartDateChange={setStartDate}
+        onEndDateChange={setEndDate}
       />
       <ShipmentTable 
         shipments={filteredShipments} 
