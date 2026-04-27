@@ -1569,7 +1569,7 @@ const App: React.FC = () => {
 
     switch (currentPage) {
       case 'dashboard':
-        return <DashboardPage cargos={visibleLoads} shipments={visibleShipments} users={users} currentUser={currentUser} clients={clients} products={products} companyLogo={companyLogo} vehicles={vehicles} onDeleteAttachment={handleDeleteShipmentAttachment} />;
+        return <DashboardPage cargos={visibleLoads} shipments={visibleShipments} users={users} currentUser={currentUser} clients={clients} products={products} companyLogo={companyLogo} vehicles={vehicles} onDeleteAttachment={handleDeleteShipmentAttachment} onUpdatePrice={handleUpdateShipmentPrice} />;
       case 'clients':
         return <ClientsPage clients={clients} setClients={setClients} onSaveClient={handleSaveClient} currentUser={currentUser} profilePermissions={profilePermissions} />;
       case 'owners':
@@ -1681,6 +1681,7 @@ const App: React.FC = () => {
                   onDeleteShipment={handleDeleteShipment}
                   onRevertStatus={handleRevertShipmentStatus}
                   onDeleteAttachment={handleDeleteShipmentAttachment}
+                  onUpdatePrice={handleUpdateShipmentPrice}
                 />;
       case 'load-history':
         return <LoadHistoryPage

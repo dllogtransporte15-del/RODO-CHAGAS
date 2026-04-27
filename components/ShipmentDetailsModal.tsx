@@ -47,7 +47,11 @@ const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
   const formatCurrency = (value: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
   const formatDate = (dateString: string) => new Date(dateString).toLocaleString('pt-BR');
 
-  const canEdit = currentUser?.profile !== UserProfile.Embarcador && !!onUpdatePrice;
+  const isFinalized = shipment.status === ShipmentStatus.Finalizado;
+  const isAdmin = currentUser?.profile === UserProfile.Admin;
+  const canEdit = !!onUpdatePrice && (
+    (isFinalized ? isAdmin : currentUser?.profile !== UserProfile.Embarcador)
+  );
 
   const handleStartEdit = () => {
     setEditRate(shipment.driverFreightRateSnapshot || (shipment.driverFreightValue / (shipment.shipmentTonnage || 1)));

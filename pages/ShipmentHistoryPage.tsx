@@ -21,9 +21,10 @@ interface ShipmentHistoryPageProps {
   onDeleteShipment: (shipmentId: string) => void;
   onRevertStatus?: (shipmentId: string) => void;
   onDeleteAttachment?: (shipmentId: string, url: string) => Promise<void>;
+  onUpdatePrice?: (shipmentId: string, data: { newTotal: number, newRate?: number, newCompanyRate?: number }) => void;
 }
 
-const ShipmentHistoryPage: React.FC<ShipmentHistoryPageProps> = ({ shipments, cargos, users, currentUser, clients, products, vehicles, onDeleteShipment, onRevertStatus, onDeleteAttachment }) => {
+const ShipmentHistoryPage: React.FC<ShipmentHistoryPageProps> = ({ shipments, cargos, users, currentUser, clients, products, vehicles, onDeleteShipment, onRevertStatus, onDeleteAttachment, onUpdatePrice }) => {
   const [activeStatus, setActiveStatus] = useState<ShipmentStatus>(ShipmentStatus.Finalizado);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [isAttachmentModalOpen, setAttachmentModalOpen] = useState(false);
@@ -31,6 +32,18 @@ const ShipmentHistoryPage: React.FC<ShipmentHistoryPageProps> = ({ shipments, ca
   const [detailsModalCargo, setDetailsModalCargo] = useState<Cargo | null>(null);
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
+  const [marginOperator, setMarginOperator] = useState<'>' | '<' | ''>('');
+  const [marginValue, setMarginValue] = useState<string>('');
+
+  const cargoMap = useMemo(() => new Map(cargos.map(c => [c.id, c])), [cargos]);
+
+  const calculateMargin = (s: Shipment) => {
+    const cargo = cargoMap.get(s.cargoId);
+    if (!cargo) return 0;
+    const grossRate = s.companyFreightRateSnapshot || cargo.companyFreightValuePerTon || 0;
+    const driverRate = s.driverFreightRateSnapshot || (s.driverFreightValue / (s.shipmentTonnage || 1));
+    return (grossRate - driverRate) * s.shipmentTonnage;
+  };
 
   // Sync selected shipment with latest data from props
   useEffect(() => {
@@ -53,10 +66,18 @@ const ShipmentHistoryPage: React.FC<ShipmentHistoryPageProps> = ({ shipments, ca
         if (endDate) {
             matchesDate = matchesDate && shipment.scheduledDate <= endDate;
         }
+
+        let matchesMargin = true;
+        if (marginOperator && marginValue !== '') {
+            const margin = calculateMargin(shipment);
+            const val = parseFloat(marginValue);
+            if (marginOperator === '>') matchesMargin = margin > val;
+            else if (marginOperator === '<') matchesMargin = margin < val;
+        }
         
-        return matchesStatus && matchesDate;
+        return matchesStatus && matchesDate && matchesMargin;
     });
-  }, [shipments, activeStatus, startDate, endDate]);
+  }, [shipments, activeStatus, startDate, endDate, marginOperator, marginValue, cargoMap]);
 
   const cancellationReasonData = useMemo(() => {
     const cancelledShipments = shipments.filter(s => s.status === ShipmentStatus.Cancelado);
@@ -131,12 +152,17 @@ const ShipmentHistoryPage: React.FC<ShipmentHistoryPageProps> = ({ shipments, ca
       </Header>
       <ShipmentHistoryFilter 
         shipments={shipments} 
+        cargos={cargos}
         activeStatus={activeStatus} 
         onStatusChange={setActiveStatus}
         startDate={startDate}
         endDate={endDate}
         onStartDateChange={setStartDate}
         onEndDateChange={setEndDate}
+        marginOperator={marginOperator}
+        onMarginOperatorChange={setMarginOperator}
+        marginValue={marginValue}
+        onMarginValueChange={setMarginValue}
       />
       <ShipmentTable 
         shipments={filteredShipments} 
@@ -154,6 +180,7 @@ const ShipmentHistoryPage: React.FC<ShipmentHistoryPageProps> = ({ shipments, ca
         products={products}
         companyLogo={null} // History doesn't typically need PDF generation but the prop is required
         onDeleteAttachment={onDeleteAttachment}
+        onUpdatePrice={onUpdatePrice}
       />
       {selectedShipment && (
         <HistoryModal
