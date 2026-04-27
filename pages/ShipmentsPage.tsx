@@ -81,6 +81,16 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({
 
   const [detailsModalCargo, setDetailsModalCargo] = useState<Cargo | null>(null);
 
+  // Sync selected shipment with latest data from props
+  useEffect(() => {
+    if (selectedShipment) {
+      const updated = shipments.find(s => s.id === selectedShipment.id);
+      if (updated && JSON.stringify(updated) !== JSON.stringify(selectedShipment)) {
+        setSelectedShipment(updated);
+      }
+    }
+  }, [shipments, selectedShipment]);
+
   useEffect(() => {
     // Locking heartbeat and beforeunload logic removed per user request
   }, []);

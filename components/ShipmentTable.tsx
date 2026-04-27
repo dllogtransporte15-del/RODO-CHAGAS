@@ -61,6 +61,16 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users,
   const [filterOrigin, setFilterOrigin] = useState<string[]>([]);
   const [filterDest, setFilterDest] = useState<string[]>([]);
   const [filterClient, setFilterClient] = useState<string[]>([]);
+  
+  // Sync modal shipment with latest data from props
+  useEffect(() => {
+    if (detailsModalShipment) {
+      const updated = shipments.find(s => s.id === detailsModalShipment.id);
+      if (updated && JSON.stringify(updated) !== JSON.stringify(detailsModalShipment)) {
+        setDetailsModalShipment(updated);
+      }
+    }
+  }, [shipments, detailsModalShipment]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {

@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import Header from '../components/Header';
 import ShipmentTable from '../components/ShipmentTable';
 import ShipmentHistoryFilter from '../components/ShipmentHistoryFilter';
@@ -29,6 +29,16 @@ const ShipmentHistoryPage: React.FC<ShipmentHistoryPageProps> = ({ shipments, ca
   const [isAttachmentModalOpen, setAttachmentModalOpen] = useState(false);
   const [selectedShipment, setSelectedShipment] = useState<Shipment | null>(null);
   const [detailsModalCargo, setDetailsModalCargo] = useState<Cargo | null>(null);
+
+  // Sync selected shipment with latest data from props
+  useEffect(() => {
+    if (selectedShipment) {
+      const updated = shipments.find(s => s.id === selectedShipment.id);
+      if (updated && JSON.stringify(updated) !== JSON.stringify(selectedShipment)) {
+        setSelectedShipment(updated);
+      }
+    }
+  }, [shipments, selectedShipment]);
 
   const filteredShipments = useMemo(() => {
     return shipments.filter(shipment => shipment.status === activeStatus);

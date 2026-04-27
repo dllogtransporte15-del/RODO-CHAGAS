@@ -135,6 +135,16 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ cargos, shipments, users,
 
 
   const [detailsModalShipment, setDetailsModalShipment] = React.useState<Shipment | null>(null);
+  
+  // Sync modal shipment with latest data from props
+  React.useEffect(() => {
+    if (detailsModalShipment) {
+      const updated = shipments.find(s => s.id === detailsModalShipment.id);
+      if (updated && JSON.stringify(updated) !== JSON.stringify(detailsModalShipment)) {
+        setDetailsModalShipment(updated);
+      }
+    }
+  }, [shipments, detailsModalShipment]);
 
   const cargoStatusData = useMemo(() => {
     const counts = cargos.reduce((acc, cargo) => {

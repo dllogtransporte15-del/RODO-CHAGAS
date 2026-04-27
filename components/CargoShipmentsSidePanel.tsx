@@ -37,6 +37,16 @@ const CargoShipmentsSidePanel: React.FC<CargoShipmentsSidePanelProps> = ({
 
 
   const [selectedShipment, setSelectedShipment] = React.useState<Shipment | null>(null);
+  
+  // Sync selected shipment with latest data from props
+  React.useEffect(() => {
+    if (selectedShipment) {
+      const updated = shipments.find(s => s.id === selectedShipment.id);
+      if (updated && JSON.stringify(updated) !== JSON.stringify(selectedShipment)) {
+        setSelectedShipment(updated);
+      }
+    }
+  }, [shipments, selectedShipment]);
 
   if (!cargo) return null;
 
