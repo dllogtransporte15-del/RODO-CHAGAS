@@ -54,6 +54,7 @@ interface ShipmentsPageProps {
   activeLocks: ShipmentLock[];
   onModalStateChange: (isOpen: boolean) => void;
   companyLogo?: string | null;
+  onDeleteAttachment?: (shipmentId: string, url: string) => Promise<void>;
 }
 
 
@@ -65,7 +66,7 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({
   profilePermissions, users, onUpdateAttachment, onAddAttachments, onUpdatePrice, onConfirmCancel, 
   onUpdateAnttAndBankDetails, onTransferShipment, onMarkArrival, onDeleteShipment,
   onRevertStatus, onUpdateScheduledDateTime, onUpdateShipmentData, activeLocks, onModalStateChange,
-  companyLogo
+  companyLogo, onDeleteAttachment
 }) => {
 
   const [activeStatus, setActiveStatus] = useState<ShipmentStatus | 'all'>(ShipmentStatus.AguardandoSeguradora);
@@ -266,6 +267,7 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({
         clients={clients}
         products={products}
         companyLogo={companyLogo}
+        onDeleteAttachment={onDeleteAttachment}
       />
 
       {selectedShipment && (

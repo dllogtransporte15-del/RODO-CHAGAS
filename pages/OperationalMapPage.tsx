@@ -24,6 +24,7 @@ interface OperationalMapPageProps {
   currentUser: User | null;
   users: User[];
   onModalStateChange: (isOpen: boolean) => void;
+  onDeleteAttachment?: (shipmentId: string, url: string) => Promise<void>;
 }
 
 const P180 = Math.PI / 180;
@@ -53,7 +54,7 @@ const isInBoundingBox = (lat: number, lon: number, centerLat: number, centerLon:
   return Math.abs(lat - centerLat) <= latDegree && Math.abs(lon - centerLon) <= lonDegree;
 };
 
-const OperationalMapPage: React.FC<OperationalMapPageProps> = ({ cargos, shipments, clients, products, drivers, vehicles, onCreateShipment, currentUser, users, onModalStateChange }) => {
+const OperationalMapPage: React.FC<OperationalMapPageProps> = ({ cargos, shipments, clients, products, drivers, vehicles, onCreateShipment, currentUser, users, onModalStateChange, onDeleteAttachment }) => {
   const [originQuery, setOriginQuery] = useState('Catalão');
   const [originRadius, setOriginRadius] = useState(200);
   const [originCoords, setOriginCoords] = useState<{ lat: number; lng: number } | null>(null);

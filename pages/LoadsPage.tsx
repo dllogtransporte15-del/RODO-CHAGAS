@@ -28,10 +28,11 @@ interface LoadsPageProps {
   onUpdatePrice: (shipmentId: string, data: { newTotal: number, newRate?: number, newCompanyRate?: number }) => void;
   onModalStateChange: (isOpen: boolean) => void;
   companyLogo?: string | null;
+  onDeleteAttachment?: (shipmentId: string, url: string) => Promise<void>;
 }
 
 
-const LoadsPage: React.FC<LoadsPageProps> = ({ loads, setLoads, clients, products, shipments, onSaveLoad, onReactivateLoad, onSuspendLoad, onUpdatePrice, currentUser, profilePermissions, users, onDeleteLoad, onModalStateChange, companyLogo, vehicles }) => {
+const LoadsPage: React.FC<LoadsPageProps> = ({ loads, setLoads, clients, products, shipments, onSaveLoad, onReactivateLoad, onSuspendLoad, onUpdatePrice, currentUser, profilePermissions, users, onDeleteLoad, onModalStateChange, companyLogo, vehicles, onDeleteAttachment }) => {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loadToEdit, setLoadToEdit] = useState<Cargo | null>(null);
@@ -180,6 +181,7 @@ const LoadsPage: React.FC<LoadsPageProps> = ({ loads, setLoads, clients, product
         products={products}
         companyLogo={companyLogo}
         vehicles={vehicles}
+        onDeleteAttachment={onDeleteAttachment}
       />
 
     </>

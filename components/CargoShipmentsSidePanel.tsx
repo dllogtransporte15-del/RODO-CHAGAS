@@ -15,6 +15,7 @@ interface CargoShipmentsSidePanelProps {
   products: Product[];
   companyLogo?: string | null;
   vehicles: Vehicle[];
+  onDeleteAttachment?: (shipmentId: string, url: string) => Promise<void>;
 }
 
 
@@ -30,7 +31,8 @@ const CargoShipmentsSidePanel: React.FC<CargoShipmentsSidePanelProps> = ({
   clients,
   products,
   companyLogo,
-  vehicles
+  vehicles,
+  onDeleteAttachment
 }) => {
 
 
@@ -143,6 +145,7 @@ const CargoShipmentsSidePanel: React.FC<CargoShipmentsSidePanelProps> = ({
           companyLogo={companyLogo}
           vehicles={vehicles}
           users={users}
+          onDeleteAttachment={onDeleteAttachment}
         />
 
 

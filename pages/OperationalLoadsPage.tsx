@@ -29,6 +29,7 @@ interface OperationalLoadsPageProps {
   onSuspendLoad?: (cargo: Cargo) => void;
   onUpdatePrice: (shipmentId: string, data: { newTotal: number, newRate?: number, newCompanyRate?: number }) => void;
   onModalStateChange: (isOpen: boolean) => void;
+  onDeleteAttachment?: (shipmentId: string, url: string) => Promise<void>;
 }
 
 const formatAllowedVehicleTypes = (allowed?: { setType: VehicleSetType; bodyTypes: VehicleBodyType[] }[]): string => {
@@ -55,6 +56,7 @@ const OperationalLoadsPage: React.FC<OperationalLoadsPageProps> = ({
   onSuspendLoad,
   onUpdatePrice,
   onModalStateChange,
+  onDeleteAttachment,
 }) => {
   const [isShipmentModalOpen, setIsShipmentModalOpen] = useState(false);
   const [selectedCargo, setSelectedCargo] = useState<Cargo | null>(null);
@@ -244,6 +246,7 @@ const OperationalLoadsPage: React.FC<OperationalLoadsPageProps> = ({
         clients={clients}
         products={products}
         vehicles={vehicles}
+        onDeleteAttachment={onDeleteAttachment}
       />
     </>
   );

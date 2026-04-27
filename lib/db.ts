@@ -580,6 +580,27 @@ export function getShipmentAttachmentUrl(path: string): string {
   return data.publicUrl;
 }
 
+export async function deleteShipmentAttachmentFromStorage(url: string): Promise<void> {
+  // Extract path from public URL
+  // Example URL: https://[project].supabase.co/storage/v1/object/public/shipment_attachments/SHP-123/Arquivos_Iniciais_123456_file.pdf
+  const parts = url.split('/shipment_attachments/');
+  if (parts.length < 2) {
+    console.error('[deleteShipmentAttachmentFromStorage] Could not parse path from URL:', url);
+    return;
+  }
+  
+  const path = decodeURIComponent(parts[1]);
+  
+  const { error } = await supabase.storage
+    .from('shipment_attachments')
+    .remove([path]);
+
+  if (error) {
+    console.error(`[deleteShipmentAttachmentFromStorage] Error deleting path ${path}:`, error);
+    throw error;
+  }
+}
+
 // ─────────────────────────────────────────────
 // DELETE
 // ─────────────────────────────────────────────

@@ -22,6 +22,7 @@ interface DashboardPageProps {
   products: Product[];
   companyLogo?: string | null;
   vehicles: Vehicle[];
+  onDeleteAttachment?: (shipmentId: string, url: string) => Promise<void>;
 }
 
 
@@ -130,7 +131,7 @@ const ShipmentListCard: React.FC<ShipmentListCardProps> = ({ title, shipments, u
 };
 
 
-const DashboardPage: React.FC<DashboardPageProps> = ({ cargos, shipments, users, currentUser, clients, products, companyLogo, vehicles }) => {
+const DashboardPage: React.FC<DashboardPageProps> = ({ cargos, shipments, users, currentUser, clients, products, companyLogo, vehicles, onDeleteAttachment }) => {
 
 
   const [detailsModalShipment, setDetailsModalShipment] = React.useState<Shipment | null>(null);
@@ -343,6 +344,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ cargos, shipments, users,
           companyLogo={companyLogo}
           vehicles={vehicles}
           users={users}
+          onDeleteAttachment={onDeleteAttachment}
         />
 
 
@@ -399,6 +401,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ cargos, shipments, users,
           companyLogo={companyLogo}
           vehicles={vehicles}
           users={users}
+          onDeleteAttachment={onDeleteAttachment}
         />
 
       </>
@@ -503,6 +506,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ cargos, shipments, users,
         companyLogo={companyLogo}
         vehicles={vehicles}
         users={users}
+        onDeleteAttachment={onDeleteAttachment}
       />
 
 

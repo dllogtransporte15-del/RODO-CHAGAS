@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import type { Shipment, Cargo, User, Client, Product, Vehicle } from '../types';
 import { UserProfile, ShipmentStatus, VehicleSetType, VehicleBodyType } from '../types';
 import { generateLoadingOrderPDF } from '../utils/pdfGenerator';
-import { FileTextIcon } from 'lucide-react';
+import { FileTextIcon, Trash2 } from 'lucide-react';
 
 
 interface ShipmentDetailsModalProps {
@@ -14,6 +14,7 @@ interface ShipmentDetailsModalProps {
   onUpdatePrice?: (shipmentId: string, data: { newTotal: number, newRate?: number, newCompanyRate?: number }) => void;
   onUpdateShipmentData?: (shipmentId: string, data: Partial<Shipment>) => void;
   onAddAttachments?: (shipmentId: string, files: File[]) => Promise<void>;
+  onDeleteAttachment?: (shipmentId: string, url: string) => Promise<void>;
   clients: Client[];
   products: Product[];
   vehicles: Vehicle[];
@@ -30,7 +31,7 @@ const DetailItem: React.FC<{ label: string; value?: string | number | null; chil
 );
 
 const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({ 
-  isOpen, onClose, shipment, cargo, currentUser, onUpdatePrice, onUpdateShipmentData, onAddAttachments, clients, products, vehicles, users, companyLogo 
+  isOpen, onClose, shipment, cargo, currentUser, onUpdatePrice, onUpdateShipmentData, onAddAttachments, onDeleteAttachment, clients, products, vehicles, users, companyLogo 
 }) => {
 
   const [isEditing, setIsEditing] = useState(false);
@@ -417,21 +418,49 @@ const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
                             </DetailItem>
                         </div>
 
-                        {shipment.documents && shipment.documents['Arquivos Iniciais'] && shipment.documents['Arquivos Iniciais'].length > 0 && (
+                        {shipment.documents && Object.keys(shipment.documents).length > 0 && (
                             <div className="md:col-span-2 mt-4">
-                                <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2">Arquivos da Solicitação</h3>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                    {shipment.documents['Arquivos Iniciais'].map((url, idx) => (
-                                        <a 
-                                            key={idx} 
-                                            href={url} 
-                                            target="_blank" 
-                                            rel="noopener noreferrer"
-                                            className="flex items-center p-2 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800/50 rounded-md text-xs font-medium text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors"
-                                        >
-                                            <FileTextIcon size={14} className="mr-2" />
-                                            Ver Anexo {idx + 1}
-                                        </a>
+                                <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2">Arquivos do Embarque</h3>
+                                <div className="space-y-4">
+                                    {Object.entries(shipment.documents).map(([category, urls]) => (
+                                        <div key={category}>
+                                            <p className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase mb-1">{category}</p>
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                                {urls.map((url, idx) => {
+                                                    // Attempt to extract a cleaner filename from the path
+                                                    const urlParts = url.split('/');
+                                                    const rawFileName = decodeURIComponent(urlParts[urlParts.length - 1]);
+                                                    const fileName = rawFileName.includes('_') ? rawFileName.split('_').slice(2).join('_') : `Anexo ${idx + 1}`;
+                                                    
+                                                    return (
+                                                        <div key={idx} className="flex items-center gap-1 group">
+                                                            <a 
+                                                                href={url} 
+                                                                target="_blank" 
+                                                                rel="noopener noreferrer"
+                                                                className="flex-1 flex items-center p-2 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800/50 rounded-md text-xs font-medium text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors"
+                                                            >
+                                                                <FileTextIcon size={14} className="mr-2 flex-shrink-0" />
+                                                                <span className="truncate">{fileName}</span>
+                                                            </a>
+                                                            {onDeleteAttachment && (currentUser?.profile === UserProfile.Admin || currentUser?.profile === UserProfile.Diretor || currentUser?.profile === UserProfile.Supervisor) && (
+                                                                <button
+                                                                    onClick={() => {
+                                                                        if (confirm(`Tem certeza que deseja excluir o anexo "${fileName}"?`)) {
+                                                                            onDeleteAttachment(shipment.id, url);
+                                                                        }
+                                                                    }}
+                                                                    className="p-2 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/30 rounded-md transition-colors"
+                                                                    title="Excluir Anexo"
+                                                                >
+                                                                    <Trash2 size={16} />
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
                                     ))}
                                 </div>
                             </div>

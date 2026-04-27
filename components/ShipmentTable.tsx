@@ -38,14 +38,15 @@ interface ShipmentTableProps {
   onUpdatePrice?: (shipmentId: string, data: { newTotal: number, newRate?: number, newCompanyRate?: number }) => void;
   onUpdateShipmentData?: (shipmentId: string, data: Partial<Shipment>) => void;
   onAddAttachments?: (shipmentId: string, files: File[]) => Promise<void>;
-  onOpenEditScheduledDateTime?: (shipment) => void;
+  onOpenEditScheduledDateTime?: (shipment: Shipment) => void;
   currentUser: User;
 
   activeStatus: ShipmentStatus | 'all';
   companyLogo?: string | null;
+  onDeleteAttachment?: (shipmentId: string, url: string) => Promise<void>;
 }
 
-const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users, vehicles, onAttach, onEditPrice, onCancel, onTransfer, onShowHistory, onShowCargoDetails, canUserAdvanceStatus, onMarkArrival, onDelete, onRevertStatus, onOpenCadastroAntt, onUpdatePrice, onUpdateShipmentData, onAddAttachments, onOpenEditScheduledDateTime, currentUser, activeStatus, clients, products, companyLogo }) => {
+const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users, vehicles, onAttach, onEditPrice, onCancel, onTransfer, onShowHistory, onShowCargoDetails, canUserAdvanceStatus, onMarkArrival, onDelete, onRevertStatus, onOpenCadastroAntt, onUpdatePrice, onUpdateShipmentData, onAddAttachments, onOpenEditScheduledDateTime, currentUser, activeStatus, clients, products, companyLogo, onDeleteAttachment }) => {
 
 
   const [openActionMenu, setOpenActionMenu] = useState<string | null>(null);
@@ -676,6 +677,7 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users,
       companyLogo={companyLogo}
       vehicles={vehicles}
       users={users}
+      onDeleteAttachment={onDeleteAttachment}
     />
 
 
