@@ -1003,7 +1003,8 @@ const App: React.FC = () => {
     const fieldsToTrack: (keyof Shipment)[] = [
       'driverName', 'driverCpf', 'driverContact', 
       'horsePlate', 'trailer1Plate', 'trailer2Plate', 'trailer3Plate', 
-      'vehicleTag', 'vehicleSetType', 'vehicleBodyType'
+      'vehicleTag', 'vehicleSetType', 'vehicleBodyType',
+      'shipmentTonnage', 'bankDetails', 'driverReferences', 'ownerContact', 'anttOwnerIdentifier'
     ];
 
     fieldsToTrack.forEach(field => {
@@ -1016,15 +1017,41 @@ const App: React.FC = () => {
 
     if (changes.length === 0) return;
 
+    let updatedDriverFreight = shipmentToUpdate.driverFreightValue;
+    let updatedCargo: Cargo | undefined;
+
+    if (data.shipmentTonnage !== undefined && data.shipmentTonnage !== shipmentToUpdate.shipmentTonnage) {
+        const diff = data.shipmentTonnage - shipmentToUpdate.shipmentTonnage;
+        const rateToUse = shipmentToUpdate.driverFreightRateSnapshot || cargos.find(c => c.id === shipmentToUpdate.cargoId)?.driverFreightValuePerTon || 0;
+        updatedDriverFreight = rateToUse * data.shipmentTonnage;
+        
+        const cargo = cargos.find(c => c.id === shipmentToUpdate.cargoId);
+        if (cargo) {
+            const isLoaded = Object.values(ShipmentStatus).indexOf(shipmentToUpdate.status) >= Object.values(ShipmentStatus).indexOf(ShipmentStatus.AguardandoDescarga);
+            updatedCargo = {
+                ...cargo,
+                scheduledVolume: Math.max(0, cargo.scheduledVolume + diff),
+                loadedVolume: isLoaded ? Math.max(0, cargo.loadedVolume + diff) : cargo.loadedVolume,
+                history: [...cargo.history, createHistoryLog(`Volume ajustado devido à correção de tonelagem no embarque ${shipmentId} (${shipmentToUpdate.shipmentTonnage} -> ${data.shipmentTonnage}).`)]
+            };
+        }
+    }
+
     const updatedShipment: Shipment = { 
       ...shipmentToUpdate, 
       ...data, 
+      driverFreightValue: updatedDriverFreight,
       history: [...shipmentToUpdate.history, createHistoryLog(`Dados do embarque corrigidos: ${changes.join(' ')}`)] 
     };
 
     setShipments((prev: Shipment[]) => prev.map(s => s.id === shipmentId ? updatedShipment : s));
+    if (updatedCargo) {
+        setCargos(prev => prev.map(c => c.id === updatedShipment.cargoId ? updatedCargo! : c));
+    }
+
     try {
       await upsertShipment(updatedShipment);
+      if (updatedCargo) await upsertCargo(updatedCargo);
       showToast('Dados do embarque atualizados com sucesso!', 'success');
     } catch (err) {
       console.error('Erro ao atualizar dados do embarque:', err);
