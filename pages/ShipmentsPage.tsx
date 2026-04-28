@@ -11,6 +11,7 @@ import CadastroAnttModal from '../components/CadastroAnttModal';
 import CargoDetailsModal from '../components/CargoDetailsModal';
 import TransferShipmentModal from '../components/TransferShipmentModal';
 import EditScheduledDateTimeModal from '../components/EditScheduledDateTimeModal';
+import SwapCargoModal from '../components/SwapCargoModal';
 import type { Shipment, Cargo, Client, Driver, User, ProfilePermissions, Product, Vehicle, ShipmentLock } from '../types';
 
 import { ShipmentStatus, UserProfile, REQUIRED_DOCUMENT_MAP } from '../types';
@@ -55,6 +56,7 @@ interface ShipmentsPageProps {
   onModalStateChange: (isOpen: boolean) => void;
   companyLogo?: string | null;
   onDeleteAttachment?: (shipmentId: string, url: string) => Promise<void>;
+  onSwapCargo: (shipmentId: string, newCargoId: string) => void;
 }
 
 
@@ -66,7 +68,7 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({
   profilePermissions, users, onUpdateAttachment, onAddAttachments, onUpdatePrice, onConfirmCancel, 
   onUpdateAnttAndBankDetails, onTransferShipment, onMarkArrival, onDeleteShipment,
   onRevertStatus, onUpdateScheduledDateTime, onUpdateShipmentData, activeLocks, onModalStateChange,
-  companyLogo, onDeleteAttachment
+  companyLogo, onDeleteAttachment, onSwapCargo
 }) => {
 
   const [activeStatus, setActiveStatus] = useState<ShipmentStatus | 'all'>(ShipmentStatus.AguardandoSeguradora);
@@ -77,6 +79,7 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({
   const [isCadastroAnttModalOpen, setCadastroAnttModalOpen] = useState(false);
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
   const [isEditScheduledDateTimeModalOpen, setEditScheduledDateTimeModalOpen] = useState(false);
+  const [isSwapCargoModalOpen, setSwapCargoModalOpen] = useState(false);
   const [selectedShipment, setSelectedShipment] = useState<Shipment | null>(null);
 
   const [detailsModalCargo, setDetailsModalCargo] = useState<Cargo | null>(null);
@@ -98,10 +101,10 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({
   useEffect(() => {
     const isAnyOpen = isAttachmentModalOpen || isEditPriceModalOpen || isCancelModalOpen || 
                       isHistoryModalOpen || isCadastroAnttModalOpen || isTransferModalOpen || 
-                      isEditScheduledDateTimeModalOpen || !!detailsModalCargo;
+                      isEditScheduledDateTimeModalOpen || isSwapCargoModalOpen || !!detailsModalCargo;
     onModalStateChange(isAnyOpen);
   }, [isAttachmentModalOpen, isEditPriceModalOpen, isCancelModalOpen, isHistoryModalOpen, 
-      isCadastroAnttModalOpen, isTransferModalOpen, isEditScheduledDateTimeModalOpen, detailsModalCargo, onModalStateChange]);
+      isCadastroAnttModalOpen, isTransferModalOpen, isEditScheduledDateTimeModalOpen, isSwapCargoModalOpen, detailsModalCargo, onModalStateChange]);
 
 
 
@@ -216,6 +219,17 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({
     setDetailsModalCargo(cargo);
   };
 
+  const handleOpenSwapCargoModal = (shipment: Shipment) => {
+    setSelectedShipment(shipment);
+    setSwapCargoModalOpen(true);
+  };
+
+  const handleSwapCargo = (shipmentId: string, newCargoId: string) => {
+    onSwapCargo(shipmentId, newCargoId);
+    setSwapCargoModalOpen(false);
+    setSelectedShipment(null);
+  };
+
   const canUserAdvanceStatus = (shipment: Shipment): { allowed: boolean; reason: string } => {
     const defaultResponse = { allowed: true, reason: '' };
     if (!currentUser) return { allowed: false, reason: 'Usuário não autenticado.' };
@@ -278,6 +292,7 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({
         products={products}
         companyLogo={companyLogo}
         onDeleteAttachment={onDeleteAttachment}
+        onSwapCargo={handleOpenSwapCargoModal}
       />
 
       {selectedShipment && (
@@ -361,6 +376,21 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({
             product={products.find(p => p.id === detailsModalCargo.productId)}
             commercialUser={users.find(u => u.id === detailsModalCargo.createdById)}
           />
+      )}
+
+      {selectedShipment && (
+        <SwapCargoModal
+          isOpen={isSwapCargoModalOpen}
+          onClose={() => {
+            setSwapCargoModalOpen(false);
+            setSelectedShipment(null);
+          }}
+          onConfirm={handleSwapCargo}
+          shipment={selectedShipment}
+          cargos={cargos}
+          clients={clients}
+          products={products}
+        />
       )}
     </>
   );

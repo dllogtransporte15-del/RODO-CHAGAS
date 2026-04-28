@@ -1162,6 +1162,89 @@ const App: React.FC = () => {
     }
   };
 
+  const handleSwapCargo = async (shipmentId: string, newCargoId: string) => {
+    if (!currentUser) return;
+
+    const shipment = shipments.find(s => s.id === shipmentId);
+    if (!shipment) return;
+
+    const oldCargoId = shipment.cargoId;
+    if (oldCargoId === newCargoId) return;
+
+    const oldCargo = cargos.find(c => c.id === oldCargoId);
+    const newCargo = cargos.find(c => c.id === newCargoId);
+
+    if (!newCargo) {
+      showToast('Nova carga não encontrada.', 'error');
+      return;
+    }
+
+    const tonnage = shipment.shipmentTonnage;
+
+    // 1. Prepare updated Shipment
+    const newDriverRate = newCargo.driverFreightValuePerTon;
+    const newCompanyRate = newCargo.companyFreightValuePerTon;
+    const newTotalDriverFreight = newDriverRate * tonnage;
+
+    const updatedShipment: Shipment = {
+      ...shipment,
+      cargoId: newCargoId,
+      driverFreightRateSnapshot: newDriverRate,
+      companyFreightRateSnapshot: newCompanyRate,
+      driverFreightValue: newTotalDriverFreight,
+      history: [
+        ...shipment.history,
+        createHistoryLog(`Carga trocada de #${oldCargo?.sequenceId || oldCargoId} para #${newCargo.sequenceId}. Taxas e valores de frete atualizados.`)
+      ]
+    };
+
+    // 2. Prepare updated Old Cargo (if exists)
+    let updatedOldCargo: Cargo | undefined;
+    if (oldCargo) {
+      updatedOldCargo = {
+        ...oldCargo,
+        scheduledVolume: Math.max(0, oldCargo.scheduledVolume - tonnage),
+        history: [
+          ...oldCargo.history,
+          createHistoryLog(`Volume agendado reduzido em ${tonnage} ton devido à troca de carga do embarque ${shipmentId} para a carga #${newCargo.sequenceId}.`)
+        ]
+      };
+    }
+
+    // 3. Prepare updated New Cargo
+    const updatedNewCargo: Cargo = {
+      ...newCargo,
+      scheduledVolume: newCargo.scheduledVolume + tonnage,
+      history: [
+        ...newCargo.history,
+        createHistoryLog(`Volume agendado aumentado em ${tonnage} ton devido à troca de carga do embarque ${shipmentId} da carga #${oldCargo?.sequenceId || oldCargoId}.`)
+      ]
+    };
+
+    // Optimistic UI updates
+    setShipments(prev => prev.map(s => s.id === shipmentId ? updatedShipment : s));
+    setCargos(prev => prev.map(c => {
+      if (c.id === oldCargoId && updatedOldCargo) return updatedOldCargo;
+      if (c.id === newCargoId) return updatedNewCargo;
+      return c;
+    }));
+
+    // Persistence
+    try {
+      const promises = [
+        upsertShipment(updatedShipment),
+        upsertCargo(updatedNewCargo)
+      ];
+      if (updatedOldCargo) promises.push(upsertCargo(updatedOldCargo));
+      
+      await Promise.all(promises);
+      showToast(`Embarque ${shipmentId} transferido para a carga #${newCargo.sequenceId} com sucesso!`, 'success');
+    } catch (err) {
+      console.error('Erro ao trocar carga:', err);
+      showToast('Erro ao persistir a troca de carga no banco de dados.', 'error');
+    }
+  };
+
   const handleSaveClient = async (clientData: Client | Omit<Client, 'id'>) => {
     let saved: Client;
     if ('id' in clientData) {
@@ -1605,6 +1688,7 @@ const App: React.FC = () => {
                     onUpdateScheduledDateTime={handleUpdateScheduledDateTime}
                     onUpdateShipmentData={handleUpdateShipmentData}
                     onDeleteAttachment={handleDeleteShipmentAttachment}
+                    onSwapCargo={handleSwapCargo}
                     activeLocks={activeLocks}
                     onModalStateChange={setIsAnyModalOpen}
                     companyLogo={companyLogo}
