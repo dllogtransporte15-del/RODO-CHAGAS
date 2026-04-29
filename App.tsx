@@ -1438,8 +1438,14 @@ const App: React.FC = () => {
   };
   
   const handleSaveLoad = async (loadData: Cargo | Omit<Cargo, 'id' | 'history' | 'createdAt' | 'createdById'>) => {
+    // Sanitize branchId to avoid FK violations ('' is not a valid UUID)
+    if (loadData.branchId === '') {
+        delete loadData.branchId;
+    }
+
     if ('id' in loadData) {
       const oldCargo = cargos.find(l => l.id === loadData.id);
+
       if (!oldCargo) return;
 
       const changes: string[] = [];
@@ -1527,11 +1533,11 @@ const App: React.FC = () => {
       const newLoad: Cargo = {
         ...loadData,
         id: tempId,
-        branchId: currentUser.branchId, // Automatically associate with user's branch
         createdAt: new Date().toISOString(),
         createdById: (loadData as any).createdById || currentUser.id,
         history: [createHistoryLog(`Carga iniciada (Aguardando ID do servidor)`)],
       } as Cargo;
+
       
       // Atualização otimista
       setCargos(prev => [newLoad, ...prev]);

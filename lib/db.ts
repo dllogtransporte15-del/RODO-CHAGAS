@@ -178,7 +178,7 @@ const fromCargo = (c: Cargo | Omit<Cargo, 'id'>) => ({
   destination_coords: c.destinationCoords,
   salesperson_name: c.salespersonName,
   salesperson_commission_per_ton: c.salespersonCommissionPerTon,
-  branch_id: c.branchId,
+  branch_id: c.branchId || null,
 });
 
 const toShipment = (row: any): Shipment => ({
@@ -262,7 +262,7 @@ const fromShipment = (s: Shipment) => ({
   discount_value: s.discountValue,
   net_balance_value: s.netBalanceValue,
   unloaded_tonnage: s.unloadedTonnage,
-  branch_id: s.branchId,
+  branch_id: s.branchId || null,
 });
 
 export const toUser = (row: any): User => ({
@@ -290,7 +290,7 @@ export const fromUser = (u: User | Omit<User, 'id'>) => ({
   require_password_change: u.requirePasswordChange,
   auth_id: u.authId,
   password_updated_at: u.passwordUpdatedAt,
-  branch_id: u.branchId,
+  branch_id: u.branchId || null,
 });
 
 const toTicket = (row: any): Ticket => ({
