@@ -1,6 +1,6 @@
 import { supabase } from '../supabase';
 import type {
-  Client, Owner, Driver, Vehicle, Product, Cargo, Shipment, User, Ticket, ProfilePermissions, ShipmentLock
+  Client, Owner, Driver, Vehicle, Product, Cargo, Shipment, User, Ticket, ProfilePermissions, ShipmentLock, Branch
 } from '../types';
 
 // ─────────────────────────────────────────────
@@ -141,6 +141,7 @@ const toCargo = (row: any): Cargo => ({
   destinationCoords: row.destination_coords,
   salespersonName: row.salesperson_name,
   salespersonCommissionPerTon: Number(row.salesperson_commission_per_ton),
+  branchId: row.branch_id,
 });
 
 const fromCargo = (c: Cargo | Omit<Cargo, 'id'>) => ({
@@ -177,6 +178,7 @@ const fromCargo = (c: Cargo | Omit<Cargo, 'id'>) => ({
   destination_coords: c.destinationCoords,
   salesperson_name: c.salespersonName,
   salesperson_commission_per_ton: c.salespersonCommissionPerTon,
+  branch_id: c.branchId,
 });
 
 const toShipment = (row: any): Shipment => ({
@@ -218,6 +220,7 @@ const toShipment = (row: any): Shipment => ({
   discountValue: row.discount_value !== null ? Number(row.discount_value) : undefined,
   netBalanceValue: row.net_balance_value !== null ? Number(row.net_balance_value) : undefined,
   unloadedTonnage: row.unloaded_tonnage !== null ? Number(row.unloaded_tonnage) : undefined,
+  branchId: row.branch_id,
 });
 
 const fromShipment = (s: Shipment) => ({
@@ -259,6 +262,7 @@ const fromShipment = (s: Shipment) => ({
   discount_value: s.discountValue,
   net_balance_value: s.netBalanceValue,
   unloaded_tonnage: s.unloadedTonnage,
+  branch_id: s.branchId,
 });
 
 export const toUser = (row: any): User => ({
@@ -272,6 +276,7 @@ export const toUser = (row: any): User => ({
   requirePasswordChange: row.require_password_change,
   authId: row.auth_id,
   passwordUpdatedAt: row.password_updated_at,
+  branchId: row.branch_id,
 });
 
 export const fromUser = (u: User | Omit<User, 'id'>) => ({
@@ -285,6 +290,7 @@ export const fromUser = (u: User | Omit<User, 'id'>) => ({
   require_password_change: u.requirePasswordChange,
   auth_id: u.authId,
   password_updated_at: u.passwordUpdatedAt,
+  branch_id: u.branchId,
 });
 
 const toTicket = (row: any): Ticket => ({
@@ -309,6 +315,21 @@ const fromTicket = (t: Ticket | Omit<Ticket, 'id' | 'history' | 'createdAt' | 'c
   assigned_to_id: t.assignedToId,
   created_at: (t as Ticket).createdAt,
   history: (t as Ticket).history || [],
+});
+
+const toBranch = (row: any): Branch => ({
+  id: row.id,
+  name: row.name,
+  city: row.city,
+  state: row.state,
+  createdAt: row.created_at,
+});
+
+const fromBranch = (b: Branch | Omit<Branch, 'id' | 'createdAt'>) => ({
+  id: (b as Branch).id,
+  name: b.name,
+  city: b.city,
+  state: b.state,
 });
 
 // ─────────────────────────────────────────────
@@ -379,6 +400,12 @@ export async function fetchTickets(): Promise<Ticket[]> {
   const { data, error } = await supabase.from('tickets').select('*').order('created_at', { ascending: false });
   if (error) return handleAuthError(error, []);
   return (data || []).map(toTicket);
+}
+
+export async function fetchBranches(): Promise<Branch[]> {
+  const { data, error } = await supabase.from('branches').select('*').order('name');
+  if (error) return handleAuthError(error, []);
+  return (data || []).map(toBranch);
 }
 
 export async function fetchShipmentLocks(): Promise<ShipmentLock[]> {
@@ -472,6 +499,11 @@ export async function upsertShipment(shipment: Shipment): Promise<void> {
 
 export async function upsertUser(user: User): Promise<void> {
   const { error } = await supabase.from('app_users').upsert(fromUser(user));
+  if (error) throw error;
+}
+
+export async function upsertBranch(branch: Branch): Promise<void> {
+  const { error } = await supabase.from('branches').upsert(fromBranch(branch));
   if (error) throw error;
 }
 
@@ -617,6 +649,11 @@ export async function deleteShipment(id: string): Promise<void> {
 
 export async function deleteUser(id: string): Promise<void> {
   const { error } = await supabase.from('app_users').delete().eq('id', id);
+  if (error) throw error;
+}
+
+export async function deleteBranch(id: string): Promise<void> {
+  const { error } = await supabase.from('branches').delete().eq('id', id);
   if (error) throw error;
 }
 

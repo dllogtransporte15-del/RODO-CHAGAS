@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import type { User, Client } from '../types';
+import type { User, Client, Branch } from '../types';
 import { UserProfile } from '../types';
 import { useToast } from '../hooks/useToast';
 
@@ -10,9 +10,10 @@ interface UserFormModalProps {
   onSave: (user: User | Omit<User, 'id'>) => void;
   userToEdit: User | null;
   clients: Client[];
+  branches: Branch[];
 }
 
-const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSave, userToEdit, clients }) => {
+const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSave, userToEdit, clients, branches }) => {
   const { showToast } = useToast();
   const getInitialState = (): Omit<User, 'id'> => ({
     name: '',
@@ -21,6 +22,7 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSave, 
     active: true,
     password: '',
     clientId: undefined,
+    branchId: undefined,
   });
 
   const [user, setUser] = useState<Omit<User, 'id' | 'password'> & { password?: string }>(getInitialState());
@@ -107,6 +109,15 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSave, 
               </select>
             </div>
           )}
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Filial Associada</label>
+            <select name="branchId" value={user.branchId || ''} onChange={handleChange} className="mt-1 p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600">
+              <option value="">Sem filial (Padrão)</option>
+              {branches.map(b => <option key={b.id} value={b.id}>{b.name} ({b.city}-{b.state})</option>)}
+            </select>
+            <p className="text-[10px] text-gray-500 mt-1">Usuários sem filial verão dados de todas as filiais (perfil admin/diretor).</p>
+          </div>
 
           <div className="flex items-center">
             <input type="checkbox" id="active" name="active" checked={user.active} onChange={handleChange} className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"/>

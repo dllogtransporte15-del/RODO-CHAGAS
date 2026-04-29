@@ -4,7 +4,7 @@ import Header from '../components/Header';
 import UserTable from '../components/UserTable';
 import UserFormModal from '../components/UserFormModal';
 import PermissionsModal from '../components/PermissionsModal';
-import type { User, ProfilePermissions, Client } from '../types';
+import type { User, ProfilePermissions, Client, Branch } from '../types';
 import { UserProfile } from '../types';
 import { can } from '../auth';
 
@@ -17,9 +17,10 @@ interface UsersPageProps {
   onSavePermissions: (permissions: ProfilePermissions) => void;
   clients: Client[];
   onDeleteUser: (userId: string) => void;
+  branches: Branch[];
 }
 
-const UsersPage: React.FC<UsersPageProps> = ({ users, setUsers, onSaveUser, currentUser, profilePermissions, onSavePermissions, clients, onDeleteUser }) => {
+const UsersPage: React.FC<UsersPageProps> = ({ users, setUsers, onSaveUser, currentUser, profilePermissions, onSavePermissions, clients, onDeleteUser, branches }) => {
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
   const [isPermissionsModalOpen, setIsPermissionsModalOpen] = useState(false);
   const [userToEdit, setUserToEdit] = useState<User | null>(null);
@@ -78,6 +79,7 @@ const UsersPage: React.FC<UsersPageProps> = ({ users, setUsers, onSaveUser, curr
         onSave={handleSaveUser}
         userToEdit={userToEdit}
         clients={clients}
+        branches={branches}
       />
       
       <PermissionsModal

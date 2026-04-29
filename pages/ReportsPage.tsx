@@ -1,18 +1,19 @@
 import React, { useState, useMemo } from 'react';
 import Header from '../components/Header';
-import type { Shipment, User, Cargo, Client } from '../types';
+import type { Shipment, User, Cargo, Client, Branch } from '../types';
 import { UserProfile, ShipmentStatus } from '../types';
 import { BriefcaseIcon } from '../components/icons/BriefcaseIcon';
 import { ShipIcon } from '../components/icons/ShipIcon';
 import { UsersIcon } from '../components/icons/UsersIcon';
 import { ClockIcon } from '../components/icons/ClockIcon';
-import { Filter, X, Calendar, DollarSign, Package, CheckCircle } from 'lucide-react';
+import { Filter, X, Calendar, DollarSign, Package, CheckCircle, Building2 } from 'lucide-react';
 import SalespersonReport from '../components/reports/SalespersonReport';
 import SupervisorReport from '../components/reports/SupervisorReport';
 import ShipperReport from '../components/reports/ShipperReport';
 import ClientReport from '../components/reports/ClientReport';
 import OperationalTimingReport from '../components/reports/OperationalTimingReport';
 import ExternalSalespersonReport from '../components/reports/ExternalSalespersonReport';
+import BranchReport from '../components/reports/BranchReport';
 import MultiSelectDropdown from '../components/MultiSelectDropdown';
 
 interface ReportsPageProps {
@@ -22,11 +23,12 @@ interface ReportsPageProps {
   users: User[];
   currentUser: User | null;
   clients: Client[];
+  branches: Branch[];
 }
 
-type ActiveReport = 'comercial' | 'embarcadores' | 'clientes' | 'vendedores' | 'tempo-operacao';
+type ActiveReport = 'comercial' | 'embarcadores' | 'clientes' | 'vendedores' | 'tempo-operacao' | 'filiais';
 
-const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, cargos, users, currentUser, clients }) => {
+const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, cargos, users, currentUser, clients, branches }) => {
   const [activeReport, setActiveReport] = useState<ActiveReport>('comercial');
   
   // Date range defaults to current month
@@ -43,6 +45,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, carg
   const [filterClient, setFilterClient] = useState<string[]>([]);
   const [filterOrigin, setFilterOrigin] = useState<string[]>([]);
   const [filterDest, setFilterDest] = useState<string[]>([]);
+  const [filterBranch, setFilterBranch] = useState<string[]>([]);
   const [showFilters, setShowFilters] = useState(false);
 
   const cargoMap = useMemo(() => new Map(cargos.map(c => [c.id, c])), [cargos]);
@@ -51,6 +54,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, carg
   const clientOptions = Array.from(new Set(cargos.map(c => clients.find(cl => cl.id === c.clientId)?.nomeFantasia || 'N/A'))).filter(Boolean).sort();
   const originOptions = Array.from(new Set(cargos.map(c => c.origin))).filter(Boolean).sort();
   const destOptions = Array.from(new Set(cargos.map(c => c.destination))).filter(Boolean).sort();
+  const branchOptions = branches.map(b => b.name).sort();
 
   const getEffectiveDate = (s: Shipment) => {
     // Find when it reached Aguardando Nota (effective volume)
@@ -81,9 +85,14 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, carg
        if (filterOrigin.length > 0 && !filterOrigin.includes(cargo.origin)) return false;
        if (filterDest.length > 0 && !filterDest.includes(cargo.destination)) return false;
 
+       if (filterBranch.length > 0) {
+         const branchName = branches.find(b => b.id === s.branchId)?.name || 'N/A';
+         if (!filterBranch.includes(branchName)) return false;
+       }
+
        return true;
     });
-  }, [shipments, startDate, endDate, filterStatus, filterClient, filterOrigin, filterDest, cargoMap, clients]);
+  }, [shipments, startDate, endDate, filterStatus, filterClient, filterOrigin, filterDest, filterBranch, cargoMap, clients, branches]);
 
   const filteredStats = useMemo(() => {
     let totalProgramado = 0;
@@ -180,6 +189,8 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, carg
         return <ExternalSalespersonReport shipments={filteredShipments} cargos={cargos} />;
       case 'tempo-operacao':
         return <OperationalTimingReport shipments={filteredShipments} />;
+      case 'filiais':
+        return <BranchReport shipments={filteredShipments} cargos={cargos} branches={branches} />;
       default:
         return null;
     }
@@ -195,6 +206,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, carg
         { id: 'vendedores', label: 'Vendedores', icon: UsersIcon },
       ] : []),
       { id: 'tempo-operacao', label: 'Tempo de Operação', icon: ClockIcon },
+      { id: 'filiais', label: 'Filiais', icon: Building2 },
   ];
 
   /* Ensure initial tab is permissible */
@@ -204,13 +216,14 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, carg
     }
   });
 
-  const activeFiltersCount = (filterStatus.length > 0 ? 1 : 0) + (filterClient.length > 0 ? 1 : 0) + (filterOrigin.length > 0 ? 1 : 0) + (filterDest.length > 0 ? 1 : 0);
+  const activeFiltersCount = (filterStatus.length > 0 ? 1 : 0) + (filterClient.length > 0 ? 1 : 0) + (filterOrigin.length > 0 ? 1 : 0) + (filterDest.length > 0 ? 1 : 0) + (filterBranch.length > 0 ? 1 : 0);
 
   const clearFilters = () => {
       setFilterStatus([]);
       setFilterClient([]);
       setFilterOrigin([]);
       setFilterDest([]);
+      setFilterBranch([]);
   };
 
   const formatCurrency = (val: number) => val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -246,6 +259,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, carg
                     <MultiSelectDropdown label="Cliente" options={clientOptions} selectedValues={filterClient} onChange={setFilterClient} placeholder="Todos os clientes..." />
                     <MultiSelectDropdown label="Origem" options={originOptions} selectedValues={filterOrigin} onChange={setFilterOrigin} placeholder="Todas as origens..." />
                     <MultiSelectDropdown label="Destino" options={destOptions} selectedValues={filterDest} onChange={setFilterDest} placeholder="Todos os destinos..." />
+                    <MultiSelectDropdown label="Filial" options={branchOptions} selectedValues={filterBranch} onChange={setFilterBranch} placeholder="Todas as filiais..." />
                 </div>
                 {activeFiltersCount > 0 && (
                     <div className="mt-4 flex justify-end">

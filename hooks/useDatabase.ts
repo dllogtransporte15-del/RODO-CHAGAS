@@ -2,14 +2,13 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { supabase } from '../supabase';
 import type { 
-  Client, Owner, Driver, Vehicle, Product, Cargo, Shipment, User, Ticket, 
-  ProfilePermissions, ShipmentLock 
+  ProfilePermissions, ShipmentLock, Branch 
 } from '../types';
 import { INITIAL_PERMISSIONS } from '../auth';
 import { 
   fetchClients, fetchOwners, fetchDrivers, fetchVehicles, fetchProducts,
   fetchCargos, fetchShipments, fetchUsers, fetchTickets, fetchProfilePermissions,
-  fetchAppSettings, fetchShipmentLocks
+  fetchAppSettings, fetchShipmentLocks, fetchBranches
 } from '../lib/db';
 
 // ─── Module-level helpers (accessible from both loadAllData and realtime handler) ───
@@ -33,7 +32,8 @@ function getMaxId(items: any[], startOffset: number): number {
 
 function calculateNextIds(
   dbClients: any[], dbOwners: any[], dbDrivers: any[], dbVehicles: any[], 
-  dbProducts: any[], dbShipments: any[], dbCargos: any[], dbUsers: any[], dbTickets: any[]
+  dbProducts: any[], dbShipments: any[], dbCargos: any[], dbUsers: any[], dbTickets: any[],
+  dbBranches: any[]
 ) {
   const result = {
     client: getMaxId(dbClients, 100),
@@ -45,6 +45,7 @@ function calculateNextIds(
     cargo: getMaxId(dbCargos, 100),
     user: getMaxId(dbUsers, 100),
     ticket: getMaxId(dbTickets, 1),
+    branch: getMaxId(dbBranches, 10),
     history: 9999,
   };
   console.log('[DB] Next IDs calculated:', result);
@@ -63,6 +64,7 @@ export function useDatabase(currentUser: User | null) {
   const [shipments, setShipments] = useState<Shipment[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
   const [activeLocks, setActiveLocks] = useState<ShipmentLock[]>([]);
   const [profilePermissions, setProfilePermissions] = useState<ProfilePermissions>(INITIAL_PERMISSIONS);
   const [isLoading, setIsLoading] = useState(true);
@@ -74,7 +76,7 @@ export function useDatabase(currentUser: User | null) {
   const [nextIds, setNextIds] = useState(() => {
     const saved = localStorage.getItem('rodochagas_nextIds');
     if (saved) return JSON.parse(saved);
-    return { client: 100, owner: 100, driver: 100, vehicle: 100, product: 100, shipment: 100, cargo: 100, user: 100, ticket: 1, history: 1000 };
+    return { client: 100, owner: 100, driver: 100, vehicle: 100, product: 100, shipment: 100, cargo: 100, user: 100, ticket: 1, branch: 10, history: 1000 };
   });
 
   const isAnyModalActiveRef = useRef(false);
@@ -102,11 +104,12 @@ export function useDatabase(currentUser: User | null) {
 
       const [
         dbClients, dbOwners, dbDrivers, dbVehicles, dbProducts, dbCargos, 
-        dbShipments, dbUsers, dbTickets, dbPermissions, dbSettings, dbLocks
+        dbShipments, dbUsers, dbTickets, dbPermissions, dbSettings, dbLocks, dbBranches
       ] = await Promise.all([
         fetchClients(), fetchOwners(), fetchDrivers(), fetchVehicles(), fetchProducts(),
         fetchCargos(), fetchShipments(), fetchUsers(), fetchTickets(),
         fetchProfilePermissions(), fetchAppSettings(), fetchShipmentLocks(),
+        fetchBranches(),
       ]);
 
       setClients(dbClients);
@@ -118,6 +121,7 @@ export function useDatabase(currentUser: User | null) {
       setShipments(dbShipments);
       setUsers(dbUsers);
       setTickets(dbTickets);
+      setBranches(dbBranches);
       setActiveLocks(dbLocks);
 
       if (dbPermissions) setProfilePermissions(dbPermissions);
@@ -128,7 +132,7 @@ export function useDatabase(currentUser: User | null) {
 
       setNextIds(calculateNextIds(
         dbClients, dbOwners, dbDrivers, dbVehicles,
-        dbProducts, dbShipments, dbCargos, dbUsers, dbTickets
+        dbProducts, dbShipments, dbCargos, dbUsers, dbTickets, dbBranches
       ));
 
     } catch (err) {
@@ -221,6 +225,12 @@ export function useDatabase(currentUser: User | null) {
             setNextIds((prev: any) => ({ ...prev, ticket: getMaxId(dbTickets, 1) }));
             break;
           }
+          case 'branches': {
+            const dbBranches = await fetchBranches();
+            setBranches(dbBranches);
+            setNextIds((prev: any) => ({ ...prev, branch: getMaxId(dbBranches, 10) }));
+            break;
+          }
           case 'shipment_locks': {
             const dbLocks = await fetchShipmentLocks();
             setActiveLocks(dbLocks);
@@ -269,6 +279,7 @@ export function useDatabase(currentUser: User | null) {
     shipments, setShipments,
     users, setUsers,
     tickets, setTickets,
+    branches, setBranches,
     activeLocks, setActiveLocks,
     profilePermissions, setProfilePermissions,
     isLoading, loadError,

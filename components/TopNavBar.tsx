@@ -87,6 +87,7 @@ const navItems: NavItem[] = [
     icon: UsersIcon,
     children: [
       { id: 'users-register', label: 'Gerenciar Usuários', icon: UserPlusIcon },
+      { id: 'branches', label: 'Filiais', icon: FolderIcon },
       { id: 'appearance', label: 'Aparência', icon: ImageIcon },
     ]
   }
