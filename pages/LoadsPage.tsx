@@ -6,7 +6,7 @@ import LoadFormModal from '../components/LoadFormModal';
 import HistoryModal from '../components/HistoryModal';
 import CargoDetailsModal from '../components/CargoDetailsModal';
 import CargoShipmentsSidePanel from '../components/CargoShipmentsSidePanel';
-import type { Cargo, Client, Product, User, ProfilePermissions, Shipment, DailyScheduleEntry, Vehicle } from '../types';
+import type { Cargo, Client, Product, User, ProfilePermissions, Shipment, DailyScheduleEntry, Vehicle, Branch } from '../types';
 import { CargoStatus, UserProfile } from '../types';
 import { can } from '../auth';
 
@@ -29,10 +29,11 @@ interface LoadsPageProps {
   onModalStateChange: (isOpen: boolean) => void;
   companyLogo?: string | null;
   onDeleteAttachment?: (shipmentId: string, url: string) => Promise<void>;
+  branches: Branch[];
 }
 
 
-const LoadsPage: React.FC<LoadsPageProps> = ({ loads, setLoads, clients, products, shipments, onSaveLoad, onReactivateLoad, onSuspendLoad, onUpdatePrice, currentUser, profilePermissions, users, onDeleteLoad, onModalStateChange, companyLogo, vehicles, onDeleteAttachment }) => {
+const LoadsPage: React.FC<LoadsPageProps> = ({ loads, setLoads, clients, products, shipments, onSaveLoad, onReactivateLoad, onSuspendLoad, onUpdatePrice, currentUser, profilePermissions, users, onDeleteLoad, onModalStateChange, companyLogo, vehicles, onDeleteAttachment, branches }) => {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loadToEdit, setLoadToEdit] = useState<Cargo | null>(null);
@@ -147,6 +148,7 @@ const LoadsPage: React.FC<LoadsPageProps> = ({ loads, setLoads, clients, product
         currentUser={currentUser}
         users={users}
         loads={loads}
+        branches={branches}
         initialStep={initialModalStep}
       />
 

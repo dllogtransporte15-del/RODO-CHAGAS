@@ -190,7 +190,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, carg
       case 'tempo-operacao':
         return <OperationalTimingReport shipments={filteredShipments} />;
       case 'filiais':
-        return <BranchReport shipments={filteredShipments} cargos={cargos} branches={branches} />;
+        return <BranchReport shipments={filteredShipments} cargos={cargos} branches={branches} users={users} />;
       default:
         return null;
     }

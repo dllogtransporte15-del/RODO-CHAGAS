@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import type { Cargo, Client, Product, User, FreightLeg, DailyScheduleEntry } from '../types';
+import type { Cargo, Client, Product, User, FreightLeg, DailyScheduleEntry, Branch } from '../types';
 import { CargoStatus, CargoType, UserProfile, VehicleSetType, VehicleBodyType, DailyScheduleType } from '../types';
 import { PlusIcon } from './icons/PlusIcon';
 import { XIcon } from './icons/XIcon';
@@ -20,6 +20,7 @@ interface LoadFormModalProps {
   currentUser: User;
   users: User[];
   loads: Cargo[];
+  branches: Branch[];
   initialStep?: number;
 }
 
@@ -30,7 +31,7 @@ const DEFAULT_ALLOWED_VEHICLE_TYPES = Object.values(VehicleSetType).map(setType 
     bodyTypes: Object.values(VehicleBodyType)
 }));
 
-const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, loadToEdit, clients, products, currentUser, users, loads, initialStep = 1 }) => {
+const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, loadToEdit, clients, products, currentUser, users, loads, branches, initialStep = 1 }) => {
   const getInitialState = (): Omit<Cargo, 'id' | 'history' | 'createdAt' | 'createdById'> => {
     const newSequenceId = loads.length > 0 ? Math.max(...loads.map(c => c.sequenceId)) + 1 : 101;
     return ({
@@ -62,8 +63,8 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
     dailySchedule: [],
     observations: '',
     attachments: [],
-    salespersonName: '',
     salespersonCommissionPerTon: 0,
+    branchId: currentUser.branchId || '',
   })};
   
   const [step, setStep] = useState(initialStep);
@@ -111,6 +112,7 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
                 salespersonCommissionPerTon: editableLoad.salespersonCommissionPerTon || 0,
                 originLocation: editableLoad.originLocation || '',
                 destinationLocation: editableLoad.destinationLocation || '',
+                branchId: editableLoad.branchId || '',
             });
             setHasMultiLeg(editableLoad.freightLegs ? editableLoad.freightLegs.length > 1 : false);
             setShowSalesperson(!!editableLoad.salespersonName);
@@ -357,12 +359,27 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
           {step === 1 && (
             <div className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                    <div className="col-span-1 md:col-span-2">
+                    <div className={`col-span-1 ${currentUser.profile === UserProfile.Admin ? 'md:col-span-1' : 'md:col-span-2'}`}>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Cliente Tomador</label>
                     <select name="clientId" value={load.clientId} onChange={handleChange} className="mt-1 p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600" required>
                         {clients.map(c => <option key={c.id} value={c.id}>{c.nomeFantasia}</option>)}
                     </select>
                     </div>
+
+                    {currentUser.profile === UserProfile.Admin && (
+                        <div className="col-span-1">
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Filial Vinculada</label>
+                            <select 
+                                name="branchId" 
+                                value={load.branchId || ''} 
+                                onChange={handleChange} 
+                                className="mt-1 p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600"
+                            >
+                                <option value="">Sem Filial (Global)</option>
+                                {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                            </select>
+                        </div>
+                    )}
                     
                     <div className="space-y-4">
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Origem (Cidade e Local)</label>

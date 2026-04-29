@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import type { Shipment, Cargo, Branch } from '../../types';
+import type { Shipment, Cargo, Branch, User } from '../../types';
 import { ShipmentStatus } from '../../types';
 import { Building2, TrendingUp, TrendingDown, DollarSign, Package } from 'lucide-react';
 
@@ -7,73 +7,118 @@ interface BranchReportProps {
   shipments: Shipment[];
   cargos: Cargo[];
   branches: Branch[];
+  users: User[];
 }
 
-const BranchReport: React.FC<BranchReportProps> = ({ shipments, cargos, branches }) => {
+const BranchReport: React.FC<BranchReportProps> = ({ shipments, cargos, branches, users }) => {
   const cargoMap = useMemo(() => new Map(cargos.map(c => [c.id, c])), [cargos]);
+  const userBranchMap = useMemo(() => new Map(users.map(u => [u.id, u.branchId])), [users]);
 
   const branchData = useMemo(() => {
-    const stats = branches.map(branch => {
-      const branchShipments = shipments.filter(s => s.branchId === branch.id);
-      
-      let totalWeight = 0;
-      let totalBilled = 0;
-      let totalMargin = 0;
-      
-      branchShipments.forEach(s => {
-        const cargo = cargoMap.get(s.cargoId);
-        if (!cargo) return;
+    const statsMap = new Map(branches.map(b => [b.id, {
+      ...b,
+      shipmentCount: 0,
+      totalWeight: 0,
+      totalBilled: 0,
+      totalMargin: 0,
+      marginPercent: 0
+    }]));
 
-        const effectiveStatus = [
-          ShipmentStatus.AguardandoNota,
-          ShipmentStatus.AguardandoAdiantamento,
-          ShipmentStatus.AguardandoAgendamento,
-          ShipmentStatus.AguardandoDescarga,
-          ShipmentStatus.AguardandoPagamentoSaldo,
-          ShipmentStatus.Finalizado
-        ];
+    shipments.forEach(s => {
+      const cargo = cargoMap.get(s.cargoId);
+      if (!cargo) return;
 
-        if (effectiveStatus.includes(s.status)) {
-          const grossRate = s.companyFreightRateSnapshot || cargo.companyFreightValuePerTon;
-          const driverRate = s.driverFreightRateSnapshot || cargo.driverFreightValuePerTon;
-          
-          totalWeight += s.shipmentTonnage || 0;
-          totalBilled += grossRate * s.shipmentTonnage;
-          totalMargin += (grossRate - driverRate) * s.shipmentTonnage;
-        }
-      });
+      // Robust branch detection: 
+      // 1. Shipment specific branch
+      // 2. Branch of the user who created the shipment
+      // 3. Cargo specific branch
+      // 4. Branch of the user who created the cargo
+      const effectiveBranchId = s.branchId || userBranchMap.get(s.createdById) || cargo.branchId || userBranchMap.get(cargo.createdById);
+      if (!effectiveBranchId) return;
 
-      return {
-        ...branch,
-        shipmentCount: branchShipments.length,
-        totalWeight,
-        totalBilled,
-        totalMargin,
-        marginPercent: totalBilled > 0 ? (totalMargin / totalBilled) * 100 : 0
-      };
+      const stats = statsMap.get(effectiveBranchId);
+      if (!stats) return;
+
+      const effectiveStatus = [
+        ShipmentStatus.AguardandoNota,
+        ShipmentStatus.AguardandoAdiantamento,
+        ShipmentStatus.AguardandoAgendamento,
+        ShipmentStatus.AguardandoDescarga,
+        ShipmentStatus.AguardandoPagamentoSaldo,
+        ShipmentStatus.Finalizado
+      ];
+
+      if (effectiveStatus.includes(s.status)) {
+        const grossRate = s.companyFreightRateSnapshot || cargo.companyFreightValuePerTon;
+        const driverRate = s.driverFreightRateSnapshot || cargo.driverFreightValuePerTon;
+        
+        stats.shipmentCount += 1;
+        stats.totalWeight += s.shipmentTonnage || 0;
+        stats.totalBilled += grossRate * s.shipmentTonnage;
+        stats.totalMargin += (grossRate - driverRate) * s.shipmentTonnage;
+      }
     });
 
-    return stats.sort((a, b) => b.totalMargin - a.totalMargin);
+    const result = Array.from(statsMap.values()).map(s => ({
+      ...s,
+      marginPercent: s.totalBilled > 0 ? (s.totalMargin / s.totalBilled) * 100 : 0
+    }));
+
+    return result.sort((a, b) => b.totalMargin - a.totalMargin);
   }, [shipments, branches, cargoMap]);
 
   const formatCurrency = (val: number) => val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
+  const totals = useMemo(() => {
+    return branchData.reduce((acc, curr) => ({
+      weight: acc.weight + curr.totalWeight,
+      billed: acc.billed + curr.totalBilled,
+      margin: acc.margin + curr.totalMargin,
+      count: acc.count + curr.shipmentCount
+    }), { weight: 0, billed: 0, margin: 0, count: 0 });
+  }, [branchData]);
+
+  const avgMargin = totals.billed > 0 ? (totals.margin / totals.billed) * 100 : 0;
+
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {branchData.slice(0, 4).map((branch, idx) => (
-          <div key={branch.id} className="bg-white dark:bg-gray-800 p-5 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm relative overflow-hidden group">
-            <div className={`absolute top-0 right-0 w-24 h-24 -mr-8 -mt-8 rounded-full opacity-5 group-hover:opacity-10 transition-opacity ${idx === 0 ? 'bg-primary' : 'bg-gray-400'}`} />
-            <div className="relative z-10">
-              <p className="text-[10px] uppercase font-bold text-gray-400 mb-1">{idx === 0 ? '🏆 Melhor Performance' : `Top ${idx + 1}`}</p>
-              <h3 className="text-lg font-bold text-gray-800 dark:text-white truncate">{branch.name}</h3>
-              <div className="mt-4 flex items-baseline gap-2">
-                <span className="text-2xl font-black text-primary">{formatCurrency(branch.totalMargin)}</span>
-                <span className="text-xs text-gray-500">lucro</span>
-              </div>
-            </div>
+        <div className="bg-gradient-to-br from-primary to-blue-700 p-5 rounded-2xl text-white shadow-lg shadow-primary/20">
+          <p className="text-[10px] uppercase font-bold opacity-80 mb-1">Lucro Total Período</p>
+          <h3 className="text-2xl font-black">{formatCurrency(totals.margin)}</h3>
+          <div className="mt-2 flex items-center gap-2 text-xs opacity-90">
+            <DollarSign className="w-3 h-3" />
+            <span>Faturamento: {formatCurrency(totals.billed)}</span>
           </div>
-        ))}
+        </div>
+
+        <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm">
+          <p className="text-[10px] uppercase font-bold text-gray-400 mb-1">Peso Total Movimentado</p>
+          <h3 className="text-2xl font-black text-gray-800 dark:text-white">{totals.weight.toLocaleString('pt-BR')} <span className="text-sm font-normal text-gray-400">ton</span></h3>
+          <div className="mt-2 flex items-center gap-2 text-xs text-gray-500">
+            <Package className="w-3 h-3" />
+            <span>{totals.count} embarques efetivados</span>
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm">
+          <p className="text-[10px] uppercase font-bold text-gray-400 mb-1">Margem Média Geral</p>
+          <h3 className={`text-2xl font-black ${avgMargin >= 10 ? 'text-emerald-500' : 'text-orange-500'}`}>{avgMargin.toFixed(1)}%</h3>
+          <div className="mt-2 flex items-center gap-2 text-xs text-gray-500">
+            <TrendingUp className="w-3 h-3" />
+            <span>Meta sugerida: 12.0%</span>
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm flex items-center justify-between">
+          <div>
+            <p className="text-[10px] uppercase font-bold text-gray-400 mb-1">Melhor Filial</p>
+            <h3 className="text-lg font-bold text-primary truncate max-w-[120px]">{branchData[0]?.name || 'N/A'}</h3>
+          </div>
+          <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+            <Building2 className="w-6 h-6" />
+          </div>
+        </div>
       </div>
 
       <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden transition-all duration-300">
@@ -128,10 +173,13 @@ const BranchReport: React.FC<BranchReportProps> = ({ shipments, cargos, branches
                           style={{ width: `${Math.min(branch.marginPercent * 2.5, 100)}%` }}
                         />
                       </div>
-                      <span className={`font-bold text-xs ${branch.marginPercent > 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                      <span className={`font-bold text-xs ${branch.marginPercent >= avgMargin ? 'text-emerald-500' : 'text-orange-500'}`}>
                         {branch.marginPercent.toFixed(1)}%
                       </span>
                     </div>
+                    <p className="text-[9px] text-right text-gray-400">
+                      {branch.marginPercent >= avgMargin ? 'Acima da média' : 'Abaixo da média'}
+                    </p>
                   </td>
                 </tr>
               ))}

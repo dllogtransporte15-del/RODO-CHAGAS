@@ -7,7 +7,7 @@ import LoadFormModal from '../components/LoadFormModal';
 import HistoryModal from '../components/HistoryModal';
 import CargoDetailsModal from '../components/CargoDetailsModal';
 import CargoShipmentsSidePanel from '../components/CargoShipmentsSidePanel';
-import type { Cargo, Client, Product, Driver, Shipment, Vehicle, User, ProfilePermissions, VehicleSetType, VehicleBodyType } from '../types';
+import type { Cargo, Client, Product, Driver, Shipment, Vehicle, User, ProfilePermissions, VehicleSetType, VehicleBodyType, Branch } from '../types';
 import { can } from '../auth';
 import { CopyIcon } from '../components/icons/CopyIcon';
 import { CargoStatus, UserProfile } from '../types';
@@ -30,6 +30,7 @@ interface OperationalLoadsPageProps {
   onUpdatePrice: (shipmentId: string, data: { newTotal: number, newRate?: number, newCompanyRate?: number }) => void;
   onModalStateChange: (isOpen: boolean) => void;
   onDeleteAttachment?: (shipmentId: string, url: string) => Promise<void>;
+  branches: Branch[];
 }
 
 const formatAllowedVehicleTypes = (allowed?: { setType: VehicleSetType; bodyTypes: VehicleBodyType[] }[]): string => {
@@ -57,6 +58,7 @@ const OperationalLoadsPage: React.FC<OperationalLoadsPageProps> = ({
   onUpdatePrice,
   onModalStateChange,
   onDeleteAttachment,
+  branches,
 }) => {
   const [isShipmentModalOpen, setIsShipmentModalOpen] = useState(false);
   const [selectedCargo, setSelectedCargo] = useState<Cargo | null>(null);
@@ -213,6 +215,7 @@ const OperationalLoadsPage: React.FC<OperationalLoadsPageProps> = ({
         currentUser={currentUser}
         users={users}
         loads={loads}
+        branches={branches}
         initialStep={initialModalStep}
       />
       

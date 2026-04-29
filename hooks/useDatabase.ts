@@ -2,6 +2,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { supabase } from '../supabase';
 import type { 
+  User, Client, Owner, Driver, Vehicle, Product, Cargo, Shipment, Ticket,
   ProfilePermissions, ShipmentLock, Branch 
 } from '../types';
 import { INITIAL_PERMISSIONS } from '../auth';

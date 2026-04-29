@@ -424,10 +424,15 @@ const App: React.FC = () => {
     if (currentUser.profile === UserProfile.Cliente && currentUser.clientId) {
       return cargos.filter(c => c.clientId === currentUser.clientId);
     }
+    // Profiles that see everything
+    if ([UserProfile.Admin, UserProfile.Diretor].includes(currentUser.profile as UserProfile)) {
+      return cargos;
+    }
     
-    // Branch filtering
+    // Branch filtering for other profiles
     if (currentUser.branchId) {
-      return cargos.filter(c => c.branchId === currentUser.branchId);
+      // Show data from their branch OR legacy data (no branch assigned)
+      return cargos.filter(c => c.branchId === currentUser.branchId || !c.branchId);
     }
 
     return cargos;
@@ -444,10 +449,15 @@ const App: React.FC = () => {
         );
         return shipments.filter(s => clientCargoIds.has(s.cargoId));
     }
+    // Profiles that see everything
+    if ([UserProfile.Admin, UserProfile.Diretor].includes(currentUser.profile as UserProfile)) {
+      return shipments;
+    }
 
-    // Branch filtering
+    // Branch filtering for other profiles
     if (currentUser.branchId) {
-      return shipments.filter(s => s.branchId === currentUser.branchId);
+      // Show data from their branch OR legacy data (no branch assigned)
+      return shipments.filter(s => s.branchId === currentUser.branchId || !s.branchId);
     }
 
     return shipments;
@@ -609,6 +619,7 @@ const App: React.FC = () => {
       vehicleTag: data.vehicleTag,
       vehicleSetType: data.vehicleSetType,
       vehicleBodyType: data.vehicleBodyType,
+      branchId: currentUser.branchId,
     };
     const newShipments = [newShipment, ...shipments];
     
@@ -1733,7 +1744,7 @@ const App: React.FC = () => {
       case 'vehicles':
         return <VehiclesPage vehicles={vehicles} setVehicles={setVehicles} onSaveVehicle={handleSaveVehicle} owners={owners} currentUser={currentUser} profilePermissions={profilePermissions} shipments={visibleShipments} cargos={cargos} />;
       case 'loads':
-        return <LoadsPage loads={activeLoads} setLoads={setCargos} clients={clients} products={products} onSaveLoad={handleSaveLoad} onReactivateLoad={handleReactivateLoad} onSuspendLoad={handleSuspendLoad} onUpdatePrice={handleUpdateShipmentPrice} currentUser={currentUser} profilePermissions={profilePermissions} users={users} shipments={visibleShipments} onDeleteLoad={handleDeleteCargo} onModalStateChange={setIsAnyModalOpen} companyLogo={companyLogo} vehicles={vehicles} onDeleteAttachment={handleDeleteShipmentAttachment} />;
+        return <LoadsPage loads={activeLoads} setLoads={setCargos} clients={clients} products={products} onSaveLoad={handleSaveLoad} onReactivateLoad={handleReactivateLoad} onSuspendLoad={handleSuspendLoad} onUpdatePrice={handleUpdateShipmentPrice} currentUser={currentUser} profilePermissions={profilePermissions} users={users} shipments={visibleShipments} onDeleteLoad={handleDeleteCargo} onModalStateChange={setIsAnyModalOpen} companyLogo={companyLogo} vehicles={vehicles} onDeleteAttachment={handleDeleteShipmentAttachment} branches={branches} />;
       case 'products':
         return <ProductsPage products={products} onSaveProduct={handleSaveProduct} onDeleteProduct={handleDeleteProduct} currentUser={currentUser} profilePermissions={profilePermissions} />;
       case 'shipments':
@@ -1784,6 +1795,7 @@ const App: React.FC = () => {
             onUpdatePrice={handleUpdateShipmentPrice}
             onModalStateChange={setIsAnyModalOpen}
             onDeleteAttachment={handleDeleteShipmentAttachment}
+            branches={branches}
           />
         );
       case 'operational-map':
