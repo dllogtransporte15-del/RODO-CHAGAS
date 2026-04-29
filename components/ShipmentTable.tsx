@@ -290,7 +290,13 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users,
                     <div className="text-[10px] text-gray-400 uppercase font-bold">Motorista</div>
                     <div className="font-medium dark:text-gray-200">{shipment.driverName}</div>
                     <div className="text-xs text-gray-500">{shipment.horsePlate}</div>
+                    {(vehicle || shipment.vehicleSetType || shipment.vehicleBodyType) && (
+                      <span className="mt-1 inline-block px-2 py-0.5 text-[10px] font-semibold rounded-full bg-gray-200 text-gray-700 dark:bg-gray-600 dark:text-gray-200">
+                        {shipment.vehicleSetType || vehicle?.setType} / {shipment.vehicleBodyType || vehicle?.bodyType}
+                      </span>
+                    )}
                   </div>
+
                   <div>
                     <div className="text-[10px] text-gray-400 uppercase font-bold">Frete / Ton</div>
                     <div className="font-bold dark:text-gray-200">
@@ -453,10 +459,10 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users,
                       <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                           Sol.: <span className="font-medium">{getEmbarcadorName(shipment.embarcadorId)}</span>
                       </div>
-                      {vehicle && (
+                      {(vehicle || shipment.vehicleSetType || shipment.vehicleBodyType) && (
                           <div className="mt-1">
                           <span className="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-gray-200 text-gray-700 dark:bg-gray-600 dark:text-gray-200">
-                              {vehicle.setType} / {vehicle.bodyType}
+                              {shipment.vehicleSetType || vehicle?.setType} / {shipment.vehicleBodyType || vehicle?.bodyType}
                           </span>
                           </div>
                       )}
