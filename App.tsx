@@ -1872,7 +1872,7 @@ const App: React.FC = () => {
                   onReactivateLoad={handleReactivateLoad}
                 />;
       case 'layover-calculator':
-        return <LayoverCalculatorPage currentUser={currentUser} />;
+        return <LayoverCalculatorPage currentUser={currentUser} shipments={shipments} cargos={cargos} clients={clients} />;
       case 'freight-quote':
         return <FreightQuotePage currentUser={currentUser} />;
       case 'tools-history':

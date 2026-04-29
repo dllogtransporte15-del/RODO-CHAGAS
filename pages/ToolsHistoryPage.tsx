@@ -7,13 +7,14 @@ import {
   History as HistoryIcon, Search, Filter, Download, FileText, 
   Truck, Calendar, MapPin, User, Trash2, ChevronRight, 
   ArrowRight, DollarSign, Clock, FileDigit, Building2,
-  ChevronDown, ChevronUp, X, FileCode, Scale, Fuel, Route
+  ChevronDown, ChevronUp, X, FileCode, Scale, Fuel, Route, Paperclip
 } from 'lucide-react';
 import Header from '../components/Header';
 import { 
   getToolStays, getToolQuotes, StayRecord, QuoteRecord, 
-  getToolClients, Client, deleteToolStay, deleteToolQuote 
+  getToolClients, Client, deleteToolStay, deleteToolQuote, updateToolStay, uploadStayAttachment
 } from '../utils/toolStorage';
+import { getShipmentAttachmentUrl } from '../lib/db';
 import type { User as AppUser } from '../types';
 
 interface ToolsHistoryPageProps {
@@ -26,6 +27,9 @@ export default function ToolsHistoryPage({ currentUser }: ToolsHistoryPageProps)
   const [quotes, setQuotes] = useState<QuoteRecord[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  const [editValues, setEditValues] = useState<{id: string, approved: string, paid: string, cteFile?: File | null, paymentFile?: File | null} | null>(null);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [dateStart, setDateStart] = useState('');
@@ -102,7 +106,52 @@ export default function ToolsHistoryPage({ currentUser }: ToolsHistoryPageProps)
   };
 
   const toggleExpand = (id: string) => {
-    setExpandedId(expandedId === id ? null : id);
+    if (expandedId === id) {
+      setExpandedId(null);
+      setEditValues(null);
+    } else {
+      setExpandedId(id);
+      const stay = stays.find(s => s.id === id);
+      if (stay && activeView === 'estadias') {
+        setEditValues({
+          id,
+          approved: stay.approvedValue != null ? stay.approvedValue.toString() : '',
+          paid: stay.driverPaidValue != null ? stay.driverPaidValue.toString() : ''
+        });
+      } else {
+        setEditValues(null);
+      }
+    }
+  };
+
+  const handleSaveStayFinancials = async () => {
+    if (!editValues || isSavingEdit) return;
+    setIsSavingEdit(true);
+    try {
+      let cteUrl: string | undefined = undefined;
+      let paymentProofUrl: string | undefined = undefined;
+
+      if (editValues.cteFile) {
+        cteUrl = await uploadStayAttachment(editValues.id, 'cte_complementar', editValues.cteFile);
+      }
+      if (editValues.paymentFile) {
+        paymentProofUrl = await uploadStayAttachment(editValues.id, 'comprovante_pagamento', editValues.paymentFile);
+      }
+
+      const updates: Partial<StayRecord> = {
+        approvedValue: editValues.approved ? parseFloat(editValues.approved) : undefined,
+        driverPaidValue: editValues.paid ? parseFloat(editValues.paid) : undefined,
+        ...(cteUrl && { cteUrl }),
+        ...(paymentProofUrl && { paymentProofUrl })
+      };
+      await updateToolStay(editValues.id, updates);
+      await loadData();
+      setExpandedId(null);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsSavingEdit(false);
+    }
   };
 
   const handleDelete = async (id: string, type: 'estadias' | 'cotacoes') => {
@@ -317,12 +366,89 @@ export default function ToolsHistoryPage({ currentUser }: ToolsHistoryPageProps)
                             </div>
                           </div>
                           <div className="space-y-4">
-                            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center"><DollarSign className="w-3 h-3 mr-2" /> Valores</h4>
-                            <div className="bg-white dark:bg-gray-800 p-4 rounded-2xl border border-slate-100 dark:border-gray-700">
-                               <div className="text-[10px] text-slate-400 font-bold uppercase mb-1">Valor Unitário</div>
-                               <div className="text-lg font-bold text-slate-800 dark:text-white mb-3">{formatCurrency(item.valuePerHour)} / Ton-Hora</div>
-                               <div className="text-[10px] text-slate-400 font-bold uppercase mb-1">Cálculo Líquido</div>
-                               <div className="text-2xl font-black text-emerald-600">{formatCurrency(item.totalValue)}</div>
+                            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center"><DollarSign className="w-3 h-3 mr-2" /> Valores e Fechamento</h4>
+                            <div className="bg-white dark:bg-gray-800 p-4 rounded-2xl border border-slate-100 dark:border-gray-700 space-y-4">
+                               <div>
+                                 <div className="text-[10px] text-slate-400 font-bold uppercase mb-1">Valor Calculado / Solicitado</div>
+                                 <div className="text-xl font-bold text-slate-800 dark:text-white">{formatCurrency(item.totalValue)}</div>
+                                 <div className="text-[10px] text-slate-500 mt-1">({formatCurrency(item.valuePerHour)} / Ton-Hora)</div>
+                               </div>
+
+                               <div className="pt-3 border-t border-slate-100 dark:border-gray-700 space-y-3">
+                                 <div>
+                                   <label className="text-[10px] text-slate-400 font-bold uppercase mb-1 block">Valor Aprovado (Receita)</label>
+                                   <div className="flex gap-2 items-center">
+                                     <input 
+                                       type="number" 
+                                       value={editValues?.id === item.id ? editValues.approved : ''} 
+                                       onChange={e => setEditValues(prev => prev ? {...prev, approved: e.target.value} : null)}
+                                       placeholder="R$ 0,00"
+                                       className="w-full px-3 py-1.5 text-sm border border-slate-200 dark:border-gray-600 dark:text-white dark:bg-gray-700 rounded-lg outline-none focus:border-indigo-500"
+                                     />
+                                     <label className="cursor-pointer bg-slate-100 hover:bg-slate-200 dark:bg-gray-700 dark:hover:bg-gray-600 p-1.5 rounded border border-slate-200 dark:border-gray-600 flex items-center justify-center whitespace-nowrap text-xs text-slate-600 dark:text-gray-300" title="Anexar CTe Complementar">
+                                       <Paperclip className="w-4 h-4 mr-1" /> CTe
+                                       <input 
+                                         type="file" 
+                                         className="hidden" 
+                                         onChange={e => {
+                                           const file = e.target.files?.[0];
+                                           if (file) setEditValues(prev => prev ? {...prev, cteFile: file} : null);
+                                         }} 
+                                       />
+                                     </label>
+                                   </div>
+                                   {editValues?.id === item.id && editValues.cteFile && (
+                                     <div className="text-[10px] text-indigo-500 mt-1 truncate">Anexo: {editValues.cteFile.name}</div>
+                                   )}
+                                   {item.cteUrl && !(editValues?.id === item.id && editValues.cteFile) && (
+                                     <a href={getShipmentAttachmentUrl(item.cteUrl)} target="_blank" rel="noopener noreferrer" className="text-[10px] text-indigo-500 hover:underline mt-1 block">Ver CTe Anexado</a>
+                                   )}
+                                 </div>
+                                 <div>
+                                   <label className="text-[10px] text-slate-400 font-bold uppercase mb-1 block">Valor Pago Motorista (Custo)</label>
+                                   <div className="flex gap-2 items-center">
+                                     <input 
+                                       type="number" 
+                                       value={editValues?.id === item.id ? editValues.paid : ''} 
+                                       onChange={e => setEditValues(prev => prev ? {...prev, paid: e.target.value} : null)}
+                                       placeholder="R$ 0,00"
+                                       className="w-full px-3 py-1.5 text-sm border border-slate-200 dark:border-gray-600 dark:text-white dark:bg-gray-700 rounded-lg outline-none focus:border-indigo-500"
+                                     />
+                                     <label className="cursor-pointer bg-slate-100 hover:bg-slate-200 dark:bg-gray-700 dark:hover:bg-gray-600 p-1.5 rounded border border-slate-200 dark:border-gray-600 flex items-center justify-center whitespace-nowrap text-xs text-slate-600 dark:text-gray-300" title="Anexar Comprovante de Pagamento">
+                                       <Paperclip className="w-4 h-4 mr-1" /> Comp.
+                                       <input 
+                                         type="file" 
+                                         className="hidden" 
+                                         onChange={e => {
+                                           const file = e.target.files?.[0];
+                                           if (file) setEditValues(prev => prev ? {...prev, paymentFile: file} : null);
+                                         }} 
+                                       />
+                                     </label>
+                                   </div>
+                                   {editValues?.id === item.id && editValues.paymentFile && (
+                                     <div className="text-[10px] text-indigo-500 mt-1 truncate">Anexo: {editValues.paymentFile.name}</div>
+                                   )}
+                                   {item.paymentProofUrl && !(editValues?.id === item.id && editValues.paymentFile) && (
+                                     <a href={getShipmentAttachmentUrl(item.paymentProofUrl)} target="_blank" rel="noopener noreferrer" className="text-[10px] text-indigo-500 hover:underline mt-1 block">Ver Comprovante Anexado</a>
+                                   )}
+                                 </div>
+                                 <div className="flex items-center justify-between pt-2">
+                                   <div>
+                                     <div className="text-[10px] text-slate-400 font-bold uppercase">Lucro da Estadia</div>
+                                     <div className={`text-lg font-bold ${((parseFloat(editValues?.approved || '0') || 0) - (parseFloat(editValues?.paid || '0') || 0)) >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                                       {formatCurrency((parseFloat(editValues?.approved || '0') || 0) - (parseFloat(editValues?.paid || '0') || 0))}
+                                     </div>
+                                   </div>
+                                   <button 
+                                     onClick={handleSaveStayFinancials} 
+                                     disabled={isSavingEdit}
+                                     className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg transition-colors disabled:opacity-50"
+                                   >
+                                     {isSavingEdit ? 'Salvando...' : 'Salvar'}
+                                   </button>
+                                 </div>
+                               </div>
                             </div>
                           </div>
                         </>

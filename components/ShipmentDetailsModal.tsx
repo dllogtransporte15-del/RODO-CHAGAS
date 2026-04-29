@@ -3,6 +3,8 @@ import type { Shipment, Cargo, User, Client, Product, Vehicle } from '../types';
 import { UserProfile, ShipmentStatus, VehicleSetType, VehicleBodyType } from '../types';
 import { generateLoadingOrderPDF } from '../utils/pdfGenerator';
 import { FileTextIcon, Trash2 } from 'lucide-react';
+import { getToolStaysByShipment, StayRecord } from '../utils/toolStorage';
+import { getShipmentAttachmentUrl } from '../lib/db';
 
 
 interface ShipmentDetailsModalProps {
@@ -41,6 +43,15 @@ const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
   const [editedData, setEditedData] = useState<Partial<Shipment>>({});
   const [filesToAttach, setFilesToAttach] = useState<File[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [shipmentStays, setShipmentStays] = useState<StayRecord[]>([]);
+
+  React.useEffect(() => {
+    if (isOpen && shipment) {
+      getToolStaysByShipment(shipment.id).then(setShipmentStays);
+    } else {
+      setShipmentStays([]);
+    }
+  }, [isOpen, shipment]);
 
   if (!isOpen || !shipment) return null;
 
@@ -390,6 +401,90 @@ const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
                             </DetailItem>
                         )}
                         
+                        {shipmentStays.length > 0 && currentUser?.profile !== UserProfile.Embarcador && (
+                            <div className="md:col-span-2 mt-2 pt-2 border-t dark:border-gray-700">
+                                <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Resumo de Estadias</h4>
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                    <div className="bg-green-50 dark:bg-green-900/20 p-2 rounded border border-green-100 dark:border-green-800/50">
+                                        <p className="text-[10px] font-bold text-green-600 dark:text-green-400 uppercase">Receita (Aprovado)</p>
+                                        <p className="text-sm font-bold text-green-700 dark:text-green-300">
+                                            {formatCurrency(shipmentStays.reduce((acc, stay) => acc + (stay.approvedValue || 0), 0))}
+                                        </p>
+                                    </div>
+                                    <div className="bg-red-50 dark:bg-red-900/20 p-2 rounded border border-red-100 dark:border-red-800/50">
+                                        <p className="text-[10px] font-bold text-red-600 dark:text-red-400 uppercase">Custo (Pago Motorista)</p>
+                                        <p className="text-sm font-bold text-red-700 dark:text-red-300">
+                                            {formatCurrency(shipmentStays.reduce((acc, stay) => acc + (stay.driverPaidValue || 0), 0))}
+                                        </p>
+                                    </div>
+                                    <div className="bg-blue-50 dark:bg-blue-900/20 p-2 rounded border border-blue-100 dark:border-blue-800/50">
+                                        <p className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase">Lucro Adicional</p>
+                                        <p className={`text-sm font-bold ${
+                                            (shipmentStays.reduce((acc, stay) => acc + (stay.approvedValue || 0), 0) - shipmentStays.reduce((acc, stay) => acc + (stay.driverPaidValue || 0), 0)) >= 0 
+                                            ? 'text-blue-700 dark:text-blue-300' 
+                                            : 'text-red-600 dark:text-red-400'
+                                        }`}>
+                                            {formatCurrency(shipmentStays.reduce((acc, stay) => acc + (stay.approvedValue || 0), 0) - shipmentStays.reduce((acc, stay) => acc + (stay.driverPaidValue || 0), 0))}
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="mt-3 space-y-2">
+                                    {shipmentStays.map((stay, idx) => (
+                                        <div key={stay.id} className="flex flex-col gap-2 p-2 bg-gray-50 dark:bg-gray-800/50 rounded border border-gray-100 dark:border-gray-700">
+                                            <div className="flex justify-between items-center text-xs">
+                                                <div>
+                                                    <span className="font-bold text-gray-700 dark:text-gray-300">Estadia #{idx + 1}</span>
+                                                    <span className="text-gray-400 ml-2">{new Date(stay.date).toLocaleDateString('pt-BR')}</span>
+                                                </div>
+                                                <div className="flex gap-4">
+                                                    <div className="text-center">
+                                                        <div className="text-[9px] uppercase text-gray-400 font-bold">Solicitado</div>
+                                                        <div className="font-medium text-gray-600 dark:text-gray-300">{formatCurrency(stay.totalValue)}</div>
+                                                    </div>
+                                                    <div className="text-center">
+                                                        <div className="text-[9px] uppercase text-green-500 font-bold">Aprovado</div>
+                                                        <div className="font-medium text-green-600 dark:text-green-400">{formatCurrency(stay.approvedValue || 0)}</div>
+                                                    </div>
+                                                    <div className="text-center">
+                                                        <div className="text-[9px] uppercase text-red-500 font-bold">Pago (Mot.)</div>
+                                                        <div className="font-medium text-red-600 dark:text-red-400">{formatCurrency(stay.driverPaidValue || 0)}</div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            {(stay.cteUrl || stay.paymentProofUrl) && (
+                                                <div className="flex gap-4 pt-2 mt-1 border-t border-gray-200 dark:border-gray-700/50">
+                                                    {stay.cteUrl && (
+                                                        <a href={getShipmentAttachmentUrl(stay.cteUrl)} target="_blank" rel="noopener noreferrer" className="text-[10px] flex items-center font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 hover:underline">
+                                                            <FileTextIcon className="w-3 h-3 mr-1" /> CTe Complementar
+                                                        </a>
+                                                    )}
+                                                    {stay.paymentProofUrl && (
+                                                        <a href={getShipmentAttachmentUrl(stay.paymentProofUrl)} target="_blank" rel="noopener noreferrer" className="text-[10px] flex items-center font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 hover:underline">
+                                                            <FileTextIcon className="w-3 h-3 mr-1" /> Comprovante de Pagamento
+                                                        </a>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                        
+                        {currentUser?.profile !== UserProfile.Embarcador && (
+                            <div className="md:col-span-2 mt-2 pt-2 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 p-3 rounded-lg">
+                                <DetailItem label="Lucro Operacional do Embarque (Margem + Estadias)">
+                                    <p className="text-lg font-bold text-primary dark:text-blue-400">
+                                        {formatCurrency(
+                                            ((shipment.companyFreightRateSnapshot || cargo?.companyFreightValuePerTon || 0) * shipment.shipmentTonnage) 
+                                            - shipment.driverFreightValue 
+                                            + (shipmentStays.reduce((acc, stay) => acc + (stay.approvedValue || 0), 0) - shipmentStays.reduce((acc, stay) => acc + (stay.driverPaidValue || 0), 0))
+                                        )}
+                                    </p>
+                                </DetailItem>
+                            </div>
+                        )}
+
                         <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
                             <DetailItem label="Dados Bancários">
                                 {isEditingData ? (

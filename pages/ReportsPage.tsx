@@ -14,7 +14,9 @@ import ClientReport from '../components/reports/ClientReport';
 import OperationalTimingReport from '../components/reports/OperationalTimingReport';
 import ExternalSalespersonReport from '../components/reports/ExternalSalespersonReport';
 import BranchReport from '../components/reports/BranchReport';
+import StayFinancialReport from '../components/reports/StayFinancialReport';
 import MultiSelectDropdown from '../components/MultiSelectDropdown';
+import { getAllToolStays, StayRecord } from '../utils/toolStorage';
 
 interface ReportsPageProps {
   shipments: Shipment[];
@@ -26,10 +28,12 @@ interface ReportsPageProps {
   branches: Branch[];
 }
 
-type ActiveReport = 'comercial' | 'embarcadores' | 'clientes' | 'vendedores' | 'tempo-operacao' | 'filiais';
+type ActiveReport = 'comercial' | 'embarcadores' | 'clientes' | 'vendedores' | 'tempo-operacao' | 'filiais' | 'estadias';
 
 const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, cargos, users, currentUser, clients, branches }) => {
   const [activeReport, setActiveReport] = useState<ActiveReport>('comercial');
+  const [stays, setStays] = useState<StayRecord[]>([]);
+  const [loadingStays, setLoadingStays] = useState(false);
   
   // Date range defaults to current month
   const [startDate, setStartDate] = useState(() => {
@@ -47,6 +51,24 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, carg
   const [filterDest, setFilterDest] = useState<string[]>([]);
   const [filterBranch, setFilterBranch] = useState<string[]>([]);
   const [showFilters, setShowFilters] = useState(false);
+
+  React.useEffect(() => {
+    const fetchStays = async () => {
+      if (!currentUser) return;
+      setLoadingStays(true);
+      try {
+        // Fetch all stays for the report
+        const allStays = await getAllToolStays();
+        setStays(allStays);
+      } catch (err) {
+        console.error('Error fetching stays for report:', err);
+      } finally {
+        setLoadingStays(false);
+      }
+    };
+
+    fetchStays();
+  }, [currentUser]);
 
   const cargoMap = useMemo(() => new Map(cargos.map(c => [c.id, c])), [cargos]);
   
@@ -93,6 +115,13 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, carg
        return true;
     });
   }, [shipments, startDate, endDate, filterStatus, filterClient, filterOrigin, filterDest, filterBranch, cargoMap, clients, branches]);
+
+  const filteredStays = useMemo(() => {
+    return stays.filter(s => {
+      const stayDate = s.date.substring(0, 10);
+      return stayDate >= startDate && stayDate <= endDate;
+    });
+  }, [stays, startDate, endDate]);
 
   const filteredStats = useMemo(() => {
     let totalProgramado = 0;
@@ -191,6 +220,16 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, carg
         return <OperationalTimingReport shipments={filteredShipments} />;
       case 'filiais':
         return <BranchReport shipments={filteredShipments} cargos={cargos} branches={branches} users={users} />;
+      case 'estadias':
+        if (loadingStays) {
+          return (
+            <div className="flex flex-col items-center justify-center py-20 gap-4">
+              <div className="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
+              <p className="text-gray-500 font-medium animate-pulse">Carregando dados financeiros das estadias...</p>
+            </div>
+          );
+        }
+        return <StayFinancialReport stays={filteredStays} />;
       default:
         return null;
     }
@@ -207,6 +246,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, carg
       ] : []),
       { id: 'tempo-operacao', label: 'Tempo de Operação', icon: ClockIcon },
       { id: 'filiais', label: 'Filiais', icon: Building2 },
+      { id: 'estadias', label: 'Financeiro Estadias', icon: DollarSign },
   ];
 
   /* Ensure initial tab is permissible */

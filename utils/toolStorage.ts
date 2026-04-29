@@ -25,6 +25,12 @@ export interface StayRecord {
   valuePerHour: number;
   tolerance: number;
   totalValue: number;
+  approvedValue?: number;
+  driverPaidValue?: number;
+  cteUrl?: string;
+  paymentProofUrl?: string;
+  status?: string;
+  shipmentId?: string;
   date: string; // = created_at, para compatibilidade com o histórico
 }
 
@@ -123,6 +129,86 @@ export async function getToolStays(userId: string): Promise<StayRecord[]> {
     valuePerHour: Number(row.value_per_hour),
     tolerance: Number(row.tolerance),
     totalValue: Number(row.total_value),
+    approvedValue: row.approved_value != null ? Number(row.approved_value) : undefined,
+    driverPaidValue: row.driver_paid_value != null ? Number(row.driver_paid_value) : undefined,
+    cteUrl: row.cte_url ?? undefined,
+    paymentProofUrl: row.payment_proof_url ?? undefined,
+    status: row.status ?? undefined,
+    shipmentId: row.shipment_id ?? undefined,
+    date: row.created_at,
+  }));
+}
+
+export async function getAllToolStays(): Promise<StayRecord[]> {
+  const { data, error } = await supabase
+    .from('tool_stays')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Erro ao buscar todas as estadias:', error);
+    return [];
+  }
+
+  return (data ?? []).map(row => ({
+    id: row.id,
+    clientName: row.client_name ?? undefined,
+    driver: row.driver,
+    plate: row.plate,
+    invoice: row.invoice ?? '',
+    origin: row.origin,
+    destination: row.destination,
+    location: row.location as 'Origem' | 'Destino',
+    entryDate: row.entry_date,
+    exitDate: row.exit_date,
+    totalHours: Number(row.total_hours),
+    weight: Number(row.weight),
+    valuePerHour: Number(row.value_per_hour),
+    tolerance: Number(row.tolerance),
+    totalValue: Number(row.total_value),
+    approvedValue: row.approved_value != null ? Number(row.approved_value) : undefined,
+    driverPaidValue: row.driver_paid_value != null ? Number(row.driver_paid_value) : undefined,
+    cteUrl: row.cte_url ?? undefined,
+    paymentProofUrl: row.payment_proof_url ?? undefined,
+    status: row.status ?? undefined,
+    shipmentId: row.shipment_id ?? undefined,
+    date: row.created_at,
+  }));
+}
+
+export async function getToolStaysByShipment(shipmentId: string): Promise<StayRecord[]> {
+  if (!shipmentId) return [];
+
+  const { data, error } = await supabase
+    .from('tool_stays')
+    .select('*')
+    .eq('shipment_id', shipmentId);
+
+  if (error) {
+    console.error('Erro ao buscar estadias pelo embarque:', error);
+    return [];
+  }
+
+  return (data ?? []).map(row => ({
+    id: row.id,
+    clientName: row.client_name ?? undefined,
+    driver: row.driver,
+    plate: row.plate,
+    invoice: row.invoice ?? '',
+    origin: row.origin,
+    destination: row.destination,
+    location: row.location as 'Origem' | 'Destino',
+    entryDate: row.entry_date,
+    exitDate: row.exit_date,
+    totalHours: Number(row.total_hours),
+    weight: Number(row.weight),
+    valuePerHour: Number(row.value_per_hour),
+    tolerance: Number(row.tolerance),
+    totalValue: Number(row.total_value),
+    approvedValue: row.approved_value != null ? Number(row.approved_value) : undefined,
+    driverPaidValue: row.driver_paid_value != null ? Number(row.driver_paid_value) : undefined,
+    status: row.status ?? undefined,
+    shipmentId: row.shipment_id ?? undefined,
     date: row.created_at,
   }));
 }
@@ -151,6 +237,12 @@ export async function saveToolStay(
       value_per_hour: stay.valuePerHour,
       tolerance: stay.tolerance,
       total_value: stay.totalValue,
+      approved_value: stay.approvedValue ?? null,
+      driver_paid_value: stay.driverPaidValue ?? null,
+      cte_url: stay.cteUrl ?? null,
+      payment_proof_url: stay.paymentProofUrl ?? null,
+      status: stay.status ?? null,
+      shipment_id: stay.shipmentId ?? null,
     })
     .select('*')
     .single();
@@ -177,6 +269,10 @@ export async function saveToolStay(
         valuePerHour: Number(data.value_per_hour),
         tolerance: Number(data.tolerance),
         totalValue: Number(data.total_value),
+        approvedValue: data.approved_value != null ? Number(data.approved_value) : undefined,
+        driverPaidValue: data.driver_paid_value != null ? Number(data.driver_paid_value) : undefined,
+        status: data.status ?? undefined,
+        shipmentId: data.shipment_id ?? undefined,
         date: data.created_at,
       }
     : null;
@@ -185,6 +281,57 @@ export async function saveToolStay(
 export async function deleteToolStay(id: string): Promise<void> {
   const { error } = await supabase.from('tool_stays').delete().eq('id', id);
   if (error) console.error('Erro ao excluir estadia:', error);
+}
+
+export async function updateToolStay(
+  id: string,
+  updates: Partial<StayRecord>
+): Promise<StayRecord | null> {
+  const payload: any = {};
+  if (updates.approvedValue !== undefined) payload.approved_value = updates.approvedValue;
+  if (updates.driverPaidValue !== undefined) payload.driver_paid_value = updates.driverPaidValue;
+  if (updates.cteUrl !== undefined) payload.cte_url = updates.cteUrl;
+  if (updates.paymentProofUrl !== undefined) payload.payment_proof_url = updates.paymentProofUrl;
+  if (updates.status !== undefined) payload.status = updates.status;
+
+  if (Object.keys(payload).length === 0) return null;
+
+  const { data, error } = await supabase
+    .from('tool_stays')
+    .update(payload)
+    .eq('id', id)
+    .select('*')
+    .single();
+
+  if (error) {
+    console.error('Erro ao atualizar estadia:', error);
+    return null;
+  }
+
+  return data
+    ? {
+        id: data.id,
+        clientName: data.client_name ?? undefined,
+        driver: data.driver,
+        plate: data.plate,
+        invoice: data.invoice ?? '',
+        origin: data.origin,
+        destination: data.destination,
+        location: data.location as 'Origem' | 'Destino',
+        entryDate: data.entry_date,
+        exitDate: data.exit_date,
+        totalHours: Number(data.total_hours),
+        weight: Number(data.weight),
+        valuePerHour: Number(data.value_per_hour),
+        tolerance: Number(data.tolerance),
+        totalValue: Number(data.total_value),
+        approvedValue: data.approved_value != null ? Number(data.approved_value) : undefined,
+        driverPaidValue: data.driver_paid_value != null ? Number(data.driver_paid_value) : undefined,
+        status: data.status ?? undefined,
+        shipmentId: data.shipment_id ?? undefined,
+        date: data.created_at,
+      }
+    : null;
 }
 
 // =============================================

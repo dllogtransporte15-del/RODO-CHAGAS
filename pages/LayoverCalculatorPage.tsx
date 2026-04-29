@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { differenceInMinutes, format, parseISO } from 'date-fns';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import Header from '../components/Header';
 import { saveToolStay, getToolClients, saveToolClient, Client } from '../utils/toolStorage';
-import type { User as AppUser } from '../types';
+import { User as AppUser, Shipment, Cargo, Client as AppClient, ShipmentStatus } from '../types';
 
 interface StayData {
   clientName: string;
@@ -29,9 +29,12 @@ interface StayData {
 
 interface LayoverCalculatorPageProps {
   currentUser: AppUser | null;
+  shipments: Shipment[];
+  cargos: Cargo[];
+  clients: AppClient[];
 }
 
-export default function LayoverCalculatorPage({ currentUser }: LayoverCalculatorPageProps) {
+export default function LayoverCalculatorPage({ currentUser, shipments, cargos, clients: appClients }: LayoverCalculatorPageProps) {
   const [clients, setClients] = useState<Client[]>([]);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -57,11 +60,25 @@ export default function LayoverCalculatorPage({ currentUser }: LayoverCalculator
     valuePerHour: '',
     tolerance: '',
     entryDate: '',
-    exitDate: ''
+    exitDate: '',
+    shipmentId: ''
   };
 
   const [formData, setFormData] = useState<StayData>(initialData);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [shipmentSearchTerm, setShipmentSearchTerm] = useState('');
+  const [isShipmentDropdownOpen, setIsShipmentDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsShipmentDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -75,7 +92,48 @@ export default function LayoverCalculatorPage({ currentUser }: LayoverCalculator
   const clearFields = () => {
     setFormData(initialData);
     setSaveSuccess(false);
+    setShipmentSearchTerm('');
   };
+
+  const handleShipmentSelect = (shipmentId: string) => {
+    if (!shipmentId) {
+      setFormData(prev => ({ ...prev, shipmentId: '' }));
+      setShipmentSearchTerm('');
+      setIsShipmentDropdownOpen(false);
+      return;
+    }
+
+    const shipment = shipments.find(s => s.id === shipmentId);
+    if (!shipment) return;
+
+    const cargo = cargos.find(c => c.id === shipment.cargoId);
+    const client = cargo ? appClients.find(c => c.id === cargo.clientId) : null;
+
+    setFormData(prev => ({
+      ...prev,
+      shipmentId,
+      driver: shipment.driverName || '',
+      plate: shipment.horsePlate || '',
+      weight: shipment.shipmentTonnage ? shipment.shipmentTonnage.toString() : '',
+      origin: cargo?.origin || '',
+      destination: cargo?.destination || '',
+      clientName: client?.name || prev.clientName,
+    }));
+    setShipmentSearchTerm(`${shipment.horsePlate} - ${shipment.driverName} - ID: ${shipment.id}`);
+    setIsShipmentDropdownOpen(false);
+    setSaveSuccess(false);
+  };
+
+  const availableShipments = shipments.filter(s => s.status !== ShipmentStatus.Cancelado);
+  
+  const filteredShipments = availableShipments.filter(s => {
+    const term = shipmentSearchTerm.toLowerCase();
+    // If empty term or if it is currently matching the selected shipment (which we set as the full string), show all.
+    if (!term || formData.shipmentId) return true;
+    return s.id.toLowerCase().includes(term) ||
+           (s.horsePlate && s.horsePlate.toLowerCase().includes(term)) ||
+           (s.driverName && s.driverName.toLowerCase().includes(term));
+  });
 
   const result = useMemo(() => {
     const weight = parseFloat(formData.weight) || 0;
@@ -132,7 +190,8 @@ export default function LayoverCalculatorPage({ currentUser }: LayoverCalculator
         weight: parseFloat(formData.weight) || 0,
         valuePerHour: parseFloat(formData.valuePerHour) || 0,
         tolerance: parseFloat(formData.tolerance) || 0,
-        totalValue: result.totalValue
+        totalValue: result.totalValue,
+        shipmentId: formData.shipmentId || undefined
       });
 
       if (saved) {
@@ -269,6 +328,63 @@ export default function LayoverCalculatorPage({ currentUser }: LayoverCalculator
               </button>
             </div>
             
+            <div className="mb-6 p-4 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 rounded-xl">
+              <label className="text-sm font-medium text-indigo-900 dark:text-indigo-300 flex items-center mb-2">
+                Vincular a um Embarque (Opcional)
+              </label>
+              <div className="relative" ref={dropdownRef}>
+                <input
+                  type="text"
+                  placeholder="Pesquise por placa, motorista ou ID..."
+                  value={shipmentSearchTerm}
+                  onChange={(e) => {
+                    setShipmentSearchTerm(e.target.value);
+                    if (formData.shipmentId) setFormData(prev => ({ ...prev, shipmentId: '' }));
+                    setIsShipmentDropdownOpen(true);
+                  }}
+                  onFocus={() => setIsShipmentDropdownOpen(true)}
+                  className="w-full px-3 py-2 border border-indigo-200 dark:border-indigo-700 bg-white dark:bg-gray-800 text-slate-800 dark:text-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                />
+                
+                {isShipmentDropdownOpen && (
+                  <div className="absolute z-10 mt-1 w-full bg-white dark:bg-gray-800 border border-indigo-200 dark:border-indigo-700 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                    <div 
+                      className="px-3 py-2 cursor-pointer hover:bg-indigo-50 dark:hover:bg-indigo-900/30 text-sm text-slate-600 dark:text-gray-400 border-b border-indigo-50 dark:border-indigo-900/50"
+                      onClick={() => handleShipmentSelect('')}
+                    >
+                      -- Não vincular (avulso) --
+                    </div>
+                    {filteredShipments.length > 0 ? (
+                      filteredShipments.map(s => {
+                        const cargo = cargos.find(c => c.id === s.cargoId);
+                        const client = cargo ? appClients.find(c => c.id === cargo.clientId) : null;
+                        const isSelected = formData.shipmentId === s.id;
+                        return (
+                          <div 
+                            key={s.id} 
+                            onClick={() => handleShipmentSelect(s.id)}
+                            className={`px-3 py-2 cursor-pointer text-sm transition-colors ${isSelected ? 'bg-indigo-100 dark:bg-indigo-900/50 text-indigo-900 dark:text-indigo-200' : 'hover:bg-indigo-50 dark:hover:bg-indigo-900/30 text-slate-700 dark:text-gray-300'}`}
+                          >
+                            <div className="font-medium">{s.horsePlate} - {s.driverName}</div>
+                            <div className="text-xs opacity-75 mt-0.5">
+                              ID: {s.id} | {client?.name || 'Sem cliente'} | {cargo?.origin} → {cargo?.destination}
+                            </div>
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <div className="px-3 py-4 text-center text-sm text-slate-500 dark:text-gray-400">
+                        Nenhum embarque encontrado
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+              <p className="text-xs text-indigo-600 dark:text-indigo-400 mt-2">
+                Selecionar um embarque preencherá automaticamente os dados do Motorista, Placa, Peso, Origem e Destino.
+              </p>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div className="space-y-1.5 md:col-span-2">
                 <label className="text-sm font-medium text-slate-700 dark:text-gray-300 flex items-center">
