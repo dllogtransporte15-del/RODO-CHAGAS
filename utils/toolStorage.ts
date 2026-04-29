@@ -209,6 +209,8 @@ export async function getToolStaysByShipment(shipmentId: string): Promise<StayRe
     driverPaidValue: row.driver_paid_value != null ? Number(row.driver_paid_value) : undefined,
     status: row.status ?? undefined,
     shipmentId: row.shipment_id ?? undefined,
+    cteUrl: row.cte_url ?? undefined,
+    paymentProofUrl: row.payment_proof_url ?? undefined,
     date: row.created_at,
   }));
 }
@@ -273,6 +275,8 @@ export async function saveToolStay(
         driverPaidValue: data.driver_paid_value != null ? Number(data.driver_paid_value) : undefined,
         status: data.status ?? undefined,
         shipmentId: data.shipment_id ?? undefined,
+        cteUrl: data.cte_url ?? undefined,
+        paymentProofUrl: data.payment_proof_url ?? undefined,
         date: data.created_at,
       }
     : null;
@@ -281,6 +285,23 @@ export async function saveToolStay(
 export async function deleteToolStay(id: string): Promise<void> {
   const { error } = await supabase.from('tool_stays').delete().eq('id', id);
   if (error) console.error('Erro ao excluir estadia:', error);
+}
+
+export async function uploadStayAttachment(stayId: string, type: 'cte_complementar' | 'comprovante_pagamento', file: File): Promise<string | null> {
+  const fileExt = file.name.split('.').pop();
+  const fileName = `${stayId}_${type}_${Math.random().toString(36).substring(2)}.${fileExt}`;
+  const filePath = `stays/${fileName}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from('shipment_attachments')
+    .upload(filePath, file);
+
+  if (uploadError) {
+    console.error('Erro ao fazer upload do anexo da estadia:', uploadError);
+    return null;
+  }
+
+  return filePath;
 }
 
 export async function updateToolStay(
@@ -329,6 +350,8 @@ export async function updateToolStay(
         driverPaidValue: data.driver_paid_value != null ? Number(data.driver_paid_value) : undefined,
         status: data.status ?? undefined,
         shipmentId: data.shipment_id ?? undefined,
+        cteUrl: data.cte_url ?? undefined,
+        paymentProofUrl: data.payment_proof_url ?? undefined,
         date: data.created_at,
       }
     : null;
