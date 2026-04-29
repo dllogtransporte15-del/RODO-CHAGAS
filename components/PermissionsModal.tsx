@@ -35,6 +35,7 @@ const PAGE_NAMES: Record<Page, string> = {
   'ai-assistant': 'Assistente de IA',
   'tools-history': 'Histórico de Ferramentas',
   'branches': 'Filiais',
+  'system-monitor': 'Monitoramento do Sistema',
 };
 
 const PERMISSION_NAMES: Record<keyof CrudPermissions, string> = {

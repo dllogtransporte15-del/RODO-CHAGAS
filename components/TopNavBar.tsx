@@ -23,7 +23,7 @@ import { ArchiveIcon } from './icons/ArchiveIcon';
 import { ToolIcon } from './icons/ToolIcon';
 import { CalculatorIcon } from './icons/CalculatorIcon';
 import { InfoIcon } from './icons/InfoIcon';
-import { Menu as MenuIcon, X as XIcon } from 'lucide-react';
+import { Menu as MenuIcon, X as XIcon, Activity } from 'lucide-react';
 
 interface TopNavBarProps {
   user: User;
@@ -89,6 +89,7 @@ const navItems: NavItem[] = [
       { id: 'users-register', label: 'Gerenciar Usuários', icon: UserPlusIcon },
       { id: 'branches', label: 'Filiais', icon: FolderIcon },
       { id: 'appearance', label: 'Aparência', icon: ImageIcon },
+      { id: 'system-monitor', label: 'Monitoramento', icon: Activity },
     ]
   }
 ];

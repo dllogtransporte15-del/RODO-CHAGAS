@@ -30,6 +30,7 @@ import LayoverCalculatorPage from './pages/LayoverCalculatorPage';
 import FreightQuotePage from './pages/FreightQuotePage';
 import ToolsHistoryPage from './pages/ToolsHistoryPage';
 import BranchesPage from './pages/BranchesPage';
+import SystemMonitorPage from './pages/SystemMonitorPage';
 
 // Component Imports
 import TopNavBar from './components/TopNavBar';
@@ -1837,6 +1838,8 @@ const App: React.FC = () => {
                   currentTheme={themeImage}
                   onSaveTheme={handleSaveThemeImage}
                 />;
+      case 'system-monitor':
+        return <SystemMonitorPage />;
       case 'shipment-history':
         return <ShipmentHistoryPage
                   shipments={visibleShipments}
