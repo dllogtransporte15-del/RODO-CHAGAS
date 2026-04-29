@@ -273,32 +273,32 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, carg
       </div>
 
       {/* GLOBAL KPIs SECTION */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-6">
          <div className="p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 flex items-center gap-4">
              <div className="w-10 h-10 rounded-full bg-blue-50 dark:bg-blue-900/50 flex flex-shrink-0 items-center justify-center text-blue-600 dark:text-blue-400"><ShipIcon className="w-5 h-5" /></div>
-             <div>
-                <p className="text-xs text-gray-500 uppercase font-bold">Embarques</p>
+             <div className="min-w-0">
+                <p className="text-[10px] text-gray-500 uppercase font-bold truncate">Embarques</p>
                 <p className="text-xl font-bold text-gray-800 dark:text-gray-100">{kpis.count}</p>
              </div>
          </div>
          <div className="p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 flex items-center gap-4">
              <div className="w-10 h-10 rounded-full bg-gray-50 dark:bg-gray-700 flex flex-shrink-0 items-center justify-center text-gray-600 dark:text-gray-400"><Package className="w-5 h-5" /></div>
-             <div>
-                <p className="text-xs text-gray-500 uppercase font-bold">Total Programado</p>
+             <div className="min-w-0">
+                <p className="text-[10px] text-gray-500 uppercase font-bold leading-tight">Total Programado</p>
                 <p className="text-xl font-bold text-gray-800 dark:text-gray-100" title="Soma de peso dos embarques em Ag. Seguradora, Pré-cadastro ou Ag. Carregamento no período">{filteredStats.totalProgramado.toLocaleString('pt-BR')} ton</p>
              </div>
          </div>
          <div className="p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 flex items-center gap-4">
              <div className="w-10 h-10 rounded-full bg-emerald-50 dark:bg-emerald-900/30 flex flex-shrink-0 items-center justify-center text-emerald-600 dark:text-emerald-400"><CheckCircle className="w-5 h-5" /></div>
-             <div>
-                <p className="text-xs text-gray-500 uppercase font-bold">Total efetivado</p>
+             <div className="min-w-0">
+                <p className="text-[10px] text-gray-500 uppercase font-bold leading-tight">Total efetivado</p>
                 <p className="text-xl font-bold text-gray-800 dark:text-gray-100" title="Soma de embarques que atingiram o status 'Ag. Nota' no período">{filteredStats.totalEfetivado.toLocaleString('pt-BR')} ton</p>
              </div>
          </div>
          <div className="p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 flex items-center gap-4">
              <div className="w-10 h-10 rounded-full bg-green-50 dark:bg-green-900/50 flex flex-shrink-0 items-center justify-center text-green-600 dark:text-green-400"><DollarSign className="w-5 h-5" /></div>
-             <div>
-                <p className="text-xs text-gray-500 uppercase font-bold">Fat. Bruto</p>
+             <div className="min-w-0">
+                <p className="text-[10px] text-gray-500 uppercase font-bold leading-tight">Fat. Bruto Efetivado + Programado</p>
                 <p className="text-xl font-bold text-gray-800 dark:text-gray-100" title={formatCurrency(kpis.grossBilled)}>
                    R$ {(kpis.grossBilled / 1000).toFixed(1)}k
                 </p>
@@ -307,8 +307,8 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, carg
 
          <div className="p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 flex items-center gap-4">
              <div className="w-10 h-10 rounded-full bg-teal-50 dark:bg-teal-900/50 flex flex-shrink-0 items-center justify-center text-teal-600 dark:text-teal-400"><DollarSign className="w-5 h-5" /></div>
-             <div>
-                <p className="text-xs text-gray-500 uppercase font-bold">Líquido Programado</p>
+             <div className="min-w-0">
+                <p className="text-[10px] text-gray-500 uppercase font-bold leading-tight">Líquido Programado</p>
                 <p className="text-xl font-bold text-gray-800 dark:text-gray-100" title={formatCurrency(kpis.profitMargin)}>
                    R$ {(kpis.profitMargin / 1000).toFixed(1)}k
                 </p>
@@ -317,8 +317,8 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, carg
 
          <div className="p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 flex items-center gap-4">
              <div className="w-10 h-10 rounded-full bg-blue-50 dark:bg-blue-900/50 flex flex-shrink-0 items-center justify-center text-blue-600 dark:text-blue-400"><DollarSign className="w-5 h-5" /></div>
-             <div>
-                <p className="text-xs text-gray-500 uppercase font-bold">Margem Lucro Total</p>
+             <div className="min-w-0">
+                <p className="text-[10px] text-gray-500 uppercase font-bold leading-tight">Margem Lucro Total</p>
                 <p className="text-xl font-bold text-gray-800 dark:text-gray-100" title={formatCurrency(kpis.totalProfitMargin)}>
                    R$ {(kpis.totalProfitMargin / 1000).toFixed(1)}k
                 </p>

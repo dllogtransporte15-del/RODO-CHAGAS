@@ -135,7 +135,7 @@ const BranchReport: React.FC<BranchReportProps> = ({ shipments, cargos, branches
                 <th className="px-6 py-4">Filial</th>
                 <th className="px-6 py-4 text-center">Embarques</th>
                 <th className="px-6 py-4 text-center">Peso Total</th>
-                <th className="px-6 py-4 text-right">Fat. Bruto</th>
+                <th className="px-6 py-4 text-right">Fat. Bruto Efetivado + Programado</th>
                 <th className="px-6 py-4 text-right">Margem Líquida</th>
                 <th className="px-6 py-4 text-right">% Margem</th>
               </tr>
