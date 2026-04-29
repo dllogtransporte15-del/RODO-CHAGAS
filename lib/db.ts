@@ -221,6 +221,8 @@ const toShipment = (row: any): Shipment => ({
   netBalanceValue: row.net_balance_value !== null ? Number(row.net_balance_value) : undefined,
   unloadedTonnage: row.unloaded_tonnage !== null ? Number(row.unloaded_tonnage) : undefined,
   branchId: row.branch_id,
+  vehicleSetType: row.vehicle_set_type,
+  vehicleBodyType: row.vehicle_body_type,
 });
 
 const fromShipment = (s: Shipment) => ({
@@ -263,6 +265,8 @@ const fromShipment = (s: Shipment) => ({
   net_balance_value: s.netBalanceValue,
   unloaded_tonnage: s.unloadedTonnage,
   branch_id: s.branchId || null,
+  vehicle_set_type: s.vehicleSetType,
+  vehicle_body_type: s.vehicleBodyType,
 });
 
 export const toUser = (row: any): User => ({
