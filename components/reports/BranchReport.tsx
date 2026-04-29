@@ -82,22 +82,13 @@ const BranchReport: React.FC<BranchReportProps> = ({ shipments, cargos, branches
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         <div className="bg-gradient-to-br from-primary to-blue-700 p-5 rounded-2xl text-white shadow-lg shadow-primary/20">
           <p className="text-[10px] uppercase font-bold opacity-80 mb-1">Lucro Total Período</p>
           <h3 className="text-2xl font-black">{formatCurrency(totals.margin)}</h3>
           <div className="mt-2 flex items-center gap-2 text-xs opacity-90">
             <DollarSign className="w-3 h-3" />
             <span>Faturamento: {formatCurrency(totals.billed)}</span>
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm">
-          <p className="text-[10px] uppercase font-bold text-gray-400 mb-1">Peso Total Movimentado</p>
-          <h3 className="text-2xl font-black text-gray-800 dark:text-white">{totals.weight.toLocaleString('pt-BR')} <span className="text-sm font-normal text-gray-400">ton</span></h3>
-          <div className="mt-2 flex items-center gap-2 text-xs text-gray-500">
-            <Package className="w-3 h-3" />
-            <span>{totals.count} embarques efetivados</span>
           </div>
         </div>
 
