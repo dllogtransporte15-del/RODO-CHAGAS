@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { format, parseISO, isWithinInterval, startOfDay, endOfDay } from 'date-fns';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -12,24 +12,56 @@ import {
 import Header from '../components/Header';
 import { 
   getToolStays, getToolQuotes, StayRecord, QuoteRecord, 
-  getToolClients, Client, deleteToolStay, deleteToolQuote, updateToolStay, uploadStayAttachment
+  getToolClients, ToolClient, deleteToolStay, deleteToolQuote, updateToolStay, uploadStayAttachment,
+  getAllToolStays, getAllToolQuotes, getAllToolClients
 } from '../utils/toolStorage';
 import { getShipmentAttachmentUrl } from '../lib/db';
-import type { User as AppUser } from '../types';
+import type { User as AppUser, Shipment, Cargo, Client as AppClient } from '../types';
+import { UserProfile, ShipmentStatus } from '../types';
 
 interface ToolsHistoryPageProps {
   currentUser: AppUser | null;
+  shipments?: Shipment[];
+  cargos?: Cargo[];
+  clients?: AppClient[];
 }
 
-export default function ToolsHistoryPage({ currentUser }: ToolsHistoryPageProps) {
+export default function ToolsHistoryPage({ currentUser, shipments = [], cargos = [], clients: propsClients = [] }: ToolsHistoryPageProps) {
   const [activeView, setActiveView] = useState<'estadias' | 'cotacoes'>('estadias');
   const [stays, setStays] = useState<StayRecord[]>([]);
   const [quotes, setQuotes] = useState<QuoteRecord[]>([]);
-  const [clients, setClients] = useState<Client[]>([]);
+  const [clients, setClients] = useState<ToolClient[]>([]);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  const [editValues, setEditValues] = useState<{id: string, approved: string, paid: string, cteFile?: File | null, paymentFile?: File | null} | null>(null);
+  const [editValues, setEditValues] = useState<{
+    id: string, 
+    approved: string, 
+    paid: string, 
+    cteFile?: File | null, 
+    paymentFile?: File | null,
+    clientName: string,
+    driver: string,
+    plate: string,
+    weight: string,
+    origin: string,
+    destination: string,
+    shipmentId: string,
+    invoice: string
+  } | null>(null);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [shipmentSearchTerm, setShipmentSearchTerm] = useState('');
+  const [isShipmentDropdownOpen, setIsShipmentDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsShipmentDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [dateStart, setDateStart] = useState('');
@@ -39,11 +71,16 @@ export default function ToolsHistoryPage({ currentUser }: ToolsHistoryPageProps)
 
   const loadData = useCallback(async () => {
     if (!currentUser) return;
+    
+    // Check if user is an administrator/manager who should see everything
+    const isAdmin = [UserProfile.Admin, UserProfile.Diretor, UserProfile.Supervisor].includes(currentUser.profile);
+    
     const [staysData, quotesData, clientsData] = await Promise.all([
-      getToolStays(currentUser.id),
-      getToolQuotes(currentUser.id),
-      getToolClients(currentUser.id),
+      isAdmin ? getAllToolStays() : getToolStays(currentUser.id),
+      isAdmin ? getAllToolQuotes() : getToolQuotes(currentUser.id),
+      isAdmin ? getAllToolClients() : getToolClients(currentUser.id),
     ]);
+    
     setStays(staysData);
     setQuotes(quotesData);
     setClients(clientsData);
@@ -109,6 +146,8 @@ export default function ToolsHistoryPage({ currentUser }: ToolsHistoryPageProps)
     if (expandedId === id) {
       setExpandedId(null);
       setEditValues(null);
+      setShipmentSearchTerm('');
+      setIsShipmentDropdownOpen(false);
     } else {
       setExpandedId(id);
       const stay = stays.find(s => s.id === id);
@@ -116,12 +155,64 @@ export default function ToolsHistoryPage({ currentUser }: ToolsHistoryPageProps)
         setEditValues({
           id,
           approved: stay.approvedValue != null ? stay.approvedValue.toString() : '',
-          paid: stay.driverPaidValue != null ? stay.driverPaidValue.toString() : ''
+          paid: stay.driverPaidValue != null ? stay.driverPaidValue.toString() : '',
+          clientName: stay.clientName || '',
+          driver: stay.driver || '',
+          plate: stay.plate || '',
+          weight: stay.weight != null ? stay.weight.toString() : '',
+          origin: stay.origin || '',
+          destination: stay.destination || '',
+          shipmentId: stay.shipmentId || '',
+          invoice: stay.invoice || ''
         });
+        
+        if (stay.shipmentId && (shipments || []).length > 0) {
+          const s = (shipments || []).find(sh => sh.id === stay.shipmentId);
+          if (s) {
+            setShipmentSearchTerm(`${s.horsePlate} - ${s.driverName} - ID: ${s.id}`);
+          } else {
+            setShipmentSearchTerm(`ID: ${stay.shipmentId}`);
+          }
+        } else {
+          setShipmentSearchTerm('');
+        }
       } else {
         setEditValues(null);
+        setShipmentSearchTerm('');
       }
+      setIsShipmentDropdownOpen(false);
     }
+  };
+
+  const handleShipmentSelect = (shipmentId: string) => {
+    if (!editValues) return;
+
+    if (!shipmentId) {
+      setEditValues(prev => prev ? { ...prev, shipmentId: '' } : null);
+      setShipmentSearchTerm('');
+      setIsShipmentDropdownOpen(false);
+      return;
+    }
+
+    const shipment = (shipments || []).find(s => s.id === shipmentId);
+    if (!shipment) return;
+
+    const cargo = (cargos || []).find(c => c.id === shipment.cargoId);
+    const client = cargo ? (propsClients || []).find(c => c.id === cargo.clientId) : null;
+
+    setEditValues(prev => prev ? ({
+      ...prev,
+      shipmentId,
+      driver: shipment.driverName || prev.driver,
+      plate: shipment.horsePlate || prev.plate,
+      weight: shipment.shipmentTonnage ? shipment.shipmentTonnage.toString() : prev.weight,
+      origin: cargo?.origin || prev.origin,
+      destination: cargo?.destination || prev.destination,
+      clientName: client?.nomeFantasia || client?.razaoSocial || prev.clientName,
+    }) : null);
+    
+    setShipmentSearchTerm(`${shipment.horsePlate} - ${shipment.driverName} - ID: ${shipment.id}`);
+    setIsShipmentDropdownOpen(false);
   };
 
   const handleSaveStayFinancials = async () => {
@@ -132,15 +223,23 @@ export default function ToolsHistoryPage({ currentUser }: ToolsHistoryPageProps)
       let paymentProofUrl: string | undefined = undefined;
 
       if (editValues.cteFile) {
-        cteUrl = await uploadStayAttachment(editValues.id, 'cte_complementar', editValues.cteFile);
+        cteUrl = (await uploadStayAttachment(editValues.id, 'cte_complementar', editValues.cteFile)) || undefined;
       }
       if (editValues.paymentFile) {
-        paymentProofUrl = await uploadStayAttachment(editValues.id, 'comprovante_pagamento', editValues.paymentFile);
+        paymentProofUrl = (await uploadStayAttachment(editValues.id, 'comprovante_pagamento', editValues.paymentFile)) || undefined;
       }
 
       const updates: Partial<StayRecord> = {
         approvedValue: editValues.approved ? parseFloat(editValues.approved) : undefined,
         driverPaidValue: editValues.paid ? parseFloat(editValues.paid) : undefined,
+        clientName: editValues.clientName || undefined,
+        driver: editValues.driver || undefined,
+        plate: editValues.plate || undefined,
+        weight: parseFloat(editValues.weight) || 0,
+        origin: editValues.origin || undefined,
+        destination: editValues.destination || undefined,
+        shipmentId: editValues.shipmentId || undefined,
+        invoice: editValues.invoice || undefined,
         ...(cteUrl && { cteUrl }),
         ...(paymentProofUrl && { paymentProofUrl })
       };
@@ -374,13 +473,102 @@ export default function ToolsHistoryPage({ currentUser }: ToolsHistoryPageProps)
                                  <div className="text-[10px] text-slate-500 mt-1">({formatCurrency(item.valuePerHour)} / Ton-Hora)</div>
                                </div>
 
-                               <div className="pt-3 border-t border-slate-100 dark:border-gray-700 space-y-3">
+                               <div className="pt-3 border-t border-slate-100 dark:border-gray-700 space-y-4">
+                                 {/* Edit Core Data Section */}
+                                 <div className="bg-slate-50 dark:bg-gray-900/50 p-4 rounded-xl border border-slate-100 dark:border-gray-700 space-y-4">
+                                   <h5 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Editar Dados Gerais / Vínculo</h5>
+                                   
+                                   <div className="space-y-2">
+                                     <label className="text-[10px] text-slate-400 font-bold uppercase block">Vincular a Embarque</label>
+                                     <div className="relative" ref={dropdownRef}>
+                                       <input
+                                         type="text"
+                                         placeholder="Pesquise por placa, motorista ou ID..."
+                                         value={shipmentSearchTerm}
+                                         onChange={(e) => {
+                                           setShipmentSearchTerm(e.target.value);
+                                           if (editValues?.shipmentId) setEditValues(prev => prev ? { ...prev, shipmentId: '' } : null);
+                                           setIsShipmentDropdownOpen(true);
+                                         }}
+                                         onFocus={() => setIsShipmentDropdownOpen(true)}
+                                         className="w-full px-3 py-1.5 text-sm border border-slate-200 dark:border-gray-600 dark:text-white dark:bg-gray-700 rounded-lg outline-none focus:border-indigo-500"
+                                       />
+                                       
+                                       {isShipmentDropdownOpen && (
+                                         <div className="absolute z-50 mt-1 w-full bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-lg shadow-xl max-h-60 overflow-y-auto">
+                                           <div 
+                                             className="px-3 py-2 cursor-pointer hover:bg-indigo-50 dark:hover:bg-indigo-900/30 text-xs text-slate-600 dark:text-gray-400 border-b border-slate-100 dark:border-gray-700"
+                                             onClick={() => handleShipmentSelect('')}
+                                           >
+                                             -- Remover vínculo --
+                                           </div>
+                                           {(shipments || []).filter(s => {
+                                             const term = shipmentSearchTerm.toLowerCase();
+                                             if (!term || (editValues && editValues.shipmentId)) return true;
+                                             return s.id.toLowerCase().includes(term) ||
+                                                    (s.horsePlate && s.horsePlate.toLowerCase().includes(term)) ||
+                                                    (s.driverName && s.driverName.toLowerCase().includes(term));
+                                           }).slice(0, 10).map(s => (
+                                             <div 
+                                               key={s.id} 
+                                               onClick={() => handleShipmentSelect(s.id)}
+                                               className={`px-3 py-2 cursor-pointer text-xs transition-colors ${editValues?.shipmentId === s.id ? 'bg-indigo-100 dark:bg-indigo-900/50 text-indigo-900 dark:text-indigo-200' : 'hover:bg-indigo-50 dark:hover:bg-indigo-900/30 text-slate-700 dark:text-gray-300'}`}
+                                             >
+                                               <div className="font-bold">{s.horsePlate} - {s.driverName}</div>
+                                               <div className="opacity-75 mt-0.5">ID: {s.id}</div>
+                                             </div>
+                                           ))}
+                                         </div>
+                                       )}
+                                     </div>
+                                   </div>
+
+                                   <div className="grid grid-cols-2 gap-3">
+                                      <div>
+                                        <label className="text-[10px] text-slate-400 font-bold uppercase block mb-1">Motorista</label>
+                                        <input 
+                                          type="text" 
+                                          value={editValues?.id === item.id ? editValues?.driver : ''} 
+                                          onChange={e => setEditValues(prev => prev ? {...prev, driver: e.target.value} : null)}
+                                          className="w-full px-3 py-1.5 text-sm border border-slate-200 dark:border-gray-600 dark:text-white dark:bg-gray-700 rounded-lg outline-none focus:border-indigo-500"
+                                        />
+                                      </div>
+                                      <div>
+                                        <label className="text-[10px] text-slate-400 font-bold uppercase block mb-1">Placa</label>
+                                        <input 
+                                          type="text" 
+                                          value={editValues?.id === item.id ? editValues?.plate : ''} 
+                                          onChange={e => setEditValues(prev => prev ? {...prev, plate: e.target.value} : null)}
+                                          className="w-full px-3 py-1.5 text-sm border border-slate-200 dark:border-gray-600 dark:text-white dark:bg-gray-700 rounded-lg outline-none focus:border-indigo-500"
+                                        />
+                                      </div>
+                                      <div>
+                                        <label className="text-[10px] text-slate-400 font-bold uppercase block mb-1">Peso (Ton)</label>
+                                        <input 
+                                          type="number" 
+                                          value={editValues?.id === item.id ? editValues?.weight : ''} 
+                                          onChange={e => setEditValues(prev => prev ? {...prev, weight: e.target.value} : null)}
+                                          className="w-full px-3 py-1.5 text-sm border border-slate-200 dark:border-gray-600 dark:text-white dark:bg-gray-700 rounded-lg outline-none focus:border-indigo-500"
+                                        />
+                                      </div>
+                                      <div>
+                                        <label className="text-[10px] text-slate-400 font-bold uppercase block mb-1">NF</label>
+                                        <input 
+                                          type="text" 
+                                          value={editValues?.id === item.id ? editValues?.invoice : ''} 
+                                          onChange={e => setEditValues(prev => prev ? {...prev, invoice: e.target.value} : null)}
+                                          className="w-full px-3 py-1.5 text-sm border border-slate-200 dark:border-gray-600 dark:text-white dark:bg-gray-700 rounded-lg outline-none focus:border-indigo-500"
+                                        />
+                                      </div>
+                                   </div>
+                                 </div>
+
                                  <div>
                                    <label className="text-[10px] text-slate-400 font-bold uppercase mb-1 block">Valor Aprovado (Receita)</label>
                                    <div className="flex gap-2 items-center">
                                      <input 
                                        type="number" 
-                                       value={editValues?.id === item.id ? editValues.approved : ''} 
+                                       value={editValues?.id === item.id ? editValues?.approved : ''} 
                                        onChange={e => setEditValues(prev => prev ? {...prev, approved: e.target.value} : null)}
                                        placeholder="R$ 0,00"
                                        className="w-full px-3 py-1.5 text-sm border border-slate-200 dark:border-gray-600 dark:text-white dark:bg-gray-700 rounded-lg outline-none focus:border-indigo-500"
@@ -397,10 +585,10 @@ export default function ToolsHistoryPage({ currentUser }: ToolsHistoryPageProps)
                                        />
                                      </label>
                                    </div>
-                                   {editValues?.id === item.id && editValues.cteFile && (
+                                   {editValues?.id === item.id && editValues?.cteFile && (
                                      <div className="text-[10px] text-indigo-500 mt-1 truncate">Anexo: {editValues.cteFile.name}</div>
                                    )}
-                                   {item.cteUrl && !(editValues?.id === item.id && editValues.cteFile) && (
+                                   {item.cteUrl && !(editValues?.id === item.id && editValues?.cteFile) && (
                                      <a href={getShipmentAttachmentUrl(item.cteUrl)} target="_blank" rel="noopener noreferrer" className="text-[10px] text-indigo-500 hover:underline mt-1 block">Ver CTe Anexado</a>
                                    )}
                                  </div>
@@ -409,7 +597,7 @@ export default function ToolsHistoryPage({ currentUser }: ToolsHistoryPageProps)
                                    <div className="flex gap-2 items-center">
                                      <input 
                                        type="number" 
-                                       value={editValues?.id === item.id ? editValues.paid : ''} 
+                                       value={editValues?.id === item.id ? editValues?.paid : ''} 
                                        onChange={e => setEditValues(prev => prev ? {...prev, paid: e.target.value} : null)}
                                        placeholder="R$ 0,00"
                                        className="w-full px-3 py-1.5 text-sm border border-slate-200 dark:border-gray-600 dark:text-white dark:bg-gray-700 rounded-lg outline-none focus:border-indigo-500"
@@ -426,10 +614,10 @@ export default function ToolsHistoryPage({ currentUser }: ToolsHistoryPageProps)
                                        />
                                      </label>
                                    </div>
-                                   {editValues?.id === item.id && editValues.paymentFile && (
+                                   {editValues?.id === item.id && editValues?.paymentFile && (
                                      <div className="text-[10px] text-indigo-500 mt-1 truncate">Anexo: {editValues.paymentFile.name}</div>
                                    )}
-                                   {item.paymentProofUrl && !(editValues?.id === item.id && editValues.paymentFile) && (
+                                   {item.paymentProofUrl && !(editValues?.id === item.id && editValues?.paymentFile) && (
                                      <a href={getShipmentAttachmentUrl(item.paymentProofUrl)} target="_blank" rel="noopener noreferrer" className="text-[10px] text-indigo-500 hover:underline mt-1 block">Ver Comprovante Anexado</a>
                                    )}
                                  </div>
@@ -445,7 +633,7 @@ export default function ToolsHistoryPage({ currentUser }: ToolsHistoryPageProps)
                                      disabled={isSavingEdit}
                                      className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg transition-colors disabled:opacity-50"
                                    >
-                                     {isSavingEdit ? 'Salvando...' : 'Salvar'}
+                                     {isSavingEdit ? 'Salvando...' : 'Salvar Alterações'}
                                    </button>
                                  </div>
                                </div>

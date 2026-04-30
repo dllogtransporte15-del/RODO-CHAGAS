@@ -4,7 +4,7 @@ import { supabase } from '../supabase';
 // Types
 // =============================================
 
-export interface Client {
+export interface ToolClient {
   id: string;
   name: string;
 }
@@ -61,7 +61,7 @@ export interface QuoteRecord {
 // Client Management
 // =============================================
 
-export async function getToolClients(userId: string): Promise<Client[]> {
+export async function getToolClients(userId: string): Promise<ToolClient[]> {
   if (!userId) return [];
 
   const { data, error } = await supabase
@@ -78,7 +78,32 @@ export async function getToolClients(userId: string): Promise<Client[]> {
   return (data ?? []).map(row => ({ id: row.id, name: row.name }));
 }
 
-export async function saveToolClient(userId: string, name: string): Promise<Client | null> {
+export async function getAllToolClients(): Promise<ToolClient[]> {
+  const { data, error } = await supabase
+    .from('tool_clients')
+    .select('id, name')
+    .order('name');
+
+  if (error) {
+    console.error('Erro ao buscar todos os clientes:', error);
+    return [];
+  }
+
+  // Remove duplicates by name if multiple users saved the same client name
+  const uniqueNames = new Set<string>();
+  const uniqueClients: ToolClient[] = [];
+  
+  (data ?? []).forEach(row => {
+    if (!uniqueNames.has(row.name.toLowerCase())) {
+      uniqueNames.add(row.name.toLowerCase());
+      uniqueClients.push({ id: row.id, name: row.name });
+    }
+  });
+
+  return uniqueClients;
+}
+
+export async function saveToolClient(userId: string, name: string): Promise<ToolClient | null> {
   if (!userId || !name.trim()) return null;
 
   const { data, error } = await supabase
@@ -309,11 +334,26 @@ export async function updateToolStay(
   updates: Partial<StayRecord>
 ): Promise<StayRecord | null> {
   const payload: any = {};
+  if (updates.clientName !== undefined) payload.client_name = updates.clientName;
+  if (updates.driver !== undefined) payload.driver = updates.driver;
+  if (updates.plate !== undefined) payload.plate = updates.plate;
+  if (updates.invoice !== undefined) payload.invoice = updates.invoice;
+  if (updates.origin !== undefined) payload.origin = updates.origin;
+  if (updates.destination !== undefined) payload.destination = updates.destination;
+  if (updates.location !== undefined) payload.location = updates.location;
+  if (updates.entryDate !== undefined) payload.entry_date = updates.entryDate;
+  if (updates.exitDate !== undefined) payload.exit_date = updates.exitDate;
+  if (updates.totalHours !== undefined) payload.total_hours = updates.totalHours;
+  if (updates.weight !== undefined) payload.weight = updates.weight;
+  if (updates.valuePerHour !== undefined) payload.value_per_hour = updates.valuePerHour;
+  if (updates.tolerance !== undefined) payload.tolerance = updates.tolerance;
+  if (updates.totalValue !== undefined) payload.total_value = updates.totalValue;
   if (updates.approvedValue !== undefined) payload.approved_value = updates.approvedValue;
   if (updates.driverPaidValue !== undefined) payload.driver_paid_value = updates.driverPaidValue;
   if (updates.cteUrl !== undefined) payload.cte_url = updates.cteUrl;
   if (updates.paymentProofUrl !== undefined) payload.payment_proof_url = updates.paymentProofUrl;
   if (updates.status !== undefined) payload.status = updates.status;
+  if (updates.shipmentId !== undefined) payload.shipment_id = updates.shipmentId;
 
   if (Object.keys(payload).length === 0) return null;
 
@@ -372,6 +412,41 @@ export async function getToolQuotes(userId: string): Promise<QuoteRecord[]> {
 
   if (error) {
     console.error('Erro ao buscar cotações:', error);
+    return [];
+  }
+
+  return (data ?? []).map(row => ({
+    id: row.id,
+    clientName: row.client_name ?? undefined,
+    date: row.created_at,
+    origin: row.origin,
+    destination: row.destination,
+    distance: Number(row.distance),
+    axes: Number(row.axes),
+    cargoType: row.cargo_type,
+    inputMode: row.input_mode as 'PER_KM' | 'PER_TON',
+    valuePerKm: Number(row.value_per_km),
+    driverTotalValue: Number(row.driver_total_value),
+    tollValue: Number(row.toll_value),
+    anttValue: Number(row.antt_value),
+    weight: Number(row.weight),
+    margin: Number(row.margin),
+    driverFreightPerTon: Number(row.driver_freight_per_ton),
+    companyFreightPerTon: Number(row.company_freight_per_ton),
+    companyTotalFreight: Number(row.company_total_freight),
+    carrierNetProfit: Number(row.carrier_net_profit),
+    carrierProfitMargin: Number(row.carrier_profit_margin),
+  }));
+}
+
+export async function getAllToolQuotes(): Promise<QuoteRecord[]> {
+  const { data, error } = await supabase
+    .from('tool_quotes')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Erro ao buscar todas as cotações:', error);
     return [];
   }
 

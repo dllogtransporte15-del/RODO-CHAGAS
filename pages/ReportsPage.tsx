@@ -16,7 +16,7 @@ import ExternalSalespersonReport from '../components/reports/ExternalSalesperson
 import BranchReport from '../components/reports/BranchReport';
 import StayFinancialReport from '../components/reports/StayFinancialReport';
 import MultiSelectDropdown from '../components/MultiSelectDropdown';
-import { getAllToolStays, StayRecord } from '../utils/toolStorage';
+import { getAllToolStays, getToolStays, StayRecord } from '../utils/toolStorage';
 
 interface ReportsPageProps {
   shipments: Shipment[];
@@ -57,8 +57,9 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, carg
       if (!currentUser) return;
       setLoadingStays(true);
       try {
-        // Fetch all stays for the report
-        const allStays = await getAllToolStays();
+        // Fetch stays for the report - respect permissions
+        const isAdmin = [UserProfile.Admin, UserProfile.Diretor, UserProfile.Supervisor].includes(currentUser.profile);
+        const allStays = isAdmin ? await getAllToolStays() : await getToolStays(currentUser.id);
         setStays(allStays);
       } catch (err) {
         console.error('Error fetching stays for report:', err);

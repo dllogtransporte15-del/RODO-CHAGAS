@@ -1876,7 +1876,7 @@ const App: React.FC = () => {
       case 'freight-quote':
         return <FreightQuotePage currentUser={currentUser} />;
       case 'tools-history':
-        return <ToolsHistoryPage currentUser={currentUser} />;
+        return <ToolsHistoryPage currentUser={currentUser} shipments={shipments} cargos={cargos} clients={clients} />;
       case 'branches':
         return <BranchesPage branches={branches} onSaveBranch={handleSaveBranch} onDeleteBranch={handleDeleteBranch} currentUser={currentUser} profilePermissions={profilePermissions} />;
       default:

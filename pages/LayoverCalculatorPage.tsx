@@ -9,8 +9,8 @@ import {
   Save, Trash2, CheckCircle2, Building2, Loader2 
 } from 'lucide-react';
 import Header from '../components/Header';
-import { saveToolStay, getToolClients, saveToolClient, Client } from '../utils/toolStorage';
-import { User as AppUser, Shipment, Cargo, Client as AppClient, ShipmentStatus } from '../types';
+import { saveToolStay, getToolClients, saveToolClient, ToolClient, getAllToolClients } from '../utils/toolStorage';
+import { User as AppUser, Shipment, Cargo, Client as AppClient, ShipmentStatus, UserProfile } from '../types';
 
 interface StayData {
   clientName: string;
@@ -25,6 +25,7 @@ interface StayData {
   tolerance: string;
   entryDate: string;
   exitDate: string;
+  shipmentId?: string;
 }
 
 interface LayoverCalculatorPageProps {
@@ -35,12 +36,13 @@ interface LayoverCalculatorPageProps {
 }
 
 export default function LayoverCalculatorPage({ currentUser, shipments, cargos, clients: appClients }: LayoverCalculatorPageProps) {
-  const [clients, setClients] = useState<Client[]>([]);
+  const [clients, setClients] = useState<ToolClient[]>([]);
   const [isSaving, setIsSaving] = useState(false);
 
   const loadClients = useCallback(async () => {
     if (!currentUser) return;
-    const data = await getToolClients(currentUser.id);
+    const isAdmin = [UserProfile.Admin, UserProfile.Diretor, UserProfile.Supervisor].includes(currentUser.profile);
+    const data = await (isAdmin ? getAllToolClients() : getToolClients(currentUser.id));
     setClients(data);
   }, [currentUser]);
 
@@ -117,7 +119,7 @@ export default function LayoverCalculatorPage({ currentUser, shipments, cargos, 
       weight: shipment.shipmentTonnage ? shipment.shipmentTonnage.toString() : '',
       origin: cargo?.origin || '',
       destination: cargo?.destination || '',
-      clientName: client?.name || prev.clientName,
+      clientName: client?.nomeFantasia || client?.razaoSocial || prev.clientName,
     }));
     setShipmentSearchTerm(`${shipment.horsePlate} - ${shipment.driverName} - ID: ${shipment.id}`);
     setIsShipmentDropdownOpen(false);
@@ -367,7 +369,7 @@ export default function LayoverCalculatorPage({ currentUser, shipments, cargos, 
                           >
                             <div className="font-medium">{s.horsePlate} - {s.driverName}</div>
                             <div className="text-xs opacity-75 mt-0.5">
-                              ID: {s.id} | {client?.name || 'Sem cliente'} | {cargo?.origin} → {cargo?.destination}
+                              ID: {s.id} | {client?.nomeFantasia || client?.razaoSocial || 'Sem cliente'} | {cargo?.origin} → {cargo?.destination}
                             </div>
                           </div>
                         );

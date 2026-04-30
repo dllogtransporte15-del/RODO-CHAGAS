@@ -14,7 +14,7 @@ import {
   FileCode, Clock, Search
 } from 'lucide-react';
 import Header from '../components/Header';
-import { saveToolQuote, getToolClients, saveToolClient, Client } from '../utils/toolStorage';
+import { saveToolQuote, getToolClients, saveToolClient, ToolClient } from '../utils/toolStorage';
 import type { User as AppUser } from '../types';
 
 // Fix Leaflet icon issue by using CDN directly to prevent webpack/vite breaking the image paths
@@ -88,7 +88,7 @@ function MapUpdater({ origin, dest, routeCoords }: { origin?: Location | null, d
 }
 
 export default function FreightQuotePage({ currentUser }: FreightQuotePageProps) {
-  const [clients, setClients] = useState<Client[]>([]);
+  const [clients, setClients] = useState<ToolClient[]>([]);
   const [loading, setLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null);
