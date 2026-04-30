@@ -14,6 +14,7 @@ interface ShipperStat {
   id: string;
   name: string;
   vehicleCount: number;
+  shipmentCount: number;
   netMargin: number;
   effectiveTonnage: number;
   commission: number;
@@ -40,6 +41,7 @@ const ShipperRankingCard: React.FC<ShipperRankingCardProps> = ({ shipments, carg
       const uniqueVehicles = new Set<string>();
       let netMargin = 0;
       let effectiveTonnage = 0;
+      let shipmentCount = 0;
 
       shipperShipments.forEach(shipment => {
         const effectiveEntry = shipment.statusHistory?.find(h => h.status === ShipmentStatus.AguardandoNota);
@@ -49,6 +51,7 @@ const ShipperRankingCard: React.FC<ShipperRankingCardProps> = ({ shipments, carg
           const isCurrentMonth = referenceDate.getMonth() === currentMonth && referenceDate.getFullYear() === currentYear;
 
           if (isCurrentMonth) {
+            shipmentCount++;
             if (shipment.horsePlate) {
                 uniqueVehicles.add(shipment.horsePlate);
             }
@@ -72,6 +75,7 @@ const ShipperRankingCard: React.FC<ShipperRankingCardProps> = ({ shipments, carg
         id: shipper.id,
         name: shipper.name,
         vehicleCount: uniqueVehicles.size,
+        shipmentCount,
         netMargin: netMargin,
         effectiveTonnage,
         commission
@@ -96,6 +100,7 @@ const ShipperRankingCard: React.FC<ShipperRankingCardProps> = ({ shipments, carg
               <th className="py-2 px-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">#</th>
               <th className="py-2 px-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">Embarcador</th>
               <th className="py-2 px-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">Veículos</th>
+              <th className="py-2 px-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">Embarques</th>
               <th className="py-2 px-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">T. Efetivas</th>
 
               {canViewCommission && <th className="py-2 px-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">Comissão</th>}
@@ -107,6 +112,7 @@ const ShipperRankingCard: React.FC<ShipperRankingCardProps> = ({ shipments, carg
                 <td className="py-3 px-3 text-sm font-medium text-gray-500 dark:text-gray-400">{index + 1}</td>
                 <td className="py-3 px-3 text-sm font-medium text-gray-900 dark:text-white">{stat.name}</td>
                 <td className="py-3 px-3 text-sm text-center text-gray-500 dark:text-gray-400">{stat.vehicleCount}</td>
+                <td className="py-3 px-3 text-sm text-center text-gray-500 dark:text-gray-400">{stat.shipmentCount}</td>
                 <td className="py-3 px-3 text-sm text-center font-medium text-gray-700 dark:text-gray-300">{stat.effectiveTonnage.toLocaleString('pt-BR')} t</td>
 
                 {canViewCommission && <td className="py-3 px-3 text-sm text-right font-semibold text-emerald-600 dark:text-emerald-400">{formatCurrency(stat.commission)}</td>}
@@ -114,7 +120,7 @@ const ShipperRankingCard: React.FC<ShipperRankingCardProps> = ({ shipments, carg
             ))}
             {shipperStats.length === 0 && (
                 <tr>
-                    <td colSpan={canViewCommission ? 5 : 4} className="py-4 px-3 text-center text-sm text-gray-500 dark:text-gray-400">Nenhum embarcador com movimentação.</td>
+                    <td colSpan={canViewCommission ? 6 : 5} className="py-4 px-3 text-center text-sm text-gray-500 dark:text-gray-400">Nenhum embarcador com movimentação.</td>
                 </tr>
             )}
           </tbody>
