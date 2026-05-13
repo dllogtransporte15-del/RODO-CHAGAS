@@ -512,7 +512,10 @@ const App: React.FC = () => {
 
     let newDrivers = [...drivers];
     let addedDrivers: Driver[] = [];
-    let driverToUse = drivers.find(d => d.name.trim().toLowerCase() === data.driverName.trim().toLowerCase());
+    let driverToUse = drivers.find(d => 
+        (d.name.trim().toLowerCase() === data.driverName.trim().toLowerCase() && data.driverName.trim() !== '') || 
+        (d.cpf.replace(/\D/g, '') === (data.driverCpf || '').replace(/\D/g, '') && (data.driverCpf || '').trim() !== '')
+    );
     if (!driverToUse) {
       const newDriverId = formatId(currentNextIds.driver, 'DRV');
       driverToUse = {
@@ -1394,7 +1397,13 @@ const App: React.FC = () => {
       setDrivers(prev => [saved, ...prev]);
       setNextIds((prev: any) => ({ ...prev, driver: prev.driver + 1 }));
     }
-    try { await upsertDriver(saved); } catch(err) { console.error('Erro ao salvar motorista:', err); }
+    try { 
+      await upsertDriver(saved); 
+      showToast('Motorista salvo com sucesso!', 'success');
+    } catch(err: any) { 
+      console.error('Erro ao salvar motorista:', err); 
+      showToast(`Erro ao salvar motorista: ${err.message || 'Erro desconhecido'}`, 'error');
+    }
   };
 
   const handleSaveVehicle = async (vehicleData: Vehicle | Omit<Vehicle, 'id'>) => {
@@ -1408,7 +1417,13 @@ const App: React.FC = () => {
       setVehicles(prev => [saved, ...prev]);
       setNextIds((prev: any) => ({ ...prev, vehicle: prev.vehicle + 1 }));
     }
-    try { await upsertVehicle(saved); } catch(err) { console.error('Erro ao salvar veículo:', err); }
+    try { 
+      await upsertVehicle(saved); 
+      showToast('Veículo salvo com sucesso!', 'success');
+    } catch(err: any) { 
+      console.error('Erro ao salvar veículo:', err); 
+      showToast(`Erro ao salvar veículo: ${err.message || 'Erro desconhecido'}`, 'error');
+    }
   };
 
   const handleSaveProduct = async (productData: Product | Omit<Product, 'id'>) => {

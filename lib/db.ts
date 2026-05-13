@@ -76,7 +76,7 @@ const fromDriver = (d: Driver | Omit<Driver, 'id'>) => ({
   cnh: d.cnh,
   phone: d.phone,
   classification: d.classification,
-  owner_id: d.ownerId,
+  owner_id: d.ownerId || null,
   active: d.active !== undefined ? d.active : true,
   restriction_reason: d.restrictionReason,
 });
@@ -97,8 +97,8 @@ const fromVehicle = (v: Vehicle | Omit<Vehicle, 'id'>) => ({
   set_type: v.setType,
   body_type: v.bodyType,
   classification: v.classification,
-  driver_id: v.driverId,
-  owner_id: v.ownerId,
+  driver_id: v.driverId || null,
+  owner_id: v.ownerId || null,
 });
 
 const toProduct = (row: any): Product => ({

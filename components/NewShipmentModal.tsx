@@ -144,9 +144,9 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
 
     if (selectedDriver) {
         // Sync Fields
-        if (driverByName && selectedDriver.cpf && selectedDriver.cpf.replace(/\D/g, '') !== cleanCpf) {
+        if (driverByName && selectedDriver.cpf && selectedDriver.cpf.replace(/\D/g, '') !== cleanCpf && !driverCpf) {
             setDriverCpf(selectedDriver.cpf);
-        } else if (driverByCpf && selectedDriver.name.trim().toLowerCase() !== cleanName) {
+        } else if (driverByCpf && selectedDriver.name.trim().toLowerCase() !== cleanName && !driverName) {
             setDriverName(selectedDriver.name);
         }
 
