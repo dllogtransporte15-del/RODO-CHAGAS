@@ -476,10 +476,16 @@ const App: React.FC = () => {
   }, [currentUser, users]);
 
 
-  const inProgressLoads = useMemo(() => 
-    visibleLoads.filter(c => c.status === CargoStatus.EmAndamento || c.status === CargoStatus.Suspensa),
-    [visibleLoads]
-  );
+  const inProgressLoads = useMemo(() => {
+    const today = new Date().toISOString().split('T')[0];
+    return visibleLoads.filter(c => {
+      if (c.status === CargoStatus.Suspensa) return true;
+      if (c.status === CargoStatus.EmAndamento) {
+        return c.dailySchedule?.some(ds => ds.date >= today);
+      }
+      return false;
+    });
+  }, [visibleLoads]);
 
   const activeLoads = useMemo(() => 
     visibleLoads.filter(c => c.status !== CargoStatus.Fechada),

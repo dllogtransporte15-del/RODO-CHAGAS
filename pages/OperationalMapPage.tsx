@@ -105,8 +105,12 @@ const OperationalMapPage: React.FC<OperationalMapPageProps> = ({ cargos, shipmen
   };
 
   const loadsWithCoords = useMemo(() => {
+    const today = new Date().toISOString().split('T')[0];
     return cargos
-      .filter(c => c.status === CargoStatus.EmAndamento)
+      .filter(c => {
+        if (c.status !== CargoStatus.EmAndamento) return false;
+        return c.dailySchedule?.some(ds => ds.date >= today);
+      })
       .map(c => {
         // Use coordinates stored in DB, otherwise try synchronous fallback (for old loads), or skip
         const originCoords = c.originCoords || getCoordsSync(c.origin);
