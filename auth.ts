@@ -21,7 +21,7 @@ const createPermissions = (pages: Page[], readOnly = false): { [key in Page]?: C
 const supervisorAndDiretorPages = allPages.filter(p => p !== 'appearance');
 export const INITIAL_PERMISSIONS: ProfilePermissions = {
   [UserProfile.Comercial]: createPermissions(['dashboard', 'clients', 'owners', 'drivers', 'vehicles', 'loads', 'shipments', 'reports', 'operational-loads', 'financial', 'operational-map', 'commissions', 'shipment-history', 'load-history', 'layover-calculator', 'freight-quote']),
-  [UserProfile.Fiscal]: createPermissions(['dashboard', 'shipments', 'reports', 'shipment-history', 'load-history'], true),
+  [UserProfile.Fiscal]: createPermissions(['dashboard', 'shipments', 'shipment-history', 'load-history'], true),
   [UserProfile.Financeiro]: createPermissions(['dashboard', 'shipments', 'reports', 'financial', 'commissions', 'shipment-history', 'load-history'], true),
   [UserProfile.Embarcador]: createPermissions(['dashboard', 'reports', 'operational-loads', 'shipments', 'operational-map', 'shipment-history', 'load-history', 'layover-calculator'], true),
   [UserProfile.Cliente]: createPermissions(['dashboard', 'loads', 'shipments', 'shipment-history', 'load-history'], true),
@@ -49,6 +49,9 @@ export const can = (
   
   // Admin can do everything, always.
   if (user.profile === UserProfile.Admin) return true;
+
+  // Explicitly block 'reports' for 'Fiscal' profile as requested, overriding DB
+  if (user.profile === UserProfile.Fiscal && page === 'reports') return false;
 
   const userProfilePermissions = permissions[user.profile];
   if (!userProfilePermissions) return false;

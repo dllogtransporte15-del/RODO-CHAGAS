@@ -5,7 +5,7 @@ import { useDatabase } from './hooks/useDatabase';
 import type { Client, Owner, Driver, Vehicle, Product, Cargo, Shipment, User, Page, ProfilePermissions, HistoryLog, Ticket, TicketHistory, ShipmentLock, Branch } from './types';
 import { CargoStatus, ShipmentStatus, UserProfile, TicketStatus, TicketPriority, DriverClassification, VehicleSetType, VehicleBodyType, REQUIRED_DOCUMENT_MAP } from './types';
 import { formatId } from './utils';
-import { INITIAL_PERMISSIONS } from './auth';
+import { INITIAL_PERMISSIONS, can } from './auth';
 import { useToast } from './hooks/useToast';
 
 // Page Imports
@@ -426,7 +426,7 @@ const App: React.FC = () => {
       return cargos.filter(c => c.clientId === currentUser.clientId);
     }
     // Profiles that see everything
-    if ([UserProfile.Admin, UserProfile.Diretor].includes(currentUser.profile as UserProfile)) {
+    if ([UserProfile.Admin, UserProfile.Diretor, UserProfile.Fiscal].includes(currentUser.profile as UserProfile)) {
       return cargos;
     }
     
@@ -451,7 +451,7 @@ const App: React.FC = () => {
         return shipments.filter(s => clientCargoIds.has(s.cargoId));
     }
     // Profiles that see everything
-    if ([UserProfile.Admin, UserProfile.Diretor].includes(currentUser.profile as UserProfile)) {
+    if ([UserProfile.Admin, UserProfile.Diretor, UserProfile.Fiscal].includes(currentUser.profile as UserProfile)) {
       return shipments;
     }
 
@@ -1845,6 +1845,9 @@ const App: React.FC = () => {
       case 'financial':
         return <CommissionsPage shipments={visibleShipments} cargos={cargos} users={users} />;
       case 'reports':
+        if (!can('read', currentUser, 'reports', profilePermissions)) {
+          return <DashboardPage cargos={activeLoads} shipments={visibleShipments} users={users} currentUser={currentUser} clients={clients} products={products} companyLogo={companyLogo} vehicles={vehicles} onDeleteAttachment={handleDeleteShipmentAttachment} />;
+        }
         return <ReportsPage shipments={visibleShipments} embarcadores={visibleEmbarcadores} cargos={cargos} users={users} currentUser={currentUser} clients={clients} branches={branches} />;
       case 'users-register':
         return <UsersPage 
