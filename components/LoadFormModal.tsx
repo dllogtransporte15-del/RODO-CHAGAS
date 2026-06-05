@@ -139,7 +139,8 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
         return sum + netValue;
     }, 0);
 
-    const netProfit = totalNetCompanyValue - totalDriverFreight;
+    const totalCommission = load.salespersonCommissionPerTon || 0;
+    const netProfit = totalNetCompanyValue - totalDriverFreight - totalCommission;
     const margin = (totalNetCompanyValue > 0) ? (netProfit / totalNetCompanyValue) * 100 : 0;
     
     const netMarginPercentage = isNaN(margin) || !isFinite(margin)
@@ -147,7 +148,7 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
         : `${margin.toFixed(2).replace('.', ',')}%`;
 
     return { totalCompanyFreight, totalDriverFreight, netMarginPercentage };
-  }, [load.freightLegs, hasMultiLeg]);
+  }, [load.freightLegs, hasMultiLeg, load.salespersonCommissionPerTon]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;

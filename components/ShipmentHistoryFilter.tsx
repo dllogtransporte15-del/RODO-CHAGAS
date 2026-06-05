@@ -2,6 +2,7 @@
 import React from 'react';
 import { ShipmentStatus } from '../types';
 import type { Shipment, Cargo } from '../types';
+import { StayRecord } from '../utils/toolStorage';
 
 interface ShipmentHistoryFilterProps {
   shipments: Shipment[];
@@ -16,6 +17,7 @@ interface ShipmentHistoryFilterProps {
   onMarginOperatorChange: (op: '>' | '<' | '') => void;
   marginValue: string;
   onMarginValueChange: (val: string) => void;
+  stays?: StayRecord[];
 }
 
 const ShipmentHistoryFilter: React.FC<ShipmentHistoryFilterProps> = ({ 
@@ -30,7 +32,8 @@ const ShipmentHistoryFilter: React.FC<ShipmentHistoryFilterProps> = ({
   marginOperator,
   onMarginOperatorChange,
   marginValue,
-  onMarginValueChange
+  onMarginValueChange,
+  stays = []
 }) => {
   const cargoMap = React.useMemo(() => new Map(cargos.map(c => [c.id, c])), [cargos]);
 
@@ -39,7 +42,13 @@ const ShipmentHistoryFilter: React.FC<ShipmentHistoryFilterProps> = ({
     if (!cargo) return 0;
     const grossRate = s.companyFreightRateSnapshot || cargo.companyFreightValuePerTon || 0;
     const driverRate = s.driverFreightRateSnapshot || (s.driverFreightValue / (s.shipmentTonnage || 1));
-    return (grossRate - driverRate) * s.shipmentTonnage;
+    const commissionRate = cargo.salespersonCommissionPerTon || 0;
+    
+    const demurrageProfit = stays
+        .filter(stay => stay.shipmentId === s.id)
+        .reduce((sum, stay) => sum + ((stay.approvedValue || 0) - (stay.driverPaidValue || 0)), 0);
+        
+    return ((grossRate - driverRate - commissionRate) * s.shipmentTonnage) + demurrageProfit;
   };
 
   const getStatusCount = (status: ShipmentStatus) => {

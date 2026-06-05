@@ -18,6 +18,7 @@ import { ShipmentStatus, UserProfile, REQUIRED_DOCUMENT_MAP } from '../types';
 import { can } from '../auth';
 import { tryAcquireShipmentLock, releaseShipmentLock } from '../lib/db';
 import { useEffect, useRef } from 'react';
+import { StayRecord } from '../utils/toolStorage';
 
 interface ShipmentsPageProps {
   shipments: Shipment[];
@@ -57,6 +58,7 @@ interface ShipmentsPageProps {
   companyLogo?: string | null;
   onDeleteAttachment?: (shipmentId: string, url: string) => Promise<void>;
   onSwapCargo: (shipmentId: string, newCargoId: string) => void;
+  stays?: StayRecord[];
 }
 
 
@@ -68,7 +70,7 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({
   profilePermissions, users, onUpdateAttachment, onAddAttachments, onUpdatePrice, onConfirmCancel, 
   onUpdateAnttAndBankDetails, onTransferShipment, onMarkArrival, onDeleteShipment,
   onRevertStatus, onUpdateScheduledDateTime, onUpdateShipmentData, activeLocks, onModalStateChange,
-  companyLogo, onDeleteAttachment, onSwapCargo
+  companyLogo, onDeleteAttachment, onSwapCargo, stays = []
 }) => {
 
   const [activeStatus, setActiveStatus] = useState<ShipmentStatus | 'all'>(ShipmentStatus.AguardandoSeguradora);
@@ -375,6 +377,8 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({
             client={clients.find(c => c.id === detailsModalCargo.clientId)}
             product={products.find(p => p.id === detailsModalCargo.productId)}
             commercialUser={users.find(u => u.id === detailsModalCargo.createdById)}
+            stays={stays}
+            shipments={shipments}
           />
       )}
 

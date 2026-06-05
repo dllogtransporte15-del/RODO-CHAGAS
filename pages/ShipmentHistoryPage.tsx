@@ -9,6 +9,7 @@ import CargoDetailsModal from '../components/CargoDetailsModal';
 import CancellationReasonChart from '../components/CancellationReasonChart';
 import type { Shipment, Cargo, User, Product, Client, Vehicle } from '../types';
 import { ShipmentStatus } from '../types';
+import { StayRecord } from '../utils/toolStorage';
 
 interface ShipmentHistoryPageProps {
   shipments: Shipment[];
@@ -22,9 +23,10 @@ interface ShipmentHistoryPageProps {
   onRevertStatus?: (shipmentId: string) => void;
   onDeleteAttachment?: (shipmentId: string, url: string) => Promise<void>;
   onUpdatePrice?: (shipmentId: string, data: { newTotal: number, newRate?: number, newCompanyRate?: number }) => void;
+  stays?: StayRecord[];
 }
 
-const ShipmentHistoryPage: React.FC<ShipmentHistoryPageProps> = ({ shipments, cargos, users, currentUser, clients, products, vehicles, onDeleteShipment, onRevertStatus, onDeleteAttachment, onUpdatePrice }) => {
+const ShipmentHistoryPage: React.FC<ShipmentHistoryPageProps> = ({ shipments, cargos, users, currentUser, clients, products, vehicles, onDeleteShipment, onRevertStatus, onDeleteAttachment, onUpdatePrice, stays = [] }) => {
   const [activeStatus, setActiveStatus] = useState<ShipmentStatus>(ShipmentStatus.Finalizado);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [isAttachmentModalOpen, setAttachmentModalOpen] = useState(false);
@@ -42,7 +44,13 @@ const ShipmentHistoryPage: React.FC<ShipmentHistoryPageProps> = ({ shipments, ca
     if (!cargo) return 0;
     const grossRate = s.companyFreightRateSnapshot || cargo.companyFreightValuePerTon || 0;
     const driverRate = s.driverFreightRateSnapshot || (s.driverFreightValue / (s.shipmentTonnage || 1));
-    return (grossRate - driverRate) * s.shipmentTonnage;
+    const commissionRate = cargo.salespersonCommissionPerTon || 0;
+    
+    const demurrageProfit = stays
+        .filter(stay => stay.shipmentId === s.id)
+        .reduce((sum, stay) => sum + ((stay.approvedValue || 0) - (stay.driverPaidValue || 0)), 0);
+        
+    return ((grossRate - driverRate - commissionRate) * s.shipmentTonnage) + demurrageProfit;
   };
 
   // Sync selected shipment with latest data from props
@@ -163,6 +171,7 @@ const ShipmentHistoryPage: React.FC<ShipmentHistoryPageProps> = ({ shipments, ca
         onMarginOperatorChange={setMarginOperator}
         marginValue={marginValue}
         onMarginValueChange={setMarginValue}
+        stays={stays}
       />
       <ShipmentTable 
         shipments={filteredShipments} 

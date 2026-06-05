@@ -132,9 +132,9 @@ const App: React.FC = () => {
     companyLogo, setCompanyLogo,
     themeImage, setThemeImage,
     nextIds, setNextIds,
-    loadAllData,
     isAnyModalActiveRef,
-    branches, setBranches
+    branches, setBranches,
+    stays, setStays
   } = useDatabase(currentUser);
 
   const { showToast } = useToast();
@@ -1754,7 +1754,7 @@ const App: React.FC = () => {
       return (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '60vh', gap: '16px' }}>
           <p style={{ color: '#ef4444', fontSize: '16px' }}>{loadError}</p>
-          <button onClick={() => loadAllData()} style={{ padding: '8px 16px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>Tentar novamente</button>
+          <button onClick={() => window.location.reload()} style={{ padding: '8px 16px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>Tentar novamente</button>
         </div>
       );
     }
@@ -1772,7 +1772,7 @@ const App: React.FC = () => {
       case 'vehicles':
         return <VehiclesPage vehicles={vehicles} setVehicles={setVehicles} onSaveVehicle={handleSaveVehicle} owners={owners} currentUser={currentUser} profilePermissions={profilePermissions} shipments={visibleShipments} cargos={cargos} />;
       case 'loads':
-        return <LoadsPage loads={activeLoads} setLoads={setCargos} clients={clients} products={products} onSaveLoad={handleSaveLoad} onReactivateLoad={handleReactivateLoad} onSuspendLoad={handleSuspendLoad} onUpdatePrice={handleUpdateShipmentPrice} currentUser={currentUser} profilePermissions={profilePermissions} users={users} shipments={visibleShipments} onDeleteLoad={handleDeleteCargo} onModalStateChange={setIsAnyModalOpen} companyLogo={companyLogo} vehicles={vehicles} onDeleteAttachment={handleDeleteShipmentAttachment} branches={branches} />;
+        return <LoadsPage loads={activeLoads} setLoads={setCargos} clients={clients} products={products} onSaveLoad={handleSaveLoad} onReactivateLoad={handleReactivateLoad} onSuspendLoad={handleSuspendLoad} onUpdatePrice={handleUpdateShipmentPrice} currentUser={currentUser} profilePermissions={profilePermissions} users={users} shipments={visibleShipments} onDeleteLoad={handleDeleteCargo} onModalStateChange={setIsAnyModalOpen} companyLogo={companyLogo} vehicles={vehicles} onDeleteAttachment={handleDeleteShipmentAttachment} branches={branches} stays={stays} />;
       case 'products':
         return <ProductsPage products={products} onSaveProduct={handleSaveProduct} onDeleteProduct={handleDeleteProduct} currentUser={currentUser} profilePermissions={profilePermissions} />;
       case 'shipments':
@@ -1802,6 +1802,7 @@ const App: React.FC = () => {
                     activeLocks={activeLocks}
                     onModalStateChange={setIsAnyModalOpen}
                     companyLogo={companyLogo}
+                    stays={stays}
                 />;
       case 'operational-loads':
         return (
@@ -1824,6 +1825,7 @@ const App: React.FC = () => {
             onModalStateChange={setIsAnyModalOpen}
             onDeleteAttachment={handleDeleteShipmentAttachment}
             branches={branches}
+            stays={stays}
           />
         );
       case 'operational-map':
@@ -1843,12 +1845,12 @@ const App: React.FC = () => {
           />
         );
       case 'financial':
-        return <CommissionsPage shipments={visibleShipments} cargos={cargos} users={users} />;
+        return <CommissionsPage shipments={visibleShipments} cargos={cargos} users={users} stays={stays} />;
       case 'reports':
         if (!can('read', currentUser, 'reports', profilePermissions)) {
           return <DashboardPage cargos={activeLoads} shipments={visibleShipments} users={users} currentUser={currentUser} clients={clients} products={products} companyLogo={companyLogo} vehicles={vehicles} onDeleteAttachment={handleDeleteShipmentAttachment} />;
         }
-        return <ReportsPage shipments={visibleShipments} embarcadores={visibleEmbarcadores} cargos={cargos} users={users} currentUser={currentUser} clients={clients} branches={branches} />;
+        return <ReportsPage shipments={visibleShipments} embarcadores={visibleEmbarcadores} cargos={cargos} users={users} currentUser={currentUser} clients={clients} branches={branches} stays={stays} />;
       case 'users-register':
         return <UsersPage 
                   users={users} 
@@ -1883,6 +1885,7 @@ const App: React.FC = () => {
                   onRevertStatus={handleRevertShipmentStatus}
                   onDeleteAttachment={handleDeleteShipmentAttachment}
                   onUpdatePrice={handleUpdateShipmentPrice}
+                  stays={stays}
                 />;
       case 'load-history':
         return <LoadHistoryPage

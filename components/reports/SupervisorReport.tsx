@@ -4,11 +4,13 @@ import type { Shipment, User, Cargo } from '../../types';
 import { ShipmentStatus, UserProfile } from '../../types';
 import { DollarSignIcon } from '../icons/DollarSignIcon';
 import { UsersIcon } from '../icons/UsersIcon';
+import { StayRecord } from '../../utils/toolStorage';
 
 interface SupervisorReportProps {
   shipments: Shipment[];
   cargos: Cargo[];
   users: User[];
+  stays?: StayRecord[];
 }
 
 const StatCard: React.FC<{ title: string, value: string | number, icon: React.ReactElement, formatAsCurrency?: boolean }> = ({ title, value, icon, formatAsCurrency=false }) => {
@@ -27,7 +29,7 @@ const StatCard: React.FC<{ title: string, value: string | number, icon: React.Re
     );
 };
 
-const SupervisorReport: React.FC<SupervisorReportProps> = ({ shipments, cargos, users }) => {
+const SupervisorReport: React.FC<SupervisorReportProps> = ({ shipments, cargos, users, stays = [] }) => {
   const cargoMap = useMemo(() => new Map(cargos.map(c => [c.id, c])), [cargos]);
 
   const totalProfitMargin = useMemo(() => {
@@ -47,11 +49,17 @@ const SupervisorReport: React.FC<SupervisorReportProps> = ({ shipments, cargos, 
 
       const grossRate = s.companyFreightRateSnapshot || cargo.companyFreightValuePerTon;
       const driverRate = s.driverFreightRateSnapshot || cargo.driverFreightValuePerTon;
-      const profit = (grossRate - driverRate) * s.shipmentTonnage;
+      const commissionRate = cargo.salespersonCommissionPerTon || 0;
+      
+      const demurrageProfit = stays
+          .filter(stay => stay.shipmentId === s.id)
+          .reduce((sum, stay) => sum + ((stay.approvedValue || 0) - (stay.driverPaidValue || 0)), 0);
+          
+      const profit = ((grossRate - driverRate - commissionRate) * s.shipmentTonnage) + demurrageProfit;
       
       return acc + profit;
     }, 0);
-  }, [shipments, cargoMap]);
+  }, [shipments, cargoMap, stays]);
 
   const supervisors = useMemo(() => {
     return users.filter(u => u.profile === UserProfile.Supervisor);

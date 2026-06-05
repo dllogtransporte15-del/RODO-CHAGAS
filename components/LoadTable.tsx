@@ -1,13 +1,14 @@
 
 import React, { useState } from 'react';
 import type { Cargo, Client, Product, Shipment, User } from '../types';
-import { DailyScheduleType, CargoStatus, UserProfile } from '../types';
+import { DailyScheduleType, CargoStatus, UserProfile, ShipmentStatus } from '../types';
 import VolumeBar from './VolumeBar';
 import { Trash2 } from 'lucide-react';
 import { PlusIcon } from './icons/PlusIcon';
 import { HistoryIcon } from './icons/HistoryIcon';
 import { Search, Filter, X } from 'lucide-react';
 import MultiSelectDropdown from './MultiSelectDropdown';
+import { StayRecord } from '../utils/toolStorage';
 
 interface LoadTableProps {
   loads: Cargo[];
@@ -28,9 +29,10 @@ interface LoadTableProps {
   onShowShipments?: (load: Cargo) => void;
   onDelete?: (cargoId: string) => void;
   currentUser: User;
+  stays?: StayRecord[];
 }
 
-const LoadTable: React.FC<LoadTableProps> = ({ loads, clients, products, shipments, dailyBalanceDate, onDailyBalanceDateChange, onCreateShipment, onSuspend, onReactivate, onFinalize, onEdit, onClose, onShowHistory, onShowDetails, onEditSchedule, onShowShipments, onDelete, currentUser }) => {
+const LoadTable: React.FC<LoadTableProps> = ({ loads, clients, products, shipments, dailyBalanceDate, onDailyBalanceDateChange, onCreateShipment, onSuspend, onReactivate, onFinalize, onEdit, onClose, onShowHistory, onShowDetails, onEditSchedule, onShowShipments, onDelete, currentUser, stays = [] }) => {
   const [openActionMenu, setOpenActionMenu] = useState<string | null>(null);
   
   const [showFilters, setShowFilters] = useState(false);
@@ -165,8 +167,27 @@ const LoadTable: React.FC<LoadTableProps> = ({ loads, clients, products, shipmen
               return sum + (leg.companyFreightValuePerTon * (1 - icmsRate));
           }, 0);
 
-          const netProfit = totalNetCompanyValue - totalDriverFreight;
-          const margin = (totalNetCompanyValue > 0) ? (netProfit / totalNetCompanyValue) * 100 : 0;
+          const totalCommission = load.salespersonCommissionPerTon || 0;
+          
+          // Calculate average demurrage profit per ton for this load's shipments
+          const loadShipments = shipments.filter(s => s.cargoId === load.id && s.status !== ShipmentStatus.Cancelado);
+          const loadShipmentIds = new Set(loadShipments.map(s => s.id));
+          const totalDemurrageProfit = stays
+              .filter(s => s.shipmentId && loadShipmentIds.has(s.shipmentId))
+              .reduce((sum, s) => sum + ((s.approvedValue || 0) - (s.driverPaidValue || 0)), 0);
+          const totalDemurrageRevenue = stays
+              .filter(s => s.shipmentId && loadShipmentIds.has(s.shipmentId))
+              .reduce((sum, s) => sum + (s.approvedValue || 0), 0);
+              
+          const loadedTonnage = loadShipments.reduce((sum, s) => sum + (s.shipmentTonnage || 1), 0);
+          
+          const demurrageProfitPerTon = loadedTonnage > 0 ? (totalDemurrageProfit / loadedTonnage) : 0;
+          const demurrageRevenuePerTon = loadedTonnage > 0 ? (totalDemurrageRevenue / loadedTonnage) : 0;
+          
+          const netProfit = totalNetCompanyValue - totalDriverFreight - totalCommission + demurrageProfitPerTon;
+          const totalCompanyFreightWithEstadias = totalNetCompanyValue + demurrageRevenuePerTon;
+
+          const margin = (totalCompanyFreightWithEstadias > 0) ? (netProfit / totalCompanyFreightWithEstadias) * 100 : 0;
           const netMarginPercentage = isNaN(margin) || !isFinite(margin) ? '0,00%' : `${margin.toFixed(2).replace('.', ',')}%`;
 
           let marginColorClass = 'text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800';

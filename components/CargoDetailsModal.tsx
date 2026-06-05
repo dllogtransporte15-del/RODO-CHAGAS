@@ -1,8 +1,10 @@
 
 import React, { useMemo } from 'react';
-import type { Cargo, Client, Product, User, FreightLeg } from '../types';
+import type { Cargo, Client, Product, User, FreightLeg, Shipment } from '../types';
 import VolumeBar from './VolumeBar';
 import { PaperclipIcon } from './icons/PaperclipIcon';
+import { StayRecord } from '../utils/toolStorage';
+import { ShipmentStatus } from '../types';
 
 interface CargoDetailsModalProps {
   isOpen: boolean;
@@ -11,6 +13,8 @@ interface CargoDetailsModalProps {
   client: Client | undefined;
   product: Product | undefined;
   commercialUser: User | undefined;
+  stays?: StayRecord[];
+  shipments?: Shipment[];
 }
 
 const DetailItem: React.FC<{ label: string; value?: string | number | null; children?: React.ReactNode }> = ({ label, value, children }) => (
@@ -42,7 +46,7 @@ const FreightLegDetail: React.FC<{ leg: FreightLeg; index: number }> = ({ leg, i
 );
 
 
-const CargoDetailsModal: React.FC<CargoDetailsModalProps> = ({ isOpen, onClose, cargo, client, product, commercialUser }) => {
+const CargoDetailsModal: React.FC<CargoDetailsModalProps> = ({ isOpen, onClose, cargo, client, product, commercialUser, stays = [], shipments = [] }) => {
   if (!isOpen || !cargo) return null;
 
   const scheduledButNotLoaded = Math.max(0, cargo.scheduledVolume - cargo.loadedVolume);
@@ -71,15 +75,33 @@ const CargoDetailsModal: React.FC<CargoDetailsModalProps> = ({ isOpen, onClose, 
         return sum + netValue;
     }, 0);
 
-    const netProfit = totalNetCompanyValue - totalDriverFreight;
-    const margin = (totalNetCompanyValue > 0) ? (netProfit / totalNetCompanyValue) * 100 : 0;
+    const totalCommission = cargo.salespersonCommissionPerTon || 0;
+    
+    // Average demurrage
+    const loadShipments = shipments.filter(s => s.cargoId === cargo.id && s.status !== ShipmentStatus.Cancelado);
+    const loadShipmentIds = new Set(loadShipments.map(s => s.id));
+    const totalDemurrageProfit = stays
+        .filter(s => s.shipmentId && loadShipmentIds.has(s.shipmentId))
+        .reduce((sum, s) => sum + ((s.approvedValue || 0) - (s.driverPaidValue || 0)), 0);
+    const totalDemurrageRevenue = stays
+        .filter(s => s.shipmentId && loadShipmentIds.has(s.shipmentId))
+        .reduce((sum, s) => sum + (s.approvedValue || 0), 0);
+        
+    const loadedTonnage = loadShipments.reduce((sum, s) => sum + (s.shipmentTonnage || 1), 0);
+    const demurrageProfitPerTon = loadedTonnage > 0 ? (totalDemurrageProfit / loadedTonnage) : 0;
+    const demurrageRevenuePerTon = loadedTonnage > 0 ? (totalDemurrageRevenue / loadedTonnage) : 0;
+
+    const netProfit = totalNetCompanyValue - totalDriverFreight - totalCommission + demurrageProfitPerTon;
+    const totalCompanyFreightWithEstadias = totalNetCompanyValue + demurrageRevenuePerTon;
+
+    const margin = (totalCompanyFreightWithEstadias > 0) ? (netProfit / totalCompanyFreightWithEstadias) * 100 : 0;
     
     const netMarginPercentage = isNaN(margin) || !isFinite(margin)
         ? '0,00%'
         : `${margin.toFixed(2).replace('.', ',')}%`;
 
     return { totalCompanyFreight, totalDriverFreight, netMarginPercentage };
-  }, [freightLegsToDisplay]);
+  }, [freightLegsToDisplay, cargo.salespersonCommissionPerTon, stays, shipments, cargo.id]);
 
 
   return (

@@ -11,6 +11,7 @@ import type { Cargo, Client, Product, Driver, Shipment, Vehicle, User, ProfilePe
 import { can } from '../auth';
 import { CopyIcon } from '../components/icons/CopyIcon';
 import { CargoStatus, UserProfile } from '../types';
+import { StayRecord } from '../utils/toolStorage';
 
 interface OperationalLoadsPageProps {
   loads: Cargo[];
@@ -31,6 +32,7 @@ interface OperationalLoadsPageProps {
   onModalStateChange: (isOpen: boolean) => void;
   onDeleteAttachment?: (shipmentId: string, url: string) => Promise<void>;
   branches: Branch[];
+  stays?: StayRecord[];
 }
 
 const formatAllowedVehicleTypes = (allowed?: { setType: VehicleSetType; bodyTypes: VehicleBodyType[] }[]): string => {
@@ -59,6 +61,7 @@ const OperationalLoadsPage: React.FC<OperationalLoadsPageProps> = ({
   onModalStateChange,
   onDeleteAttachment,
   branches,
+  stays = [],
 }) => {
   const [isShipmentModalOpen, setIsShipmentModalOpen] = useState(false);
   const [selectedCargo, setSelectedCargo] = useState<Cargo | null>(null);
@@ -190,6 +193,7 @@ const OperationalLoadsPage: React.FC<OperationalLoadsPageProps> = ({
         onShowShipments={handleShowShipments}
         onDelete={onDeleteLoad}
         currentUser={currentUser}
+        stays={stays}
       />
 
       <NewShipmentModal
@@ -236,6 +240,8 @@ const OperationalLoadsPage: React.FC<OperationalLoadsPageProps> = ({
         client={detailsModalCargo ? clients.find(c => c.id === detailsModalCargo.clientId) : undefined}
         product={detailsModalCargo ? products.find(p => p.id === detailsModalCargo.productId) : undefined}
         commercialUser={detailsModalCargo ? users.find(u => u.id === detailsModalCargo.createdById) : undefined}
+        stays={stays}
+        shipments={shipments}
       />
 
       <CargoShipmentsSidePanel

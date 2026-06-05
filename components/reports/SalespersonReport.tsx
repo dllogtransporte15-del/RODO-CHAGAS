@@ -4,11 +4,13 @@ import type { Shipment, User, Cargo } from '../../types';
 import { ShipmentStatus, UserProfile } from '../../types';
 import { DollarSignIcon } from '../icons/DollarSignIcon';
 import { PackageIcon } from '../icons/PackageIcon';
+import { StayRecord } from '../../utils/toolStorage';
 
 interface SalespersonReportProps {
   shipments: Shipment[];
   cargos: Cargo[];
   users: User[];
+  stays?: StayRecord[];
 }
 
 interface SalespersonStats {
@@ -37,7 +39,7 @@ const StatCard: React.FC<{ title: string, value: string | number, icon: React.Re
 };
 
 
-const SalespersonReport: React.FC<SalespersonReportProps> = ({ shipments, cargos, users }) => {
+const SalespersonReport: React.FC<SalespersonReportProps> = ({ shipments, cargos, users, stays = [] }) => {
   
   const salespersonStats = useMemo<SalespersonStats[]>(() => {
     const salespeople = users.filter(u => u.profile === UserProfile.Comercial);
@@ -70,7 +72,13 @@ const SalespersonReport: React.FC<SalespersonReportProps> = ({ shipments, cargos
 
           const grossRate = shipment.companyFreightRateSnapshot || cargo.companyFreightValuePerTon;
           const driverRate = shipment.driverFreightRateSnapshot || cargo.driverFreightValuePerTon;
-          const profit = (grossRate - driverRate) * shipment.shipmentTonnage;
+          const commissionRate = cargo.salespersonCommissionPerTon || 0;
+          
+          const demurrageProfit = stays
+              .filter(stay => stay.shipmentId === shipment.id)
+              .reduce((sum, stay) => sum + ((stay.approvedValue || 0) - (stay.driverPaidValue || 0)), 0);
+              
+          const profit = ((grossRate - driverRate - commissionRate) * shipment.shipmentTonnage) + demurrageProfit;
           
           acc.grossBilled += grossRate * shipment.shipmentTonnage;
           acc.profitMargin += profit;
@@ -105,7 +113,7 @@ const SalespersonReport: React.FC<SalespersonReportProps> = ({ shipments, cargos
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <StatCard title="Valor Bruto Faturado" value={stats.grossBilled} icon={<DollarSignIcon className="w-8 h-8 text-blue-500"/>} formatAsCurrency />
                 <StatCard title="Valor Líquido Faturado (-ICMS)" value={stats.netBilled} icon={<DollarSignIcon className="w-8 h-8 text-gray-500"/>} formatAsCurrency />
-                <StatCard title="Margem de Lucro Total" value={stats.profitMargin} icon={<DollarSignIcon className="w-8 h-8 text-blue-400"/>} formatAsCurrency />
+                <StatCard title="Lucro Operacional Estimado" value={stats.profitMargin} icon={<DollarSignIcon className="w-8 h-8 text-blue-400"/>} formatAsCurrency />
                 <StatCard title="Volume Transportado" value={`${stats.totalTonnage.toLocaleString('pt-BR')} ton`} icon={<PackageIcon className="w-8 h-8 text-gray-400"/>} />
               </div>
             </div>

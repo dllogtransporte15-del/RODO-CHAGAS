@@ -9,6 +9,7 @@ import CargoShipmentsSidePanel from '../components/CargoShipmentsSidePanel';
 import type { Cargo, Client, Product, User, ProfilePermissions, Shipment, DailyScheduleEntry, Vehicle, Branch } from '../types';
 import { CargoStatus, UserProfile } from '../types';
 import { can } from '../auth';
+import { StayRecord } from '../utils/toolStorage';
 
 interface LoadsPageProps {
   loads: Cargo[];
@@ -30,10 +31,10 @@ interface LoadsPageProps {
   companyLogo?: string | null;
   onDeleteAttachment?: (shipmentId: string, url: string) => Promise<void>;
   branches: Branch[];
+  stays?: StayRecord[];
 }
 
-
-const LoadsPage: React.FC<LoadsPageProps> = ({ loads, setLoads, clients, products, shipments, onSaveLoad, onReactivateLoad, onSuspendLoad, onUpdatePrice, currentUser, profilePermissions, users, onDeleteLoad, onModalStateChange, companyLogo, vehicles, onDeleteAttachment, branches }) => {
+const LoadsPage: React.FC<LoadsPageProps> = ({ loads, setLoads, clients, products, shipments, onSaveLoad, onReactivateLoad, onSuspendLoad, onUpdatePrice, currentUser, profilePermissions, users, onDeleteLoad, onModalStateChange, companyLogo, vehicles, onDeleteAttachment, branches, stays = [] }) => {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loadToEdit, setLoadToEdit] = useState<Cargo | null>(null);
@@ -134,6 +135,7 @@ const LoadsPage: React.FC<LoadsPageProps> = ({ loads, setLoads, clients, product
             onShowShipments={handleShowShipments}
             onDelete={onDeleteLoad}
             currentUser={currentUser}
+            stays={stays}
         />
       </div>
 
@@ -169,6 +171,8 @@ const LoadsPage: React.FC<LoadsPageProps> = ({ loads, setLoads, clients, product
         client={detailsModalCargo ? clients.find(c => c.id === detailsModalCargo.clientId) : undefined}
         product={detailsModalCargo ? products.find(p => p.id === detailsModalCargo.productId) : undefined}
         commercialUser={detailsModalCargo ? users.find(u => u.id === detailsModalCargo.createdById) : undefined}
+        stays={stays}
+        shipments={shipments}
       />
 
       <CargoShipmentsSidePanel

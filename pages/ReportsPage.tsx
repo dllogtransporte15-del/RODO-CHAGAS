@@ -6,7 +6,7 @@ import { BriefcaseIcon } from '../components/icons/BriefcaseIcon';
 import { ShipIcon } from '../components/icons/ShipIcon';
 import { UsersIcon } from '../components/icons/UsersIcon';
 import { ClockIcon } from '../components/icons/ClockIcon';
-import { Filter, X, Calendar, DollarSign, Package, CheckCircle, Building2 } from 'lucide-react';
+import { Filter, X, Calendar, DollarSign, Package, CheckCircle, Building2, TrendingUp } from 'lucide-react';
 import SalespersonReport from '../components/reports/SalespersonReport';
 import SupervisorReport from '../components/reports/SupervisorReport';
 import ShipperReport from '../components/reports/ShipperReport';
@@ -26,13 +26,13 @@ interface ReportsPageProps {
   currentUser: User | null;
   clients: Client[];
   branches: Branch[];
+  stays?: StayRecord[];
 }
 
 type ActiveReport = 'comercial' | 'embarcadores' | 'clientes' | 'vendedores' | 'tempo-operacao' | 'filiais' | 'estadias';
 
-const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, cargos, users, currentUser, clients, branches }) => {
+const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, cargos, users, currentUser, clients, branches, stays = [] }) => {
   const [activeReport, setActiveReport] = useState<ActiveReport>('comercial');
-  const [stays, setStays] = useState<StayRecord[]>([]);
   const [loadingStays, setLoadingStays] = useState(false);
   
   // Date range defaults to current month
@@ -51,25 +51,6 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, carg
   const [filterDest, setFilterDest] = useState<string[]>([]);
   const [filterBranch, setFilterBranch] = useState<string[]>([]);
   const [showFilters, setShowFilters] = useState(false);
-
-  React.useEffect(() => {
-    const fetchStays = async () => {
-      if (!currentUser) return;
-      setLoadingStays(true);
-      try {
-        // Fetch stays for the report - respect permissions
-        const isAdmin = [UserProfile.Admin, UserProfile.Diretor, UserProfile.Supervisor].includes(currentUser.profile);
-        const allStays = isAdmin ? await getAllToolStays() : await getToolStays(currentUser.id);
-        setStays(allStays);
-      } catch (err) {
-        console.error('Error fetching stays for report:', err);
-      } finally {
-        setLoadingStays(false);
-      }
-    };
-
-    fetchStays();
-  }, [currentUser]);
 
   const cargoMap = useMemo(() => new Map(cargos.map(c => [c.id, c])), [cargos]);
   
@@ -156,9 +137,9 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, carg
 
   const kpis = useMemo(() => {
     let grossBilled = 0;
-    let netBilled = 0;
-    let profitMargin = 0; // This will now represent "Líquido Programado" (Ag. Seguradora onwards)
-    let totalProfitMargin = 0; // This will represent "Margem de Lucro Total" (Ag. Nota onwards)
+    let effectiveGrossBilled = 0;
+    let profitMargin = 0; 
+    let totalProfitMargin = 0; 
 
     const profitMarginStatuses = [
         ShipmentStatus.AguardandoSeguradora,
@@ -188,19 +169,41 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, carg
        if (profitMarginStatuses.includes(s.status)) {
            const grossRate = s.companyFreightRateSnapshot || cargo.companyFreightValuePerTon;
            const driverRate = s.driverFreightRateSnapshot || cargo.driverFreightValuePerTon;
-           const profit = (grossRate - driverRate) * s.shipmentTonnage;
+           const commissionRate = cargo.salespersonCommissionPerTon || 0;
            
-           grossBilled += grossRate * s.shipmentTonnage;
+           const demurrageRevenue = stays
+               .filter(stay => stay.shipmentId === s.id)
+               .reduce((sum, stay) => sum + (stay.approvedValue || 0), 0);
+               
+           const demurrageProfit = stays
+               .filter(stay => stay.shipmentId === s.id)
+               .reduce((sum, stay) => sum + ((stay.approvedValue || 0) - (stay.driverPaidValue || 0)), 0);
+               
+           const profit = ((grossRate - driverRate - commissionRate) * s.shipmentTonnage) + demurrageProfit;
+           const revenue = (grossRate * s.shipmentTonnage) + demurrageRevenue;
+           
+           grossBilled += revenue;
            profitMargin += profit;
 
            if (totalProfitMarginStatuses.includes(s.status)) {
                totalProfitMargin += profit;
+               effectiveGrossBilled += revenue;
            }
        }
     });
 
-    return { grossBilled, netBilled, profitMargin, totalProfitMargin, count: filteredShipments.length };
-  }, [filteredShipments, cargoMap]);
+    const percentageMargin = grossBilled > 0 ? (profitMargin / grossBilled) * 100 : 0;
+    const effectivePercentageMargin = effectiveGrossBilled > 0 ? (totalProfitMargin / effectiveGrossBilled) * 100 : 0;
+
+    return { 
+        grossBilled, 
+        profitMargin, 
+        totalProfitMargin, 
+        percentageMargin,
+        effectivePercentageMargin,
+        count: filteredShipments.length 
+    };
+  }, [filteredShipments, cargoMap, stays]);
 
   const canViewCommercialReport = useMemo(() => {
     if (!currentUser) return false;
@@ -210,11 +213,11 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, carg
   const renderReport = () => {
     switch(activeReport) {
       case 'comercial':
-        return <SupervisorReport shipments={filteredShipments} cargos={cargos} users={users} />;
+        return <SupervisorReport shipments={filteredShipments} cargos={cargos} users={users} stays={stays} />;
       case 'embarcadores':
         return <ShipperReport shipments={filteredShipments} users={users} currentUser={currentUser} />;
       case 'clientes':
-        return <ClientReport shipments={filteredShipments} cargos={cargos} clients={clients} />;
+        return <ClientReport shipments={filteredShipments} cargos={cargos} clients={clients} stays={stays} />;
       case 'vendedores':
         return <ExternalSalespersonReport shipments={filteredShipments} cargos={cargos} />;
       case 'tempo-operacao':
@@ -339,7 +342,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, carg
          <div className="p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 flex items-center gap-4">
              <div className="w-10 h-10 rounded-full bg-green-50 dark:bg-green-900/50 flex flex-shrink-0 items-center justify-center text-green-600 dark:text-green-400"><DollarSign className="w-5 h-5" /></div>
              <div className="min-w-0">
-                <p className="text-[10px] text-gray-500 uppercase font-bold leading-tight">Fat. Bruto Efetivado + Programado</p>
+                <p className="text-[10px] text-gray-500 uppercase font-bold leading-tight">Fat. Bruto Efetivado + Prog.</p>
                 <p className="text-xl font-bold text-gray-800 dark:text-gray-100" title={formatCurrency(kpis.grossBilled)}>
                    R$ {(kpis.grossBilled / 1000).toFixed(1)}k
                 </p>
@@ -349,7 +352,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, carg
          <div className="p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 flex items-center gap-4">
              <div className="w-10 h-10 rounded-full bg-teal-50 dark:bg-teal-900/50 flex flex-shrink-0 items-center justify-center text-teal-600 dark:text-teal-400"><DollarSign className="w-5 h-5" /></div>
              <div className="min-w-0">
-                <p className="text-[10px] text-gray-500 uppercase font-bold leading-tight">Líquido Programado</p>
+                <p className="text-[10px] text-gray-500 uppercase font-bold leading-tight">Lucro Total Estimado</p>
                 <p className="text-xl font-bold text-gray-800 dark:text-gray-100" title={formatCurrency(kpis.profitMargin)}>
                    R$ {(kpis.profitMargin / 1000).toFixed(1)}k
                 </p>
@@ -357,11 +360,21 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, carg
          </div>
 
          <div className="p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 flex items-center gap-4">
-             <div className="w-10 h-10 rounded-full bg-blue-50 dark:bg-blue-900/50 flex flex-shrink-0 items-center justify-center text-blue-600 dark:text-blue-400"><DollarSign className="w-5 h-5" /></div>
+             <div className="w-10 h-10 rounded-full bg-indigo-50 dark:bg-indigo-900/50 flex flex-shrink-0 items-center justify-center text-indigo-600 dark:text-indigo-400"><DollarSign className="w-5 h-5" /></div>
              <div className="min-w-0">
-                <p className="text-[10px] text-gray-500 uppercase font-bold leading-tight">Margem Lucro Total</p>
+                <p className="text-[10px] text-gray-500 uppercase font-bold leading-tight">Lucro Efetivado</p>
                 <p className="text-xl font-bold text-gray-800 dark:text-gray-100" title={formatCurrency(kpis.totalProfitMargin)}>
                    R$ {(kpis.totalProfitMargin / 1000).toFixed(1)}k
+                </p>
+             </div>
+         </div>
+
+         <div className="p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 flex items-center gap-4">
+             <div className="w-10 h-10 rounded-full bg-blue-50 dark:bg-blue-900/50 flex flex-shrink-0 items-center justify-center text-blue-600 dark:text-blue-400"><TrendingUp className="w-5 h-5" /></div>
+             <div className="min-w-0">
+                <p className="text-[10px] text-gray-500 uppercase font-bold leading-tight">Margem de Lucro Total</p>
+                <p className="text-xl font-bold text-gray-800 dark:text-gray-100" title={`${kpis.percentageMargin.toFixed(2)}% (Efetivado: ${kpis.effectivePercentageMargin.toFixed(2)}%)`}>
+                   {kpis.percentageMargin.toFixed(1)}%
                 </p>
              </div>
          </div>

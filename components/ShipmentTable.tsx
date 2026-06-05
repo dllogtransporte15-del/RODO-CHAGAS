@@ -13,6 +13,7 @@ import { InfoIcon } from './icons/InfoIcon';
 import { TransferIcon } from './icons/TransferIcon';
 import { MoreVerticalIcon } from './icons/MoreVerticalIcon';
 import { Search, Filter, X, Trash2, RotateCcw, Clock, Package } from 'lucide-react';
+import { StayRecord } from '../utils/toolStorage';
 
 import MultiSelectDropdown from './MultiSelectDropdown';
 import ShipmentDetailsModal from './ShipmentDetailsModal';
@@ -24,6 +25,7 @@ interface ShipmentTableProps {
   vehicles: Vehicle[];
   clients: Client[];
   products: Product[];
+  stays?: StayRecord[];
   onAttach?: (shipment: Shipment) => void;
   onEditPrice?: (shipment: Shipment) => void;
   onCancel?: (shipment: Shipment) => void;
@@ -47,7 +49,7 @@ interface ShipmentTableProps {
   onSwapCargo?: (shipment: Shipment) => void;
 }
 
-const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users, vehicles, onAttach, onEditPrice, onCancel, onTransfer, onShowHistory, onShowCargoDetails, canUserAdvanceStatus, onMarkArrival, onDelete, onRevertStatus, onOpenCadastroAntt, onUpdatePrice, onUpdateShipmentData, onAddAttachments, onOpenEditScheduledDateTime, currentUser, activeStatus, clients, products, companyLogo, onDeleteAttachment, onSwapCargo }) => {
+const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users, vehicles, onAttach, onEditPrice, onCancel, onTransfer, onShowHistory, onShowCargoDetails, canUserAdvanceStatus, onMarkArrival, onDelete, onRevertStatus, onOpenCadastroAntt, onUpdatePrice, onUpdateShipmentData, onAddAttachments, onOpenEditScheduledDateTime, currentUser, activeStatus, clients, products, stays = [], companyLogo, onDeleteAttachment, onSwapCargo }) => {
 
 
   const [openActionMenu, setOpenActionMenu] = useState<string | null>(null);
@@ -328,7 +330,10 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users,
                             {(() => {
                                const companyRate = shipment.companyFreightRateSnapshot || cargo?.companyFreightValuePerTon || 0;
                                const driverRate = shipment.driverFreightValue / (shipment.shipmentTonnage || 1);
-                               const perTonProfit = companyRate - driverRate;
+                               const commissionRate = cargo?.salespersonCommissionPerTon || 0;
+                               const demurrageProfit = stays.filter(s => s.shipmentId === shipment.id).reduce((sum, s) => sum + ((s.approvedValue || 0) - (s.driverPaidValue || 0)), 0);
+                               const perTonProfit = companyRate - driverRate - commissionRate + (demurrageProfit / (shipment.shipmentTonnage || 1));
+                               
                                const marginPercent = companyRate > 0 ? (perTonProfit / companyRate) * 100 : 0;
                                
                                let colorClass = 'text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800';
@@ -494,7 +499,8 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users,
                         {(() => {
                           const companyRate = shipment.companyFreightRateSnapshot || cargo?.companyFreightValuePerTon || 0;
                           const driverRate = shipment.driverFreightValue / (shipment.shipmentTonnage || 1);
-                          const perTonProfit = companyRate - driverRate;
+                          const commissionRate = cargo?.salespersonCommissionPerTon || 0;
+                          const perTonProfit = companyRate - driverRate - commissionRate;
                           const marginPercent = companyRate > 0 ? (perTonProfit / companyRate) * 100 : 0;
                           
                           let colorClass = 'text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800';

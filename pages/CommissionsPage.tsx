@@ -9,22 +9,24 @@ import SupervisorReport from '../components/reports/SupervisorReport';
 import ShipperReport from '../components/reports/ShipperReport';
 import ExternalSalespersonReport from '../components/reports/ExternalSalespersonReport';
 import { UsersIcon } from '../components/icons/UsersIcon';
+import { StayRecord } from '../utils/toolStorage';
 
 interface CommissionsPageProps {
   shipments: Shipment[];
   cargos: Cargo[];
   users: User[];
+  stays?: StayRecord[];
 }
 
 type ActiveTab = 'comercial' | 'embarcador' | 'vendedor-externo';
 
-const CommissionsPage: React.FC<CommissionsPageProps> = ({ shipments, cargos, users }) => {
+const CommissionsPage: React.FC<CommissionsPageProps> = ({ shipments, cargos, users, stays = [] }) => {
   const [activeTab, setActiveTab] = useState<ActiveTab>('comercial');
 
   const renderContent = () => {
     switch(activeTab) {
       case 'comercial':
-        return <SupervisorReport shipments={shipments} cargos={cargos} users={users} />;
+        return <SupervisorReport shipments={shipments} cargos={cargos} users={users} stays={stays} />;
       case 'embarcador':
         return <ShipperReport shipments={shipments} users={users} currentUser={null} />;
       case 'vendedor-externo':

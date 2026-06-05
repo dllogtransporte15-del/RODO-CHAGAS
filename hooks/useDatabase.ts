@@ -11,6 +11,7 @@ import {
   fetchCargos, fetchShipments, fetchUsers, fetchTickets, fetchProfilePermissions,
   fetchAppSettings, fetchShipmentLocks, fetchBranches
 } from '../lib/db';
+import { getAllToolStays, StayRecord } from '../utils/toolStorage';
 
 // ─── Module-level helpers (accessible from both loadAllData and realtime handler) ───
 
@@ -65,6 +66,7 @@ export function useDatabase(currentUser: User | null) {
   const [shipments, setShipments] = useState<Shipment[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [stays, setStays] = useState<StayRecord[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [activeLocks, setActiveLocks] = useState<ShipmentLock[]>([]);
   const [profilePermissions, setProfilePermissions] = useState<ProfilePermissions>(INITIAL_PERMISSIONS);
@@ -105,12 +107,13 @@ export function useDatabase(currentUser: User | null) {
 
       const [
         dbClients, dbOwners, dbDrivers, dbVehicles, dbProducts, dbCargos, 
-        dbShipments, dbUsers, dbTickets, dbPermissions, dbSettings, dbLocks, dbBranches
+        dbShipments, dbUsers, dbTickets, dbPermissions, dbSettings, dbLocks, dbBranches,
+        dbStays
       ] = await Promise.all([
         fetchClients(), fetchOwners(), fetchDrivers(), fetchVehicles(), fetchProducts(),
         fetchCargos(), fetchShipments(), fetchUsers(), fetchTickets(),
         fetchProfilePermissions(), fetchAppSettings(), fetchShipmentLocks(),
-        fetchBranches(),
+        fetchBranches(), getAllToolStays()
       ]);
 
       setClients(dbClients);
@@ -122,6 +125,7 @@ export function useDatabase(currentUser: User | null) {
       setShipments(dbShipments);
       setUsers(dbUsers);
       setTickets(dbTickets);
+      setStays(dbStays);
       setBranches(dbBranches);
       setActiveLocks(dbLocks);
 
@@ -232,6 +236,11 @@ export function useDatabase(currentUser: User | null) {
             setNextIds((prev: any) => ({ ...prev, branch: getMaxId(dbBranches, 10) }));
             break;
           }
+          case 'tool_stays': {
+            const dbStays = await getAllToolStays();
+            setStays(dbStays);
+            break;
+          }
           case 'shipment_locks': {
             const dbLocks = await fetchShipmentLocks();
             setActiveLocks(dbLocks);
@@ -280,6 +289,7 @@ export function useDatabase(currentUser: User | null) {
     shipments, setShipments,
     users, setUsers,
     tickets, setTickets,
+    stays, setStays,
     branches, setBranches,
     activeLocks, setActiveLocks,
     profilePermissions, setProfilePermissions,

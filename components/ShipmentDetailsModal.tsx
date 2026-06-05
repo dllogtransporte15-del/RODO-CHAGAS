@@ -478,6 +478,7 @@ const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
                                         {formatCurrency(
                                             ((shipment.companyFreightRateSnapshot || cargo?.companyFreightValuePerTon || 0) * shipment.shipmentTonnage) 
                                             - shipment.driverFreightValue 
+                                            - ((cargo?.salespersonCommissionPerTon || 0) * shipment.shipmentTonnage)
                                             + (shipmentStays.reduce((acc, stay) => acc + (stay.approvedValue || 0), 0) - shipmentStays.reduce((acc, stay) => acc + (stay.driverPaidValue || 0), 0))
                                         )}
                                     </p>
