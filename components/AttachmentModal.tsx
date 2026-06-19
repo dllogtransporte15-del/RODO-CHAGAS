@@ -30,7 +30,7 @@ interface AttachmentModalProps {
 
 declare const L: any;
 
-const fiscalDocTypes = ['Nota Fiscal', 'CT-e', 'MDF-e', 'Carta Frete', 'Demurrage'];
+const fiscalDocTypes = ['Nota Fiscal', 'CT-e', 'MDF-e', 'Carta Frete', 'Outros'];
 const allowedDocsForClient = [
     'Ticket de Carregamento',
     'Nota Fiscal',

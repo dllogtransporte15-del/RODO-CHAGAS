@@ -7,6 +7,7 @@ import LoadFormModal from '../components/LoadFormModal';
 import HistoryModal from '../components/HistoryModal';
 import CargoDetailsModal from '../components/CargoDetailsModal';
 import CargoShipmentsSidePanel from '../components/CargoShipmentsSidePanel';
+import RecommendedDriversModal from '../components/RecommendedDriversModal';
 import type { Cargo, Client, Product, Driver, Shipment, Vehicle, User, ProfilePermissions, VehicleSetType, VehicleBodyType, Branch } from '../types';
 import { can } from '../auth';
 import { CopyIcon } from '../components/icons/CopyIcon';
@@ -20,6 +21,7 @@ interface OperationalLoadsPageProps {
   drivers: Driver[];
   vehicles: Vehicle[];
   shipments: Shipment[];
+  allShipments: Shipment[];
   onCreateShipment: (data: any) => void;
   onSaveLoad: (loadData: Cargo | Omit<Cargo, 'id' | 'history' | 'createdAt' | 'createdById'>) => void;
   currentUser: User;
@@ -49,6 +51,7 @@ const OperationalLoadsPage: React.FC<OperationalLoadsPageProps> = ({
   drivers,
   vehicles,
   shipments,
+  allShipments,
   onCreateShipment,
   onSaveLoad,
   currentUser,
@@ -77,11 +80,13 @@ const OperationalLoadsPage: React.FC<OperationalLoadsPageProps> = ({
   const [detailsModalCargo, setDetailsModalCargo] = useState<Cargo | null>(null);
   const [isShipmentsPanelOpen, setIsShipmentsPanelOpen] = useState(false);
   const [selectedCargoForShipments, setSelectedCargoForShipments] = useState<Cargo | null>(null);
+  const [isRecommendedDriversModalOpen, setIsRecommendedDriversModalOpen] = useState(false);
+  const [selectedCargoForRecommendations, setSelectedCargoForRecommendations] = useState<Cargo | null>(null);
 
   React.useEffect(() => {
-    const isAnyOpen = isShipmentModalOpen || isLoadFormModalOpen || isHistoryModalOpen || !!detailsModalCargo || isShipmentsPanelOpen;
+    const isAnyOpen = isShipmentModalOpen || isLoadFormModalOpen || isHistoryModalOpen || !!detailsModalCargo || isShipmentsPanelOpen || isRecommendedDriversModalOpen;
     onModalStateChange(isAnyOpen);
-  }, [isShipmentModalOpen, isLoadFormModalOpen, isHistoryModalOpen, detailsModalCargo, isShipmentsPanelOpen, onModalStateChange]);
+  }, [isShipmentModalOpen, isLoadFormModalOpen, isHistoryModalOpen, detailsModalCargo, isShipmentsPanelOpen, isRecommendedDriversModalOpen, onModalStateChange]);
 
   const handleShowCargoDetails = (cargo: Cargo) => {
     setDetailsModalCargo(cargo);
@@ -90,6 +95,11 @@ const OperationalLoadsPage: React.FC<OperationalLoadsPageProps> = ({
   const handleShowShipments = (cargo: Cargo) => {
     setSelectedCargoForShipments(cargo);
     setIsShipmentsPanelOpen(true);
+  };
+
+  const handleOpenRecommendations = (cargo: Cargo) => {
+    setSelectedCargoForRecommendations(cargo);
+    setIsRecommendedDriversModalOpen(true);
   };
 
   const handleOpenNewShipmentModal = (cargo: Cargo) => {
@@ -191,6 +201,7 @@ const OperationalLoadsPage: React.FC<OperationalLoadsPageProps> = ({
         onSuspend={currentUser.profile !== UserProfile.Embarcador ? onSuspendLoad : undefined}
         onShowDetails={handleShowCargoDetails}
         onShowShipments={handleShowShipments}
+        onRecommendDrivers={handleOpenRecommendations}
         onDelete={onDeleteLoad}
         currentUser={currentUser}
         stays={stays}
@@ -256,6 +267,18 @@ const OperationalLoadsPage: React.FC<OperationalLoadsPageProps> = ({
         products={products}
         vehicles={vehicles}
         onDeleteAttachment={onDeleteAttachment}
+      />
+
+      <RecommendedDriversModal
+        isOpen={isRecommendedDriversModalOpen}
+        onClose={() => {
+          setIsRecommendedDriversModalOpen(false);
+          setSelectedCargoForRecommendations(null);
+        }}
+        currentCargo={selectedCargoForRecommendations}
+        drivers={drivers}
+        shipments={allShipments}
+        cargos={loads}
       />
     </>
   );

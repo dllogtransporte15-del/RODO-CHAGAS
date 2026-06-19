@@ -1,7 +1,8 @@
 
 import React, { useState, useMemo } from 'react';
+import { Trash2 } from 'lucide-react';
 import type { Ticket, User, TicketHistory } from '../types';
-import { TicketStatus, TicketPriority } from '../types';
+import { TicketStatus, TicketPriority, UserProfile } from '../types';
 import { useToast } from '../hooks/useToast';
 
 interface TicketModalProps {
@@ -12,11 +13,12 @@ interface TicketModalProps {
   currentUser: User;
   onSave: (ticket: Omit<Ticket, 'id' | 'history' | 'createdAt' | 'createdById'>) => void;
   onUpdate: (ticketId: string, newStatus: TicketStatus, comment: string) => void;
+  onDelete: (ticketId: string) => void;
 }
 
-type FilterType = 'meus' | 'abertos' | 'todos';
+type FilterType = 'meus' | 'abertos' | 'resolvidos' | 'fechados' | 'todos';
 
-const TicketModal: React.FC<TicketModalProps> = ({ isOpen, onClose, tickets, users, currentUser, onSave, onUpdate }) => {
+const TicketModal: React.FC<TicketModalProps> = ({ isOpen, onClose, tickets, users, currentUser, onSave, onUpdate, onDelete }) => {
   const { showToast } = useToast();
   const [isCreating, setIsCreating] = useState(false);
   const [filter, setFilter] = useState<FilterType>('meus');
@@ -28,6 +30,16 @@ const TicketModal: React.FC<TicketModalProps> = ({ isOpen, onClose, tickets, use
     assignedToId: currentUser.id,
   });
   const [attendingTicketId, setAttendingTicketId] = useState<string | null>(null);
+  const [expandedTicketId, setExpandedTicketId] = useState<string | null>(null);
+
+  const toggleExpand = (ticketId: string) => {
+    if (expandedTicketId === ticketId) {
+      setExpandedTicketId(null);
+      setAttendingTicketId(null); // Close attending state if collapsing
+    } else {
+      setExpandedTicketId(ticketId);
+    }
+  };
   const [observation, setObservation] = useState('');
 
   const priorityColors: Record<TicketPriority, string> = {
@@ -48,9 +60,13 @@ const TicketModal: React.FC<TicketModalProps> = ({ isOpen, onClose, tickets, use
     let sortedTickets = [...tickets].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     switch (filter) {
       case 'meus':
-        return sortedTickets.filter(t => t.assignedToId === currentUser.id && t.status !== TicketStatus.Fechado);
+        return sortedTickets.filter(t => (t.assignedToId === currentUser.id || t.createdById === currentUser.id) && t.status !== TicketStatus.Fechado && t.status !== TicketStatus.Resolvido);
       case 'abertos':
-        return sortedTickets.filter(t => t.status === TicketStatus.Aberto || t.status === TicketStatus.EmAndamento);
+        return sortedTickets.filter(t => t.status !== TicketStatus.Fechado && t.status !== TicketStatus.Resolvido);
+      case 'resolvidos':
+        return sortedTickets.filter(t => t.status === TicketStatus.Resolvido);
+      case 'fechados':
+        return sortedTickets.filter(t => t.status === TicketStatus.Fechado);
       case 'todos':
       default:
         return sortedTickets;
@@ -92,6 +108,12 @@ const TicketModal: React.FC<TicketModalProps> = ({ isOpen, onClose, tickets, use
   const handleAttend = (ticketId: string) => {
     setAttendingTicketId(ticketId);
     setObservation('');
+    
+    // Auto-update to Em Andamento if it's currently Aberto
+    const ticket = tickets.find(t => t.id === ticketId);
+    if (ticket && ticket.status === TicketStatus.Aberto) {
+      onUpdate(ticketId, TicketStatus.EmAndamento, 'Chamado em atendimento.');
+    }
   };
 
   const handleCancelAttend = () => {
@@ -99,20 +121,13 @@ const TicketModal: React.FC<TicketModalProps> = ({ isOpen, onClose, tickets, use
     setObservation('');
   };
 
-  const handleResolve = () => {
+  const handleUpdateStatus = (status: TicketStatus) => {
     if (attendingTicketId) {
-      onUpdate(attendingTicketId, TicketStatus.Resolvido, observation);
-      handleCancelAttend();
-    }
-  };
-
-  const handleCloseTicket = () => {
-    if (attendingTicketId) {
-      if (!observation.trim()) {
-        showToast("Por favor, adicione uma observação para fechar o chamado.", 'warning');
+      if ((status === TicketStatus.Fechado || status === TicketStatus.Resolvido) && !observation.trim()) {
+        showToast(`Por favor, adicione uma observação para ${status === TicketStatus.Fechado ? 'fechar' : 'resolver'} o chamado.`, 'warning');
         return;
       }
-      onUpdate(attendingTicketId, TicketStatus.Fechado, observation);
+      onUpdate(attendingTicketId, status, observation || 'Status atualizado.');
       handleCancelAttend();
     }
   };
@@ -132,12 +147,18 @@ const TicketModal: React.FC<TicketModalProps> = ({ isOpen, onClose, tickets, use
                 <input name="title" value={newTicket.title} onChange={handleInputChange} placeholder="Título do Chamado" className="p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600" required />
                 <textarea name="description" value={newTicket.description} onChange={handleInputChange} placeholder="Descrição detalhada..." className="p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600" rows={4} required />
                 <div className="grid grid-cols-2 gap-4">
-                    <select name="priority" value={newTicket.priority} onChange={handleInputChange} className="p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600">
-                        {Object.values(TicketPriority).map(p => <option key={p} value={p}>{p}</option>)}
-                    </select>
-                    <select name="assignedToId" value={newTicket.assignedToId} onChange={handleInputChange} className="p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600">
-                        {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-                    </select>
+                    <div className="flex flex-col">
+                        <label className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Nível de urgência</label>
+                        <select name="priority" value={newTicket.priority} onChange={handleInputChange} className="p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600">
+                            {Object.values(TicketPriority).map(p => <option key={p} value={p}>{p}</option>)}
+                        </select>
+                    </div>
+                    <div className="flex flex-col">
+                        <label className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Direcionado para</label>
+                        <select name="assignedToId" value={newTicket.assignedToId} onChange={handleInputChange} className="p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600">
+                            {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                        </select>
+                    </div>
                 </div>
                 <div className="flex justify-end space-x-2">
                     <button type="button" onClick={handleCancelCreate} className="py-2 px-4 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300">Cancelar</button>
@@ -148,7 +169,7 @@ const TicketModal: React.FC<TicketModalProps> = ({ isOpen, onClose, tickets, use
             <>
                 <div className="flex justify-between items-center mb-4">
                     <div className="flex space-x-2 border border-gray-200 dark:border-gray-700 rounded-lg p-1">
-                        {(['meus', 'abertos', 'todos'] as FilterType[]).map(f => (
+                        {(['meus', 'abertos', 'resolvidos', 'fechados', 'todos'] as FilterType[]).map(f => (
                             <button key={f} onClick={() => setFilter(f)} className={`px-3 py-1 text-sm rounded-md ${filter === f ? 'bg-primary text-white' : 'hover:bg-gray-100 dark:hover:bg-gray-700'}`}>{f.charAt(0).toUpperCase() + f.slice(1)}</button>
                         ))}
                     </div>
@@ -156,50 +177,99 @@ const TicketModal: React.FC<TicketModalProps> = ({ isOpen, onClose, tickets, use
                 </div>
 
                 <div className="flex-1 overflow-y-auto space-y-3 pr-2">
-                    {filteredTickets.length > 0 ? filteredTickets.map(ticket => (
-                        <div key={ticket.id} className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border dark:border-gray-700 flex flex-col gap-4">
-                            <div className="flex items-start gap-4">
-                               <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${priorityColors[ticket.priority]}`} title={`Prioridade: ${ticket.priority}`}></div>
-                               <div className="flex-1">
-                                   <p className={`font-semibold ${statusColors[ticket.status]}`}>{ticket.title}</p>
-                                   <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{ticket.description}</p>
-                                   <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-500 mt-2">
+                    {filteredTickets.length > 0 ? filteredTickets.map(ticket => {
+                        const isExpanded = expandedTicketId === ticket.id;
+                        return (
+                        <div key={ticket.id} className={`p-3 bg-white dark:bg-gray-800/80 rounded-lg border ${isExpanded ? 'border-primary dark:border-primary shadow-md' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 shadow-sm'} transition-all`}>
+                            <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleExpand(ticket.id)}>
+                               <div className="flex items-center gap-3 overflow-hidden flex-1 pr-4">
+                                 <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${priorityColors[ticket.priority]}`} title={`Prioridade: ${ticket.priority}`}></div>
+                                 <p className={`font-semibold text-sm md:text-base truncate ${statusColors[ticket.status]}`}>{ticket.title}</p>
+                                 <span className="text-xs text-gray-500 truncate hidden sm:inline-block">
+                                    Para: <span className="font-medium">{getUserName(ticket.assignedToId)}</span> <span className="mx-1">•</span> De: <span className="font-medium">{getUserName(ticket.createdById)}</span> <span className="mx-1">•</span> {formatDate(ticket.createdAt)}
+                                 </span>
+                               </div>
+                               <div className="flex items-center gap-2 flex-shrink-0">
+                                   {currentUser.profile === UserProfile.Admin && (
+                                       <button onClick={(e) => { e.stopPropagation(); onDelete(ticket.id); }} className="text-gray-400 hover:text-red-500 p-1 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" title="Excluir Chamado">
+                                           <Trash2 size={16} />
+                                       </button>
+                                   )}
+                                   <button className="text-xs font-medium text-gray-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary whitespace-nowrap bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 px-3 py-1.5 rounded-md transition-colors flex-shrink-0">
+                                      {isExpanded ? 'Ocultar' : 'Exibir mais'}
+                                   </button>
+                               </div>
+                            </div>
+
+                            {isExpanded && (
+                               <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700 flex flex-col gap-4 animate-fade-in">
+                                   <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400 sm:hidden">
                                        <span>Para: <b>{getUserName(ticket.assignedToId)}</b></span>
                                        <span>De: <b>{getUserName(ticket.createdById)}</b></span>
-                                       <span>Criado em: <b>{formatDate(ticket.createdAt)}</b></span>
+                                       <span>{formatDate(ticket.createdAt)}</span>
                                    </div>
+                                   
+                                   <div className="bg-gray-50 dark:bg-gray-900/50 p-3 rounded-lg border border-gray-100 dark:border-gray-800">
+                                       <p className="text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1.5">Descrição Inicial</p>
+                                       <p className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap">{ticket.description}</p>
+                                   </div>
+                                   
+                                   {ticket.history && ticket.history.length > 0 && (
+                                     <div className="space-y-2">
+                                       <p className="text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Histórico e Respostas</p>
+                                       {ticket.history.map((h, i) => (
+                                         <div key={i} className="bg-white dark:bg-gray-800 p-3 rounded-lg border border-gray-100 dark:border-gray-700 text-sm shadow-sm">
+                                           <div className="flex justify-between items-center mb-2">
+                                             <span className="font-semibold text-gray-800 dark:text-gray-300">{getUserName(h.userId)}</span>
+                                             <span className="text-xs text-gray-500">{new Date(h.timestamp).toLocaleString('pt-BR')}</span>
+                                           </div>
+                                           <p className="text-gray-700 dark:text-gray-400 whitespace-pre-wrap">{h.comment}</p>
+                                           {h.status && (
+                                              <span className="inline-block mt-2 text-[10px] font-bold px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded-full text-gray-600 dark:text-gray-400 uppercase tracking-wide">
+                                                Status alterado para: {h.status}
+                                              </span>
+                                           )}
+                                         </div>
+                                       ))}
+                                     </div>
+                                   )}
+
+                                   <div className="flex justify-end">
+                                       {attendingTicketId !== ticket.id && ticket.status !== TicketStatus.Fechado && ticket.status !== TicketStatus.Resolvido && (
+                                         <button onClick={(e) => { e.stopPropagation(); handleAttend(ticket.id); }} className="py-1.5 px-4 text-sm bg-primary text-white rounded-lg hover:bg-primary-dark whitespace-nowrap transition-colors shadow-sm">
+                                           Atender Chamado
+                                         </button>
+                                       )}
+                                   </div>
+
+                                   {attendingTicketId === ticket.id && (
+                                       <div className="border-t dark:border-gray-700 pt-4 space-y-3">
+                                         <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200">Adicionar Observação de Resolução</h4>
+                                         <textarea
+                                           value={observation}
+                                           onChange={(e) => setObservation(e.target.value)}
+                                           placeholder="Detalhes da resolução ou motivo do fechamento (obrigatório para Fechar/Resolver)"
+                                           className="p-3 w-full border rounded-lg dark:bg-gray-900 dark:border-gray-700 focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all"
+                                           rows={3}
+                                         />
+                                         <div className="flex flex-wrap justify-end gap-2">
+                                           <button onClick={handleCancelAttend} className="py-2 px-4 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 transition-colors">
+                                             Cancelar
+                                           </button>
+                                           <button onClick={() => handleUpdateStatus(TicketStatus.Resolvido)} className="py-2 px-4 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors shadow-sm">
+                                             Resolvido
+                                           </button>
+                                           <button onClick={() => handleUpdateStatus(TicketStatus.Fechado)} className="py-2 px-4 text-sm bg-gray-800 text-white rounded-lg hover:bg-gray-900 dark:bg-black dark:hover:bg-gray-900 transition-colors shadow-sm">
+                                             Fechado
+                                           </button>
+                                         </div>
+                                       </div>
+                                   )}
                                </div>
-                               {attendingTicketId !== ticket.id && ticket.status !== TicketStatus.Fechado && ticket.status !== TicketStatus.Resolvido && (
-                                 <button onClick={() => handleAttend(ticket.id)} className="py-1 px-3 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 whitespace-nowrap">
-                                   Atender
-                                 </button>
-                               )}
-                            </div>
-                            {attendingTicketId === ticket.id && (
-                                <div className="border-t dark:border-gray-600 pt-4 space-y-3">
-                                  <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200">Adicionar Observação de Atendimento</h4>
-                                  <textarea
-                                    value={observation}
-                                    onChange={(e) => setObservation(e.target.value)}
-                                    placeholder="Descreva a ação tomada ou a resolução do chamado..."
-                                    className="p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600"
-                                    rows={3}
-                                  />
-                                  <div className="flex justify-end space-x-2">
-                                    <button onClick={handleCancelAttend} className="py-2 px-4 text-sm bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-200 dark:hover:bg-gray-500">
-                                      Cancelar
-                                    </button>
-                                    <button onClick={handleResolve} className="py-2 px-4 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700">
-                                      Resolver
-                                    </button>
-                                    <button onClick={handleCloseTicket} className="py-2 px-4 text-sm bg-black text-white rounded-lg hover:bg-gray-800">
-                                      Fechar
-                                    </button>
-                                  </div>
-                                </div>
                             )}
                         </div>
-                    )) : <p className="text-center text-gray-500 italic mt-8">Nenhum chamado encontrado.</p>}
+                        );
+                    }) : <p className="text-center text-gray-500 italic mt-8">Nenhum chamado encontrado.</p>}
                 </div>
             </>
         )}

@@ -43,9 +43,10 @@ const DriversPage: React.FC<DriversPageProps> = ({
     cpf: '',
     cnh: '',
     phone: '',
-    classification: '',
-    ownerId: '',
-    status: 'all',
+    ddd: [],
+    classification: [],
+    ownerNames: [],
+    status: [],
   });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -59,14 +60,22 @@ const DriversPage: React.FC<DriversPageProps> = ({
       const cpfMatch = !filters.cpf || driver.cpf.includes(filters.cpf);
       const cnhMatch = !filters.cnh || driver.cnh.includes(filters.cnh);
       const phoneMatch = !filters.phone || driver.phone.includes(filters.phone);
-      const classificationMatch = !filters.classification || driver.classification === filters.classification;
-      const ownerMatch = !filters.ownerId || driver.ownerId === filters.ownerId;
+      
+      const driverDdd = driver.phone.replace(/\D/g, '').substring(0, 2);
+      const dddMatch = filters.ddd.length === 0 || filters.ddd.includes(driverDdd);
+      
+      const classificationMatch = filters.classification.length === 0 || filters.classification.includes(driver.classification);
+      
+      const ownerName = owners.find(o => o.id === driver.ownerId)?.name || '';
+      const ownerMatch = filters.ownerNames.length === 0 || filters.ownerNames.includes(ownerName);
       
       let statusMatch = true;
-      if (filters.status === 'active') statusMatch = driver.active;
-      else if (filters.status === 'restricted') statusMatch = !driver.active;
+      if (filters.status.length > 0) {
+          const isDriverActive = driver.active ? 'Ativo' : 'Restrito';
+          statusMatch = filters.status.includes(isDriverActive);
+      }
 
-      return nameMatch && cpfMatch && cnhMatch && phoneMatch && classificationMatch && ownerMatch && statusMatch;
+      return nameMatch && cpfMatch && cnhMatch && phoneMatch && dddMatch && classificationMatch && ownerMatch && statusMatch;
     });
   }, [drivers, filters]);
 
@@ -303,6 +312,7 @@ const DriversPage: React.FC<DriversPageProps> = ({
 
       <div style={{ zoom: 0.8 }}>
         <DriverFilter 
+          drivers={drivers}
           owners={owners} 
           filters={filters} 
           onFilterChange={setFilters} 

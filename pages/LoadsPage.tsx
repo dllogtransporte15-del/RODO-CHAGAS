@@ -6,7 +6,8 @@ import LoadFormModal from '../components/LoadFormModal';
 import HistoryModal from '../components/HistoryModal';
 import CargoDetailsModal from '../components/CargoDetailsModal';
 import CargoShipmentsSidePanel from '../components/CargoShipmentsSidePanel';
-import type { Cargo, Client, Product, User, ProfilePermissions, Shipment, DailyScheduleEntry, Vehicle, Branch } from '../types';
+import RecommendedDriversModal from '../components/RecommendedDriversModal';
+import type { Cargo, Client, Product, Driver, User, ProfilePermissions, Shipment, DailyScheduleEntry, Vehicle, Branch } from '../types';
 import { CargoStatus, UserProfile } from '../types';
 import { can } from '../auth';
 import { StayRecord } from '../utils/toolStorage';
@@ -16,7 +17,9 @@ interface LoadsPageProps {
   setLoads: React.Dispatch<React.SetStateAction<Cargo[]>>;
   clients: Client[];
   products: Product[];
+  drivers: Driver[];
   shipments: Shipment[];
+  allShipments: Shipment[];
   vehicles: Vehicle[];
   // FIX: Changed Omit to use a union type for the keys to be omitted.
   onSaveLoad: (loadData: Cargo | Omit<Cargo, 'id' | 'history' | 'createdAt' | 'createdById'>) => void;
@@ -34,7 +37,7 @@ interface LoadsPageProps {
   stays?: StayRecord[];
 }
 
-const LoadsPage: React.FC<LoadsPageProps> = ({ loads, setLoads, clients, products, shipments, onSaveLoad, onReactivateLoad, onSuspendLoad, onUpdatePrice, currentUser, profilePermissions, users, onDeleteLoad, onModalStateChange, companyLogo, vehicles, onDeleteAttachment, branches, stays = [] }) => {
+const LoadsPage: React.FC<LoadsPageProps> = ({ loads, setLoads, clients, products, shipments, allShipments, onSaveLoad, onReactivateLoad, onSuspendLoad, onUpdatePrice, currentUser, profilePermissions, users, onDeleteLoad, onModalStateChange, companyLogo, vehicles, drivers, onDeleteAttachment, branches, stays = [] }) => {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loadToEdit, setLoadToEdit] = useState<Cargo | null>(null);
@@ -45,11 +48,13 @@ const LoadsPage: React.FC<LoadsPageProps> = ({ loads, setLoads, clients, product
   const [detailsModalCargo, setDetailsModalCargo] = useState<Cargo | null>(null);
   const [isShipmentsPanelOpen, setIsShipmentsPanelOpen] = useState(false);
   const [selectedCargoForShipments, setSelectedCargoForShipments] = useState<Cargo | null>(null);
+  const [isRecommendedDriversModalOpen, setIsRecommendedDriversModalOpen] = useState(false);
+  const [selectedCargoForRecommendations, setSelectedCargoForRecommendations] = useState<Cargo | null>(null);
 
   React.useEffect(() => {
-    const isAnyOpen = isModalOpen || isHistoryModalOpen || !!detailsModalCargo || isShipmentsPanelOpen;
+    const isAnyOpen = isModalOpen || isHistoryModalOpen || !!detailsModalCargo || isShipmentsPanelOpen || isRecommendedDriversModalOpen;
     onModalStateChange(isAnyOpen);
-  }, [isModalOpen, isHistoryModalOpen, detailsModalCargo, isShipmentsPanelOpen, onModalStateChange]);
+  }, [isModalOpen, isHistoryModalOpen, detailsModalCargo, isShipmentsPanelOpen, isRecommendedDriversModalOpen, onModalStateChange]);
 
   const handleShowDetails = (cargo: Cargo) => {
     setDetailsModalCargo(cargo);
@@ -60,6 +65,10 @@ const LoadsPage: React.FC<LoadsPageProps> = ({ loads, setLoads, clients, product
     setIsShipmentsPanelOpen(true);
   };
 
+  const handleOpenRecommendations = (cargo: Cargo) => {
+    setSelectedCargoForRecommendations(cargo);
+    setIsRecommendedDriversModalOpen(true);
+  };
 
   const canCreate = can('create', currentUser, 'loads', profilePermissions);
   const canUpdate = can('update', currentUser, 'loads', profilePermissions);
@@ -126,13 +135,14 @@ const LoadsPage: React.FC<LoadsPageProps> = ({ loads, setLoads, clients, product
             dailyBalanceDate={dailyBalanceDate}
             onDailyBalanceDateChange={setDailyBalanceDate}
             onEdit={canUpdate ? handleEditLoad : undefined}
-            onClose={canDelete ? handleCloseLoad : undefined}
+            onClose={(canDelete || currentUser.profile === UserProfile.Supervisor) ? handleCloseLoad : undefined}
             onShowHistory={handleShowHistory}
             onReactivate={currentUser.profile !== UserProfile.Embarcador ? onReactivateLoad : undefined}
             onSuspend={currentUser.profile !== UserProfile.Embarcador ? onSuspendLoad : undefined}
             onEditSchedule={canUpdate ? handleEditSchedule : undefined}
             onShowDetails={handleShowDetails}
             onShowShipments={handleShowShipments}
+            onRecommendDrivers={handleOpenRecommendations}
             onDelete={onDeleteLoad}
             currentUser={currentUser}
             stays={stays}
@@ -190,6 +200,17 @@ const LoadsPage: React.FC<LoadsPageProps> = ({ loads, setLoads, clients, product
         onDeleteAttachment={onDeleteAttachment}
       />
 
+      <RecommendedDriversModal
+        isOpen={isRecommendedDriversModalOpen}
+        onClose={() => {
+          setIsRecommendedDriversModalOpen(false);
+          setSelectedCargoForRecommendations(null);
+        }}
+        currentCargo={selectedCargoForRecommendations}
+        drivers={drivers}
+        shipments={allShipments}
+        cargos={loads}
+      />
     </>
   );
 };

@@ -17,6 +17,16 @@ const DriverTable: React.FC<DriverTableProps> = ({ drivers, owners, onEdit, onDe
     return owners.find(o => o.id === ownerId)?.name || 'Desconhecido';
   };
 
+  const formatWhatsAppLink = (phone: string) => {
+    const cleanPhone = phone.replace(/\D/g, '');
+    if (!cleanPhone) return '#';
+    // Se já tiver código do país (começa com 55 e tem 12 ou 13 dígitos)
+    if (cleanPhone.startsWith('55') && cleanPhone.length > 11) {
+        return `https://wa.me/${cleanPhone}`;
+    }
+    return `https://wa.me/55${cleanPhone}`;
+  };
+
   return (
     <div className="bg-white dark:bg-gray-800 shadow-md rounded-lg overflow-hidden">
       <div className="overflow-x-auto">
@@ -41,7 +51,21 @@ const DriverTable: React.FC<DriverTableProps> = ({ drivers, owners, onEdit, onDe
                   <div className="text-gray-900 dark:text-white">{driver.cpf}</div>
                   <div className="text-gray-500 dark:text-gray-400">CNH: {driver.cnh}</div>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{driver.phone}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm">
+                  {driver.phone ? (
+                    <a 
+                      href={formatWhatsAppLink(driver.phone)}
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 px-3 py-1.5 bg-green-50 text-green-700 hover:bg-green-100 dark:bg-green-900/30 dark:text-green-400 dark:hover:bg-green-900/50 rounded-lg transition-colors font-medium"
+                      title="Conversar no WhatsApp"
+                    >
+                      {driver.phone}
+                    </a>
+                  ) : (
+                    <span className="text-gray-500 dark:text-gray-400">-</span>
+                  )}
+                </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{driver.classification}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{getOwnerName(driver.ownerId)}</td>
                 <td className="px-6 py-4 whitespace-nowrap">

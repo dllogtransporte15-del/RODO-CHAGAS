@@ -513,16 +513,17 @@ export async function upsertBranch(branch: Branch): Promise<void> {
 
 export async function upsertTicket(ticket: Ticket): Promise<void> {
   const payload = fromTicket(ticket);
-  let error;
-  if ((ticket as Ticket).id) {
-    const result = await supabase.from('tickets').update(payload).eq('id', (ticket as Ticket).id);
-    error = result.error;
-  } else {
-    const result = await supabase.from('tickets').insert(payload);
-    error = result.error;
-  }
+  const { error } = await supabase.from('tickets').upsert(payload);
   if (error) {
-    console.error('[upsertTicket] Error:', error);
+    console.error('[upsertTicket] Error details:', error);
+    throw error;
+  }
+}
+
+export async function deleteTicket(id: string): Promise<void> {
+  const { error } = await supabase.from('tickets').delete().eq('id', id);
+  if (error) {
+    console.error('[deleteTicket] Error details:', error);
     throw error;
   }
 }

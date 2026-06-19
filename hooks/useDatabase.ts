@@ -169,10 +169,12 @@ export function useDatabase(currentUser: User | null) {
     if (!currentUser) return;
 
     const handlePostgresChange = async (payload: any) => {
-      if (isAnyModalActiveRef.current) return;
-      
       const { table, eventType } = payload;
       console.log(`[useDatabase] Change detected in ${table} (${eventType}). Updating...`);
+
+      // For tickets, always process — even if a modal is open — so the
+      // assigned user always receives their notification immediately.
+      if (isAnyModalActiveRef.current && table !== 'tickets') return;
 
       try {
         switch (table) {

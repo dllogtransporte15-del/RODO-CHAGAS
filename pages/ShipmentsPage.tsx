@@ -117,8 +117,8 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({
   const canPerformSpecialActions = currentUser && allowedProfilesForActions.includes(currentUser.profile);
   
   const canEditPrice = canUpdate && canPerformSpecialActions;
-  const canCancelShipment = canPerformSpecialActions && (canDelete || currentUser.profile === UserProfile.Fiscal);
-  const canTransferShipment = canUpdate && canPerformSpecialActions;
+  const canCancelShipment = canPerformSpecialActions && (canDelete || currentUser.profile === UserProfile.Fiscal || currentUser.profile === UserProfile.Supervisor);
+  const canTransferShipment = (canUpdate || currentUser.profile === UserProfile.Supervisor) && canPerformSpecialActions;
   const isClient = currentUser.profile === UserProfile.Cliente;
 
   const filteredShipments = useMemo(() => {

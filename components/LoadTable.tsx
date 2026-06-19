@@ -27,12 +27,13 @@ interface LoadTableProps {
   onShowDetails?: (load: Cargo) => void;
   onEditSchedule?: (load: Cargo) => void;
   onShowShipments?: (load: Cargo) => void;
+  onRecommendDrivers?: (load: Cargo) => void;
   onDelete?: (cargoId: string) => void;
   currentUser: User;
   stays?: StayRecord[];
 }
 
-const LoadTable: React.FC<LoadTableProps> = ({ loads, clients, products, shipments, dailyBalanceDate, onDailyBalanceDateChange, onCreateShipment, onSuspend, onReactivate, onFinalize, onEdit, onClose, onShowHistory, onShowDetails, onEditSchedule, onShowShipments, onDelete, currentUser, stays = [] }) => {
+const LoadTable: React.FC<LoadTableProps> = ({ loads, clients, products, shipments, dailyBalanceDate, onDailyBalanceDateChange, onCreateShipment, onSuspend, onReactivate, onFinalize, onEdit, onClose, onShowHistory, onShowDetails, onEditSchedule, onShowShipments, onRecommendDrivers, onDelete, currentUser, stays = [] }) => {
   const [openActionMenu, setOpenActionMenu] = useState<string | null>(null);
   
   const [showFilters, setShowFilters] = useState(false);
@@ -398,6 +399,11 @@ const LoadTable: React.FC<LoadTableProps> = ({ loads, clients, products, shipmen
                           {onCreateShipment && load.status === CargoStatus.EmAndamento && (
                             <button onClick={() => { onCreateShipment(load); setOpenActionMenu(null); }} className="w-full text-left px-4 py-2 text-sm text-primary dark:text-blue-400 font-medium hover:bg-gray-100 dark:hover:bg-gray-700">
                               Novo Embarque
+                            </button>
+                          )}
+                          {onRecommendDrivers && load.status === CargoStatus.EmAndamento && (
+                            <button onClick={() => { onRecommendDrivers(load); setOpenActionMenu(null); }} className="w-full text-left px-4 py-2 text-sm text-indigo-600 dark:text-indigo-400 font-medium hover:bg-gray-100 dark:hover:bg-gray-700">
+                              Motoristas Indicados
                             </button>
                           )}
                           {onSuspend && load.status === CargoStatus.EmAndamento && (
