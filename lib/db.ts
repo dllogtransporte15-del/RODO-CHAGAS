@@ -297,29 +297,51 @@ export const fromUser = (u: User | Omit<User, 'id'>) => ({
   branch_id: u.branchId || null,
 });
 
-const toTicket = (row: any): Ticket => ({
-  id: row.id,
-  title: row.title,
-  description: row.description,
-  status: row.status,
-  priority: row.priority,
-  createdById: row.created_by_id,
-  assignedToId: row.assigned_to_id,
-  createdAt: row.created_at,
-  history: row.history || [],
-});
+const toTicket = (row: any): Ticket => {
+  let cleanDesc = row.description || '';
+  const cargoMatch = cleanDesc.match(/\[CARGO_ID:\s*(.*?)\]/);
+  const shipmentMatch = cleanDesc.match(/\[SHIPMENT_ID:\s*(.*?)\]/);
+  
+  const cargoId = cargoMatch ? cargoMatch[1] : undefined;
+  const shipmentId = shipmentMatch ? shipmentMatch[1] : undefined;
 
-const fromTicket = (t: Ticket | Omit<Ticket, 'id' | 'history' | 'createdAt' | 'createdById'>) => ({
-  id: (t as Ticket).id,
-  title: t.title,
-  description: t.description,
-  status: t.status,
-  priority: t.priority,
-  created_by_id: (t as Ticket).createdById,
-  assigned_to_id: t.assignedToId,
-  created_at: (t as Ticket).createdAt,
-  history: (t as Ticket).history || [],
-});
+  if (cargoMatch || shipmentMatch) {
+    cleanDesc = cleanDesc.replace(/\[CARGO_ID:\s*.*?\]/g, '').replace(/\[SHIPMENT_ID:\s*.*?\]/g, '').trim();
+  }
+
+  return {
+    id: row.id,
+    title: row.title,
+    description: cleanDesc,
+    status: row.status,
+    priority: row.priority,
+    createdById: row.created_by_id,
+    assignedToId: row.assigned_to_id,
+    createdAt: row.created_at,
+    history: row.history || [],
+    cargoId,
+    shipmentId,
+  };
+};
+
+const fromTicket = (t: Ticket | Omit<Ticket, 'id' | 'history' | 'createdAt' | 'createdById'>) => {
+  let finalDesc = t.description;
+  const ticketObj = t as Ticket;
+  if (ticketObj.cargoId) finalDesc += `\n\n[CARGO_ID: ${ticketObj.cargoId}]`;
+  if (ticketObj.shipmentId) finalDesc += `\n\n[SHIPMENT_ID: ${ticketObj.shipmentId}]`;
+
+  return {
+    id: ticketObj.id,
+    title: t.title,
+    description: finalDesc,
+    status: t.status,
+    priority: t.priority,
+    created_by_id: ticketObj.createdById,
+    assigned_to_id: t.assignedToId,
+    created_at: ticketObj.createdAt,
+    history: ticketObj.history || [],
+  };
+};
 
 const toBranch = (row: any): Branch => ({
   id: row.id,

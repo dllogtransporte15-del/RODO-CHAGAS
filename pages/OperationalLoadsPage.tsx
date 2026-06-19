@@ -13,6 +13,7 @@ import { can } from '../auth';
 import { CopyIcon } from '../components/icons/CopyIcon';
 import { CargoStatus, UserProfile } from '../types';
 import { StayRecord } from '../utils/toolStorage';
+import type { Ticket } from '../types';
 
 interface OperationalLoadsPageProps {
   loads: Cargo[];
@@ -35,6 +36,7 @@ interface OperationalLoadsPageProps {
   onDeleteAttachment?: (shipmentId: string, url: string) => Promise<void>;
   branches: Branch[];
   stays?: StayRecord[];
+  tickets?: Ticket[];
 }
 
 const formatAllowedVehicleTypes = (allowed?: { setType: VehicleSetType; bodyTypes: VehicleBodyType[] }[]): string => {
@@ -65,6 +67,7 @@ const OperationalLoadsPage: React.FC<OperationalLoadsPageProps> = ({
   onDeleteAttachment,
   branches,
   stays = [],
+  tickets = [],
 }) => {
   const [isShipmentModalOpen, setIsShipmentModalOpen] = useState(false);
   const [selectedCargo, setSelectedCargo] = useState<Cargo | null>(null);
@@ -201,10 +204,10 @@ const OperationalLoadsPage: React.FC<OperationalLoadsPageProps> = ({
         onSuspend={currentUser.profile !== UserProfile.Embarcador ? onSuspendLoad : undefined}
         onShowDetails={handleShowCargoDetails}
         onShowShipments={handleShowShipments}
-        onRecommendDrivers={handleOpenRecommendations}
         onDelete={onDeleteLoad}
         currentUser={currentUser}
         stays={stays}
+        tickets={tickets}
       />
 
       <NewShipmentModal

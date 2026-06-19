@@ -12,8 +12,10 @@ import { ExternalLinkIcon } from './icons/ExternalLinkIcon';
 import { InfoIcon } from './icons/InfoIcon';
 import { TransferIcon } from './icons/TransferIcon';
 import { MoreVerticalIcon } from './icons/MoreVerticalIcon';
-import { Search, Filter, X, Trash2, RotateCcw, Clock, Package } from 'lucide-react';
+import { Search, Filter, X, Trash2, RotateCcw, Clock, Package, AlertCircle } from 'lucide-react';
 import { StayRecord } from '../utils/toolStorage';
+import type { Ticket } from '../types';
+import { TicketStatus } from '../types';
 
 import MultiSelectDropdown from './MultiSelectDropdown';
 import ShipmentDetailsModal from './ShipmentDetailsModal';
@@ -47,9 +49,10 @@ interface ShipmentTableProps {
   companyLogo?: string | null;
   onDeleteAttachment?: (shipmentId: string, url: string) => Promise<void>;
   onSwapCargo?: (shipment: Shipment) => void;
+  tickets?: Ticket[];
 }
 
-const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users, vehicles, onAttach, onEditPrice, onCancel, onTransfer, onShowHistory, onShowCargoDetails, canUserAdvanceStatus, onMarkArrival, onDelete, onRevertStatus, onOpenCadastroAntt, onUpdatePrice, onUpdateShipmentData, onAddAttachments, onOpenEditScheduledDateTime, currentUser, activeStatus, clients, products, stays = [], companyLogo, onDeleteAttachment, onSwapCargo }) => {
+const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users, vehicles, onAttach, onEditPrice, onCancel, onTransfer, onShowHistory, onShowCargoDetails, canUserAdvanceStatus, onMarkArrival, onDelete, onRevertStatus, onOpenCadastroAntt, onUpdatePrice, onUpdateShipmentData, onAddAttachments, onOpenEditScheduledDateTime, currentUser, activeStatus, clients, products, stays = [], companyLogo, onDeleteAttachment, onSwapCargo, tickets = [] }) => {
 
 
   const [openActionMenu, setOpenActionMenu] = useState<string | null>(null);
@@ -255,12 +258,19 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users,
               <div key={shipment.id} className="p-3 space-y-3">
                 <div className="flex justify-between items-start">
                   <div>
-                    <button 
-                      onClick={() => setDetailsModalShipment(shipment)} 
-                      className="text-sm font-bold text-primary dark:text-blue-400 hover:underline"
-                    >
-                      {shipment.id}
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <button 
+                        onClick={() => setDetailsModalShipment(shipment)} 
+                        className="text-sm font-bold text-primary dark:text-blue-400 hover:underline"
+                      >
+                        {shipment.id}
+                      </button>
+                      {tickets.some(t => t.shipmentId === shipment.id && t.status !== TicketStatus.Fechado && t.status !== TicketStatus.Resolvido) && (
+                        <span className="text-red-500 inline-flex items-center" title="Chamado(s) Aberto(s)">
+                          <AlertCircle className="w-4 h-4" />
+                        </span>
+                      )}
+                    </div>
                     {cargo && (
                       <div className="text-xs text-gray-500 mt-0.5">
                         Carga: <button onClick={() => onShowCargoDetails?.(cargo)} className="font-semibold text-primary/80">#{cargo.sequenceId}</button>
@@ -439,12 +449,19 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users,
                 return (
                   <tr key={shipment.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                     <td className="px-6 py-[11px] whitespace-nowrap text-sm">
-                      <button 
-                          onClick={() => setDetailsModalShipment(shipment)} 
-                          className="font-medium text-primary dark:text-blue-400 hover:underline text-left block"
-                      >
-                          {shipment.id}
-                      </button>
+                      <div className="flex items-center gap-1">
+                        <button 
+                            onClick={() => setDetailsModalShipment(shipment)} 
+                            className="font-medium text-primary dark:text-blue-400 hover:underline text-left block"
+                        >
+                            {shipment.id}
+                        </button>
+                        {tickets.some(t => t.shipmentId === shipment.id && t.status !== TicketStatus.Fechado && t.status !== TicketStatus.Resolvido) && (
+                          <span className="text-red-500 inline-flex items-center" title="Chamado(s) Aberto(s)">
+                            <AlertCircle className="w-4 h-4" />
+                          </span>
+                        )}
+                      </div>
                       {cargo && (
                         <div className="text-xs text-gray-500 dark:text-gray-400">
                           Carga: 

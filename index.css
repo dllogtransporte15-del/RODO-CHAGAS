@@ -235,3 +235,77 @@ body {
 .toast-item.error { border-left: 4px solid #ef4444; }
 .toast-item.warning { border-left: 4px solid #f59e0b; }
 .toast-item.info { border-left: 4px solid #0ea5e9; }
+
+/* --- PREMIUM UI UTILITIES --- */
+
+/* Glass Panel */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0,0,0,0.02);
+}
+
+:is(.dark .glass-panel) {
+  background: rgba(30, 41, 59, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255,255,255,0.02);
+}
+
+/* Premium Button */
+.btn-premium {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+  color: white;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 6px -1px rgba(29, 59, 141, 0.2), 0 2px 4px -1px rgba(29, 59, 141, 0.1);
+}
+
+.btn-premium:hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 10px 15px -3px rgba(29, 59, 141, 0.3), 0 4px 6px -2px rgba(29, 59, 141, 0.15);
+}
+
+.btn-premium:active {
+  transform: translateY(0) scale(0.98);
+}
+
+/* Ticket Inbox Card Hover */
+.ticket-card {
+  transition: all 0.2s ease;
+  border-left-width: 4px;
+}
+.ticket-card:hover {
+  transform: translateX(4px);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
+}
+
+/* Chat Message Bubble */
+.chat-bubble {
+  position: relative;
+  border-radius: 1rem;
+  padding: 0.75rem 1rem;
+}
+.chat-bubble::after {
+  content: '';
+  position: absolute;
+  top: 12px;
+  width: 0;
+  height: 0;
+  border: 8px solid transparent;
+}
+.chat-bubble-left {
+  border-top-left-radius: 0.25rem;
+  background: #F3F4F6;
+}
+:is(.dark .chat-bubble-left) {
+  background: #374151;
+}
+.chat-bubble-left::after {
+  left: -16px;
+  border-right-color: #F3F4F6;
+}
+:is(.dark .chat-bubble-left::after) {
+  border-right-color: #374151;
+}
+

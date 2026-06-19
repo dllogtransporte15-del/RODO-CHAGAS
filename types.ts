@@ -348,6 +348,8 @@ export interface Ticket {
   assignedToId: string;
   createdAt: string;
   history: TicketHistory[];
+  cargoId?: string;
+  shipmentId?: string;
 }
 
 export interface ShipmentLock {

@@ -67,7 +67,7 @@ const RecommendedDriversModal: React.FC<RecommendedDriversModalProps> = ({
           const pastOriginCoords = pastCargo.originCoords || getCoordsSync(pastCargo.origin);
           const pastDestCoords = pastCargo.destinationCoords || getCoordsSync(pastCargo.destination);
 
-          const checkDistance = (c1?: {lat: number, lng: number}, c2?: {lat: number, lng: number}) => {
+          const checkDistance = (c1?: {lat: number, lng: number} | null, c2?: {lat: number, lng: number} | null) => {
             if (!c1 || !c2) return false;
             return getDistanceKm(c1.lat, c1.lng, c2.lat, c2.lng) <= 200;
           };

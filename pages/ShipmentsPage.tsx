@@ -19,6 +19,7 @@ import { can } from '../auth';
 import { tryAcquireShipmentLock, releaseShipmentLock } from '../lib/db';
 import { useEffect, useRef } from 'react';
 import { StayRecord } from '../utils/toolStorage';
+import type { Ticket } from '../types';
 
 interface ShipmentsPageProps {
   shipments: Shipment[];
@@ -59,6 +60,7 @@ interface ShipmentsPageProps {
   onDeleteAttachment?: (shipmentId: string, url: string) => Promise<void>;
   onSwapCargo: (shipmentId: string, newCargoId: string) => void;
   stays?: StayRecord[];
+  tickets?: Ticket[];
 }
 
 
@@ -70,7 +72,7 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({
   profilePermissions, users, onUpdateAttachment, onAddAttachments, onUpdatePrice, onConfirmCancel, 
   onUpdateAnttAndBankDetails, onTransferShipment, onMarkArrival, onDeleteShipment,
   onRevertStatus, onUpdateScheduledDateTime, onUpdateShipmentData, activeLocks, onModalStateChange,
-  companyLogo, onDeleteAttachment, onSwapCargo, stays = []
+  companyLogo, onDeleteAttachment, onSwapCargo, stays = [], tickets = []
 }) => {
 
   const [activeStatus, setActiveStatus] = useState<ShipmentStatus | 'all'>(ShipmentStatus.AguardandoSeguradora);
@@ -295,6 +297,7 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({
         companyLogo={companyLogo}
         onDeleteAttachment={onDeleteAttachment}
         onSwapCargo={handleOpenSwapCargoModal}
+        tickets={tickets}
       />
 
       {selectedShipment && (

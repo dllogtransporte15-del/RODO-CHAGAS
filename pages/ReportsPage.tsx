@@ -223,7 +223,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, carg
       case 'tempo-operacao':
         return <OperationalTimingReport shipments={filteredShipments} />;
       case 'filiais':
-        return <BranchReport shipments={filteredShipments} cargos={cargos} branches={branches} users={users} />;
+        return <BranchReport shipments={filteredShipments} cargos={cargos} branches={branches} users={users} stays={stays} />;
       case 'estadias':
         if (loadingStays) {
           return (
@@ -277,37 +277,37 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, carg
       <Header title="Relatórios" />
       
       {/* GLOBAL FILTERS SECTION */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 mb-6">
-        <div className="flex flex-col md:flex-row items-center justify-between p-4 gap-4">
-          <div className="flex items-center gap-4 w-full md:w-auto">
-            <div className="flex items-center gap-2">
-              <Calendar className="w-5 h-5 text-gray-500" />
-              <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm focus:ring-2 focus:ring-primary outline-none" title="Data Inicial" />
-              <span className="text-gray-500">até</span>
-              <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm focus:ring-2 focus:ring-primary outline-none" title="Data Final" />
+      <div className="glass-panel rounded-2xl mb-8">
+        <div className="flex flex-col md:flex-row items-center justify-between p-5 gap-4">
+          <div className="flex flex-wrap items-center gap-4 w-full md:w-auto">
+            <div className="flex items-center gap-2 bg-white/50 dark:bg-gray-900/50 backdrop-blur-md p-2 rounded-xl border border-gray-200/50 dark:border-gray-700/50 shadow-inner">
+              <Calendar className="w-5 h-5 text-gray-500 ml-2" />
+              <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="p-1.5 bg-transparent border-none text-sm focus:ring-0 outline-none font-medium text-gray-700 dark:text-gray-200" title="Data Inicial" />
+              <span className="text-gray-400 font-medium">até</span>
+              <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="p-1.5 bg-transparent border-none text-sm focus:ring-0 outline-none font-medium text-gray-700 dark:text-gray-200" title="Data Final" />
             </div>
             <button 
                 onClick={() => setShowFilters(!showFilters)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-md transition-colors ${showFilters || activeFiltersCount > 0 ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border border-blue-200 dark:border-blue-800' : 'bg-gray-50 text-gray-700 dark:bg-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600'}`}
+                className={`flex items-center gap-2 px-5 py-2.5 rounded-xl transition-all duration-300 shadow-sm font-medium ${showFilters || activeFiltersCount > 0 ? 'bg-primary text-white shadow-md' : 'bg-white/80 dark:bg-gray-800/80 text-gray-700 dark:text-gray-300 border border-gray-200/50 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700 hover:shadow-md'}`}
             >
                 <Filter className="w-4 h-4" />
-                <span className="text-sm font-medium">Filtros Opcionais {activeFiltersCount > 0 && `(${activeFiltersCount})`}</span>
+                <span className="text-sm">Filtros Avançados {activeFiltersCount > 0 && <span className="ml-1 bg-white/20 px-2 py-0.5 rounded-full text-xs">{activeFiltersCount}</span>}</span>
             </button>
           </div>
         </div>
 
         {showFilters && (
-            <div className="p-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <MultiSelectDropdown label="Status do Embarque" options={statusOptions} selectedValues={filterStatus} onChange={setFilterStatus} placeholder="Todos os status..." />
-                    <MultiSelectDropdown label="Cliente" options={clientOptions} selectedValues={filterClient} onChange={setFilterClient} placeholder="Todos os clientes..." />
-                    <MultiSelectDropdown label="Origem" options={originOptions} selectedValues={filterOrigin} onChange={setFilterOrigin} placeholder="Todas as origens..." />
-                    <MultiSelectDropdown label="Destino" options={destOptions} selectedValues={filterDest} onChange={setFilterDest} placeholder="Todos os destinos..." />
-                    <MultiSelectDropdown label="Filial" options={branchOptions} selectedValues={filterBranch} onChange={setFilterBranch} placeholder="Todas as filiais..." />
+            <div className="p-5 border-t border-gray-200/30 dark:border-gray-700/30 bg-gray-50/30 dark:bg-gray-900/20 rounded-b-2xl animate-fade-in">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5">
+                    <MultiSelectDropdown label="Status do Embarque" options={statusOptions} selectedValues={filterStatus} onChange={setFilterStatus} placeholder="Todos..." />
+                    <MultiSelectDropdown label="Cliente" options={clientOptions} selectedValues={filterClient} onChange={setFilterClient} placeholder="Todos..." />
+                    <MultiSelectDropdown label="Origem" options={originOptions} selectedValues={filterOrigin} onChange={setFilterOrigin} placeholder="Todas..." />
+                    <MultiSelectDropdown label="Destino" options={destOptions} selectedValues={filterDest} onChange={setFilterDest} placeholder="Todos..." />
+                    <MultiSelectDropdown label="Filial" options={branchOptions} selectedValues={filterBranch} onChange={setFilterBranch} placeholder="Todas..." />
                 </div>
                 {activeFiltersCount > 0 && (
-                    <div className="mt-4 flex justify-end">
-                        <button onClick={clearFilters} className="text-sm flex items-center gap-1 text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300">
+                    <div className="mt-5 flex justify-end">
+                        <button onClick={clearFilters} className="text-sm flex items-center gap-1.5 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 bg-red-50 dark:bg-red-900/20 px-4 py-2 rounded-lg transition-colors font-medium">
                             <X className="w-4 h-4" /> Limpar Filtros
                         </button>
                     </div>
@@ -317,63 +317,63 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, carg
       </div>
 
       {/* GLOBAL KPIs SECTION */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-6">
-         <div className="p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 flex items-center gap-4">
-             <div className="w-10 h-10 rounded-full bg-blue-50 dark:bg-blue-900/50 flex flex-shrink-0 items-center justify-center text-blue-600 dark:text-blue-400"><ShipIcon className="w-5 h-5" /></div>
-             <div className="min-w-0">
-                <p className="text-[10px] text-gray-500 uppercase font-bold truncate">Embarques</p>
-                <p className="text-xl font-bold text-gray-800 dark:text-gray-100">{kpis.count}</p>
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3 mb-6">
+         <div className="p-3.5 glass-panel rounded-xl flex items-center gap-3 hover:scale-[1.02] transition-transform duration-300 shadow-sm">
+             <div className="w-9 h-9 rounded-lg bg-blue-50/80 dark:bg-blue-900/40 flex flex-shrink-0 items-center justify-center text-blue-600 dark:text-blue-400 shadow-inner"><ShipIcon className="w-5 h-5" /></div>
+             <div className="min-w-0 flex-1">
+                <p className="text-[9px] text-gray-500 dark:text-gray-400 uppercase font-bold tracking-wider truncate mb-0.5">Embarques</p>
+                <p className="text-lg font-black text-gray-800 dark:text-gray-100 tracking-tight truncate">{kpis.count}</p>
              </div>
          </div>
-         <div className="p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 flex items-center gap-4">
-             <div className="w-10 h-10 rounded-full bg-gray-50 dark:bg-gray-700 flex flex-shrink-0 items-center justify-center text-gray-600 dark:text-gray-400"><Package className="w-5 h-5" /></div>
-             <div className="min-w-0">
-                <p className="text-[10px] text-gray-500 uppercase font-bold leading-tight">Total Programado</p>
-                <p className="text-xl font-bold text-gray-800 dark:text-gray-100" title="Soma de peso dos embarques em Ag. Seguradora, Pré-cadastro ou Ag. Carregamento no período">{filteredStats.totalProgramado.toLocaleString('pt-BR')} ton</p>
+         <div className="p-3.5 glass-panel rounded-xl flex items-center gap-3 hover:scale-[1.02] transition-transform duration-300 shadow-sm">
+             <div className="w-9 h-9 rounded-lg bg-gray-50/80 dark:bg-gray-800/40 flex flex-shrink-0 items-center justify-center text-gray-600 dark:text-gray-400 shadow-inner"><Package className="w-5 h-5" /></div>
+             <div className="min-w-0 flex-1">
+                <p className="text-[9px] text-gray-500 dark:text-gray-400 uppercase font-bold tracking-wider truncate mb-0.5" title="Total Programado">Total Prog.</p>
+                <p className="text-lg font-black text-gray-800 dark:text-gray-100 tracking-tight truncate">{Math.round(filteredStats.totalProgramado).toLocaleString('pt-BR')} <span className="text-[10px] font-medium text-gray-400">ton</span></p>
              </div>
          </div>
-         <div className="p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 flex items-center gap-4">
-             <div className="w-10 h-10 rounded-full bg-emerald-50 dark:bg-emerald-900/30 flex flex-shrink-0 items-center justify-center text-emerald-600 dark:text-emerald-400"><CheckCircle className="w-5 h-5" /></div>
-             <div className="min-w-0">
-                <p className="text-[10px] text-gray-500 uppercase font-bold leading-tight">Total efetivado</p>
-                <p className="text-xl font-bold text-gray-800 dark:text-gray-100" title="Soma de embarques que atingiram o status 'Ag. Nota' no período">{filteredStats.totalEfetivado.toLocaleString('pt-BR')} ton</p>
+         <div className="p-3.5 glass-panel rounded-xl flex items-center gap-3 hover:scale-[1.02] transition-transform duration-300 shadow-sm">
+             <div className="w-9 h-9 rounded-lg bg-emerald-50/80 dark:bg-emerald-900/30 flex flex-shrink-0 items-center justify-center text-emerald-600 dark:text-emerald-400 shadow-inner"><CheckCircle className="w-5 h-5" /></div>
+             <div className="min-w-0 flex-1">
+                <p className="text-[9px] text-gray-500 dark:text-gray-400 uppercase font-bold tracking-wider truncate mb-0.5" title="Total Efetivado">Total Efetiv.</p>
+                <p className="text-lg font-black text-gray-800 dark:text-gray-100 tracking-tight truncate">{Math.round(filteredStats.totalEfetivado).toLocaleString('pt-BR')} <span className="text-[10px] font-medium text-gray-400">ton</span></p>
              </div>
          </div>
-         <div className="p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 flex items-center gap-4">
-             <div className="w-10 h-10 rounded-full bg-green-50 dark:bg-green-900/50 flex flex-shrink-0 items-center justify-center text-green-600 dark:text-green-400"><DollarSign className="w-5 h-5" /></div>
-             <div className="min-w-0">
-                <p className="text-[10px] text-gray-500 uppercase font-bold leading-tight">Fat. Bruto Efetivado + Prog.</p>
-                <p className="text-xl font-bold text-gray-800 dark:text-gray-100" title={formatCurrency(kpis.grossBilled)}>
+         <div className="p-3.5 glass-panel rounded-xl flex items-center gap-3 hover:scale-[1.02] transition-transform duration-300 shadow-sm">
+             <div className="w-9 h-9 rounded-lg bg-green-50/80 dark:bg-green-900/40 flex flex-shrink-0 items-center justify-center text-green-600 dark:text-green-400 shadow-inner"><DollarSign className="w-5 h-5" /></div>
+             <div className="min-w-0 flex-1">
+                <p className="text-[9px] text-gray-500 dark:text-gray-400 uppercase font-bold tracking-wider truncate mb-0.5" title="Faturamento Bruto">Fat. Bruto</p>
+                <p className="text-lg font-black text-gray-800 dark:text-gray-100 tracking-tight truncate" title={formatCurrency(kpis.grossBilled)}>
                    R$ {(kpis.grossBilled / 1000).toFixed(1)}k
                 </p>
              </div>
          </div>
 
-         <div className="p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 flex items-center gap-4">
-             <div className="w-10 h-10 rounded-full bg-teal-50 dark:bg-teal-900/50 flex flex-shrink-0 items-center justify-center text-teal-600 dark:text-teal-400"><DollarSign className="w-5 h-5" /></div>
-             <div className="min-w-0">
-                <p className="text-[10px] text-gray-500 uppercase font-bold leading-tight">Lucro Total Estimado</p>
-                <p className="text-xl font-bold text-gray-800 dark:text-gray-100" title={formatCurrency(kpis.profitMargin)}>
+         <div className="p-3.5 glass-panel rounded-xl flex items-center gap-3 hover:scale-[1.02] transition-transform duration-300 shadow-sm">
+             <div className="w-9 h-9 rounded-lg bg-teal-50/80 dark:bg-teal-900/40 flex flex-shrink-0 items-center justify-center text-teal-600 dark:text-teal-400 shadow-inner"><DollarSign className="w-5 h-5" /></div>
+             <div className="min-w-0 flex-1">
+                <p className="text-[9px] text-gray-500 dark:text-gray-400 uppercase font-bold tracking-wider truncate mb-0.5" title="Lucro Estimado">Lucro Est.</p>
+                <p className="text-lg font-black text-gray-800 dark:text-gray-100 tracking-tight truncate" title={formatCurrency(kpis.profitMargin)}>
                    R$ {(kpis.profitMargin / 1000).toFixed(1)}k
                 </p>
              </div>
          </div>
 
-         <div className="p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 flex items-center gap-4">
-             <div className="w-10 h-10 rounded-full bg-indigo-50 dark:bg-indigo-900/50 flex flex-shrink-0 items-center justify-center text-indigo-600 dark:text-indigo-400"><DollarSign className="w-5 h-5" /></div>
-             <div className="min-w-0">
-                <p className="text-[10px] text-gray-500 uppercase font-bold leading-tight">Lucro Efetivado</p>
-                <p className="text-xl font-bold text-gray-800 dark:text-gray-100" title={formatCurrency(kpis.totalProfitMargin)}>
+         <div className="p-3.5 glass-panel rounded-xl flex items-center gap-3 hover:scale-[1.02] transition-transform duration-300 shadow-sm">
+             <div className="w-9 h-9 rounded-lg bg-indigo-50/80 dark:bg-indigo-900/40 flex flex-shrink-0 items-center justify-center text-indigo-600 dark:text-indigo-400 shadow-inner"><DollarSign className="w-5 h-5" /></div>
+             <div className="min-w-0 flex-1">
+                <p className="text-[9px] text-gray-500 dark:text-gray-400 uppercase font-bold tracking-wider truncate mb-0.5" title="Lucro Efetivado">Lucro Efe.</p>
+                <p className="text-lg font-black text-gray-800 dark:text-gray-100 tracking-tight truncate" title={formatCurrency(kpis.totalProfitMargin)}>
                    R$ {(kpis.totalProfitMargin / 1000).toFixed(1)}k
                 </p>
              </div>
          </div>
 
-         <div className="p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 flex items-center gap-4">
-             <div className="w-10 h-10 rounded-full bg-blue-50 dark:bg-blue-900/50 flex flex-shrink-0 items-center justify-center text-blue-600 dark:text-blue-400"><TrendingUp className="w-5 h-5" /></div>
-             <div className="min-w-0">
-                <p className="text-[10px] text-gray-500 uppercase font-bold leading-tight">Margem de Lucro Total</p>
-                <p className="text-xl font-bold text-gray-800 dark:text-gray-100" title={`${kpis.percentageMargin.toFixed(2)}% (Efetivado: ${kpis.effectivePercentageMargin.toFixed(2)}%)`}>
+         <div className="p-3.5 glass-panel rounded-xl flex items-center gap-3 hover:scale-[1.02] transition-transform duration-300 shadow-sm">
+             <div className="w-9 h-9 rounded-lg bg-purple-50/80 dark:bg-purple-900/40 flex flex-shrink-0 items-center justify-center text-purple-600 dark:text-purple-400 shadow-inner"><TrendingUp className="w-5 h-5" /></div>
+             <div className="min-w-0 flex-1">
+                <p className="text-[9px] text-gray-500 dark:text-gray-400 uppercase font-bold tracking-wider truncate mb-0.5" title="Margem de Lucro Total">Margem</p>
+                <p className="text-lg font-black text-gray-800 dark:text-gray-100 tracking-tight truncate" title={`${kpis.percentageMargin.toFixed(2)}% (Efetivado: ${kpis.effectivePercentageMargin.toFixed(2)}%)`}>
                    {kpis.percentageMargin.toFixed(1)}%
                 </p>
              </div>
@@ -382,18 +382,18 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, carg
 
       <div className="flex flex-col md:flex-row gap-8">
         <aside className="w-full md:w-64">
-          <nav className="flex flex-row md:flex-col gap-2">
+          <nav className="flex flex-row md:flex-col gap-2 p-2 glass-panel rounded-2xl overflow-x-auto">
              {navItems.map(item => (
                  <button
                     key={item.id}
                     onClick={() => setActiveReport(item.id as ActiveReport)}
-                    className={`flex items-center w-full px-4 py-3 text-sm font-medium text-left rounded-lg transition-colors duration-200 ${
+                    className={`flex items-center w-full px-4 py-3.5 text-sm font-semibold text-left rounded-xl transition-all duration-300 whitespace-nowrap md:whitespace-normal ${
                         activeReport === item.id
-                        ? 'bg-primary text-white'
-                        : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 border border-transparent hover:border-gray-200 dark:hover:border-gray-600'
+                        ? 'bg-gradient-to-r from-primary to-primary-dark text-white shadow-md transform scale-[1.02]'
+                        : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100/50 dark:hover:bg-gray-800/50 hover:text-gray-900 dark:hover:text-gray-200'
                     }`}
                     >
-                    <item.icon className="w-5 h-5 mr-3" />
+                    <item.icon className="w-5 h-5 mr-3 flex-shrink-0" />
                     {item.label}
                  </button>
              ))}

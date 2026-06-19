@@ -1,9 +1,11 @@
 
 import React, { useState, useMemo } from 'react';
 import { Trash2 } from 'lucide-react';
-import type { Ticket, User, TicketHistory } from '../types';
+import type { Ticket, User, TicketHistory, Cargo, Shipment } from '../types';
 import { TicketStatus, TicketPriority, UserProfile } from '../types';
 import { useToast } from '../hooks/useToast';
+import { Package, Truck, ExternalLink } from 'lucide-react';
+import SearchableSelect, { SearchableOption } from './SearchableSelect';
 
 interface TicketModalProps {
   isOpen: boolean;
@@ -14,11 +16,14 @@ interface TicketModalProps {
   onSave: (ticket: Omit<Ticket, 'id' | 'history' | 'createdAt' | 'createdById'>) => void;
   onUpdate: (ticketId: string, newStatus: TicketStatus, comment: string) => void;
   onDelete: (ticketId: string) => void;
+  cargos?: Cargo[];
+  shipments?: Shipment[];
+  onNavigateTo?: (type: 'cargo' | 'shipment') => void;
 }
 
 type FilterType = 'meus' | 'abertos' | 'resolvidos' | 'fechados' | 'todos';
 
-const TicketModal: React.FC<TicketModalProps> = ({ isOpen, onClose, tickets, users, currentUser, onSave, onUpdate, onDelete }) => {
+const TicketModal: React.FC<TicketModalProps> = ({ isOpen, onClose, tickets, users, currentUser, onSave, onUpdate, onDelete, cargos = [], shipments = [], onNavigateTo }) => {
   const { showToast } = useToast();
   const [isCreating, setIsCreating] = useState(false);
   const [filter, setFilter] = useState<FilterType>('meus');
@@ -28,6 +33,8 @@ const TicketModal: React.FC<TicketModalProps> = ({ isOpen, onClose, tickets, use
     status: TicketStatus.Aberto,
     priority: TicketPriority.Media,
     assignedToId: currentUser.id,
+    cargoId: '',
+    shipmentId: '',
   });
   const [attendingTicketId, setAttendingTicketId] = useState<string | null>(null);
   const [expandedTicketId, setExpandedTicketId] = useState<string | null>(null);
@@ -56,6 +63,22 @@ const TicketModal: React.FC<TicketModalProps> = ({ isOpen, onClose, tickets, use
     [TicketStatus.Fechado]: 'text-gray-500 dark:text-gray-400 line-through',
   };
 
+  const cargoOptions: SearchableOption[] = useMemo(() => {
+    return cargos.filter(c => c.status !== 'Fechada').map(c => ({
+      value: c.id,
+      label: `Carga #${c.sequenceId} (${c.origin} - ${c.destination})`,
+      filterText: `${c.id} ${c.sequenceId} ${c.origin} ${c.destination}`
+    }));
+  }, [cargos]);
+
+  const shipmentOptions: SearchableOption[] = useMemo(() => {
+    return shipments.filter(s => s.status !== 'Finalizado' && s.status !== 'Cancelado').map(s => ({
+      value: s.id,
+      label: `${s.id} (${s.horsePlate || 'Sem Placa'} - ${s.driverName || 'Sem Motorista'})`,
+      filterText: `${s.id} ${s.horsePlate || ''} ${s.driverName || ''}`
+    }));
+  }, [shipments]);
+
   const filteredTickets = useMemo(() => {
     let sortedTickets = [...tickets].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     switch (filter) {
@@ -83,13 +106,19 @@ const TicketModal: React.FC<TicketModalProps> = ({ isOpen, onClose, tickets, use
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
-    onSave(newTicket);
+    onSave({
+      ...newTicket,
+      cargoId: newTicket.cargoId || undefined,
+      shipmentId: newTicket.shipmentId || undefined,
+    });
     setNewTicket({
       title: '',
       description: '',
       status: TicketStatus.Aberto,
       priority: TicketPriority.Media,
       assignedToId: currentUser.id,
+      cargoId: '',
+      shipmentId: '',
     });
     setIsCreating(false);
   };
@@ -102,6 +131,8 @@ const TicketModal: React.FC<TicketModalProps> = ({ isOpen, onClose, tickets, use
       status: TicketStatus.Aberto,
       priority: TicketPriority.Media,
       assignedToId: currentUser.id,
+      cargoId: '',
+      shipmentId: '',
     });
   }
 
@@ -135,11 +166,15 @@ const TicketModal: React.FC<TicketModalProps> = ({ isOpen, onClose, tickets, use
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 max-w-4xl w-full max-h-[90vh] flex flex-col">
-        <div className="flex justify-between items-center mb-4">
-            <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Painel de Chamados</h2>
-            <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700">&times;</button>
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex justify-center items-center p-4 transition-all duration-300">
+      <div className="glass-panel rounded-2xl p-5 max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden animate-fade-in relative">
+        <div className="flex justify-between items-center mb-4 pb-3 border-b border-gray-200/50 dark:border-gray-700/50">
+            <h2 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent dark:from-blue-400 dark:to-orange-400">
+              Painel de Chamados
+            </h2>
+            <button onClick={onClose} className="p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-white">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
         </div>
 
         {isCreating ? (
@@ -160,27 +195,46 @@ const TicketModal: React.FC<TicketModalProps> = ({ isOpen, onClose, tickets, use
                         </select>
                     </div>
                 </div>
-                <div className="flex justify-end space-x-2">
-                    <button type="button" onClick={handleCancelCreate} className="py-2 px-4 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300">Cancelar</button>
-                    <button type="submit" className="py-2 px-4 bg-primary text-white rounded-lg hover:bg-primary-dark">Salvar Chamado</button>
+                <div className="grid grid-cols-2 gap-4">
+                    <SearchableSelect
+                      label="Vincular a Carga (Opcional)"
+                      options={cargoOptions}
+                      value={newTicket.cargoId}
+                      onChange={(val) => setNewTicket(prev => ({ ...prev, cargoId: val }))}
+                      placeholder="-- Nenhuma --"
+                    />
+                    <SearchableSelect
+                      label="Vincular a Embarque (Opcional)"
+                      options={shipmentOptions}
+                      value={newTicket.shipmentId}
+                      onChange={(val) => setNewTicket(prev => ({ ...prev, shipmentId: val }))}
+                      placeholder="-- Nenhum --"
+                    />
+                </div>
+                <div className="flex justify-end space-x-3 pt-4 border-t border-gray-100 dark:border-gray-800">
+                    <button type="button" onClick={handleCancelCreate} className="py-2.5 px-5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors font-medium">Cancelar</button>
+                    <button type="submit" className="py-2.5 px-5 btn-premium rounded-xl font-medium shadow-lg">Salvar Chamado</button>
                 </div>
             </form>
         ) : (
             <>
                 <div className="flex justify-between items-center mb-4">
-                    <div className="flex space-x-2 border border-gray-200 dark:border-gray-700 rounded-lg p-1">
+                    <div className="flex space-x-1 border border-gray-200/50 dark:border-gray-700/50 bg-gray-50/50 dark:bg-gray-900/30 rounded-full p-1 shadow-inner">
                         {(['meus', 'abertos', 'resolvidos', 'fechados', 'todos'] as FilterType[]).map(f => (
-                            <button key={f} onClick={() => setFilter(f)} className={`px-3 py-1 text-sm rounded-md ${filter === f ? 'bg-primary text-white' : 'hover:bg-gray-100 dark:hover:bg-gray-700'}`}>{f.charAt(0).toUpperCase() + f.slice(1)}</button>
+                            <button key={f} onClick={() => setFilter(f)} className={`px-3 py-1 text-xs rounded-full font-medium transition-all duration-300 ${filter === f ? 'bg-white dark:bg-gray-800 text-primary shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}`}>{f.charAt(0).toUpperCase() + f.slice(1)}</button>
                         ))}
                     </div>
-                    <button onClick={() => setIsCreating(true)} className="py-2 px-4 bg-primary text-white rounded-lg hover:bg-primary-dark">Novo Chamado</button>
+                    <button onClick={() => setIsCreating(true)} className="py-1.5 px-4 text-sm btn-premium rounded-xl font-medium flex items-center gap-1.5 shadow-md">
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
+                      Novo Chamado
+                    </button>
                 </div>
 
                 <div className="flex-1 overflow-y-auto space-y-3 pr-2">
                     {filteredTickets.length > 0 ? filteredTickets.map(ticket => {
                         const isExpanded = expandedTicketId === ticket.id;
                         return (
-                        <div key={ticket.id} className={`p-3 bg-white dark:bg-gray-800/80 rounded-lg border ${isExpanded ? 'border-primary dark:border-primary shadow-md' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 shadow-sm'} transition-all`}>
+                        <div key={ticket.id} className={`p-4 bg-white/60 dark:bg-gray-800/60 backdrop-blur-md rounded-xl ticket-card border ${isExpanded ? 'border-primary dark:border-primary shadow-lg border-l-primary' : 'border-gray-200/50 dark:border-gray-700/50 hover:border-gray-300 dark:hover:border-gray-600 shadow-sm border-l-transparent'} transition-all duration-300`}>
                             <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleExpand(ticket.id)}>
                                <div className="flex items-center gap-3 overflow-hidden flex-1 pr-4">
                                  <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${priorityColors[ticket.priority]}`} title={`Prioridade: ${ticket.priority}`}></div>
@@ -214,29 +268,52 @@ const TicketModal: React.FC<TicketModalProps> = ({ isOpen, onClose, tickets, use
                                        <p className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap">{ticket.description}</p>
                                    </div>
                                    
+                                   {(ticket.cargoId || ticket.shipmentId) && (
+                                     <div className="flex gap-2 flex-wrap">
+                                       {ticket.cargoId && (
+                                         <button onClick={(e) => { e.stopPropagation(); onClose(); onNavigateTo?.('cargo'); }} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 rounded-md text-sm font-medium hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors border border-blue-200 dark:border-blue-800/50">
+                                           <Package size={14} /> Acessar Carga Vinculada
+                                           <ExternalLink size={14} className="ml-1 opacity-70" />
+                                         </button>
+                                       )}
+                                       {ticket.shipmentId && (
+                                         <button onClick={(e) => { e.stopPropagation(); onClose(); onNavigateTo?.('shipment'); }} className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300 rounded-md text-sm font-medium hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors border border-indigo-200 dark:border-indigo-800/50">
+                                           <Truck size={14} /> Acessar Embarque Vinculado
+                                           <ExternalLink size={14} className="ml-1 opacity-70" />
+                                         </button>
+                                       )}
+                                     </div>
+                                   )}
+                                   
                                    {ticket.history && ticket.history.length > 0 && (
-                                     <div className="space-y-2">
-                                       <p className="text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Histórico e Respostas</p>
-                                       {ticket.history.map((h, i) => (
-                                         <div key={i} className="bg-white dark:bg-gray-800 p-3 rounded-lg border border-gray-100 dark:border-gray-700 text-sm shadow-sm">
-                                           <div className="flex justify-between items-center mb-2">
-                                             <span className="font-semibold text-gray-800 dark:text-gray-300">{getUserName(h.userId)}</span>
-                                             <span className="text-xs text-gray-500">{new Date(h.timestamp).toLocaleString('pt-BR')}</span>
+                                     <div className="space-y-4 bg-gray-50/50 dark:bg-gray-900/20 p-4 rounded-xl border border-gray-100/50 dark:border-gray-800/50 mt-4">
+                                       <p className="text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">Histórico da Conversa</p>
+                                       {ticket.history.map((h, i) => {
+                                         const isCurrentUser = h.userId === currentUser.id;
+                                         return (
+                                         <div key={i} className={`flex flex-col ${isCurrentUser ? 'items-end' : 'items-start'} mb-4`}>
+                                           <div className="text-xs text-gray-500 mb-1 px-1">
+                                             <span className="font-semibold text-gray-700 dark:text-gray-300 mr-2">{getUserName(h.userId)}</span>
+                                             {new Date(h.timestamp).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}
                                            </div>
-                                           <p className="text-gray-700 dark:text-gray-400 whitespace-pre-wrap">{h.comment}</p>
-                                           {h.status && (
-                                              <span className="inline-block mt-2 text-[10px] font-bold px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded-full text-gray-600 dark:text-gray-400 uppercase tracking-wide">
-                                                Status alterado para: {h.status}
-                                              </span>
+                                           <div className={`chat-bubble text-sm shadow-sm max-w-[90%] md:max-w-[80%] ${isCurrentUser ? 'bg-primary text-white rounded-tr-none' : 'chat-bubble-left text-gray-800 dark:text-gray-200'}`}>
+                                             <p className="whitespace-pre-wrap">{h.comment}</p>
+                                           </div>
+                                           {h.newStatus && (
+                                              <div className="mt-3 mb-1 text-center w-full">
+                                                <span className="inline-block text-[10px] font-bold px-3 py-1 bg-white dark:bg-gray-800 rounded-full text-gray-500 dark:text-gray-400 uppercase tracking-wide shadow-sm border border-gray-200/50 dark:border-gray-700/50">
+                                                  Status alterado para: {h.newStatus}
+                                                </span>
+                                              </div>
                                            )}
                                          </div>
-                                       ))}
+                                       )})}
                                      </div>
                                    )}
 
                                    <div className="flex justify-end">
                                        {attendingTicketId !== ticket.id && ticket.status !== TicketStatus.Fechado && ticket.status !== TicketStatus.Resolvido && (
-                                         <button onClick={(e) => { e.stopPropagation(); handleAttend(ticket.id); }} className="py-1.5 px-4 text-sm bg-primary text-white rounded-lg hover:bg-primary-dark whitespace-nowrap transition-colors shadow-sm">
+                                         <button onClick={(e) => { e.stopPropagation(); handleAttend(ticket.id); }} className="py-2 px-5 text-sm btn-premium rounded-xl whitespace-nowrap shadow-md mt-2">
                                            Atender Chamado
                                          </button>
                                        )}

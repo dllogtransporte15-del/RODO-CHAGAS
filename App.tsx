@@ -1785,7 +1785,7 @@ const App: React.FC = () => {
       case 'vehicles':
         return <VehiclesPage vehicles={vehicles} setVehicles={setVehicles} onSaveVehicle={handleSaveVehicle} owners={owners} currentUser={currentUser} profilePermissions={profilePermissions} shipments={visibleShipments} cargos={cargos} />;
       case 'loads':
-        return <LoadsPage loads={activeLoads} setLoads={setCargos} clients={clients} products={products} onSaveLoad={handleSaveLoad} onReactivateLoad={handleReactivateLoad} onSuspendLoad={handleSuspendLoad} onUpdatePrice={handleUpdateShipmentPrice} currentUser={currentUser} profilePermissions={profilePermissions} users={users} shipments={visibleShipments} allShipments={shipments} onDeleteLoad={handleDeleteCargo} onModalStateChange={setIsAnyModalOpen} companyLogo={companyLogo} vehicles={vehicles} drivers={drivers} onDeleteAttachment={handleDeleteShipmentAttachment} branches={branches} stays={stays} />;
+        return <LoadsPage loads={activeLoads} setLoads={setCargos} clients={clients} products={products} onSaveLoad={handleSaveLoad} onReactivateLoad={handleReactivateLoad} onSuspendLoad={handleSuspendLoad} onUpdatePrice={handleUpdateShipmentPrice} currentUser={currentUser} profilePermissions={profilePermissions} users={users} shipments={visibleShipments} allShipments={shipments} onDeleteLoad={handleDeleteCargo} onModalStateChange={setIsAnyModalOpen} companyLogo={companyLogo} vehicles={vehicles} drivers={drivers} onDeleteAttachment={handleDeleteShipmentAttachment} branches={branches} stays={stays} tickets={tickets} />;
       case 'products':
         return <ProductsPage products={products} onSaveProduct={handleSaveProduct} onDeleteProduct={handleDeleteProduct} currentUser={currentUser} profilePermissions={profilePermissions} />;
       case 'shipments':
@@ -1816,6 +1816,7 @@ const App: React.FC = () => {
                     onModalStateChange={setIsAnyModalOpen}
                     companyLogo={companyLogo}
                     stays={stays}
+                    tickets={tickets}
                 />;
       case 'operational-loads':
         return (
@@ -1840,6 +1841,7 @@ const App: React.FC = () => {
             onDeleteAttachment={handleDeleteShipmentAttachment}
             branches={branches}
             stays={stays}
+            tickets={tickets}
           />
         );
       case 'operational-map':
@@ -1973,6 +1975,12 @@ const App: React.FC = () => {
         onSave={handleSaveTicket}
         onUpdate={handleUpdateTicket}
         onDelete={handleDeleteTicket}
+        cargos={cargos}
+        shipments={shipments}
+        onNavigateTo={(type) => {
+          if (type === 'cargo') setCurrentPage('loads');
+          if (type === 'shipment') setCurrentPage('shipments');
+        }}
       />
       {currentUser?.requirePasswordChange && (
         <PasswordChangeModal 

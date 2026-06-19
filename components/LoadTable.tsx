@@ -9,6 +9,9 @@ import { HistoryIcon } from './icons/HistoryIcon';
 import { Search, Filter, X } from 'lucide-react';
 import MultiSelectDropdown from './MultiSelectDropdown';
 import { StayRecord } from '../utils/toolStorage';
+import type { Ticket } from '../types';
+import { TicketStatus } from '../types';
+import { AlertCircle } from 'lucide-react';
 
 interface LoadTableProps {
   loads: Cargo[];
@@ -31,9 +34,10 @@ interface LoadTableProps {
   onDelete?: (cargoId: string) => void;
   currentUser: User;
   stays?: StayRecord[];
+  tickets?: Ticket[];
 }
 
-const LoadTable: React.FC<LoadTableProps> = ({ loads, clients, products, shipments, dailyBalanceDate, onDailyBalanceDateChange, onCreateShipment, onSuspend, onReactivate, onFinalize, onEdit, onClose, onShowHistory, onShowDetails, onEditSchedule, onShowShipments, onRecommendDrivers, onDelete, currentUser, stays = [] }) => {
+const LoadTable: React.FC<LoadTableProps> = ({ loads, clients, products, shipments, dailyBalanceDate, onDailyBalanceDateChange, onCreateShipment, onSuspend, onReactivate, onFinalize, onEdit, onClose, onShowHistory, onShowDetails, onEditSchedule, onShowShipments, onRecommendDrivers, onDelete, currentUser, stays = [], tickets = [] }) => {
   const [openActionMenu, setOpenActionMenu] = useState<string | null>(null);
   
   const [showFilters, setShowFilters] = useState(false);
@@ -211,6 +215,11 @@ const LoadTable: React.FC<LoadTableProps> = ({ loads, clients, products, shipmen
                     >
                       #{load.sequenceId}
                     </button>
+                    {tickets.some(t => t.cargoId === load.id && t.status !== TicketStatus.Fechado && t.status !== TicketStatus.Resolvido) && (
+                      <span className="text-red-500 ml-1 inline-flex items-center" title="Chamado(s) Aberto(s)">
+                        <AlertCircle className="w-4 h-4" />
+                      </span>
+                    )}
                     <span className="text-[10px] text-gray-400 font-mono truncate w-20" title={load.id}>{load.id.substring(0, 8)}...</span>
                   </div>
                   <span 

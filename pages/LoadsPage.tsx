@@ -11,6 +11,7 @@ import type { Cargo, Client, Product, Driver, User, ProfilePermissions, Shipment
 import { CargoStatus, UserProfile } from '../types';
 import { can } from '../auth';
 import { StayRecord } from '../utils/toolStorage';
+import type { Ticket } from '../types';
 
 interface LoadsPageProps {
   loads: Cargo[];
@@ -35,9 +36,10 @@ interface LoadsPageProps {
   onDeleteAttachment?: (shipmentId: string, url: string) => Promise<void>;
   branches: Branch[];
   stays?: StayRecord[];
+  tickets?: Ticket[];
 }
 
-const LoadsPage: React.FC<LoadsPageProps> = ({ loads, setLoads, clients, products, shipments, allShipments, onSaveLoad, onReactivateLoad, onSuspendLoad, onUpdatePrice, currentUser, profilePermissions, users, onDeleteLoad, onModalStateChange, companyLogo, vehicles, drivers, onDeleteAttachment, branches, stays = [] }) => {
+const LoadsPage: React.FC<LoadsPageProps> = ({ loads, setLoads, clients, products, shipments, allShipments, onSaveLoad, onReactivateLoad, onSuspendLoad, onUpdatePrice, currentUser, profilePermissions, users, onDeleteLoad, onModalStateChange, companyLogo, vehicles, drivers, onDeleteAttachment, branches, stays = [], tickets = [] }) => {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loadToEdit, setLoadToEdit] = useState<Cargo | null>(null);
@@ -146,6 +148,7 @@ const LoadsPage: React.FC<LoadsPageProps> = ({ loads, setLoads, clients, product
             onDelete={onDeleteLoad}
             currentUser={currentUser}
             stays={stays}
+            tickets={tickets}
         />
       </div>
 

@@ -3,14 +3,17 @@ import type { Shipment, Cargo, Branch, User } from '../../types';
 import { ShipmentStatus } from '../../types';
 import { Building2, TrendingUp, TrendingDown, DollarSign, Package } from 'lucide-react';
 
+import type { StayRecord } from '../../utils/toolStorage';
+
 interface BranchReportProps {
   shipments: Shipment[];
   cargos: Cargo[];
   branches: Branch[];
   users: User[];
+  stays?: StayRecord[];
 }
 
-const BranchReport: React.FC<BranchReportProps> = ({ shipments, cargos, branches, users }) => {
+const BranchReport: React.FC<BranchReportProps> = ({ shipments, cargos, branches, users, stays = [] }) => {
   const cargoMap = useMemo(() => new Map(cargos.map(c => [c.id, c])), [cargos]);
   const userBranchMap = useMemo(() => new Map(users.map(u => [u.id, u.branchId])), [users]);
 
@@ -28,18 +31,16 @@ const BranchReport: React.FC<BranchReportProps> = ({ shipments, cargos, branches
       const cargo = cargoMap.get(s.cargoId);
       if (!cargo) return;
 
-      // Robust branch detection: 
-      // 1. Shipment specific branch
-      // 2. Branch of the user who created the shipment
-      // 3. Cargo specific branch
-      // 4. Branch of the user who created the cargo
       const effectiveBranchId = s.branchId || userBranchMap.get(s.createdById) || cargo.branchId || userBranchMap.get(cargo.createdById);
       if (!effectiveBranchId) return;
 
       const stats = statsMap.get(effectiveBranchId);
       if (!stats) return;
 
-      const effectiveStatus = [
+      const profitMarginStatuses = [
+        ShipmentStatus.AguardandoSeguradora,
+        ShipmentStatus.PreCadastro,
+        ShipmentStatus.AguardandoCarregamento,
         ShipmentStatus.AguardandoNota,
         ShipmentStatus.AguardandoAdiantamento,
         ShipmentStatus.AguardandoAgendamento,
@@ -48,14 +49,26 @@ const BranchReport: React.FC<BranchReportProps> = ({ shipments, cargos, branches
         ShipmentStatus.Finalizado
       ];
 
-      if (effectiveStatus.includes(s.status)) {
+      if (profitMarginStatuses.includes(s.status)) {
         const grossRate = s.companyFreightRateSnapshot || cargo.companyFreightValuePerTon;
         const driverRate = s.driverFreightRateSnapshot || cargo.driverFreightValuePerTon;
+        const commissionRate = cargo.salespersonCommissionPerTon || 0;
         
+        const demurrageRevenue = stays
+            .filter(stay => stay.shipmentId === s.id)
+            .reduce((sum, stay) => sum + (stay.approvedValue || 0), 0);
+            
+        const demurrageProfit = stays
+            .filter(stay => stay.shipmentId === s.id)
+            .reduce((sum, stay) => sum + ((stay.approvedValue || 0) - (stay.driverPaidValue || 0)), 0);
+            
+        const profit = ((grossRate - driverRate - commissionRate) * s.shipmentTonnage) + demurrageProfit;
+        const revenue = (grossRate * s.shipmentTonnage) + demurrageRevenue;
+
         stats.shipmentCount += 1;
         stats.totalWeight += s.shipmentTonnage || 0;
-        stats.totalBilled += grossRate * s.shipmentTonnage;
-        stats.totalMargin += (grossRate - driverRate) * s.shipmentTonnage;
+        stats.totalBilled += revenue;
+        stats.totalMargin += profit;
       }
     });
 
