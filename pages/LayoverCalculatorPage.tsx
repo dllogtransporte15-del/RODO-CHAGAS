@@ -11,6 +11,7 @@ import {
 import Header from '../components/Header';
 import { saveToolStay, getToolClients, saveToolClient, ToolClient, getAllToolClients } from '../utils/toolStorage';
 import { User as AppUser, Shipment, Cargo, Client as AppClient, ShipmentStatus, UserProfile } from '../types';
+import { autoFormatInput } from '../utils/formatters';
 
 interface StayData {
   clientName: string;
@@ -84,9 +85,10 @@ export default function LayoverCalculatorPage({ currentUser, shipments, cargos, 
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
+    const formattedValue = autoFormatInput(name, value);
     setFormData(prev => ({
       ...prev,
-      [name]: value
+      [name]: formattedValue
     }));
     setSaveSuccess(false);
   };

@@ -9,6 +9,7 @@ import { UserPlusIcon } from './icons/UserPlusIcon';
 import { BRAZILIAN_CITIES } from '../brazilianCities';
 import { geocodeCity } from '../utils/geocoding';
 import { useToast } from '../hooks/useToast';
+import { autoFormatInput } from '../utils/formatters';
 
 interface LoadFormModalProps {
   isOpen: boolean;
@@ -152,6 +153,7 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
+    const formattedValue = autoFormatInput(name, value);
     
     if (type === 'checkbox') {
         const checked = (e.target as HTMLInputElement).checked;
@@ -160,7 +162,7 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
         setLoad(prev => ({ ...prev, [name]: parseFloat(value) || 0 }));
     }
     else {
-        setLoad(prev => ({ ...prev, [name]: value }));
+        setLoad(prev => ({ ...prev, [name]: formattedValue }));
     }
   };
 

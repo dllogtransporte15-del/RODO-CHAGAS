@@ -4,6 +4,7 @@ import { History } from 'lucide-react';
 import type { Driver, Owner } from '../types';
 import { DriverClassification } from '../types';
 import { useToast } from '../hooks/useToast';
+import { autoFormatInput } from '../utils/formatters';
 
 interface DriverFormModalProps {
   isOpen: boolean;
@@ -48,10 +49,11 @@ const DriverFormModal: React.FC<DriverFormModalProps> = ({
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
+    const formattedValue = autoFormatInput(name, value);
     const checked = (e.target as HTMLInputElement).checked;
     
     setDriver(prev => {
-      const newState = { ...prev, [name]: type === 'checkbox' ? checked : value };
+      const newState = { ...prev, [name]: type === 'checkbox' ? checked : formattedValue };
       if (name === 'classification' && value === DriverClassification.Terceiro) {
         newState.ownerId = undefined;
       }

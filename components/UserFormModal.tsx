@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import type { User, Client, Branch } from '../types';
 import { UserProfile } from '../types';
 import { useToast } from '../hooks/useToast';
+import { autoFormatInput } from '../utils/formatters';
 
 interface UserFormModalProps {
   isOpen: boolean;
@@ -40,6 +41,7 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSave, 
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
+    const formattedValue = autoFormatInput(name, value);
 
     let updatedValue: any = value;
     if (type === 'checkbox') {

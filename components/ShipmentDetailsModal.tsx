@@ -5,6 +5,7 @@ import { generateLoadingOrderPDF } from '../utils/pdfGenerator';
 import { FileTextIcon, Trash2 } from 'lucide-react';
 import { getToolStaysByShipment, StayRecord } from '../utils/toolStorage';
 import { getShipmentAttachmentUrl } from '../lib/db';
+import { autoFormatInput } from '../utils/formatters';
 
 
 interface ShipmentDetailsModalProps {
@@ -204,7 +205,7 @@ const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
                                     type="text"
                                     className="w-full mt-1 p-1.5 text-sm border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                                     value={editedData.driverName || ''}
-                                    onChange={e => setEditedData({...editedData, driverName: e.target.value})}
+                                    onChange={e => setEditedData({...editedData, driverName: autoFormatInput('driverName', e.target.value)})}
                                 />
                             </div>
                             <div>
@@ -213,7 +214,7 @@ const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
                                     type="text"
                                     className="w-full mt-1 p-1.5 text-sm border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                                     value={editedData.driverCpf || ''}
-                                    onChange={e => setEditedData({...editedData, driverCpf: e.target.value})}
+                                    onChange={e => setEditedData({...editedData, driverCpf: autoFormatInput('driverCpf', e.target.value)})}
                                 />
                             </div>
                             <div>
@@ -222,7 +223,7 @@ const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
                                     type="text"
                                     className="w-full mt-1 p-1.5 text-sm border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                                     value={editedData.driverContact || ''}
-                                    onChange={e => setEditedData({...editedData, driverContact: e.target.value})}
+                                    onChange={e => setEditedData({...editedData, driverContact: autoFormatInput('phone', e.target.value)})}
                                 />
                             </div>
                             <div>
@@ -528,7 +529,7 @@ const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
                                         type="text"
                                         className="w-full mt-1 p-1.5 text-sm border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                                         value={editedData.ownerContact || ''}
-                                        onChange={e => setEditedData({...editedData, ownerContact: e.target.value})}
+                                        onChange={e => setEditedData({...editedData, ownerContact: autoFormatInput('phone', e.target.value)})}
                                         placeholder="Telefone do proprietário..."
                                     />
                                 ) : (
@@ -561,7 +562,7 @@ const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
                                         type="text"
                                         className="w-full mt-1 p-1.5 text-sm font-mono border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                                         value={editedData.anttOwnerIdentifier || ''}
-                                        onChange={e => setEditedData({...editedData, anttOwnerIdentifier: e.target.value})}
+                                        onChange={e => setEditedData({...editedData, anttOwnerIdentifier: autoFormatInput('cpfCnpj', e.target.value)})}
                                         placeholder="CPF ou CNPJ do titular..."
                                     />
                                 ) : (

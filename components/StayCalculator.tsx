@@ -5,6 +5,7 @@ import autoTable from 'jspdf-autotable';
 import { Calculator, Download, FileText, Truck, Clock, MapPin, FileDigit, User, Weight, DollarSign, Save, Trash2, CheckCircle2, Building2 } from 'lucide-react';
 import { saveStay, getClients, saveClient, Client } from '../utils/storage';
 import { useToast } from '../hooks/useToast';
+import { autoFormatInput } from '../utils/formatters';
 
 interface StayData {
   clientName: string;
@@ -53,7 +54,8 @@ export default function StayCalculator({ companyId }: StayCalculatorProps) {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    const formattedValue = autoFormatInput(name, value);
+    setFormData(prev => ({ ...prev, [name]: formattedValue }));
     setSaveSuccess(false);
   };
 

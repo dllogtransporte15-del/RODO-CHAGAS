@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { History } from 'lucide-react';
 import type { Vehicle, Owner } from '../types';
 import { VehicleSetType, VehicleBodyType, DriverClassification } from '../types';
+import { autoFormatInput } from '../utils/formatters';
 
 interface VehicleFormModalProps {
   isOpen: boolean;
@@ -40,6 +41,7 @@ const VehicleFormModal: React.FC<VehicleFormModalProps> = ({
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
+    const formattedValue = autoFormatInput(name, value);
     let processedValue = value;
     if (name === 'plate') {
       processedValue = value.toUpperCase();

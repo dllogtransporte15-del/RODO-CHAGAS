@@ -6,6 +6,7 @@ import { TicketStatus, TicketPriority, UserProfile } from '../types';
 import { useToast } from '../hooks/useToast';
 import { Package, Truck, ExternalLink } from 'lucide-react';
 import SearchableSelect, { SearchableOption } from './SearchableSelect';
+import { autoFormatInput } from '../utils/formatters';
 
 interface TicketModalProps {
   isOpen: boolean;
@@ -101,7 +102,8 @@ const TicketModal: React.FC<TicketModalProps> = ({ isOpen, onClose, tickets, use
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setNewTicket(prev => ({ ...prev, [name]: value }));
+    const formattedValue = autoFormatInput(name, value);
+    setNewTicket(prev => ({ ...prev, [name]: formattedValue }));
   };
 
   const handleSave = (e: React.FormEvent) => {

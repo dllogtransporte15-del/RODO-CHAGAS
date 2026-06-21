@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import type { Client } from '../types';
 import { PaymentMethod } from '../types';
+import { autoFormatInput } from '../utils/formatters';
 
 interface ClientFormModalProps {
   isOpen: boolean;
@@ -49,11 +50,12 @@ const ClientFormModal: React.FC<ClientFormModalProps> = ({ isOpen, onClose, onSa
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
+    const formattedValue = autoFormatInput(name, value);
     if (type === 'checkbox') {
         const checked = (e.target as HTMLInputElement).checked;
         setClient(prev => ({ ...prev, [name]: checked }));
     } else {
-        setClient(prev => ({ ...prev, [name]: value }));
+        setClient(prev => ({ ...prev, [name]: formattedValue }));
     }
   };
 

@@ -8,6 +8,7 @@ import 'leaflet/dist/leaflet.css';
 import { format } from 'date-fns';
 import { saveQuote, getClients, saveClient, Client } from '../utils/storage';
 import { useToast } from '../hooks/useToast';
+import { autoFormatInput } from '../utils/formatters';
 
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -172,7 +173,8 @@ export default function FreightQuote({ companyId }: FreightQuoteProps) {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    const formattedValue = autoFormatInput(name, value);
+    setFormData(prev => ({ ...prev, [name]: formattedValue }));
     setSaveSuccess(false);
   };
 

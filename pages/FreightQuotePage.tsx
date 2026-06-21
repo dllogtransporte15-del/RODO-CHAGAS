@@ -16,6 +16,7 @@ import {
 import Header from '../components/Header';
 import { saveToolQuote, getToolClients, saveToolClient, ToolClient } from '../utils/toolStorage';
 import type { User as AppUser } from '../types';
+import { autoFormatInput } from '../utils/formatters';
 
 // Fix Leaflet icon issue by using CDN directly to prevent webpack/vite breaking the image paths
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -132,7 +133,8 @@ export default function FreightQuotePage({ currentUser }: FreightQuotePageProps)
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    const formattedValue = autoFormatInput(name, value);
+    setFormData(prev => ({ ...prev, [name]: formattedValue }));
     setSaveSuccess(false);
   };
 
