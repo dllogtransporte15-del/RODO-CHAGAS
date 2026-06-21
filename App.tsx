@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { supabase } from './supabase';
 import { useDatabase } from './hooks/useDatabase';
 import type { Client, Owner, Driver, Vehicle, Product, Cargo, Shipment, User, Page, ProfilePermissions, HistoryLog, Ticket, TicketHistory, ShipmentLock, Branch } from './types';
-import { CargoStatus, ShipmentStatus, UserProfile, TicketStatus, TicketPriority, DriverClassification, VehicleSetType, VehicleBodyType, REQUIRED_DOCUMENT_MAP } from './types';
+import { CargoStatus, ShipmentStatus, UserProfile, TicketStatus, TicketPriority, DriverClassification, VehicleSetType, VehicleBodyType, REQUIRED_DOCUMENT_MAP, OwnerType } from './types';
 import { formatId } from './utils';
 import { INITIAL_PERMISSIONS, can } from './auth';
 import { useToast } from './hooks/useToast';
@@ -553,10 +553,22 @@ const App: React.FC = () => {
 
     let newVehicles = [...vehicles];
     let addedVehicles: Vehicle[] = [];
-    const defaultOwner = owners.find(o => o.name === 'PROPRIETÁRIO PADRÃO TERCEIRO');
+    let newOwners = [...owners];
+    let addedOwner: Owner | null = null;
+    let defaultOwner = newOwners.find(o => o.name === 'PROPRIETÁRIO PADRÃO TERCEIRO');
     if (!defaultOwner) {
-        showToast("Erro crítico: Proprietário padrão para veículos de terceiros não encontrado. Contate o suporte.", 'error');
-        return;
+        const newOwnerId = formatId(currentNextIds.owner, 'OWN');
+        defaultOwner = {
+            id: newOwnerId,
+            name: 'PROPRIETÁRIO PADRÃO TERCEIRO',
+            cpfCnpj: '00.000.000/0000-00',
+            type: OwnerType.PessoaJuridica,
+            phone: '',
+            bankDetails: ''
+        };
+        newOwners.unshift(defaultOwner);
+        addedOwner = defaultOwner;
+        currentNextIds.owner++;
     }
 
     const processVehicle = (plate: string, isHorse: boolean) => {
@@ -666,12 +678,14 @@ const App: React.FC = () => {
     setVehicles(newVehicles);
     setShipments(newShipments);
     setCargos(newCargos);
+    if (addedOwner) setOwners(newOwners);
     setNextIds(currentNextIds);
 
     // Persist to Supabase
     try {
       const updatedCargo = newCargos.find(c => c.id === data.cargoId);
       await Promise.all([
+        addedOwner ? upsertOwner(addedOwner) : Promise.resolve(),
         upsertManyDrivers(addedDrivers),
         upsertManyVehicles(addedVehicles),
         insertShipment(newShipment),
