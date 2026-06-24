@@ -75,6 +75,11 @@ export const autoFormatInput = (name: string, value: string): string => {
   if (!value) return value;
   
   const lowerName = name.toLowerCase();
+  
+  if (lowerName.includes('location') || lowerName.includes('maplink')) {
+    return value;
+  }
+
   if (lowerName === 'cpf' || lowerName === 'drivercpf' || lowerName === 'ownercpf') {
     return formatCPF(value);
   }
