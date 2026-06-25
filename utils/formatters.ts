@@ -42,17 +42,6 @@ export const formatCityState = (value: string): string => {
     return statePart ? `${city}, ${statePart}` : `${city}, `;
   }
 
-  // Handle typing like "Goiania GO" without comma
-  const spaceParts = value.split(/[\s-]+/);
-  if (spaceParts.length > 1) {
-    const possibleState = spaceParts[spaceParts.length - 1];
-    if (possibleState.length === 2 && !possibleState.includes(',')) {
-      const city = formatName(spaceParts.slice(0, -1).join(' ').trim());
-      const state = possibleState.toUpperCase();
-      return `${city}, ${state}`;
-    }
-  }
-
   return formatName(value);
 };
 
