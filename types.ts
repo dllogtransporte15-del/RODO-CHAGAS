@@ -164,7 +164,7 @@ export enum DailyScheduleType {
 export interface DailyScheduleEntry {
   date: string; // YYYY-MM-DD
   type: DailyScheduleType;
-  tonnage?: number; // Only for 'Fixo'
+  tonnage?: number; // Previsto por dia (obrigatório para todos os tipos)
 }
 
 export interface Cargo {

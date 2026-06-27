@@ -23,7 +23,7 @@ interface ClientStats {
   grossBilled: number;
   profitMargin: number;
   totalShipments: number;
-  averageTicket: number;
+  profitMarginPercentage: number;
 }
 
 const StatCard: React.FC<{ title: string, value: string | number, icon: React.ReactElement, formatAsCurrency?: boolean }> = ({ title, value, icon, formatAsCurrency=false }) => {
@@ -103,7 +103,7 @@ const ClientReport: React.FC<ClientReportProps> = ({ shipments, cargos, clients,
         id: clientId,
         name: clients.find(c => c.id === clientId)?.nomeFantasia || 'N/A',
         ...stats,
-        averageTicket: stats.totalShipments > 0 ? stats.grossBilled / stats.totalShipments : 0
+        profitMarginPercentage: stats.grossBilled > 0 ? (stats.profitMargin / stats.grossBilled) * 100 : 0
       }))
       .filter(stat => stat.grossBilled > 0) 
       .sort((a, b) => b.grossBilled - a.grossBilled); 
@@ -416,7 +416,7 @@ const ClientReport: React.FC<ClientReportProps> = ({ shipments, cargos, clients,
                 <StatCard title="Volume Total" value={`${stats.totalTonnage.toLocaleString('pt-BR')} ton`} icon={<PackageIcon className="w-8 h-8 text-gray-500"/>} />
                 <StatCard title="Faturamento Bruto" value={stats.grossBilled} icon={<DollarSignIcon className="w-8 h-8 text-blue-500"/>} formatAsCurrency />
                 <StatCard title="Lucro Operacional Efetivado" value={stats.profitMargin} icon={<DollarSignIcon className="w-8 h-8 text-blue-400"/>} formatAsCurrency />
-                <StatCard title="Ticket Médio" value={stats.averageTicket} icon={<DollarSignIcon className="w-8 h-8 text-green-500"/>} formatAsCurrency />
+                <StatCard title="Margem de Lucro" value={`${stats.profitMarginPercentage.toFixed(2)}%`} icon={<DollarSignIcon className="w-8 h-8 text-green-500"/>} />
               </div>
             </div>
           ))}

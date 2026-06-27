@@ -15,6 +15,7 @@ import OperationalTimingReport from '../components/reports/OperationalTimingRepo
 import ExternalSalespersonReport from '../components/reports/ExternalSalespersonReport';
 import BranchReport from '../components/reports/BranchReport';
 import StayFinancialReport from '../components/reports/StayFinancialReport';
+import DemandForecastReport from '../components/reports/DemandForecastReport';
 import MultiSelectDropdown from '../components/MultiSelectDropdown';
 import { getAllToolStays, getToolStays, StayRecord } from '../utils/toolStorage';
 
@@ -29,7 +30,7 @@ interface ReportsPageProps {
   stays?: StayRecord[];
 }
 
-type ActiveReport = 'comercial' | 'embarcadores' | 'clientes' | 'vendedores' | 'tempo-operacao' | 'filiais' | 'estadias';
+type ActiveReport = 'comercial' | 'embarcadores' | 'clientes' | 'vendedores' | 'tempo-operacao' | 'filiais' | 'estadias' | 'previsao-demandas';
 
 const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, cargos, users, currentUser, clients, branches, stays = [] }) => {
   const [activeReport, setActiveReport] = useState<ActiveReport>('comercial');
@@ -234,6 +235,8 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, carg
           );
         }
         return <StayFinancialReport stays={filteredStays} />;
+      case 'previsao-demandas':
+        return <DemandForecastReport cargos={cargos} clients={clients} shipments={shipments} />;
       default:
         return null;
     }
@@ -251,6 +254,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, carg
       { id: 'tempo-operacao', label: 'Tempo de Operação', icon: ClockIcon },
       { id: 'filiais', label: 'Filiais', icon: Building2 },
       { id: 'estadias', label: 'Financeiro Estadias', icon: DollarSign },
+      { id: 'previsao-demandas', label: 'Previsão de Demandas', icon: TrendingUp },
   ];
 
   /* Ensure initial tab is permissible */

@@ -110,7 +110,8 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
   const [hasMultiLeg, setHasMultiLeg] = useState(false);
   const [showSalesperson, setShowSalesperson] = useState(false);
   
-  const [newScheduleDate, setNewScheduleDate] = useState('');
+  const [newScheduleStartDate, setNewScheduleStartDate] = useState('');
+  const [newScheduleEndDate, setNewScheduleEndDate] = useState('');
   const [newScheduleType, setNewScheduleType] = useState<DailyScheduleType>(DailyScheduleType.Livre);
   const [newScheduleTonnage, setNewScheduleTonnage] = useState<number | undefined>();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -286,31 +287,59 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
   };
   
   const handleAddSchedule = () => {
-    if (!newScheduleDate) {
-        showToast('Por favor, selecione uma data.', 'warning');
+    if (!newScheduleStartDate) {
+        showToast('Por favor, selecione a data inicial.', 'warning');
         return;
     }
-    if ((load.dailySchedule || []).some(e => e.date === newScheduleDate)) {
-        showToast('Já existe uma programação para esta data. Remova a antiga primeiro.', 'warning');
+    if (!newScheduleEndDate) {
+        showToast('Por favor, selecione a data final.', 'warning');
         return;
     }
-    if (newScheduleType === DailyScheduleType.Fixo && (!newScheduleTonnage || newScheduleTonnage <= 0)) {
-        showToast('Para Demanda Fixa, a tonelagem deve ser maior que zero.', 'warning');
+    if (newScheduleEndDate < newScheduleStartDate) {
+        showToast('A data final deve ser igual ou posterior à data inicial.', 'warning');
+        return;
+    }
+    if (!newScheduleTonnage || newScheduleTonnage <= 0) {
+        showToast('Informe a quantidade de toneladas previstas para o período.', 'warning');
         return;
     }
 
-    const newEntry: DailyScheduleEntry = {
-        date: newScheduleDate,
-        type: newScheduleType,
-        tonnage: newScheduleType === DailyScheduleType.Fixo ? newScheduleTonnage : undefined,
-    };
+    // Generate one entry per day in the range
+    const entries: DailyScheduleEntry[] = [];
+    const start = new Date(newScheduleStartDate + 'T00:00:00');
+    const end = new Date(newScheduleEndDate + 'T00:00:00');
+    const existing = new Set((load.dailySchedule || []).map(e => e.date));
+    const skipped: string[] = [];
+
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        const dateStr = d.toISOString().split('T')[0];
+        if (existing.has(dateStr)) {
+            skipped.push(new Date(dateStr + 'T00:00:00').toLocaleDateString('pt-BR'));
+        } else {
+            entries.push({
+                date: dateStr,
+                type: newScheduleType,
+                tonnage: newScheduleTonnage,
+            });
+        }
+    }
+
+    if (entries.length === 0) {
+        showToast('Todas as datas do período já possuem programação.', 'warning');
+        return;
+    }
+
+    if (skipped.length > 0) {
+        showToast(`${entries.length} dia(s) adicionado(s). Ignorados (já existiam): ${skipped.join(', ')}.`, 'warning');
+    }
 
     setLoad(prev => ({
         ...prev,
-        dailySchedule: [...(prev.dailySchedule || []), newEntry].sort((a,b) => a.date.localeCompare(b.date)),
+        dailySchedule: [...(prev.dailySchedule || []), ...entries].sort((a,b) => a.date.localeCompare(b.date)),
     }));
     
-    setNewScheduleDate('');
+    setNewScheduleStartDate('');
+    setNewScheduleEndDate('');
     setNewScheduleType(DailyScheduleType.Livre);
     setNewScheduleTonnage(undefined);
   };
@@ -493,39 +522,51 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
              <div className="space-y-6">
                  <div>
                     <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2">Adicionar Nova Programação</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 border rounded-md dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 items-end">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">Selecione um período (uma ou mais datas). Uma entrada será criada para cada dia automaticamente.</p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 border rounded-md dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
                        <div>
-                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Data</label>
-                         <input type="date" value={newScheduleDate} onChange={(e) => setNewScheduleDate(e.target.value)} className="mt-1 p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600"/>
+                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Data Inicial <span className="text-red-500">*</span></label>
+                         <input type="date" value={newScheduleStartDate} onChange={(e) => setNewScheduleStartDate(e.target.value)} className="mt-1 p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600"/>
                        </div>
                        <div>
-                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Tipo de Demanda</label>
+                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Data Final <span className="text-red-500">*</span></label>
+                         <input type="date" value={newScheduleEndDate} min={newScheduleStartDate} onChange={(e) => setNewScheduleEndDate(e.target.value)} className="mt-1 p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600"/>
+                       </div>
+                       <div>
+                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Tipo de Demanda <span className="text-red-500">*</span></label>
                          <select value={newScheduleType} onChange={(e) => setNewScheduleType(e.target.value as DailyScheduleType)} className="mt-1 p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600">
                            {Object.values(DailyScheduleType).map(type => <option key={type} value={type}>{type}</option>)}
                          </select>
                        </div>
                        <div>
-                         {newScheduleType === DailyScheduleType.Fixo && (
-                            <input type="number" value={newScheduleTonnage || ''} onChange={(e) => setNewScheduleTonnage(parseFloat(e.target.value) || undefined)} placeholder="Toneladas" className="p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600" step="0.01"/>
-                         )}
+                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Toneladas Previstas / dia <span className="text-red-500">*</span></label>
+                         <input type="number" value={newScheduleTonnage || ''} onChange={(e) => setNewScheduleTonnage(parseFloat(e.target.value) || undefined)} placeholder="Ex: 150" className="mt-1 p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600" step="0.01" min="0.01"/>
                        </div>
-                       <div className="md:col-span-3">
-                         <button type="button" onClick={handleAddSchedule} className="w-full py-2 bg-primary text-white rounded-lg hover:bg-primary-dark">Adicionar à Timeline</button>
+                       <div className="md:col-span-2">
+                         <button type="button" onClick={handleAddSchedule} className="w-full py-2 bg-primary text-white rounded-lg hover:bg-primary-dark font-medium">Adicionar à Timeline</button>
                        </div>
                     </div>
                  </div>
                  
                  <div>
-                    <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2">Timeline de Programação</h3>
-                    <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
+                    <div className="flex justify-between items-center mb-2">
+                        <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300">Timeline de Programação</h3>
+                        {(load.dailySchedule || []).length > 0 && (
+                            <span className="text-sm font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-full">
+                                {(load.dailySchedule || []).length} dia(s) — {((load.dailySchedule || []).reduce((s, e) => s + (e.tonnage || 0), 0)).toLocaleString('pt-BR')} ton total
+                            </span>
+                        )}
+                    </div>
+                    <div className="space-y-2 max-h-72 overflow-y-auto pr-2">
                         {(load.dailySchedule || []).length > 0 ? (
                             (load.dailySchedule || []).map(entry => (
-                                <div key={entry.date} className="flex justify-between items-center p-2 border rounded-md dark:border-gray-600">
-                                    <div>
-                                        <p className="font-semibold text-gray-800 dark:text-gray-200">{new Date(entry.date + 'T00:00:00').toLocaleDateString('pt-BR')}</p>
-                                        <p className="text-sm text-gray-600 dark:text-gray-400">{entry.type} {entry.type === DailyScheduleType.Fixo ? `(${entry.tonnage} ton)` : ''}</p>
+                                <div key={entry.date} className="flex justify-between items-center p-3 border rounded-md dark:border-gray-600 bg-white dark:bg-gray-800">
+                                    <div className="flex items-center gap-4">
+                                        <p className="font-semibold text-gray-800 dark:text-gray-200 w-24">{new Date(entry.date + 'T00:00:00').toLocaleDateString('pt-BR')}</p>
+                                        <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">{entry.type}</span>
+                                        <span className="text-sm font-bold text-green-700 dark:text-green-400">{(entry.tonnage || 0).toLocaleString('pt-BR')} ton</span>
                                     </div>
-                                    <button type="button" onClick={() => handleRemoveSchedule(entry.date)} className="p-1 text-red-500 hover:text-red-700 dark:hover:text-red-400"><XIcon className="w-5 h-5"/></button>
+                                    <button type="button" onClick={() => handleRemoveSchedule(entry.date)} className="p-1 text-red-500 hover:text-red-700 dark:hover:text-red-400"><XIcon className="w-4 h-4"/></button>
                                 </div>
                             ))
                         ) : (
