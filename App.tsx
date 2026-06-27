@@ -1961,7 +1961,7 @@ const App: React.FC = () => {
           />
         );
       case 'financial':
-        return <CommissionsPage shipments={visibleShipments} cargos={cargos} users={users} stays={stays} />;
+        return <CommissionsPage shipments={visibleShipments} cargos={cargos} users={users} stays={stays} clients={clients} />;
       case 'reports':
         if (!can('read', currentUser, 'reports', profilePermissions)) {
           return <DashboardPage cargos={activeLoads} shipments={visibleShipments} users={users} currentUser={currentUser} clients={clients} products={products} companyLogo={companyLogo} vehicles={vehicles} onDeleteAttachment={handleDeleteShipmentAttachment} freightOffers={freightOffers} onSaveFreightOffer={handleSaveFreightOffer} onAcceptFreightOffer={handleAcceptFreightOffer} />;

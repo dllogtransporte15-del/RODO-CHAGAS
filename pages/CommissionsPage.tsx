@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import Header from '../components/Header';
-import type { Shipment, User, Cargo } from '../types';
+import type { Shipment, User, Cargo, Client } from '../types';
 import { BriefcaseIcon } from '../components/icons/BriefcaseIcon';
 import { ShipIcon } from '../components/icons/ShipIcon';
 import SalespersonReport from '../components/reports/SalespersonReport';
@@ -16,11 +16,12 @@ interface CommissionsPageProps {
   cargos: Cargo[];
   users: User[];
   stays?: StayRecord[];
+  clients: Client[];
 }
 
 type ActiveTab = 'comercial' | 'embarcador' | 'vendedor-externo';
 
-const CommissionsPage: React.FC<CommissionsPageProps> = ({ shipments, cargos, users, stays = [] }) => {
+const CommissionsPage: React.FC<CommissionsPageProps> = ({ shipments, cargos, users, stays = [], clients }) => {
   const [activeTab, setActiveTab] = useState<ActiveTab>('comercial');
 
   const renderContent = () => {
@@ -28,7 +29,7 @@ const CommissionsPage: React.FC<CommissionsPageProps> = ({ shipments, cargos, us
       case 'comercial':
         return <SupervisorReport shipments={shipments} cargos={cargos} users={users} stays={stays} />;
       case 'embarcador':
-        return <ShipperReport shipments={shipments} users={users} currentUser={null} />;
+        return <ShipperReport shipments={shipments} cargos={cargos} clients={clients} users={users} currentUser={null} />;
       case 'vendedor-externo':
         return <ExternalSalespersonReport shipments={shipments} cargos={cargos} />;
       default:

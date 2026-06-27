@@ -215,7 +215,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, carg
       case 'comercial':
         return <SupervisorReport shipments={filteredShipments} cargos={cargos} users={users} stays={stays} />;
       case 'embarcadores':
-        return <ShipperReport shipments={filteredShipments} users={users} currentUser={currentUser} />;
+        return <ShipperReport shipments={filteredShipments} cargos={cargos} clients={clients} users={users} currentUser={currentUser} />;
       case 'clientes':
         return <ClientReport shipments={filteredShipments} cargos={cargos} clients={clients} stays={stays} />;
       case 'vendedores':
