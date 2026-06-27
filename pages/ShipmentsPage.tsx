@@ -382,6 +382,7 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({
             commercialUser={users.find(u => u.id === detailsModalCargo.createdById)}
             stays={stays}
             shipments={shipments}
+            currentUser={currentUser}
           />
       )}
 

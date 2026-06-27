@@ -15,6 +15,7 @@ interface CargoDetailsModalProps {
   commercialUser: User | undefined;
   stays?: StayRecord[];
   shipments?: Shipment[];
+  currentUser?: User;
 }
 
 const DetailItem: React.FC<{ label: string; value?: string | number | null; children?: React.ReactNode }> = ({ label, value, children }) => (
@@ -24,7 +25,7 @@ const DetailItem: React.FC<{ label: string; value?: string | number | null; chil
     </div>
 );
 
-const FreightLegDetail: React.FC<{ leg: FreightLeg; index: number }> = ({ leg, index }) => (
+const FreightLegDetail: React.FC<{ leg: FreightLeg; index: number; hideSensitiveData?: boolean }> = ({ leg, index, hideSensitiveData }) => (
     <div className="p-4 border rounded-md dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
         <div className="flex justify-between items-center mb-3">
             <h4 className="font-semibold text-gray-600 dark:text-gray-300">Perna {index + 1}</h4>
@@ -37,17 +38,20 @@ const FreightLegDetail: React.FC<{ leg: FreightLeg; index: number }> = ({ leg, i
                 <p className="text-xs text-gray-500">Frete Empresa</p>
                 <p className="font-medium text-gray-800 dark:text-gray-200">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(leg.companyFreightValuePerTon)}</p>
             </div>
-            <div>
-                <p className="text-xs text-gray-500">Frete Motorista</p>
-                <p className="font-medium text-gray-800 dark:text-gray-200">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(leg.driverFreightValuePerTon)}</p>
-            </div>
+            {!hideSensitiveData && (
+                <div>
+                    <p className="text-xs text-gray-500">Frete Motorista</p>
+                    <p className="font-medium text-gray-800 dark:text-gray-200">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(leg.driverFreightValuePerTon)}</p>
+                </div>
+            )}
         </div>
     </div>
 );
 
 
-const CargoDetailsModal: React.FC<CargoDetailsModalProps> = ({ isOpen, onClose, cargo, client, product, commercialUser, stays = [], shipments = [] }) => {
+const CargoDetailsModal: React.FC<CargoDetailsModalProps> = ({ isOpen, onClose, cargo, client, product, commercialUser, stays = [], shipments = [], currentUser }) => {
   if (!isOpen || !cargo) return null;
+  const isClient = currentUser?.profile === 'Cliente';
 
   const scheduledButNotLoaded = Math.max(0, cargo.scheduledVolume - cargo.loadedVolume);
   
@@ -152,7 +156,7 @@ const CargoDetailsModal: React.FC<CargoDetailsModalProps> = ({ isOpen, onClose, 
                 <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2">Valores de Frete (por Tonelada)</h3>
                 <div className="space-y-3">
                     {freightLegsToDisplay.map((leg, index) => (
-                        <FreightLegDetail key={index} leg={leg} index={index} />
+                        <FreightLegDetail key={index} leg={leg} index={index} hideSensitiveData={isClient} />
                     ))}
                 </div>
                  <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -160,14 +164,18 @@ const CargoDetailsModal: React.FC<CargoDetailsModalProps> = ({ isOpen, onClose, 
                         <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Frete Empresa (Final)</label>
                         <p className="text-lg font-bold text-gray-800 dark:text-gray-200">{formatCurrency(totalCompanyFreight)}</p>
                     </div>
-                    <div className="p-3 bg-gray-100 dark:bg-gray-700 rounded-md">
-                        <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Frete Motorista (Final)</label>
-                        <p className="text-lg font-bold text-gray-800 dark:text-gray-200">{formatCurrency(totalDriverFreight)}</p>
-                    </div>
-                    <div className="p-3 bg-blue-50 dark:bg-blue-900/50 rounded-md border border-blue-200 dark:border-blue-800">
-                        <label className="text-xs font-medium text-blue-500 dark:text-blue-400">Margem Líquida (%)</label>
-                        <p className="text-lg font-bold text-primary dark:text-blue-300">{netMarginPercentage}</p>
-                    </div>
+                    {!isClient && (
+                        <>
+                            <div className="p-3 bg-gray-100 dark:bg-gray-700 rounded-md">
+                                <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Frete Motorista (Final)</label>
+                                <p className="text-lg font-bold text-gray-800 dark:text-gray-200">{formatCurrency(totalDriverFreight)}</p>
+                            </div>
+                            <div className="p-3 bg-blue-50 dark:bg-blue-900/50 rounded-md border border-blue-200 dark:border-blue-800">
+                                <label className="text-xs font-medium text-blue-500 dark:text-blue-400">Margem Líquida (%)</label>
+                                <p className="text-lg font-bold text-primary dark:text-blue-300">{netMarginPercentage}</p>
+                            </div>
+                        </>
+                    )}
                 </div>
             </div>
 

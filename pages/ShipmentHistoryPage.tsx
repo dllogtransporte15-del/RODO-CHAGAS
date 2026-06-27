@@ -218,7 +218,10 @@ const ShipmentHistoryPage: React.FC<ShipmentHistoryPageProps> = ({ shipments, ca
             cargo={detailsModalCargo}
             client={clients.find(c => c.id === detailsModalCargo.clientId)}
             product={products.find(p => p.id === detailsModalCargo.productId)}
-            commercialUser={users.find(u => u.id === detailsModalCargo.createdById)}
+            commercialUser={users.find(u => u.id === detailsModalCargo?.createdById)}
+            stays={stays}
+            shipments={shipments}
+            currentUser={currentUser}
           />
       )}
     </>

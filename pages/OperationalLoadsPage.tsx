@@ -256,6 +256,7 @@ const OperationalLoadsPage: React.FC<OperationalLoadsPageProps> = ({
         commercialUser={detailsModalCargo ? users.find(u => u.id === detailsModalCargo.createdById) : undefined}
         stays={stays}
         shipments={shipments}
+        currentUser={currentUser}
       />
 
       <CargoShipmentsSidePanel

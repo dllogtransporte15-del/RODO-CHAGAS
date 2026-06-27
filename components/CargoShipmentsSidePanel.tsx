@@ -90,8 +90,12 @@ const CargoShipmentsSidePanel: React.FC<CargoShipmentsSidePanelProps> = ({
               cargoShipments.map((shipment) => (
                 <div 
                   key={shipment.id}
-                  onClick={() => setSelectedShipment(shipment)}
-                  className="bg-gray-50 dark:bg-gray-900/30 border border-gray-100 dark:border-gray-700 rounded-xl p-4 hover:shadow-md transition-shadow cursor-pointer relative"
+                  onClick={() => {
+                    if (currentUser.profile !== 'Cliente') {
+                      setSelectedShipment(shipment);
+                    }
+                  }}
+                  className={`bg-gray-50 dark:bg-gray-900/30 border border-gray-100 dark:border-gray-700 rounded-xl p-4 transition-shadow relative ${currentUser.profile !== 'Cliente' ? 'cursor-pointer hover:shadow-md' : ''}`}
                 >
                   <div className="absolute top-4 right-4">
                     <Info className="w-4 h-4 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />

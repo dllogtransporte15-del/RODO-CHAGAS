@@ -183,9 +183,10 @@ const LoadsPage: React.FC<LoadsPageProps> = ({ loads, setLoads, clients, product
         cargo={detailsModalCargo}
         client={detailsModalCargo ? clients.find(c => c.id === detailsModalCargo.clientId) : undefined}
         product={detailsModalCargo ? products.find(p => p.id === detailsModalCargo.productId) : undefined}
-        commercialUser={detailsModalCargo ? users.find(u => u.id === detailsModalCargo.createdById) : undefined}
+        commercialUser={users.find(u => u.id === detailsModalCargo?.createdById)}
         stays={stays}
         shipments={shipments}
+        currentUser={currentUser}
       />
 
       <CargoShipmentsSidePanel

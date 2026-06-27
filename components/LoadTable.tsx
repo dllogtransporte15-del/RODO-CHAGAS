@@ -372,10 +372,14 @@ const LoadTable: React.FC<LoadTableProps> = ({ loads, clients, products, shipmen
                   <div className="text-right flex flex-col items-end">
                     <div className="text-[9px] text-gray-400 uppercase font-bold">Frete</div>
                     <div className="flex items-center gap-2">
-                      <div className="text-sm font-bold text-primary dark:text-blue-400">{formatCurrency(load.driverFreightValuePerTon)}</div>
-                      <div className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${marginColorClass}`} title="Margem de Lucro">
-                        {netMarginPercentage}
+                      <div className="text-sm font-bold text-primary dark:text-blue-400">
+                        {currentUser.profile === UserProfile.Cliente ? formatCurrency(load.companyFreightValuePerTon) : formatCurrency(load.driverFreightValuePerTon)}
                       </div>
+                      {currentUser.profile !== UserProfile.Cliente && (
+                          <div className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${marginColorClass}`} title="Margem de Lucro">
+                            {netMarginPercentage}
+                          </div>
+                      )}
                     </div>
                   </div>
 

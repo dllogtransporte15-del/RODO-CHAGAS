@@ -4,6 +4,7 @@ import { PaperclipIcon, ExternalLinkIcon, MapPinIcon, LoaderIcon } from './icons
 import { fetchRouteGeometry, getRouteSuggestions, RouteSuggestion } from '../services/routing';
 import { formatWeightPtBr } from '../utils';
 import { useToast } from '../hooks/useToast';
+import { X } from 'lucide-react';
 
 interface AttachmentModalProps {
   isOpen: boolean;
@@ -383,7 +384,14 @@ const AttachmentModal: React.FC<AttachmentModalProps> = ({ isOpen, onClose, onSa
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-8 max-w-4xl w-full max-h-[90vh] overflow-y-auto text-gray-800 dark:text-gray-200">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-8 max-w-4xl w-full max-h-[90vh] overflow-y-auto text-gray-800 dark:text-gray-200 relative">
+        <button 
+            onClick={onClose}
+            className="absolute top-6 right-6 p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            title="Fechar"
+        >
+            <X className="w-6 h-6" />
+        </button>
         <h2 className="text-2xl font-bold mb-2">Gerenciar Anexos</h2>
         <p className="mb-6 text-sm text-gray-500">Embarque: {shipment.id}</p>
         
@@ -403,7 +411,7 @@ const AttachmentModal: React.FC<AttachmentModalProps> = ({ isOpen, onClose, onSa
           </div>
         )}
 
-        {!isClientUser && (
+        {!isClientUser ? (
             <div className="border-t dark:border-gray-700 pt-4">
                 <h3 className="text-lg font-semibold mb-4 text-primary">Próximo Passo: {documentName}</h3>
                       {shipment.status === ShipmentStatus.AguardandoNota ? (
@@ -696,6 +704,12 @@ const AttachmentModal: React.FC<AttachmentModalProps> = ({ isOpen, onClose, onSa
                         </button>
                     </div>
                 </div>
+            </div>
+        ) : (
+            <div className="mt-8 flex justify-end border-t dark:border-gray-700 pt-4">
+                <button onClick={onClose} className="px-8 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl font-bold hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
+                    Fechar
+                </button>
             </div>
         )}
       </div>

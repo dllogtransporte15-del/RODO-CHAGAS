@@ -105,7 +105,9 @@ const LoadHistoryPage: React.FC<LoadHistoryPageProps> = ({ loads, clients, produ
           cargo={detailsModalCargo}
           client={clients.find(c => c.id === detailsModalCargo.clientId)}
           product={products.find(p => p.id === detailsModalCargo.productId)}
-          commercialUser={users.find(u => u.id === detailsModalCargo.createdById)}
+          commercialUser={users.find(u => u.id === detailsModalCargo?.createdById)}
+          shipments={shipments}
+          currentUser={currentUser}
         />
       )}
     </>

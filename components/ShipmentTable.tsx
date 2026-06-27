@@ -259,12 +259,18 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users,
                 <div className="flex justify-between items-start">
                   <div>
                     <div className="flex items-center gap-1">
-                      <button 
-                        onClick={() => setDetailsModalShipment(shipment)} 
-                        className="text-sm font-bold text-primary dark:text-blue-400 hover:underline"
-                      >
-                        {shipment.id}
-                      </button>
+                      {isClient ? (
+                        <span className="text-sm font-bold text-gray-700 dark:text-gray-300">
+                          {shipment.id}
+                        </span>
+                      ) : (
+                        <button 
+                          onClick={() => setDetailsModalShipment(shipment)} 
+                          className="text-sm font-bold text-primary dark:text-blue-400 hover:underline"
+                        >
+                          {shipment.id}
+                        </button>
+                      )}
                       {tickets.some(t => t.shipmentId === shipment.id && t.status !== TicketStatus.Fechado && t.status !== TicketStatus.Resolvido) && (
                         <span className="text-red-500 inline-flex items-center" title="Chamado(s) Aberto(s)">
                           <AlertCircle className="w-4 h-4" />
@@ -318,7 +324,7 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users,
                       }
                     </div>
                   </div>
-                  {currentUser.profile !== UserProfile.Embarcador && (
+                  {currentUser.profile !== UserProfile.Embarcador && currentUser.profile !== UserProfile.Cliente && (
                     <>
                       <div className="col-span-2 mt-1">
                         <div className="text-[10px] text-gray-400 uppercase font-bold mb-1">Detalhamento Financeiro</div>
@@ -416,7 +422,7 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users,
                 <th scope="col" className="px-6 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">Embarque / Carga</th>
                 <th scope="col" className="px-6 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">Motorista / Solicitante</th>
                 <th scope="col" className="px-6 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">Origem / Destino</th>
-                {currentUser.profile !== UserProfile.Embarcador && (
+                {currentUser.profile !== UserProfile.Embarcador && currentUser.profile !== UserProfile.Cliente && (
                   <th scope="col" className="px-6 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">Margem</th>
                 )}
                 <th scope="col" className="px-6 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">Frete / Ton</th>
@@ -450,12 +456,18 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users,
                   <tr key={shipment.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                     <td className="px-6 py-[11px] whitespace-nowrap text-sm">
                       <div className="flex items-center gap-1">
-                        <button 
-                            onClick={() => setDetailsModalShipment(shipment)} 
-                            className="font-medium text-primary dark:text-blue-400 hover:underline text-left block"
-                        >
-                            {shipment.id}
-                        </button>
+                        {isClient ? (
+                            <span className="font-medium text-gray-700 dark:text-gray-300 text-left block">
+                                {shipment.id}
+                            </span>
+                        ) : (
+                            <button 
+                                onClick={() => setDetailsModalShipment(shipment)} 
+                                className="font-medium text-primary dark:text-blue-400 hover:underline text-left block"
+                            >
+                                {shipment.id}
+                            </button>
+                        )}
                         {tickets.some(t => t.shipmentId === shipment.id && t.status !== TicketStatus.Fechado && t.status !== TicketStatus.Resolvido) && (
                           <span className="text-red-500 inline-flex items-center" title="Chamado(s) Aberto(s)">
                             <AlertCircle className="w-4 h-4" />
@@ -511,7 +523,7 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users,
                           </button>
                       )}
                     </td>
-                    {currentUser.profile !== UserProfile.Embarcador && (
+                    {currentUser.profile !== UserProfile.Embarcador && currentUser.profile !== UserProfile.Cliente && (
                       <td className="px-6 py-[11px] whitespace-nowrap text-sm">
                         {(() => {
                           const companyRate = shipment.companyFreightRateSnapshot || cargo?.companyFreightValuePerTon || 0;
@@ -536,12 +548,14 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users,
                     )}
                     <td className="px-6 py-[11px] whitespace-nowrap text-sm">
                       <div className="space-y-1">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-[10px] text-gray-400 font-bold uppercase">Mtr:</span>
-                          <span className="font-bold text-gray-900 dark:text-white">
-                            {formatCurrency(shipment.driverFreightValue / (shipment.shipmentTonnage || 1))}
-                          </span>
-                        </div>
+                        {currentUser.profile !== UserProfile.Cliente && (
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[10px] text-gray-400 font-bold uppercase">Mtr:</span>
+                            <span className="font-bold text-gray-900 dark:text-white">
+                              {formatCurrency(shipment.driverFreightValue / (shipment.shipmentTonnage || 1))}
+                            </span>
+                          </div>
+                        )}
                         {currentUser.profile !== UserProfile.Embarcador && (
                           <div className="flex items-center gap-1.5">
                             <span className="text-[10px] text-gray-400 font-bold uppercase">Emp:</span>

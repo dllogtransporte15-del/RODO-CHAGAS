@@ -367,17 +367,19 @@ const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
                     </>
                 ) : (
                     <>
-                        <DetailItem label="Valor Frete Motorista">
-                            <p className="text-lg font-bold text-green-700 dark:text-green-400">
-                                {isEditingData 
-                                    ? formatCurrency((editedData.shipmentTonnage || 0) * (shipment.driverFreightRateSnapshot || (shipment.driverFreightValue / (shipment.shipmentTonnage || 1))))
-                                    : formatCurrency(shipment.driverFreightValue)
-                                }
-                            </p>
-                            <span className="text-[10px] text-gray-500 font-normal">
-                                ({formatCurrency(shipment.driverFreightRateSnapshot || (shipment.driverFreightValue / (shipment.shipmentTonnage || 1)))} /ton)
-                            </span>
-                        </DetailItem>
+                        {currentUser?.profile !== UserProfile.Cliente && (
+                            <DetailItem label="Valor Frete Motorista">
+                                <p className="text-lg font-bold text-green-700 dark:text-green-400">
+                                    {isEditingData 
+                                        ? formatCurrency((editedData.shipmentTonnage || 0) * (shipment.driverFreightRateSnapshot || (shipment.driverFreightValue / (shipment.shipmentTonnage || 1))))
+                                        : formatCurrency(shipment.driverFreightValue)
+                                    }
+                                </p>
+                                <span className="text-[10px] text-gray-500 font-normal">
+                                    ({formatCurrency(shipment.driverFreightRateSnapshot || (shipment.driverFreightValue / (shipment.shipmentTonnage || 1)))} /ton)
+                                </span>
+                            </DetailItem>
+                        )}
                         <DetailItem label="Tonelagem">
                             {isEditingData ? (
                                 <input 
