@@ -79,6 +79,7 @@ const navItems: NavItem[] = [
       { id: 'layover-calculator', label: 'Cálculo de Estadias', icon: CalculatorIcon },
       { id: 'freight-quote', label: 'Cotação de Frete', icon: MapIcon },
       { id: 'tools-history', label: 'Histórico', icon: HistoryIcon },
+      { id: 'freight-offers-history', label: 'Histórico de Ofertas', icon: HistoryIcon },
     ]
   },
   {

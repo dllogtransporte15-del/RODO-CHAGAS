@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import type { Cargo, Client, Product, User, FreightLeg, DailyScheduleEntry, Branch } from '../types';
+import type { Cargo, Client, Product, User, FreightLeg, DailyScheduleEntry, Branch, FreightOffer } from '../types';
 import { CargoStatus, CargoType, UserProfile, VehicleSetType, VehicleBodyType, DailyScheduleType } from '../types';
 import { PlusIcon } from './icons/PlusIcon';
 import { XIcon } from './icons/XIcon';
@@ -23,6 +23,7 @@ interface LoadFormModalProps {
   loads: Cargo[];
   branches: Branch[];
   initialStep?: number;
+  offerToConvert?: FreightOffer | null;
 }
 
 const STEPS = ['Informações da Carga', 'Programação Diária', 'Valores e Regras'];
@@ -32,9 +33,45 @@ const DEFAULT_ALLOWED_VEHICLE_TYPES = Object.values(VehicleSetType).map(setType 
     bodyTypes: Object.values(VehicleBodyType)
 }));
 
-const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, loadToEdit, clients, products, currentUser, users, loads, branches, initialStep = 1 }) => {
+const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, loadToEdit, clients, products, currentUser, users, loads, branches, initialStep = 1, offerToConvert }) => {
   const getInitialState = (): Omit<Cargo, 'id' | 'history' | 'createdAt' | 'createdById'> => {
     const newSequenceId = loads.length > 0 ? Math.max(...loads.map(c => c.sequenceId)) + 1 : 101;
+    
+    if (offerToConvert) {
+      return {
+        sequenceId: newSequenceId,
+        clientId: offerToConvert.clientId,
+        productId: offerToConvert.productId,
+        origin: offerToConvert.origin,
+        originLocation: offerToConvert.originLocation || '',
+        originMapLink: '',
+        destination: offerToConvert.destination,
+        destinationLocation: offerToConvert.destinationLocation || '',
+        destinationMapLink: '',
+        totalVolume: offerToConvert.totalTonnage,
+        scheduledVolume: 0,
+        loadedVolume: 0,
+        companyFreightValuePerTon: offerToConvert.counterOfferValue || offerToConvert.freightValuePerTon,
+        driverFreightValuePerTon: 0,
+        hasIcms: false,
+        icmsPercentage: 0,
+        requiresScheduling: false,
+        type: CargoType.Spot,
+        status: CargoStatus.EmAndamento,
+        loadingDeadline: '',
+        allowedVehicleTypes: DEFAULT_ALLOWED_VEHICLE_TYPES,
+        freightLegs: [
+          { companyFreightValuePerTon: offerToConvert.counterOfferValue || offerToConvert.freightValuePerTon, driverFreightValuePerTon: 0, hasIcms: false, icmsPercentage: 0 },
+          { companyFreightValuePerTon: 0, driverFreightValuePerTon: 0, hasIcms: false, icmsPercentage: 0 }
+        ],
+        dailySchedule: [],
+        observations: offerToConvert.dailySchedule ? `Cadência sugerida pelo cliente: ${offerToConvert.dailySchedule}` : '',
+        attachments: [],
+        salespersonCommissionPerTon: 0,
+        branchId: currentUser.branchId
+      };
+    }
+
     return ({
     sequenceId: newSequenceId,
     clientId: clients[0]?.id || '',

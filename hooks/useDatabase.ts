@@ -3,13 +3,13 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { supabase } from '../supabase';
 import type { 
   User, Client, Owner, Driver, Vehicle, Product, Cargo, Shipment, Ticket,
-  ProfilePermissions, ShipmentLock, Branch 
+  ProfilePermissions, ShipmentLock, Branch, FreightOffer
 } from '../types';
 import { INITIAL_PERMISSIONS } from '../auth';
 import { 
   fetchClients, fetchOwners, fetchDrivers, fetchVehicles, fetchProducts,
   fetchCargos, fetchShipments, fetchUsers, fetchTickets, fetchProfilePermissions,
-  fetchAppSettings, fetchShipmentLocks, fetchBranches
+  fetchAppSettings, fetchShipmentLocks, fetchBranches, fetchFreightOffers
 } from '../lib/db';
 import { getAllToolStays, StayRecord } from '../utils/toolStorage';
 
@@ -66,6 +66,7 @@ export function useDatabase(currentUser: User | null) {
   const [shipments, setShipments] = useState<Shipment[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [freightOffers, setFreightOffers] = useState<FreightOffer[]>([]);
   const [stays, setStays] = useState<StayRecord[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [activeLocks, setActiveLocks] = useState<ShipmentLock[]>([]);
@@ -108,12 +109,12 @@ export function useDatabase(currentUser: User | null) {
       const [
         dbClients, dbOwners, dbDrivers, dbVehicles, dbProducts, dbCargos, 
         dbShipments, dbUsers, dbTickets, dbPermissions, dbSettings, dbLocks, dbBranches,
-        dbStays
+        dbStays, dbFreightOffers
       ] = await Promise.all([
         fetchClients(), fetchOwners(), fetchDrivers(), fetchVehicles(), fetchProducts(),
         fetchCargos(), fetchShipments(), fetchUsers(), fetchTickets(),
         fetchProfilePermissions(), fetchAppSettings(), fetchShipmentLocks(),
-        fetchBranches(), getAllToolStays()
+        fetchBranches(), getAllToolStays(), fetchFreightOffers()
       ]);
 
       setClients(dbClients);
@@ -125,6 +126,7 @@ export function useDatabase(currentUser: User | null) {
       setShipments(dbShipments);
       setUsers(dbUsers);
       setTickets(dbTickets);
+      setFreightOffers(dbFreightOffers);
       setStays(dbStays);
       setBranches(dbBranches);
       setActiveLocks(dbLocks);
@@ -232,6 +234,11 @@ export function useDatabase(currentUser: User | null) {
             setNextIds((prev: any) => ({ ...prev, ticket: getMaxId(dbTickets, 1) }));
             break;
           }
+          case 'freight_offers': {
+            const dbOffers = await fetchFreightOffers();
+            setFreightOffers(dbOffers);
+            break;
+          }
           case 'branches': {
             const dbBranches = await fetchBranches();
             setBranches(dbBranches);
@@ -291,6 +298,7 @@ export function useDatabase(currentUser: User | null) {
     shipments, setShipments,
     users, setUsers,
     tickets, setTickets,
+    freightOffers, setFreightOffers,
     stays, setStays,
     branches, setBranches,
     activeLocks, setActiveLocks,

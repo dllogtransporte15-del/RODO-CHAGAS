@@ -1,0 +1,153 @@
+import React, { useState, useMemo } from 'react';
+import Header from '../components/Header';
+import FreightOffersList from '../components/FreightOffersList';
+import type { FreightOffer, Client, Product, Cargo, User } from '../types';
+import { FreightOfferStatus } from '../types';
+import { HistoryIcon, FilterIcon, SearchIcon, RefreshCwIcon } from 'lucide-react';
+
+interface FreightOffersHistoryPageProps {
+  freightOffers: FreightOffer[];
+  clients: Client[];
+  products: Product[];
+  cargos: Cargo[];
+  currentUser?: User | null;
+  onSaveFreightOffer?: (offer: Omit<FreightOffer, 'id' | 'createdAt'>) => Promise<void>;
+  onDeleteFreightOffer?: (offer: FreightOffer) => void;
+}
+
+const FreightOffersHistoryPage: React.FC<FreightOffersHistoryPageProps> = ({ 
+  freightOffers, 
+  clients, 
+  products, 
+  cargos,
+  currentUser,
+  onSaveFreightOffer,
+  onDeleteFreightOffer
+}) => {
+  const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [filterClientId, setFilterClientId] = useState<string>('all');
+  const [filterOrigin, setFilterOrigin] = useState<string>('');
+  const [filterDestination, setFilterDestination] = useState<string>('');
+
+  const filteredOffers = useMemo(() => {
+    return freightOffers.filter(offer => {
+      if (filterStatus !== 'all' && offer.status !== filterStatus) return false;
+      if (filterClientId !== 'all' && offer.clientId !== filterClientId) return false;
+      if (filterOrigin && !offer.origin.toLowerCase().includes(filterOrigin.toLowerCase())) return false;
+      if (filterDestination && !offer.destination.toLowerCase().includes(filterDestination.toLowerCase())) return false;
+      return true;
+    }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }, [freightOffers, filterStatus, filterClientId, filterOrigin, filterDestination]);
+
+  const clearFilters = () => {
+    setFilterStatus('all');
+    setFilterClientId('all');
+    setFilterOrigin('');
+    setFilterDestination('');
+  };
+
+  return (
+    <div className="space-y-6 max-w-7xl mx-auto">
+      <Header title="Histórico de Ofertas de Frete" />
+      
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="p-2 bg-indigo-100 dark:bg-indigo-900/50 rounded-lg text-indigo-600 dark:text-indigo-400">
+            <FilterIcon className="w-5 h-5" />
+          </div>
+          <div>
+            <h2 className="text-lg font-bold text-gray-800 dark:text-white">Filtros de Busca</h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400">Encontre ofertas específicas utilizando os filtros abaixo</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Cliente</label>
+            <select
+              value={filterClientId}
+              onChange={(e) => setFilterClientId(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
+            >
+              <option value="all">Todos os Clientes</option>
+              {clients.map(client => (
+                <option key={client.id} value={client.id}>
+                  {client.nomeFantasia || client.razaoSocial}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
+            >
+              <option value="all">Todos os Status</option>
+              {Object.values(FreightOfferStatus).map(status => (
+                <option key={status} value={status}>{status}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Origem</label>
+            <div className="relative">
+              <input
+                type="text"
+                value={filterOrigin}
+                onChange={(e) => setFilterOrigin(e.target.value)}
+                placeholder="Buscar por origem..."
+                className="w-full pl-9 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
+              />
+              <SearchIcon className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Destino</label>
+            <div className="relative">
+              <input
+                type="text"
+                value={filterDestination}
+                onChange={(e) => setFilterDestination(e.target.value)}
+                placeholder="Buscar por destino..."
+                className="w-full pl-9 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
+              />
+              <SearchIcon className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
+            </div>
+          </div>
+        </div>
+
+        <div className="flex justify-end">
+          <button
+            onClick={clearFilters}
+            className="px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors flex items-center gap-2"
+          >
+            <RefreshCwIcon className="w-4 h-4" />
+            Limpar Filtros
+          </button>
+        </div>
+      </div>
+
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+        <FreightOffersList
+          offers={filteredOffers}
+          clients={clients}
+          products={products}
+          cargos={cargos}
+          isClientProfile={false}
+          currentUser={currentUser || undefined}
+          onAccept={async () => {}} // Disabled actions for history
+          onRefuse={async () => {}} // Disabled actions for history
+          onCounterOffer={async () => {}} // Disabled actions for history
+          onDelete={onDeleteFreightOffer}
+        />
+      </div>
+    </div>
+  );
+};
+
+export default FreightOffersHistoryPage;

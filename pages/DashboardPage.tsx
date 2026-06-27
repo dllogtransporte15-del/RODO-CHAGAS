@@ -9,9 +9,11 @@ import { TruckIcon } from '../components/icons/TruckIcon';
 import { PackageIcon } from '../components/icons/PackageIcon';
 import { DollarSignIcon } from '../components/icons/DollarSignIcon';
 import { ClientsIcon } from '../components/icons/ClientsIcon';
-import { CargoStatus, ShipmentStatus, UserProfile } from '../types';
-import type { Cargo, Shipment, User, Client, Product, Vehicle } from '../types';
+import { CargoStatus, ShipmentStatus, UserProfile, FreightOfferStatus } from '../types';
+import type { Cargo, Shipment, User, Client, Product, Vehicle, FreightOffer } from '../types';
 import ShipmentDetailsModal from '../components/ShipmentDetailsModal';
+import FreightOfferModal from '../components/FreightOfferModal';
+import FreightOffersList from '../components/FreightOffersList';
 
 interface DashboardPageProps {
   cargos: Cargo[];
@@ -24,6 +26,10 @@ interface DashboardPageProps {
   vehicles: Vehicle[];
   onDeleteAttachment?: (shipmentId: string, url: string) => Promise<void>;
   onUpdatePrice?: (shipmentId: string, data: { newTotal: number, newRate?: number, newCompanyRate?: number }) => void;
+  freightOffers?: FreightOffer[];
+  onSaveFreightOffer?: (offer: Omit<FreightOffer, 'id' | 'createdAt'>) => Promise<void>;
+  onAcceptFreightOffer?: (offer: FreightOffer) => void;
+  onDeleteFreightOffer?: (offer: FreightOffer) => void;
 }
 
 
@@ -132,11 +138,38 @@ const ShipmentListCard: React.FC<ShipmentListCardProps> = ({ title, shipments, u
 };
 
 
-const DashboardPage: React.FC<DashboardPageProps> = ({ cargos, shipments, users, currentUser, clients, products, companyLogo, vehicles, onDeleteAttachment, onUpdatePrice }) => {
-
-
+const DashboardPage: React.FC<DashboardPageProps> = ({ 
+  cargos, 
+  shipments, 
+  users, 
+  currentUser, 
+  clients, 
+  products, 
+  companyLogo,
+  vehicles,
+  onDeleteAttachment,
+  onUpdatePrice,
+  freightOffers = [],
+  onSaveFreightOffer,
+  onAcceptFreightOffer,
+  onDeleteFreightOffer
+}) => {
   const [detailsModalShipment, setDetailsModalShipment] = React.useState<Shipment | null>(null);
+  const [isOfferModalOpen, setIsOfferModalOpen] = React.useState(false);
+  const [offerFilterStatus, setOfferFilterStatus] = React.useState<string>('all');
+  const [offerFilterOrigin, setOfferFilterOrigin] = React.useState<string>('');
+  const [offerFilterDestination, setOfferFilterDestination] = React.useState<string>('');
   
+  const addOfferHistory = (offer: FreightOffer, description: string) => {
+    const newLog = {
+      id: `log_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+      userId: currentUser?.id || '',
+      timestamp: new Date().toISOString(),
+      description
+    };
+    return [...(offer.history || []), newLog];
+  };
+
   // Sync modal shipment with latest data from props
   React.useEffect(() => {
     if (detailsModalShipment) {
@@ -420,10 +453,40 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ cargos, shipments, users,
   }
 
   if (currentUser?.profile === UserProfile.Cliente && clientDashboardData) {
+    const myOffers = freightOffers.filter(o => {
+      if (o.clientId !== currentUser.clientId) return false;
+      if (o.status === FreightOfferStatus.Aceita) {
+        const matchedCargo = cargos.find(c => 
+          c.clientId === o.clientId && 
+          c.productId === o.productId && 
+          c.origin === o.origin && 
+          c.destination === o.destination
+        );
+        if (!matchedCargo || matchedCargo.status === CargoStatus.Fechada) {
+          return false;
+        }
+      }
+      
+      // Apply Client Filters
+      if (offerFilterStatus !== 'all' && o.status !== offerFilterStatus) return false;
+      if (offerFilterOrigin && !o.origin.toLowerCase().includes(offerFilterOrigin.toLowerCase())) return false;
+      if (offerFilterDestination && !o.destination.toLowerCase().includes(offerFilterDestination.toLowerCase())) return false;
+
+      return true;
+    });
     return (
         <>
-          <Header title="Dashboard" />
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="flex justify-between items-center mb-6">
+            <Header title="Dashboard" />
+            <button
+              onClick={() => setIsOfferModalOpen(true)}
+              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium transition-colors flex items-center gap-2"
+            >
+              <PackageIcon className="w-5 h-5" />
+              Nova Oferta de Frete
+            </button>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
             <Card
               title="Cargas em andamento"
               value={clientDashboardData.pendingLoads.toString()}
@@ -455,14 +518,131 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ cargos, shipments, users,
               colorClass="bg-gray-500"
             />
           </div>
+
+          <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm mb-6 flex flex-col md:flex-row gap-4 items-end">
+            <div className="flex-1 w-full">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
+              <select
+                value={offerFilterStatus}
+                onChange={(e) => setOfferFilterStatus(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
+              >
+                <option value="all">Todos</option>
+                {Object.values(FreightOfferStatus).map(status => (
+                  <option key={status} value={status}>{status}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex-1 w-full">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Origem</label>
+              <input
+                type="text"
+                value={offerFilterOrigin}
+                onChange={(e) => setOfferFilterOrigin(e.target.value)}
+                placeholder="Buscar por origem..."
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
+              />
+            </div>
+            <div className="flex-1 w-full">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Destino</label>
+              <input
+                type="text"
+                value={offerFilterDestination}
+                onChange={(e) => setOfferFilterDestination(e.target.value)}
+                placeholder="Buscar por destino..."
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
+              />
+            </div>
+            <button 
+              onClick={() => {
+                setOfferFilterStatus('all');
+                setOfferFilterOrigin('');
+                setOfferFilterDestination('');
+              }}
+              className="px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+            >
+              Limpar
+            </button>
+          </div>
+          
+          <FreightOffersList
+            offers={myOffers}
+            clients={clients}
+            products={products}
+            cargos={cargos}
+            isClientProfile={true}
+            onAccept={async (offer) => {
+              if (onSaveFreightOffer) {
+                const history = addOfferHistory(offer, `Contraproposta aceita pelo Cliente.`);
+                await onSaveFreightOffer({ ...offer, status: FreightOfferStatus.ContrapropostaAceita, history });
+              }
+            }}
+            onRefuse={async (offer) => {
+              if (onSaveFreightOffer) {
+                const history = addOfferHistory(offer, `Oferta recusada pelo Cliente.`);
+                await onSaveFreightOffer({ ...offer, status: FreightOfferStatus.Recusada, history });
+              }
+            }}
+            onCounterOffer={() => {}} // Client doesn't make counter offer here directly yet
+            currentUser={currentUser || undefined}
+            onDelete={onDeleteFreightOffer}
+          />
+
+          <FreightOfferModal
+            isOpen={isOfferModalOpen}
+            onClose={() => setIsOfferModalOpen(false)}
+            clients={clients}
+            products={products}
+            currentClient={clients.find(c => c.id === currentUser.clientId)}
+            onSave={onSaveFreightOffer || (async () => {})}
+          />
         </>
     )
   }
+
+  const pendingOffers = freightOffers.filter(o => 
+    o.status === FreightOfferStatus.Pendente || 
+    o.status === FreightOfferStatus.ContrapropostaAceita ||
+    o.status === FreightOfferStatus.Contraproposta
+  );
 
 
   return (
     <>
       <Header title="Dashboard" />
+      {pendingOffers.length > 0 && (
+        <div className="mb-8">
+          <FreightOffersList
+            offers={pendingOffers}
+            clients={clients}
+            products={products}
+            cargos={cargos}
+            isClientProfile={false}
+            onAccept={async (offer) => {
+              if (onAcceptFreightOffer) {
+                onAcceptFreightOffer(offer);
+              } else if (onSaveFreightOffer) {
+                const history = addOfferHistory(offer, `Oferta aceita pela Transportadora.`);
+                await onSaveFreightOffer({ ...offer, status: FreightOfferStatus.Aceita, history });
+              }
+            }}
+            onRefuse={async (offer) => {
+              if (onSaveFreightOffer) {
+                const history = addOfferHistory(offer, `Oferta recusada pela Transportadora.`);
+                await onSaveFreightOffer({ ...offer, status: FreightOfferStatus.Recusada, history });
+              }
+            }}
+            onCounterOffer={async (offer, newValue) => {
+              if (onSaveFreightOffer) {
+                const history = addOfferHistory(offer, `Contraproposta de R$ ${newValue.toFixed(2)} enviada pela Transportadora.`);
+                await onSaveFreightOffer({ ...offer, status: FreightOfferStatus.Contraproposta, counterOfferValue: newValue, history });
+              }
+            }}
+            currentUser={currentUser || undefined}
+            onDelete={onDeleteFreightOffer}
+          />
+        </div>
+      )}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card
           title="Embarques Ativos"

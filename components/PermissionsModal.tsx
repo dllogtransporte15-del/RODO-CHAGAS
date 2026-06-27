@@ -34,6 +34,7 @@ const PAGE_NAMES: Record<Page, string> = {
   'freight-quote': 'Cotação de Frete',
   'ai-assistant': 'Assistente de IA',
   'tools-history': 'Histórico de Ferramentas',
+  'freight-offers-history': 'Histórico de Ofertas',
   'branches': 'Filiais',
   'system-monitor': 'Monitoramento do Sistema',
 };

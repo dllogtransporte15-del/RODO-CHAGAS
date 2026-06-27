@@ -11,7 +11,7 @@ import type { Cargo, Client, Product, Driver, User, ProfilePermissions, Shipment
 import { CargoStatus, UserProfile } from '../types';
 import { can } from '../auth';
 import { StayRecord } from '../utils/toolStorage';
-import type { Ticket } from '../types';
+import type { Ticket, FreightOffer } from '../types';
 
 interface LoadsPageProps {
   loads: Cargo[];
@@ -37,9 +37,11 @@ interface LoadsPageProps {
   branches: Branch[];
   stays?: StayRecord[];
   tickets?: Ticket[];
+  offerToConvert?: FreightOffer | null;
+  setOfferToConvert?: (offer: FreightOffer | null) => void;
 }
 
-const LoadsPage: React.FC<LoadsPageProps> = ({ loads, setLoads, clients, products, shipments, allShipments, onSaveLoad, onReactivateLoad, onSuspendLoad, onUpdatePrice, currentUser, profilePermissions, users, onDeleteLoad, onModalStateChange, companyLogo, vehicles, drivers, onDeleteAttachment, branches, stays = [], tickets = [] }) => {
+const LoadsPage: React.FC<LoadsPageProps> = ({ loads, setLoads, clients, products, shipments, allShipments, onSaveLoad, onReactivateLoad, onSuspendLoad, onUpdatePrice, currentUser, profilePermissions, users, onDeleteLoad, onModalStateChange, companyLogo, vehicles, drivers, onDeleteAttachment, branches, stays = [], tickets = [], offerToConvert, setOfferToConvert }) => {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loadToEdit, setLoadToEdit] = useState<Cargo | null>(null);
@@ -57,6 +59,14 @@ const LoadsPage: React.FC<LoadsPageProps> = ({ loads, setLoads, clients, product
     const isAnyOpen = isModalOpen || isHistoryModalOpen || !!detailsModalCargo || isShipmentsPanelOpen || isRecommendedDriversModalOpen;
     onModalStateChange(isAnyOpen);
   }, [isModalOpen, isHistoryModalOpen, detailsModalCargo, isShipmentsPanelOpen, isRecommendedDriversModalOpen, onModalStateChange]);
+
+  React.useEffect(() => {
+    if (offerToConvert) {
+      setLoadToEdit(null);
+      setInitialModalStep(1);
+      setIsModalOpen(true);
+    }
+  }, [offerToConvert]);
 
   const handleShowDetails = (cargo: Cargo) => {
     setDetailsModalCargo(cargo);
@@ -84,6 +94,7 @@ const LoadsPage: React.FC<LoadsPageProps> = ({ loads, setLoads, clients, product
 
   const handleCloseModal = () => {
     setIsModalOpen(false);
+    if (setOfferToConvert) setOfferToConvert(null);
   };
 
   const handleEditLoad = (load: Cargo) => {
@@ -165,6 +176,7 @@ const LoadsPage: React.FC<LoadsPageProps> = ({ loads, setLoads, clients, product
         loads={loads}
         branches={branches}
         initialStep={initialModalStep}
+        offerToConvert={offerToConvert}
       />
 
       {selectedLoadForHistory && (

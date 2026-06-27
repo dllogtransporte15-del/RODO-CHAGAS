@@ -1,11 +1,73 @@
 import { supabase } from '../supabase';
 import type {
-  Client, Owner, Driver, Vehicle, Product, Cargo, Shipment, User, Ticket, ProfilePermissions, ShipmentLock, Branch
+  Client, Owner, Driver, Vehicle, Product, Cargo, Shipment, User, Ticket, ProfilePermissions, ShipmentLock, Branch, FreightOffer
 } from '../types';
 
 // ─────────────────────────────────────────────
 // HELPERS: Map DB rows (snake_case) ↔ App types (camelCase)
 // ─────────────────────────────────────────────
+
+const toFreightOffer = (row: any): FreightOffer => ({
+  id: row.id,
+  clientId: row.client_id,
+  origin: row.origin,
+  originLocation: row.origin_location,
+  destination: row.destination,
+  destinationLocation: row.destination_location,
+  totalTonnage: Number(row.total_tonnage),
+  dailySchedule: row.daily_schedule,
+  freightValuePerTon: Number(row.freight_value_per_ton),
+  productId: row.product_id,
+  status: row.status,
+  counterOfferValue: row.counter_offer_value ? Number(row.counter_offer_value) : undefined,
+  createdAt: row.created_at,
+  history: row.history || [],
+});
+
+export const fetchFreightOffers = async (): Promise<FreightOffer[]> => {
+  const { data, error } = await supabase
+    .from('freight_offers')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    if (error.code === '42P01') {
+      console.warn('Table freight_offers does not exist yet. Returning empty array.');
+      return [];
+    }
+    console.error('Error fetching freight offers:', error);
+    return [];
+  }
+  return (data || []).map(toFreightOffer);
+};
+
+const fromFreightOffer = (o: FreightOffer | Omit<FreightOffer, 'id'>) => ({
+  id: (o as FreightOffer).id,
+  client_id: o.clientId,
+  origin: o.origin,
+  origin_location: o.originLocation,
+  destination: o.destination,
+  destination_location: o.destinationLocation,
+  total_tonnage: o.totalTonnage,
+  daily_schedule: o.dailySchedule,
+  freight_value_per_ton: o.freightValuePerTon,
+  product_id: o.productId,
+  status: o.status,
+  counter_offer_value: o.counterOfferValue,
+  created_at: o.createdAt,
+  history: o.history,
+});
+
+export const upsertFreightOffer = async (offer: FreightOffer | Omit<FreightOffer, 'id' | 'createdAt'>): Promise<void> => {
+  const row = fromFreightOffer({
+    ...offer,
+    id: ('id' in offer && offer.id) ? offer.id : crypto.randomUUID(),
+    createdAt: ('createdAt' in offer && offer.createdAt) ? offer.createdAt : new Date().toISOString()
+  });
+  
+  const { error } = await supabase.from('freight_offers').upsert(row);
+  if (error) throw error;
+};
 
 const toClient = (row: any): Client => ({
   id: row.id,
@@ -691,6 +753,11 @@ export async function upsertProduct(product: Product): Promise<void> {
 
 export async function deleteProduct(id: string): Promise<void> {
   const { error } = await supabase.from('products').delete().eq('id', id);
+  if (error) throw error;
+}
+
+export async function deleteFreightOffer(id: string): Promise<void> {
+  const { error } = await supabase.from('freight_offers').delete().eq('id', id);
   if (error) throw error;
 }
 
