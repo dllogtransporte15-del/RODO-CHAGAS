@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import type { FreightOffer, Client, Product, Cargo, User } from '../types';
 import { FreightOfferStatus, CargoStatus, UserProfile } from '../types';
-import { PackageIcon, CheckIcon, XIcon, MessageCircleIcon, HistoryIcon, TrashIcon } from 'lucide-react';
+import { PackageIcon, CheckIcon, XIcon, MessageCircleIcon, HistoryIcon, TrashIcon, MapPinIcon } from 'lucide-react';
 import VolumeBar from './VolumeBar';
 
 interface FreightOffersListProps {
@@ -15,10 +15,11 @@ interface FreightOffersListProps {
   onRefuse: (offer: FreightOffer) => void;
   onCounterOffer: (offer: FreightOffer, newValue: number) => void;
   onDelete?: (offer: FreightOffer) => void;
+  onConvertToCargo?: (offer: FreightOffer) => void;
 }
 
 const FreightOffersList: React.FC<FreightOffersListProps> = ({
-  offers, clients, products, cargos, isClientProfile, currentUser, onAccept, onRefuse, onCounterOffer, onDelete
+  offers, clients, products, cargos, isClientProfile, currentUser, onAccept, onRefuse, onCounterOffer, onDelete, onConvertToCargo
 }) => {
   const [counterOfferModal, setCounterOfferModal] = useState<FreightOffer | null>(null);
   const [counterValue, setCounterValue] = useState<string>('');
@@ -37,6 +38,8 @@ const FreightOffersList: React.FC<FreightOffersListProps> = ({
 
   const getStatusColor = (status: FreightOfferStatus) => {
     switch (status) {
+      case FreightOfferStatus.AguardandoPreco: return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400';
+      case FreightOfferStatus.AnaliseCliente: return 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400';
       case FreightOfferStatus.Pendente: return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400';
       case FreightOfferStatus.Aceita: return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400';
       case FreightOfferStatus.Recusada: return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400';
@@ -99,12 +102,36 @@ const FreightOffersList: React.FC<FreightOffersListProps> = ({
                   </td>
                 )}
                 <td className="px-4 py-3 text-gray-600 dark:text-gray-300">
-                  {offer.origin}
-                  {offer.originLocation && <div className="text-xs text-gray-400">{offer.originLocation}</div>}
+                  <div className="flex flex-col items-start gap-1.5">
+                    <span>{offer.origin}</span>
+                    {offer.originLocation && (
+                      <a 
+                        href={offer.originLocation} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-md hover:bg-blue-100 hover:text-blue-800 transition-colors"
+                      >
+                        <MapPinIcon className="w-3 h-3" />
+                        Ver Localização
+                      </a>
+                    )}
+                  </div>
                 </td>
                 <td className="px-4 py-3 text-gray-600 dark:text-gray-300">
-                  {offer.destination}
-                  {offer.destinationLocation && <div className="text-xs text-gray-400">{offer.destinationLocation}</div>}
+                  <div className="flex flex-col items-start gap-1.5">
+                    <span>{offer.destination}</span>
+                    {offer.destinationLocation && (
+                      <a 
+                        href={offer.destinationLocation} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-md hover:bg-blue-100 hover:text-blue-800 transition-colors"
+                      >
+                        <MapPinIcon className="w-3 h-3" />
+                        Ver Localização
+                      </a>
+                    )}
+                  </div>
                 </td>
                 <td className="px-4 py-3 text-gray-600 dark:text-gray-300">{getProductName(offer.productId)}</td>
                 <td className="px-4 py-3 text-gray-600 dark:text-gray-300">
@@ -128,10 +155,10 @@ const FreightOffersList: React.FC<FreightOffersListProps> = ({
                 </td>
                 <td className="px-4 py-3 text-gray-600 dark:text-gray-300">
                   {matchedCargo ? (
-                    <div>R$ {(offer.counterOfferValue || offer.freightValuePerTon).toFixed(2)}</div>
+                    <div>R$ {(offer.counterOfferValue || offer.freightValuePerTon || 0).toFixed(2)}</div>
                   ) : (
                     <>
-                      <div>R$ {offer.freightValuePerTon.toFixed(2)}</div>
+                      <div>{offer.freightValuePerTon ? `R$ ${offer.freightValuePerTon.toFixed(2)}` : 'Aguardando Preço'}</div>
                       {offer.counterOfferValue && (
                         <div className="text-xs text-blue-500 font-medium mt-0.5">
                           Contraproposta: R$ {offer.counterOfferValue.toFixed(2)}
@@ -144,42 +171,81 @@ const FreightOffersList: React.FC<FreightOffersListProps> = ({
                   <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium text-center ${getStatusColor(offer.status)}`}>
                     {isClientProfile && matchedCargo
                       ? 'Carga em andamento'
-                      : isClientProfile && offer.status === FreightOfferStatus.ContrapropostaAceita
-                        ? 'Aceita'
-                        : offer.status === FreightOfferStatus.Pendente && isClientProfile
-                          ? 'Oferta enviada, aguardando resposta'
-                          : offer.status === FreightOfferStatus.Contraproposta && !isClientProfile
-                            ? 'Contraproposta enviada, aguardando aprovação'
-                            : offer.status}
+                      : isClientProfile && offer.status === FreightOfferStatus.AguardandoPreco
+                        ? 'Aguardando preço da transportadora'
+                        : isClientProfile && offer.status === FreightOfferStatus.AnaliseCliente
+                          ? 'Aguardando sua análise'
+                          : !isClientProfile && offer.status === FreightOfferStatus.AnaliseCliente
+                            ? 'Aguardando análise do cliente'
+                            : !isClientProfile && offer.status === FreightOfferStatus.AguardandoPreco
+                              ? 'Aguardando envio de preço'
+                              : isClientProfile && offer.status === FreightOfferStatus.ContrapropostaAceita
+                                ? 'Aceita'
+                                : offer.status === FreightOfferStatus.Pendente && isClientProfile
+                                  ? 'Oferta enviada, aguardando resposta'
+                                  : offer.status === FreightOfferStatus.Contraproposta && !isClientProfile
+                                    ? 'Contraproposta enviada, aguardando aprovação'
+                                    : offer.status}
                   </span>
                 </td>
                 <td className="px-4 py-3 text-right">
                   <div className="flex items-center justify-end gap-2">
                     {/* Ações da Transportadora */}
-                    {!isClientProfile && (offer.status === FreightOfferStatus.Pendente || offer.status === FreightOfferStatus.ContrapropostaAceita) && (
+                    {!isClientProfile && (
                       <>
-                        <button onClick={() => onAccept(offer)} title="Aceitar Oferta" className="p-1.5 text-green-600 bg-green-50 hover:bg-green-100 rounded-lg transition-colors">
-                          <CheckIcon className="w-4 h-4" />
-                        </button>
-                        {offer.status === FreightOfferStatus.Pendente && (
-                          <button onClick={() => setCounterOfferModal(offer)} title="Fazer Contraproposta" className="p-1.5 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors">
+                        {offer.status === FreightOfferStatus.AguardandoPreco && (
+                          <button onClick={() => setCounterOfferModal(offer)} title="Enviar Preço" className="p-1.5 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors">
                             <MessageCircleIcon className="w-4 h-4" />
                           </button>
                         )}
-                        <button onClick={() => onRefuse(offer)} title="Recusar Oferta" className="p-1.5 text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors">
-                          <XIcon className="w-4 h-4" />
-                        </button>
+                        {offer.status === FreightOfferStatus.Contraproposta && (
+                          <>
+                            <button onClick={() => onAccept(offer)} title="Aceitar Contraproposta" className="p-1.5 text-green-600 bg-green-50 hover:bg-green-100 rounded-lg transition-colors">
+                              <CheckIcon className="w-4 h-4" />
+                            </button>
+                            <button onClick={() => onRefuse(offer)} title="Recusar Contraproposta" className="p-1.5 text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors">
+                              <XIcon className="w-4 h-4" />
+                            </button>
+                          </>
+                        )}
+                        {(offer.status === FreightOfferStatus.Pendente || offer.status === FreightOfferStatus.ContrapropostaAceita) && (
+                          <>
+                             <button onClick={() => onAccept(offer)} title="Aceitar Oferta" className="p-1.5 text-green-600 bg-green-50 hover:bg-green-100 rounded-lg transition-colors">
+                               <CheckIcon className="w-4 h-4" />
+                             </button>
+                             {offer.status === FreightOfferStatus.Pendente && (
+                               <button onClick={() => setCounterOfferModal(offer)} title="Fazer Contraproposta" className="p-1.5 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors">
+                                 <MessageCircleIcon className="w-4 h-4" />
+                               </button>
+                             )}
+                             <button onClick={() => onRefuse(offer)} title="Recusar Oferta" className="p-1.5 text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors">
+                               <XIcon className="w-4 h-4" />
+                             </button>
+                          </>
+                        )}
+                        {offer.status === FreightOfferStatus.Aceita && onConvertToCargo && (
+                          <button onClick={() => onConvertToCargo(offer)} title="Gerar Carga a partir desta oferta" className="p-1.5 text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors flex items-center gap-1">
+                            <PackageIcon className="w-4 h-4" />
+                          </button>
+                        )}
                       </>
                     )}
-                    {/* Ações do Cliente na Contraproposta */}
-                    {isClientProfile && offer.status === FreightOfferStatus.Contraproposta && (
+                    {/* Ações do Cliente */}
+                    {isClientProfile && (
                       <>
-                        <button onClick={() => onAccept(offer)} title="Aceitar Contraproposta" className="p-1.5 text-green-600 bg-green-50 hover:bg-green-100 rounded-lg transition-colors">
-                          <CheckIcon className="w-4 h-4" />
-                        </button>
-                        <button onClick={() => onRefuse(offer)} title="Recusar Contraproposta" className="p-1.5 text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors">
-                          <XIcon className="w-4 h-4" />
-                        </button>
+                        {offer.status === FreightOfferStatus.AnaliseCliente && (
+                          <>
+                            <button onClick={() => onAccept(offer)} title="Aceitar Preço" className="p-1.5 text-green-600 bg-green-50 hover:bg-green-100 rounded-lg transition-colors">
+                              <CheckIcon className="w-4 h-4" />
+                            </button>
+                            <button onClick={() => setCounterOfferModal(offer)} title="Fazer Contraproposta" className="p-1.5 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors">
+                              <MessageCircleIcon className="w-4 h-4" />
+                            </button>
+                            <button onClick={() => onRefuse(offer)} title="Recusar Preço" className="p-1.5 text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors">
+                              <XIcon className="w-4 h-4" />
+                            </button>
+                          </>
+                        )}
                       </>
                     )}
                     {/* Botão de Histórico */}
@@ -204,9 +270,15 @@ const FreightOffersList: React.FC<FreightOffersListProps> = ({
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-sm overflow-hidden">
             <div className="p-5">
-              <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-2">Fazer Contraproposta</h3>
+              <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-2">
+                {counterOfferModal.status === FreightOfferStatus.AguardandoPreco ? 'Enviar Preço da Oferta' : 'Fazer Contraproposta'}
+              </h3>
               <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                Informe o novo valor por tonelada que deseja propor ao cliente {getClientName(counterOfferModal.clientId)}.
+                {counterOfferModal.status === FreightOfferStatus.AguardandoPreco 
+                  ? `Informe o valor por tonelada (R$) para o frete do cliente ${getClientName(counterOfferModal.clientId)}.`
+                  : isClientProfile 
+                    ? 'Informe o novo valor por tonelada (R$) que deseja contrapropor para a transportadora.' 
+                    : `Informe o novo valor por tonelada (R$) que deseja propor ao cliente ${getClientName(counterOfferModal.clientId)}.`}
               </p>
               <form onSubmit={handleCounterSubmit}>
                 <div className="mb-4">
@@ -219,7 +291,7 @@ const FreightOffersList: React.FC<FreightOffersListProps> = ({
                     value={counterValue}
                     onChange={(e) => setCounterValue(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
-                    placeholder={`Atual: R$ ${counterOfferModal.freightValuePerTon.toFixed(2)}`}
+                    placeholder={`Atual: R$ ${counterOfferModal.freightValuePerTon ? counterOfferModal.freightValuePerTon.toFixed(2) : '0.00'}`}
                   />
                 </div>
                 <div className="flex justify-end gap-2">
@@ -227,7 +299,7 @@ const FreightOffersList: React.FC<FreightOffersListProps> = ({
                     Cancelar
                   </button>
                   <button type="submit" className="px-3 py-1.5 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors">
-                    Enviar Contraproposta
+                    {counterOfferModal.status === FreightOfferStatus.AguardandoPreco ? 'Enviar Preço' : 'Enviar Contraproposta'}
                   </button>
                 </div>
               </form>

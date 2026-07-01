@@ -174,9 +174,9 @@ export function useDatabase(currentUser: User | null) {
       const { table, eventType } = payload;
       console.log(`[useDatabase] Change detected in ${table} (${eventType}). Updating...`);
 
-      // For tickets, always process — even if a modal is open — so the
-      // assigned user always receives their notification immediately.
-      if (isAnyModalActiveRef.current && table !== 'tickets') return;
+      // Permite atualizações em tempo real mesmo com modais abertos para fluxos principais
+      const alwaysUpdateTables = ['tickets', 'cargos', 'shipments', 'freight_offers'];
+      if (isAnyModalActiveRef.current && !alwaysUpdateTables.includes(table)) return;
 
       try {
         switch (table) {

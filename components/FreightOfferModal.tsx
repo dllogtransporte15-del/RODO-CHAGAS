@@ -22,7 +22,6 @@ const FreightOfferModal: React.FC<FreightOfferModalProps> = ({
     destinationLocation: '',
     totalTonnage: '',
     dailySchedule: '',
-    freightValuePerTon: '',
     productId: '',
   });
 
@@ -49,9 +48,8 @@ const FreightOfferModal: React.FC<FreightOfferModalProps> = ({
         destinationLocation: formData.destinationLocation,
         totalTonnage: Number(formData.totalTonnage),
         dailySchedule: formData.dailySchedule,
-        freightValuePerTon: Number(formData.freightValuePerTon),
         productId: formData.productId,
-        status: FreightOfferStatus.Pendente,
+        status: FreightOfferStatus.AguardandoPreco,
       });
       onClose();
     } catch (error: any) {
@@ -125,16 +123,6 @@ const FreightOfferModal: React.FC<FreightOfferModalProps> = ({
                     <CalendarIcon className="h-4 w-4 text-gray-400" />
                   </div>
                   <input type="text" name="dailySchedule" value={formData.dailySchedule} onChange={handleChange} className="pl-10 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white" placeholder="Ex: 50 ton/dia, ou Livre" />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Valor do Frete (R$/Ton)</label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <DollarSignIcon className="h-4 w-4 text-gray-400" />
-                  </div>
-                  <input required type="number" min="0" step="0.01" name="freightValuePerTon" value={formData.freightValuePerTon} onChange={handleChange} className="pl-10 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white" placeholder="Ex: 120.00" />
                 </div>
               </div>
 

@@ -361,11 +361,13 @@ export interface ShipmentLock {
 }
 
 export enum FreightOfferStatus {
-  Pendente = "Pendente",
+  AguardandoPreco = "Aguardando Preço",
+  AnaliseCliente = "Em Análise",
+  Pendente = "Pendente", // Mantido para retrocompatibilidade
   Aceita = "Aceita",
   Recusada = "Recusada",
   Contraproposta = "Contraproposta",
-  ContrapropostaAceita = "Contraproposta Aceita"
+  ContrapropostaAceita = "Contraproposta Aceita" // Mantido para retrocompatibilidade
 }
 
 export interface FreightOffer {
@@ -377,7 +379,7 @@ export interface FreightOffer {
   destinationLocation?: string;
   totalTonnage: number;
   dailySchedule?: string;
-  freightValuePerTon: number;
+  freightValuePerTon?: number;
   productId: string;
   status: FreightOfferStatus;
   counterOfferValue?: number;

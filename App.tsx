@@ -527,7 +527,7 @@ const App: React.FC = () => {
               id: `log_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
               userId: currentUser?.id || '',
               timestamp: new Date().toISOString(),
-              description: `Oferta criada com valor inicial de R$ ${(offerData.freightValuePerTon || 0).toFixed(2)}.`
+              description: offerData.freightValuePerTon ? `Oferta criada com valor inicial de R$ ${(offerData.freightValuePerTon || 0).toFixed(2)}.` : `Oferta criada. Aguardando preço da transportadora.`
             }]
           } as FreightOffer 
         : offerData as FreightOffer;
@@ -1875,7 +1875,7 @@ const App: React.FC = () => {
 
     switch (currentPage) {
       case 'dashboard':
-        return <DashboardPage cargos={visibleLoads} shipments={visibleShipments} users={users} currentUser={currentUser} clients={clients} products={products} companyLogo={companyLogo} vehicles={vehicles} onDeleteAttachment={handleDeleteShipmentAttachment} onUpdatePrice={handleUpdateShipmentPrice} freightOffers={freightOffers} onSaveFreightOffer={handleSaveFreightOffer} onAcceptFreightOffer={handleAcceptFreightOffer} />;
+        return <DashboardPage cargos={visibleLoads} shipments={visibleShipments} users={users} currentUser={currentUser} clients={clients} products={products} companyLogo={companyLogo} vehicles={vehicles} onDeleteAttachment={handleDeleteShipmentAttachment} onUpdatePrice={handleUpdateShipmentPrice} freightOffers={freightOffers} onSaveFreightOffer={handleSaveFreightOffer} onAcceptFreightOffer={handleAcceptFreightOffer} onConvertToCargo={(offer) => { setOfferToConvert(offer); setCurrentPage('loads'); }} />;
       case 'clients':
         return <ClientsPage clients={clients} setClients={setClients} onSaveClient={handleSaveClient} currentUser={currentUser} profilePermissions={profilePermissions} />;
       case 'owners':

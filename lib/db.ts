@@ -50,7 +50,7 @@ const fromFreightOffer = (o: FreightOffer | Omit<FreightOffer, 'id'>) => ({
   destination_location: o.destinationLocation,
   total_tonnage: o.totalTonnage,
   daily_schedule: o.dailySchedule,
-  freight_value_per_ton: o.freightValuePerTon,
+  freight_value_per_ton: o.freightValuePerTon || 0,
   product_id: o.productId,
   status: o.status,
   counter_offer_value: o.counterOfferValue,

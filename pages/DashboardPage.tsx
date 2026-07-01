@@ -30,6 +30,7 @@ interface DashboardPageProps {
   onSaveFreightOffer?: (offer: Omit<FreightOffer, 'id' | 'createdAt'>) => Promise<void>;
   onAcceptFreightOffer?: (offer: FreightOffer) => void;
   onDeleteFreightOffer?: (offer: FreightOffer) => void;
+  onConvertToCargo?: (offer: FreightOffer) => void;
 }
 
 
@@ -152,7 +153,8 @@ const DashboardPage: React.FC<DashboardPageProps> = ({
   freightOffers = [],
   onSaveFreightOffer,
   onAcceptFreightOffer,
-  onDeleteFreightOffer
+  onDeleteFreightOffer,
+  onConvertToCargo
 }) => {
   const [detailsModalShipment, setDetailsModalShipment] = React.useState<Shipment | null>(null);
   const [isOfferModalOpen, setIsOfferModalOpen] = React.useState(false);
@@ -468,55 +470,101 @@ const DashboardPage: React.FC<DashboardPageProps> = ({
       }
       
       // Apply Client Filters
+      if (offerFilterStatus === 'all' && o.status === FreightOfferStatus.Recusada) return false;
       if (offerFilterStatus !== 'all' && o.status !== offerFilterStatus) return false;
       if (offerFilterOrigin && !o.origin.toLowerCase().includes(offerFilterOrigin.toLowerCase())) return false;
       if (offerFilterDestination && !o.destination.toLowerCase().includes(offerFilterDestination.toLowerCase())) return false;
 
       return true;
     });
+
+    const myCargos = cargos.filter(c => c.clientId === currentUser.clientId);
+    const cargoStatusCounts = myCargos.reduce((acc, c) => {
+      acc[c.status] = (acc[c.status] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    const cargoChartData = [
+      { label: 'Em Andamento', value: cargoStatusCounts[CargoStatus.EmAndamento] || 0, color: '#3b82f6' },
+      { label: 'Fechada', value: cargoStatusCounts[CargoStatus.Fechada] || 0, color: '#10b981' },
+      { label: 'Suspensa', value: cargoStatusCounts[CargoStatus.Suspensa] || 0, color: '#f59e0b' },
+    ].filter(d => d.value > 0);
+
+    const clientCargoIds = new Set(myCargos.map(c => c.id));
+    const myShipments = shipments.filter(s => clientCargoIds.has(s.cargoId));
+
+    const funnelData = [
+      { label: ShipmentStatus.PreCadastro, value: myShipments.filter(s => s.status === ShipmentStatus.PreCadastro).length },
+      { label: ShipmentStatus.AguardandoCarregamento, value: myShipments.filter(s => s.status === ShipmentStatus.AguardandoCarregamento).length },
+      { label: ShipmentStatus.AguardandoNota, value: myShipments.filter(s => s.status === ShipmentStatus.AguardandoNota).length },
+      { label: ShipmentStatus.AguardandoDescarga, value: myShipments.filter(s => s.status === ShipmentStatus.AguardandoDescarga).length },
+      { label: ShipmentStatus.Finalizado, value: myShipments.filter(s => s.status === ShipmentStatus.Finalizado).length },
+    ].filter(d => d.value > 0);
+
     return (
         <>
           <div className="flex justify-between items-center mb-6">
-            <Header title="Dashboard" />
+            <div>
+              <h1 className="text-3xl font-bold text-gray-800 dark:text-white">Dashboard</h1>
+              <p className="text-gray-500 dark:text-gray-400 mt-1">Bem-vindo, {currentUser.name}</p>
+            </div>
             <button
               onClick={() => setIsOfferModalOpen(true)}
-              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium transition-colors flex items-center gap-2"
+              className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white rounded-lg font-medium transition-all shadow-md hover:shadow-lg flex items-center gap-2 transform hover:-translate-y-0.5"
             >
               <PackageIcon className="w-5 h-5" />
               Nova Oferta de Frete
             </button>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
             <Card
-              title="Cargas em andamento"
+              title="Cargas em Andamento"
               value={clientDashboardData.pendingLoads.toString()}
               icon={<PackageIcon className="w-6 h-6 text-white" />}
-              colorClass="bg-blue-500"
+              colorClass="bg-gradient-to-br from-blue-500 to-blue-600 shadow-blue-500/20"
             />
             <Card
-              title="Volume carregado (Mês)"
+              title="Volume Mensal"
               value={`${clientDashboardData.volumeLoadedThisMonth.toLocaleString('pt-BR')} ton`}
               icon={<TruckIcon className="w-6 h-6 text-white" />}
-              colorClass="bg-green-500"
+              colorClass="bg-gradient-to-br from-indigo-500 to-indigo-600 shadow-indigo-500/20"
             />
             <Card
-              title="Volume carregado (Ano)"
+              title="Volume Anual"
               value={`${clientDashboardData.volumeLoadedThisYear.toLocaleString('pt-BR')} ton`}
               icon={<TruckIcon className="w-6 h-6 text-white" />}
-              colorClass="bg-green-600"
+              colorClass="bg-gradient-to-br from-teal-500 to-emerald-600 shadow-emerald-500/20"
             />
             <Card
-              title="Veículos marcados"
+              title="Veículos em Trânsito"
               value={clientDashboardData.scheduledVehicles.toString()}
               icon={<TruckIcon className="w-6 h-6 text-white" />}
-              colorClass="bg-orange-500"
+              colorClass="bg-gradient-to-br from-orange-500 to-red-500 shadow-orange-500/20"
             />
-            <Card
-              title="Veículos carregados/finalizados"
-              value={clientDashboardData.loadedAndFinishedVehicles.toString()}
-              icon={<TruckIcon className="w-6 h-6 text-white" />}
-              colorClass="bg-gray-500"
-            />
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            {cargoChartData.length > 0 ? (
+              <DonutChartCard title="Distribuição de Cargas" data={cargoChartData} />
+            ) : (
+              <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md flex items-center justify-center min-h-[300px]">
+                <p className="text-gray-500 dark:text-gray-400">Nenhum dado de cargas disponível.</p>
+              </div>
+            )}
+            
+            {funnelData.length > 0 ? (
+              <ShipmentFunnelCard title="Status dos Embarques (Ativos)" data={funnelData as any} />
+            ) : (
+              <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md flex items-center justify-center min-h-[300px]">
+                <p className="text-gray-500 dark:text-gray-400">Nenhum dado de embarques disponível.</p>
+              </div>
+            )}
+          </div>
+
+          <div className="mb-4 mt-8">
+            <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-2">Painel de Ofertas</h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Acompanhe e gerencie as ofertas de frete enviadas pela transportadora.</p>
           </div>
 
           <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm mb-6 flex flex-col md:flex-row gap-4 items-end">
@@ -573,8 +621,8 @@ const DashboardPage: React.FC<DashboardPageProps> = ({
             isClientProfile={true}
             onAccept={async (offer) => {
               if (onSaveFreightOffer) {
-                const history = addOfferHistory(offer, `Contraproposta aceita pelo Cliente.`);
-                await onSaveFreightOffer({ ...offer, status: FreightOfferStatus.ContrapropostaAceita, history });
+                const history = addOfferHistory(offer, `Preço/Oferta aceita pelo Cliente.`);
+                await onSaveFreightOffer({ ...offer, status: FreightOfferStatus.Aceita, history });
               }
             }}
             onRefuse={async (offer) => {
@@ -583,9 +631,15 @@ const DashboardPage: React.FC<DashboardPageProps> = ({
                 await onSaveFreightOffer({ ...offer, status: FreightOfferStatus.Recusada, history });
               }
             }}
-            onCounterOffer={() => {}} // Client doesn't make counter offer here directly yet
+            onCounterOffer={async (offer, newValue) => {
+              if (onSaveFreightOffer) {
+                const history = addOfferHistory(offer, `Contraproposta de R$ ${newValue.toFixed(2)} enviada pelo Cliente.`);
+                await onSaveFreightOffer({ ...offer, status: FreightOfferStatus.Contraproposta, counterOfferValue: newValue, history });
+              }
+            }}
             currentUser={currentUser || undefined}
             onDelete={onDeleteFreightOffer}
+            onConvertToCargo={onConvertToCargo}
           />
 
           <FreightOfferModal
@@ -601,9 +655,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({
   }
 
   const pendingOffers = freightOffers.filter(o => 
-    o.status === FreightOfferStatus.Pendente || 
-    o.status === FreightOfferStatus.ContrapropostaAceita ||
-    o.status === FreightOfferStatus.Contraproposta
+    o.status !== FreightOfferStatus.Recusada
   );
 
 
@@ -634,12 +686,18 @@ const DashboardPage: React.FC<DashboardPageProps> = ({
             }}
             onCounterOffer={async (offer, newValue) => {
               if (onSaveFreightOffer) {
-                const history = addOfferHistory(offer, `Contraproposta de R$ ${newValue.toFixed(2)} enviada pela Transportadora.`);
-                await onSaveFreightOffer({ ...offer, status: FreightOfferStatus.Contraproposta, counterOfferValue: newValue, history });
+                if (offer.status === FreightOfferStatus.AguardandoPreco) {
+                  const history = addOfferHistory(offer, `Preço inicial de R$ ${newValue.toFixed(2)} enviado pela Transportadora.`);
+                  await onSaveFreightOffer({ ...offer, status: FreightOfferStatus.AnaliseCliente, freightValuePerTon: newValue, history });
+                } else {
+                  const history = addOfferHistory(offer, `Contraproposta de R$ ${newValue.toFixed(2)} enviada pela Transportadora.`);
+                  await onSaveFreightOffer({ ...offer, status: FreightOfferStatus.Contraproposta, counterOfferValue: newValue, history });
+                }
               }
             }}
             currentUser={currentUser || undefined}
             onDelete={onDeleteFreightOffer}
+            onConvertToCargo={onConvertToCargo}
           />
         </div>
       )}

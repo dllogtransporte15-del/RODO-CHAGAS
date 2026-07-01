@@ -24,7 +24,7 @@ export const INITIAL_PERMISSIONS: ProfilePermissions = {
   [UserProfile.Fiscal]: createPermissions(['dashboard', 'shipments', 'shipment-history', 'load-history'], true),
   [UserProfile.Financeiro]: createPermissions(['dashboard', 'shipments', 'reports', 'financial', 'commissions', 'shipment-history', 'load-history'], true),
   [UserProfile.Embarcador]: createPermissions(['dashboard', 'reports', 'operational-loads', 'shipments', 'operational-map', 'shipment-history', 'load-history', 'layover-calculator'], true),
-  [UserProfile.Cliente]: createPermissions(['dashboard', 'loads', 'shipments', 'shipment-history', 'load-history'], true),
+  [UserProfile.Cliente]: createPermissions(['dashboard', 'loads', 'shipments', 'shipment-history', 'load-history', 'operational-loads'], true),
   [UserProfile.Supervisor]: createPermissions(supervisorAndDiretorPages),
   [UserProfile.Diretor]: createPermissions(supervisorAndDiretorPages, true),
 };
