@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import type { FreightOffer, Client, Product, Cargo, User } from '../types';
 import { FreightOfferStatus, CargoStatus, UserProfile } from '../types';
-import { PackageIcon, CheckIcon, XIcon, MessageCircleIcon, HistoryIcon, TrashIcon, MapPinIcon } from 'lucide-react';
+import { PackageIcon, CheckIcon, XIcon, MessageCircleIcon, HistoryIcon, TrashIcon, MapPinIcon, EyeIcon } from 'lucide-react';
 import VolumeBar from './VolumeBar';
 
 interface FreightOffersListProps {
@@ -24,6 +24,8 @@ const FreightOffersList: React.FC<FreightOffersListProps> = ({
   const [counterOfferModal, setCounterOfferModal] = useState<FreightOffer | null>(null);
   const [counterValue, setCounterValue] = useState<string>('');
   const [historyModal, setHistoryModal] = useState<FreightOffer | null>(null);
+  const [detailsModal, setDetailsModal] = useState<FreightOffer | null>(null);
+  const [isExpanded, setIsExpanded] = useState<boolean>(false);
 
   if (offers.length === 0) {
     return (
@@ -33,8 +35,32 @@ const FreightOffersList: React.FC<FreightOffersListProps> = ({
     );
   }
 
+  const displayedOffers = isExpanded ? offers : offers.slice(0, 2);
+
   const getClientName = (id: string) => clients.find(c => c.id === id)?.nomeFantasia || 'Cliente Desconhecido';
   const getProductName = (id: string) => products.find(p => p.id === id)?.name || 'Produto Desconhecido';
+
+  const renderLocationValue = (text: string | undefined, className: string, prefix?: React.ReactNode) => {
+    if (!text) return null;
+    const isUrl = text.startsWith('http://') || text.startsWith('https://');
+    if (isUrl) {
+      return (
+        <div className="flex items-center gap-2">
+          {prefix && <span className={className}>{prefix}</span>}
+          <a 
+            href={text} 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-md hover:bg-blue-100 hover:text-blue-800 transition-colors"
+          >
+            <MapPinIcon className="w-3 h-3" />
+            Ver Localização
+          </a>
+        </div>
+      );
+    }
+    return <span className={className}>{prefix}{text}</span>;
+  };
 
   const getStatusColor = (status: FreightOfferStatus) => {
     switch (status) {
@@ -82,7 +108,7 @@ const FreightOffersList: React.FC<FreightOffersListProps> = ({
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-            {offers.map(offer => {
+            {displayedOffers.map(offer => {
               const matchedCargo = offer.status === FreightOfferStatus.Aceita && cargos
                 ? cargos.find(c => 
                     c.clientId === offer.clientId && 
@@ -103,34 +129,25 @@ const FreightOffersList: React.FC<FreightOffersListProps> = ({
                 )}
                 <td className="px-4 py-3 text-gray-600 dark:text-gray-300">
                   <div className="flex flex-col items-start gap-1.5">
-                    <span>{offer.origin}</span>
-                    {offer.originLocation && (
-                      <a 
-                        href={offer.originLocation} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-md hover:bg-blue-100 hover:text-blue-800 transition-colors"
-                      >
-                        <MapPinIcon className="w-3 h-3" />
-                        Ver Localização
-                      </a>
-                    )}
+                    {renderLocationValue(offer.origin, "")}
+                    {renderLocationValue(offer.originLocation, "block text-xs text-gray-500 mt-1")}
                   </div>
                 </td>
                 <td className="px-4 py-3 text-gray-600 dark:text-gray-300">
                   <div className="flex flex-col items-start gap-1.5">
-                    <span>{offer.destination}</span>
-                    {offer.destinationLocation && (
-                      <a 
-                        href={offer.destinationLocation} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-md hover:bg-blue-100 hover:text-blue-800 transition-colors"
-                      >
-                        <MapPinIcon className="w-3 h-3" />
-                        Ver Localização
-                      </a>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {renderLocationValue(offer.destination, "")}
+                      {offer.additionalDestinations && offer.additionalDestinations.length > 0 && (
+                        <button 
+                          onClick={() => setDetailsModal(offer)}
+                          className="px-1.5 py-0.5 text-[10px] font-bold text-indigo-700 bg-indigo-100 hover:bg-indigo-200 border border-indigo-200 rounded-full transition-colors flex items-center justify-center min-w-[20px]"
+                          title="Ver oferta para mais destinos"
+                        >
+                          +{offer.additionalDestinations.length}
+                        </button>
+                      )}
+                    </div>
+                    {renderLocationValue(offer.destinationLocation, "block text-xs text-gray-500 mt-1")}
                   </div>
                 </td>
                 <td className="px-4 py-3 text-gray-600 dark:text-gray-300">{getProductName(offer.productId)}</td>
@@ -248,7 +265,10 @@ const FreightOffersList: React.FC<FreightOffersListProps> = ({
                         )}
                       </>
                     )}
-                    {/* Botão de Histórico */}
+                    {/* Botão de Histórico e Detalhes */}
+                    <button onClick={() => setDetailsModal(offer)} title="Ver Oferta" className="p-1.5 text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors">
+                      <EyeIcon className="w-4 h-4" />
+                    </button>
                     <button onClick={() => setHistoryModal(offer)} title="Ver Histórico" className="p-1.5 text-gray-600 bg-gray-50 hover:bg-gray-200 rounded-lg transition-colors">
                       <HistoryIcon className="w-4 h-4" />
                     </button>
@@ -265,6 +285,16 @@ const FreightOffersList: React.FC<FreightOffersListProps> = ({
           </tbody>
         </table>
       </div>
+      {offers.length > 2 && (
+        <div className="p-3 border-t border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 text-center">
+          <button 
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 transition-colors"
+          >
+            {isExpanded ? 'Exibir Menos' : `Exibir Mais (${offers.length - 2})`}
+          </button>
+        </div>
+      )}
 
       {counterOfferModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -343,6 +373,78 @@ const FreightOffersList: React.FC<FreightOffersListProps> = ({
             </div>
             <div className="p-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 flex justify-end">
               <button onClick={() => setHistoryModal(null)} className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors">
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {detailsModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col">
+            <div className="flex justify-between items-center p-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+              <h3 className="text-lg font-bold text-gray-800 dark:text-white flex items-center gap-2">
+                <PackageIcon className="w-5 h-5 text-indigo-500" />
+                Detalhes da Oferta
+              </h3>
+              <button onClick={() => setDetailsModal(null)} className="p-1 text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full">
+                <XIcon className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4 overflow-y-auto max-h-[70vh] space-y-5 text-sm text-gray-700 dark:text-gray-300">
+               <div>
+                  <span className="font-semibold block text-gray-500 dark:text-gray-400 mb-1">Origem:</span>
+                  <div className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg border border-gray-100 dark:border-gray-600 flex flex-col">
+                    {renderLocationValue(detailsModal.origin, "font-medium text-gray-900 dark:text-gray-100")}
+                    {renderLocationValue(detailsModal.originLocation, "text-xs text-gray-500 mt-1")}
+                  </div>
+               </div>
+               
+               <div>
+                  <span className="font-semibold block text-gray-500 dark:text-gray-400 mb-1">Destinos:</span>
+                  <div className="flex flex-col gap-2">
+                    <div className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg border border-gray-100 dark:border-gray-600 flex flex-col">
+                      {renderLocationValue(detailsModal.destination, "font-medium text-gray-900 dark:text-gray-100", "1. ")}
+                      {renderLocationValue(detailsModal.destinationLocation, "block text-xs text-gray-500 mt-1")}
+                    </div>
+                    {detailsModal.additionalDestinations?.map((d, i) => (
+                      <div key={i} className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg border border-gray-100 dark:border-gray-600 flex flex-col">
+                        {renderLocationValue(d.city, "font-medium text-gray-900 dark:text-gray-100", `${i + 2}. `)}
+                        {renderLocationValue(d.location, "block text-xs text-gray-500 mt-1")}
+                      </div>
+                    ))}
+                  </div>
+               </div>
+
+               <div className="grid grid-cols-2 gap-4">
+                 <div className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg border border-gray-100 dark:border-gray-600">
+                    <span className="font-semibold block text-gray-500 dark:text-gray-400 mb-1">Produto:</span>
+                    <span className="font-medium text-gray-900 dark:text-gray-100">{getProductName(detailsModal.productId)}</span>
+                 </div>
+                 <div className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg border border-gray-100 dark:border-gray-600">
+                    <span className="font-semibold block text-gray-500 dark:text-gray-400 mb-1">Volume Total:</span>
+                    <span className="font-medium text-gray-900 dark:text-gray-100">{detailsModal.totalTonnage} Ton</span>
+                 </div>
+                 <div className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg border border-gray-100 dark:border-gray-600">
+                    <span className="font-semibold block text-gray-500 dark:text-gray-400 mb-1">Valor (R$/Ton):</span>
+                    <span className="font-medium text-gray-900 dark:text-gray-100">{detailsModal.freightValuePerTon ? `R$ ${detailsModal.freightValuePerTon.toFixed(2)}` : 'Aguardando'}</span>
+                 </div>
+                 <div className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg border border-gray-100 dark:border-gray-600">
+                    <span className="font-semibold block text-gray-500 dark:text-gray-400 mb-1">Cadência:</span>
+                    <span className="font-medium text-gray-900 dark:text-gray-100">{detailsModal.dailySchedule || 'Não informada'}</span>
+                 </div>
+               </div>
+
+               {detailsModal.observations && (
+                 <div>
+                    <span className="font-semibold block text-gray-500 dark:text-gray-400 mb-1">Observações:</span>
+                    <p className="whitespace-pre-wrap bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg border border-gray-100 dark:border-gray-600 text-sm font-medium text-gray-900 dark:text-gray-100">{detailsModal.observations}</p>
+                 </div>
+               )}
+            </div>
+            <div className="p-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 flex justify-end">
+              <button onClick={() => setDetailsModal(null)} className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors">
                 Fechar
               </button>
             </div>

@@ -85,8 +85,15 @@ const UsersPage: React.FC<UsersPageProps> = ({ users, setUsers, onSaveUser, curr
       <PermissionsModal
         isOpen={isPermissionsModalOpen}
         onClose={() => setIsPermissionsModalOpen(false)}
-        onSave={onSavePermissions}
+        onSaveProfilePermissions={onSavePermissions}
+        onSaveUserPermissions={(userId, customPermissions) => {
+          const user = users.find(u => u.id === userId);
+          if (user) {
+            onSaveUser({ ...user, customPermissions });
+          }
+        }}
         permissions={profilePermissions}
+        users={users}
       />
     </>
   );

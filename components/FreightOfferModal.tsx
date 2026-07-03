@@ -23,15 +23,31 @@ const FreightOfferModal: React.FC<FreightOfferModalProps> = ({
     totalTonnage: '',
     dailySchedule: '',
     productId: '',
+    observations: '',
   });
 
+  const [additionalDestinations, setAdditionalDestinations] = useState<{city: string, location: string}[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!isOpen) return null;
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleAddDestination = () => {
+    setAdditionalDestinations([...additionalDestinations, { city: '', location: '' }]);
+  };
+
+  const handleAdditionalDestinationChange = (index: number, field: 'city' | 'location', value: string) => {
+    const newDests = [...additionalDestinations];
+    newDests[index][field] = value;
+    setAdditionalDestinations(newDests);
+  };
+
+  const handleRemoveDestination = (index: number) => {
+    setAdditionalDestinations(additionalDestinations.filter((_, i) => i !== index));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -50,6 +66,8 @@ const FreightOfferModal: React.FC<FreightOfferModalProps> = ({
         dailySchedule: formData.dailySchedule,
         productId: formData.productId,
         status: FreightOfferStatus.AguardandoPreco,
+        observations: formData.observations,
+        additionalDestinations: additionalDestinations.filter(d => d.city.trim() !== ''),
       });
       onClose();
     } catch (error: any) {
@@ -94,17 +112,44 @@ const FreightOfferModal: React.FC<FreightOfferModalProps> = ({
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Destino (Cidade)</label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <MapPinIcon className="h-4 w-4 text-gray-400" />
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <MapPinIcon className="h-4 w-4 text-gray-400" />
+                    </div>
+                    <input required type="text" name="destination" value={formData.destination} onChange={handleChange} className="pl-10 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white" placeholder="Ex: Santos - SP" />
                   </div>
-                  <input required type="text" name="destination" value={formData.destination} onChange={handleChange} className="pl-10 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white" placeholder="Ex: Santos - SP" />
+                  <button type="button" onClick={handleAddDestination} className="p-2 text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors flex-shrink-0" title="Adicionar outro destino">
+                    +
+                  </button>
                 </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Local do Destino</label>
                 <input type="text" name="destinationLocation" value={formData.destinationLocation} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white" placeholder="Ex: Porto de Santos" />
               </div>
+              {additionalDestinations.map((dest, idx) => (
+                <React.Fragment key={idx}>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Destino Adicional {idx + 1} (Cidade)</label>
+                    <div className="flex items-center gap-2">
+                      <div className="relative flex-1">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                          <MapPinIcon className="h-4 w-4 text-gray-400" />
+                        </div>
+                        <input required type="text" value={dest.city} onChange={e => handleAdditionalDestinationChange(idx, 'city', e.target.value)} className="pl-10 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white" placeholder="Ex: Campinas - SP" />
+                      </div>
+                      <button type="button" onClick={() => handleRemoveDestination(idx)} className="p-2 text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors flex-shrink-0" title="Remover destino">
+                        -
+                      </button>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Local do Destino Adicional {idx + 1}</label>
+                    <input type="text" value={dest.location} onChange={e => handleAdditionalDestinationChange(idx, 'location', e.target.value)} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white" placeholder="Ex: Galpão Central" />
+                  </div>
+                </React.Fragment>
+              ))}
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Volume Total (Ton)</label>
@@ -134,6 +179,10 @@ const FreightOfferModal: React.FC<FreightOfferModalProps> = ({
                     <option key={p.id} value={p.id}>{p.name}</option>
                   ))}
                 </select>
+              </div>
+              <div className="col-span-1 md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Observações / Informações Adicionais</label>
+                <textarea name="observations" value={formData.observations} onChange={handleChange} rows={3} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white" placeholder="Ex: Necessário agendamento prévio, veículo sider..." />
               </div>
             </div>
           </form>

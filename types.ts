@@ -33,6 +33,7 @@ export interface User {
   authId?: string;
   passwordUpdatedAt?: string;
   branchId?: string;
+  customPermissions?: { [key in Page]?: CrudPermissions };
 }
 
 export enum PaymentMethod {
@@ -385,5 +386,7 @@ export interface FreightOffer {
   counterOfferValue?: number;
   createdAt: string;
   history?: HistoryLog[];
+  observations?: string;
+  additionalDestinations?: { city: string; location?: string }[];
 }
 

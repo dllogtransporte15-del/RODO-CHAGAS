@@ -53,6 +53,11 @@ export const can = (
   // Explicitly block 'reports' for 'Fiscal' profile as requested, overriding DB
   if (user.profile === UserProfile.Fiscal && page === 'reports') return false;
 
+  // Check User-specific custom permissions first
+  if (user.customPermissions && user.customPermissions[page]) {
+    return user.customPermissions[page]![action];
+  }
+
   const userProfilePermissions = permissions[user.profile];
   if (!userProfilePermissions) return false;
 

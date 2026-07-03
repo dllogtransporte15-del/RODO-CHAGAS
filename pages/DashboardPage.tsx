@@ -345,9 +345,52 @@ const DashboardPage: React.FC<DashboardPageProps> = ({
     const totalActiveLoads = cargos.filter(c => c.status === CargoStatus.EmAndamento || c.status === CargoStatus.Suspensa).length;
     const shipmentsAwaitingLoading = shipments.filter(s => s.status === ShipmentStatus.AguardandoCarregamento);
 
+    const pendingOffers = freightOffers.filter(o => 
+      o.status !== FreightOfferStatus.Recusada
+    );
+
     return (
       <>
         <Header title="Dashboard do Supervisor" />
+        {pendingOffers.length > 0 && (
+          <div className="mb-8">
+            <FreightOffersList
+              offers={pendingOffers}
+              clients={clients}
+              products={products}
+              cargos={cargos}
+              isClientProfile={false}
+              onAccept={async (offer) => {
+                if (onAcceptFreightOffer) {
+                  onAcceptFreightOffer(offer);
+                } else if (onSaveFreightOffer) {
+                  const history = addOfferHistory(offer, `Oferta aceita pela Transportadora.`);
+                  await onSaveFreightOffer({ ...offer, status: FreightOfferStatus.Aceita, history });
+                }
+              }}
+              onRefuse={async (offer) => {
+                if (onSaveFreightOffer) {
+                  const history = addOfferHistory(offer, `Oferta recusada pela Transportadora.`);
+                  await onSaveFreightOffer({ ...offer, status: FreightOfferStatus.Recusada, history });
+                }
+              }}
+              onCounterOffer={async (offer, newValue) => {
+                if (onSaveFreightOffer) {
+                  if (offer.status === FreightOfferStatus.AguardandoPreco) {
+                    const history = addOfferHistory(offer, `Preço inicial de R$ ${newValue.toFixed(2)} enviado pela Transportadora.`);
+                    await onSaveFreightOffer({ ...offer, status: FreightOfferStatus.AnaliseCliente, freightValuePerTon: newValue, history });
+                  } else {
+                    const history = addOfferHistory(offer, `Contraproposta de R$ ${newValue.toFixed(2)} enviada pela Transportadora.`);
+                    await onSaveFreightOffer({ ...offer, status: FreightOfferStatus.Contraproposta, counterOfferValue: newValue, history });
+                  }
+                }
+              }}
+              currentUser={currentUser || undefined}
+              onDelete={onDeleteFreightOffer}
+              onConvertToCargo={onConvertToCargo}
+            />
+          </div>
+        )}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
            <Card
               title="Total de Cargas Ativas"
@@ -658,11 +701,12 @@ const DashboardPage: React.FC<DashboardPageProps> = ({
     o.status !== FreightOfferStatus.Recusada
   );
 
+  const canViewOffers = currentUser && [UserProfile.Admin, UserProfile.Comercial, UserProfile.Supervisor].includes(currentUser.profile);
 
   return (
     <>
       <Header title="Dashboard" />
-      {pendingOffers.length > 0 && (
+      {canViewOffers && pendingOffers.length > 0 && (
         <div className="mb-8">
           <FreightOffersList
             offers={pendingOffers}

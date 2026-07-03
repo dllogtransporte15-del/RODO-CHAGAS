@@ -7,22 +7,41 @@ import type {
 // HELPERS: Map DB rows (snake_case) ↔ App types (camelCase)
 // ─────────────────────────────────────────────
 
-const toFreightOffer = (row: any): FreightOffer => ({
-  id: row.id,
-  clientId: row.client_id,
-  origin: row.origin,
-  originLocation: row.origin_location,
-  destination: row.destination,
-  destinationLocation: row.destination_location,
-  totalTonnage: Number(row.total_tonnage),
-  dailySchedule: row.daily_schedule,
-  freightValuePerTon: Number(row.freight_value_per_ton),
-  productId: row.product_id,
-  status: row.status,
-  counterOfferValue: row.counter_offer_value ? Number(row.counter_offer_value) : undefined,
-  createdAt: row.created_at,
-  history: row.history || [],
-});
+const toFreightOffer = (row: any): FreightOffer => {
+  const rawHistory = row.history || [];
+  const metaLog = rawHistory.find((h: any) => h.id === 'meta_dest_obs');
+  let additionalDestinations = undefined;
+  let observations = undefined;
+
+  if (metaLog) {
+    try {
+      const parsed = JSON.parse(metaLog.description);
+      additionalDestinations = parsed.additionalDestinations;
+      observations = parsed.observations;
+    } catch (e) {
+      console.error('Error parsing freight offer metadata:', e);
+    }
+  }
+
+  return {
+    id: row.id,
+    clientId: row.client_id,
+    origin: row.origin,
+    originLocation: row.origin_location,
+    destination: row.destination,
+    destinationLocation: row.destination_location,
+    totalTonnage: Number(row.total_tonnage),
+    dailySchedule: row.daily_schedule,
+    freightValuePerTon: Number(row.freight_value_per_ton),
+    productId: row.product_id,
+    status: row.status,
+    counterOfferValue: row.counter_offer_value ? Number(row.counter_offer_value) : undefined,
+    createdAt: row.created_at,
+    history: rawHistory.filter((h: any) => h.id !== 'meta_dest_obs'),
+    additionalDestinations,
+    observations,
+  };
+};
 
 export const fetchFreightOffers = async (): Promise<FreightOffer[]> => {
   const { data, error } = await supabase
@@ -41,22 +60,38 @@ export const fetchFreightOffers = async (): Promise<FreightOffer[]> => {
   return (data || []).map(toFreightOffer);
 };
 
-const fromFreightOffer = (o: FreightOffer | Omit<FreightOffer, 'id'>) => ({
-  id: (o as FreightOffer).id,
-  client_id: o.clientId,
-  origin: o.origin,
-  origin_location: o.originLocation,
-  destination: o.destination,
-  destination_location: o.destinationLocation,
-  total_tonnage: o.totalTonnage,
-  daily_schedule: o.dailySchedule,
-  freight_value_per_ton: o.freightValuePerTon || 0,
-  product_id: o.productId,
-  status: o.status,
-  counter_offer_value: o.counterOfferValue,
-  created_at: o.createdAt,
-  history: o.history,
-});
+const fromFreightOffer = (o: FreightOffer | Omit<FreightOffer, 'id'>) => {
+  const history = [...(o.history || [])].filter(h => h.id !== 'meta_dest_obs');
+  
+  if ((o.additionalDestinations && o.additionalDestinations.length > 0) || o.observations) {
+    history.push({
+      id: 'meta_dest_obs',
+      userId: 'system',
+      timestamp: o.createdAt || new Date().toISOString(),
+      description: JSON.stringify({
+        additionalDestinations: o.additionalDestinations,
+        observations: o.observations
+      })
+    });
+  }
+
+  return {
+    id: (o as FreightOffer).id,
+    client_id: o.clientId,
+    origin: o.origin,
+    origin_location: o.originLocation,
+    destination: o.destination,
+    destination_location: o.destinationLocation,
+    total_tonnage: o.totalTonnage,
+    daily_schedule: o.dailySchedule,
+    freight_value_per_ton: o.freightValuePerTon || 0,
+    product_id: o.productId,
+    status: o.status,
+    counter_offer_value: o.counterOfferValue,
+    created_at: o.createdAt,
+    history,
+  };
+};
 
 export const upsertFreightOffer = async (offer: FreightOffer | Omit<FreightOffer, 'id' | 'createdAt'>): Promise<void> => {
   const row = fromFreightOffer({
@@ -343,6 +378,7 @@ export const toUser = (row: any): User => ({
   authId: row.auth_id,
   passwordUpdatedAt: row.password_updated_at,
   branchId: row.branch_id,
+  customPermissions: row.permissions,
 });
 
 export const fromUser = (u: User | Omit<User, 'id'>) => ({
@@ -357,6 +393,7 @@ export const fromUser = (u: User | Omit<User, 'id'>) => ({
   auth_id: u.authId,
   password_updated_at: u.passwordUpdatedAt,
   branch_id: u.branchId || null,
+  permissions: (u as User).customPermissions,
 });
 
 const toTicket = (row: any): Ticket => {

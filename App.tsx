@@ -381,6 +381,7 @@ const App: React.FC = () => {
   }
 
   const handleDeleteTicket = async (ticketId: string) => {
+    if (!window.confirm("Tem certeza que deseja excluir permanentemente esta informação?")) return;
     if (window.confirm('Tem certeza que deseja excluir este chamado?')) {
       setTickets((prev: Ticket[]) => prev.filter(t => t.id !== ticketId));
       try {
@@ -552,6 +553,7 @@ const App: React.FC = () => {
   };
 
   const handleDeleteFreightOffer = async (offer: FreightOffer) => {
+    if (!window.confirm("Tem certeza que deseja excluir permanentemente esta informação?")) return;
     try {
       setFreightOffers(prev => prev.filter(o => o.id !== offer.id));
       await deleteFreightOffer(offer.id);
@@ -832,6 +834,7 @@ const App: React.FC = () => {
   };
   
   const handleDeleteShipmentAttachment = async (shipmentId: string, url: string) => {
+    if (!window.confirm("Tem certeza que deseja excluir permanentemente esta informação?")) return;
     if (!currentUser) return;
     
     const shipment = shipments.find(s => s.id === shipmentId);
@@ -1416,6 +1419,7 @@ const App: React.FC = () => {
   };
   
   const handleDeleteCargo = async (cargoId: string) => {
+    if (!window.confirm("Tem certeza que deseja excluir permanentemente esta informação?")) return;
     if (!currentUser || currentUser.profile !== UserProfile.Admin) return;
     
     const relatedShipments = shipments.filter(s => s.cargoId === cargoId);
@@ -1437,6 +1441,7 @@ const App: React.FC = () => {
 
 
   const handleDeleteShipment = async (shipmentId: string) => {
+    if (!window.confirm("Tem certeza que deseja excluir permanentemente esta informação?")) return;
     if (!currentUser || currentUser.profile !== UserProfile.Admin) return;
     
     const shipmentToDelete = shipments.find(s => s.id === shipmentId);
@@ -1542,6 +1547,7 @@ const App: React.FC = () => {
   };
 
   const handleDeleteProduct = async (productId: string) => {
+    if (!window.confirm("Tem certeza que deseja excluir permanentemente esta informação?")) return;
     try {
       await deleteProduct(productId);
       setProducts(prev => prev.filter(p => p.id !== productId));
@@ -1713,6 +1719,7 @@ const App: React.FC = () => {
   };
   
   const handleDeleteUser = async (userId: string) => {
+    if (!window.confirm("Tem certeza que deseja excluir permanentemente esta informação?")) return;
     if (!currentUser || currentUser.profile !== UserProfile.Admin) return;
     if (userId === currentUser.id) {
         showToast("Você não pode excluir seu próprio usuário.", 'warning');
@@ -1747,6 +1754,7 @@ const App: React.FC = () => {
   };
 
   const handleDeleteBranch = async (branchId: string) => {
+    if (!window.confirm("Tem certeza que deseja excluir permanentemente esta informação?")) return;
     if (!currentUser || currentUser.profile !== UserProfile.Admin) return;
     if (confirm('Tem certeza que deseja excluir esta filial?')) {
       try {
