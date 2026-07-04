@@ -345,15 +345,8 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, drivers, cargo
                       <div className="font-medium dark:text-gray-200">{shipment.driverName}</div>
                       {(() => {
                           const driver = drivers?.find(d => d.name === shipment.driverName);
-                          if (driver?.has_app) {
-                              return (
-                                <span title="Motorista possui o aplicativo" className="text-blue-500">
-                                    <Smartphone className="w-4 h-4 animate-pulse" />
-                                </span>
-                              );
-                          }
-
                           const locationInfo = Array.from(driverLocations.values()).find(loc => loc.driverName === shipment.driverName) as any;
+                          
                           if (locationInfo) {
                               if (locationInfo.isAppActive && locationInfo.lat === 0 && locationInfo.lng === 0) {
                                 return (
@@ -377,6 +370,15 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, drivers, cargo
                                   </button>
                               );
                           }
+
+                          if (driver?.has_app) {
+                              return (
+                                <span title="Motorista possui o aplicativo" className="text-blue-500">
+                                    <Smartphone className="w-4 h-4 animate-pulse" />
+                                </span>
+                              );
+                          }
+                          
                           return null;
                       })()}
                     </div>
@@ -567,15 +569,8 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, drivers, cargo
                         <div className="text-sm text-gray-900 dark:text-white">{shipment.driverName}</div>
                         {(() => {
                             const driver = drivers?.find(d => d.name === shipment.driverName);
-                            if (driver?.has_app) {
-                                return (
-                                  <span title="Motorista possui o aplicativo" className="text-blue-500">
-                                      <Smartphone className="w-4 h-4 animate-pulse" />
-                                  </span>
-                                );
-                            }
-                            
                             const locationInfo = Array.from(driverLocations.values()).find(loc => loc.driverName === shipment.driverName) as any;
+                            
                             if (locationInfo) {
                                 if (locationInfo.isAppActive && locationInfo.lat === 0 && locationInfo.lng === 0) {
                                   return (
@@ -599,6 +594,15 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, drivers, cargo
                                     </button>
                                 );
                             }
+
+                            if (driver?.has_app) {
+                                return (
+                                  <span title="Motorista possui o aplicativo" className="text-blue-500">
+                                      <Smartphone className="w-4 h-4 animate-pulse" />
+                                  </span>
+                                );
+                            }
+                            
                             return null;
                         })()}
                       </div>
