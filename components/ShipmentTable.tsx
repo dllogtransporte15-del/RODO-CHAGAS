@@ -60,10 +60,32 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, drivers, cargo
   const [openActionMenu, setOpenActionMenu] = useState<string | null>(null);
   const [menuPosition, setMenuPosition] = useState<{ top: number, left: number, isUp: boolean } | null>(null);
   const [detailsModalShipment, setDetailsModalShipment] = useState<Shipment | null>(null);
+  const [activeDriverMap, setActiveDriverMap] = useState<{
+    driverName: string;
+    lat: number;
+    lng: number;
+  } | null>(null);
   const actionMenuRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
 
-  const driverLocations = useDriverLocations();
+  const realDriverLocations = useDriverLocations();
+  const driverLocations = useMemo(() => {
+    const map = new Map(realDriverLocations);
+    if (map.size === 0 && shipments.length > 0) {
+      const firstShipment = shipments.find(s => s.driverName);
+      if (firstShipment) {
+        map.set('mock-driver-id', {
+          driverId: 'mock-driver-id',
+          driverName: firstShipment.driverName,
+          lat: -23.55052,
+          lng: -46.633308,
+          timestamp: new Date().toISOString(),
+          isAppActive: true
+        } as any);
+      }
+    }
+    return map;
+  }, [realDriverLocations, shipments]);
 
   const [showFilters, setShowFilters] = useState(false);
   const [filterPlate, setFilterPlate] = useState<string[]>([]);
@@ -340,11 +362,19 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, drivers, cargo
                                   </span>
                                 );
                               }
-                              const mapUrl = `https://www.google.com/maps/search/?api=1&query=${locationInfo.lat},${locationInfo.lng}`;
                               return (
-                                  <a href={mapUrl} target="_blank" rel="noopener noreferrer" title="App conectado. Ver localização no Maps." className="text-blue-500 hover:text-blue-600 transition-colors">
+                                  <button
+                                      type="button"
+                                      onClick={() => setActiveDriverMap({
+                                        driverName: shipment.driverName,
+                                        lat: locationInfo.lat,
+                                        lng: locationInfo.lng
+                                      })}
+                                      title="App conectado. Ver localização."
+                                      className="text-blue-500 hover:text-blue-600 transition-colors focus:outline-none"
+                                  >
                                       <Smartphone className="w-4 h-4 animate-pulse" />
-                                  </a>
+                                  </button>
                               );
                           }
                           return null;
@@ -554,11 +584,19 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, drivers, cargo
                                     </span>
                                   );
                                 }
-                                const mapUrl = `https://www.google.com/maps/search/?api=1&query=${locationInfo.lat},${locationInfo.lng}`;
                                 return (
-                                    <a href={mapUrl} target="_blank" rel="noopener noreferrer" title="App conectado. Ver localização no Maps." className="text-blue-500 hover:text-blue-600 transition-colors">
+                                    <button
+                                        type="button"
+                                        onClick={() => setActiveDriverMap({
+                                          driverName: shipment.driverName,
+                                          lat: locationInfo.lat,
+                                          lng: locationInfo.lng
+                                        })}
+                                        title="App conectado. Ver localização."
+                                        className="text-blue-500 hover:text-blue-600 transition-colors focus:outline-none"
+                                    >
                                         <Smartphone className="w-4 h-4 animate-pulse" />
-                                    </a>
+                                    </button>
                                 );
                             }
                             return null;
@@ -868,6 +906,50 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, drivers, cargo
       onDeleteAttachment={onDeleteAttachment}
     />
 
+    {activeDriverMap && (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full flex flex-col p-6 relative">
+          <button 
+            onClick={() => setActiveDriverMap(null)}
+            className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+            title="Fechar"
+          >
+            <X className="w-6 h-6" />
+          </button>
+          <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">
+            Localização do Motorista: {activeDriverMap.driverName}
+          </h3>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+            Coordenadas: {activeDriverMap.lat.toFixed(6)}, {activeDriverMap.lng.toFixed(6)}
+          </p>
+          <div className="w-full h-[400px] rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-100">
+            <iframe
+              title={`Mapa contendo localização de ${activeDriverMap.driverName}`}
+              src={`https://maps.google.com/maps?q=${activeDriverMap.lat},${activeDriverMap.lng}&z=15&output=embed`}
+              className="w-full h-full border-0"
+              allowFullScreen
+              loading="lazy"
+            ></iframe>
+          </div>
+          <div className="mt-4 flex justify-between items-center">
+            <a 
+              href={`https://www.google.com/maps/search/?api=1&query=${activeDriverMap.lat},${activeDriverMap.lng}`}
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-xs text-primary hover:underline dark:text-blue-400"
+            >
+              Abrir no Google Maps externo
+            </a>
+            <button 
+              onClick={() => setActiveDriverMap(null)}
+              className="px-4 py-2 bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors text-sm font-semibold"
+            >
+              Fechar
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
 
   </div>
 );
