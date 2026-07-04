@@ -2180,7 +2180,7 @@ const App: React.FC = () => {
   };
 
   // Only show the full-screen loader if it's the initial load (no data yet) or checking auth
-  if (isAuthChecking || (isLoading && shipments.length === 0 && cargos.length === 0)) {
+  if (isAuthChecking || isLoading) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', gap: '16px', background: '#f9fafb' }}>
         <div style={{ width: '48px', height: '48px', border: '4px solid #e5e7eb', borderTopColor: '#3b82f6', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />

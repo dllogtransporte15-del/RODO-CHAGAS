@@ -174,6 +174,7 @@ const toDriver = (row: any): Driver => ({
   ownerId: row.owner_id,
   active: row.active ?? true,
   restrictionReason: row.restriction_reason,
+  has_app: row.has_app ?? false,
 });
 
 const fromDriver = (d: Driver | Omit<Driver, 'id'>) => ({

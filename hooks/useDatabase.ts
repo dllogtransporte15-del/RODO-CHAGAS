@@ -106,41 +106,68 @@ export function useDatabase(currentUser: User | null) {
 
       console.log('[DB] Carregando dados para:', currentUser.email);
 
-      const [
-        dbClients, dbOwners, dbDrivers, dbVehicles, dbProducts, dbCargos, 
-        dbShipments, dbUsers, dbTickets, dbPermissions, dbSettings, dbLocks, dbBranches,
-        dbStays, dbFreightOffers
-      ] = await Promise.all([
-        fetchClients(), fetchOwners(), fetchDrivers(), fetchVehicles(), fetchProducts(),
-        fetchCargos(), fetchShipments(), fetchUsers(), fetchTickets(),
-        fetchProfilePermissions(), fetchAppSettings(), fetchShipmentLocks(),
-        fetchBranches(), getAllToolStays(), fetchFreightOffers()
-      ]);
+      const isMotorista = currentUser.profile === 'Motorista';
 
-      setClients(dbClients);
-      setOwners(dbOwners);
-      setDrivers(dbDrivers);
-      setVehicles(dbVehicles);
-      setProducts(dbProducts);
-      setCargos(dbCargos);
-      setShipments(dbShipments);
-      setUsers(dbUsers);
-      setTickets(dbTickets);
-      setFreightOffers(dbFreightOffers);
-      setStays(dbStays);
-      setBranches(dbBranches);
-      setActiveLocks(dbLocks);
+      if (isMotorista) {
+        // Motorista only needs: cargos, shipments (filtered), settings, products, clients
+        // Skip heavy tables: drivers (914), vehicles (1000), users, locks, branches, etc.
+        const [
+          dbCargos, dbShipments, dbSettings, dbPermissions,
+          dbProducts, dbClients, dbFreightOffers
+        ] = await Promise.all([
+          fetchCargos(), fetchShipments(), fetchAppSettings(), fetchProfilePermissions(),
+          fetchProducts(), fetchClients(), fetchFreightOffers()
+        ]);
 
-      if (dbPermissions) setProfilePermissions(dbPermissions);
-      if (dbSettings) {
-        if (dbSettings.company_logo) setCompanyLogo(dbSettings.company_logo);
-        if (dbSettings.theme_image) setThemeImage(dbSettings.theme_image);
+        setCargos(dbCargos);
+        setShipments(dbShipments);
+        setProducts(dbProducts);
+        setClients(dbClients);
+        setFreightOffers(dbFreightOffers);
+
+        if (dbPermissions) setProfilePermissions(dbPermissions);
+        if (dbSettings) {
+          if (dbSettings.company_logo) setCompanyLogo(dbSettings.company_logo);
+          if (dbSettings.theme_image) setThemeImage(dbSettings.theme_image);
+        }
+
+      } else {
+        const [
+          dbClients, dbOwners, dbDrivers, dbVehicles, dbProducts, dbCargos, 
+          dbShipments, dbUsers, dbTickets, dbPermissions, dbSettings, dbLocks, dbBranches,
+          dbStays, dbFreightOffers
+        ] = await Promise.all([
+          fetchClients(), fetchOwners(), fetchDrivers(), fetchVehicles(), fetchProducts(),
+          fetchCargos(), fetchShipments(), fetchUsers(), fetchTickets(),
+          fetchProfilePermissions(), fetchAppSettings(), fetchShipmentLocks(),
+          fetchBranches(), getAllToolStays(), fetchFreightOffers()
+        ]);
+
+        setClients(dbClients);
+        setOwners(dbOwners);
+        setDrivers(dbDrivers);
+        setVehicles(dbVehicles);
+        setProducts(dbProducts);
+        setCargos(dbCargos);
+        setShipments(dbShipments);
+        setUsers(dbUsers);
+        setTickets(dbTickets);
+        setFreightOffers(dbFreightOffers);
+        setStays(dbStays);
+        setBranches(dbBranches);
+        setActiveLocks(dbLocks);
+
+        if (dbPermissions) setProfilePermissions(dbPermissions);
+        if (dbSettings) {
+          if (dbSettings.company_logo) setCompanyLogo(dbSettings.company_logo);
+          if (dbSettings.theme_image) setThemeImage(dbSettings.theme_image);
+        }
+
+        setNextIds(calculateNextIds(
+          dbClients, dbOwners, dbDrivers, dbVehicles,
+          dbProducts, dbShipments, dbCargos, dbUsers, dbTickets, dbBranches
+        ));
       }
-
-      setNextIds(calculateNextIds(
-        dbClients, dbOwners, dbDrivers, dbVehicles,
-        dbProducts, dbShipments, dbCargos, dbUsers, dbTickets, dbBranches
-      ));
 
     } catch (err) {
       console.error('Erro ao carregar dados:', err);
