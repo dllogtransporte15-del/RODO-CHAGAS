@@ -24,6 +24,7 @@ import { ToolIcon } from './icons/ToolIcon';
 import { CalculatorIcon } from './icons/CalculatorIcon';
 import { InfoIcon } from './icons/InfoIcon';
 import { Menu as MenuIcon, X as XIcon, Activity } from 'lucide-react';
+import DriverLocationTracker from './DriverLocationTracker';
 
 interface TopNavBarProps {
   user: User;
@@ -112,6 +113,16 @@ const TopNavBar: React.FC<TopNavBarProps> = ({ user, onLogout, currentPage, setC
   const filteredNavItems = React.useMemo(() => {
     const filterItems = (items: NavItem[]): NavItem[] => {
       return items.reduce((acc: NavItem[], item) => {
+        if (user.profile === UserProfile.Motorista) {
+          if (item.id === 'operational') {
+            const allowedChildren = item.children?.filter(c => c.id === 'operational-loads' || c.id === 'shipment-history') || [];
+            if (allowedChildren.length > 0) {
+              acc.push({ ...item, children: allowedChildren });
+            }
+          }
+          return acc;
+        }
+
         if (user.profile === UserProfile.Cliente && item.id === 'cadastro') {
           return acc;
         }
@@ -245,6 +256,10 @@ const TopNavBar: React.FC<TopNavBarProps> = ({ user, onLogout, currentPage, setC
 
           {/* Ícones e Menu do Usuário */}
           <div className="flex items-center space-x-4">
+             {user.profile === UserProfile.Motorista && (
+                <DriverLocationTracker user={user} />
+             )}
+             
              <div className="relative">
                 <button
                 onClick={onOpenTickets}

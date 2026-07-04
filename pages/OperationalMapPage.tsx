@@ -2,9 +2,11 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import Header from '../components/Header';
 import NewShipmentModal from '../components/NewShipmentModal';
-import type { Cargo, Shipment, Client, Product, User, Driver, Vehicle, VehicleSetType, VehicleBodyType } from '../types';
+import type { Cargo, Shipment, Client, Product, User, Driver, Vehicle, VehicleSetType, VehicleBodyType, DriverLocation } from '../types';
 import { CargoStatus } from '../types';
 import { CopyIcon } from '../components/icons/CopyIcon';
+import { supabase } from '../supabase';
+import { useDriverLocations } from '../hooks/useDriverLocations';
 
 import { BRAZILIAN_CITIES } from '../brazilianCities';
 import { geocodeCity, getCoordsSync } from '../utils/geocoding';
@@ -72,6 +74,9 @@ const OperationalMapPage: React.FC<OperationalMapPageProps> = ({ cargos, shipmen
   const [isShipmentModalOpen, setIsShipmentModalOpen] = useState(false);
   const [selectedCargoForShipment, setSelectedCargoForShipment] = useState<Cargo | null>(null);
   const [syncingAll, setSyncingAll] = useState(false);
+  
+  // Rastreamento de Motoristas (Tempo Real)
+  const driverLocations = useDriverLocations();
 
   useEffect(() => {
     onModalStateChange(isShipmentModalOpen);
@@ -81,6 +86,7 @@ const OperationalMapPage: React.FC<OperationalMapPageProps> = ({ cargos, shipmen
   const mapInstanceRef = useRef<any>(null);
   const markersLayerRef = useRef<any>(null);
   const circleLayerRef = useRef<any>(null);
+  const driverLayerRef = useRef<any>(null);
   const markersRef = useRef<Map<string, any>>(new Map());
   const loadsWithCoordsRef = useRef<(Cargo & { originCoords?: { lat: number, lng: number }, destinationCoords?: { lat: number, lng: number }})[]>([]);
 
@@ -251,6 +257,7 @@ const OperationalMapPage: React.FC<OperationalMapPageProps> = ({ cargos, shipmen
     }).addTo(mapInstanceRef.current);
     markersLayerRef.current = L.layerGroup().addTo(mapInstanceRef.current);
     circleLayerRef.current = L.layerGroup().addTo(mapInstanceRef.current);
+    driverLayerRef.current = L.layerGroup().addTo(mapInstanceRef.current);
 
     mapInstanceRef.current.on('popupopen', (e: any) => {
         const popupNode = e.popup.getElement();
@@ -349,6 +356,42 @@ const OperationalMapPage: React.FC<OperationalMapPageProps> = ({ cargos, shipmen
   useEffect(() => {
     updateMapLayers();
   }, [filteredLoads, originCoords, destinationCoords]); // Dependencies ensure map updates correctly
+
+  // Desenhar Motoristas Ativos
+  useEffect(() => {
+    if (!mapInstanceRef.current || !driverLayerRef.current) return;
+    
+    driverLayerRef.current.clearLayers();
+
+    driverLocations.forEach((location, driverId) => {
+      const isRecent = new Date().getTime() - new Date(location.timestamp).getTime() < 5 * 60 * 1000;
+      
+      const iconHtml = `
+        <div class="relative flex items-center justify-center w-8 h-8 rounded-full border-2 border-white shadow-md ${isRecent ? 'bg-green-500' : 'bg-orange-500'}">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-white"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18H9"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/></svg>
+        </div>
+      `;
+
+      const driverIcon = L.divIcon({
+        html: iconHtml,
+        className: 'driver-marker',
+        iconSize: [32, 32],
+        iconAnchor: [16, 16],
+      });
+
+      const popupContent = `
+        <div class="p-1">
+          <h4 class="font-bold text-sm text-gray-800">${location.driverName}</h4>
+          <p class="text-xs text-gray-500">Última atualização: ${new Date(location.timestamp).toLocaleTimeString()}</p>
+          ${location.speed !== null ? `<p class="text-xs text-gray-500">Velocidade: ${Math.round(location.speed * 3.6)} km/h</p>` : ''}
+        </div>
+      `;
+
+      const marker = L.marker([location.lat, location.lng], { icon: driverIcon, zIndexOffset: 1000 });
+      marker.bindPopup(popupContent);
+      marker.addTo(driverLayerRef.current);
+    });
+  }, [driverLocations]);
 
   const handleSearch = async (e: React.FormEvent | null) => {
     if (e) e.preventDefault();

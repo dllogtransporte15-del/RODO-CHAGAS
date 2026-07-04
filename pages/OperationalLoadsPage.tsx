@@ -37,6 +37,7 @@ interface OperationalLoadsPageProps {
   branches: Branch[];
   stays?: StayRecord[];
   tickets?: Ticket[];
+  onRequestLoadOrder?: (cargo: Cargo) => void;
 }
 
 const formatAllowedVehicleTypes = (allowed?: { setType: VehicleSetType; bodyTypes: VehicleBodyType[] }[]): string => {
@@ -68,6 +69,7 @@ const OperationalLoadsPage: React.FC<OperationalLoadsPageProps> = ({
   branches,
   stays = [],
   tickets = [],
+  onRequestLoadOrder,
 }) => {
   const [isShipmentModalOpen, setIsShipmentModalOpen] = useState(false);
   const [selectedCargo, setSelectedCargo] = useState<Cargo | null>(null);
@@ -210,6 +212,7 @@ const OperationalLoadsPage: React.FC<OperationalLoadsPageProps> = ({
         currentUser={currentUser}
         stays={stays}
         tickets={tickets}
+        onRequestLoadOrder={onRequestLoadOrder}
       />
 
       <NewShipmentModal

@@ -1,19 +1,42 @@
-
 import React, { useState } from 'react';
 import { supabase } from '../supabase';
-import type { User } from '../types';
+import { User, UserProfile } from '../types';
+import type { ProfilePermissions } from '../types';
 
 interface LoginPageProps {
   onLogin: (user: User) => void;
   users: User[];
   companyLogo: string | null;
+  profilePermissions?: ProfilePermissions;
 }
 
-const LoginPage: React.FC<LoginPageProps> = ({ onLogin, users, companyLogo }) => {
+const LoginPage: React.FC<LoginPageProps> = ({ onLogin, users, companyLogo, profilePermissions }) => {
+  const [loginType, setLoginType] = useState<'interno' | 'motorista'>('interno');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [cpf, setCpf] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  React.useEffect(() => {
+    if (profilePermissions?.system_settings?.driver_portal_enabled === false) {
+      setLoginType('interno');
+    }
+  }, [profilePermissions]);
+
+  // Função simples para formatar CPF na digitação (opcional)
+  const handleCpfChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let value = e.target.value.replace(/\D/g, '');
+    if (value.length > 11) value = value.slice(0, 11);
+    if (value.length > 9) {
+      value = value.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
+    } else if (value.length > 6) {
+      value = value.replace(/(\d{3})(\d{3})(\d{3})/, "$1.$2.$3");
+    } else if (value.length > 3) {
+      value = value.replace(/(\d{3})(\d{3})/, "$1.$2");
+    }
+    setCpf(value);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,53 +45,106 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, users, companyLogo }) =>
     setError('');
     setIsLoading(true);
 
-    const cleanEmail = email.trim().toLowerCase();
-    const cleanPassword = password.trim();
-
-    console.log('[LoginPage] Iniciando login interno para:', cleanEmail);
-    
     try {
-      // Clear any existing Supabase Auth session before starting a new internal login
       await supabase.auth.signOut();
-      // Direct query to app_users instead of Supabase Auth
-      const { data: dbUser, error: dbError } = await supabase
-        .from('app_users')
-        .select('*')
-        .eq('email', cleanEmail)
-        .eq('password', cleanPassword)
-        .single();
 
-      if (dbError || !dbUser) {
-        console.error('[LoginPage] Erro de login:', dbError);
-        setError('Email ou senha inválidos no sistema interno.');
-        setIsLoading(false);
-        return;
+      if (loginType === 'motorista') {
+        const cleanCpf = cpf.replace(/\D/g, '');
+        if (cleanCpf.length !== 11) {
+          setError('CPF inválido. Digite os 11 números.');
+          setIsLoading(false);
+          return;
+        }
+
+        console.log('[LoginPage] Iniciando login motorista para:', cleanCpf);
+
+        // Busca o motorista na tabela drivers
+        const { data: dbDriver, error: dbError } = await supabase
+          .from('drivers')
+          .select('*')
+          .eq('cpf', cpf) // O banco de dados pode estar salvando com ou sem formatação. Assumindo que salva formatado conforme handleCpfChange ou vamos tentar o formatado e o limpo.
+          // Para garantir, podemos buscar usando ilike se o formato variar, mas vamos testar o exato primeiro, ou formatado
+          .single();
+
+        // Se falhar a busca exata, podemos tentar buscar apenas os números usando um select todos e filtrando no cliente se houver poucos, mas vamos assumir que o BD salva a string exata do form (que é formatada)
+        
+        let driverData = dbDriver;
+        if (!driverData) {
+            // Tenta buscar ignorando pontuação puxando todos e filtrando (fallback simples se houver problema de máscara)
+            const { data: allDrivers } = await supabase.from('drivers').select('*');
+            if (allDrivers) {
+                driverData = allDrivers.find(d => d.cpf.replace(/\D/g, '') === cleanCpf);
+            }
+        }
+
+        if (!driverData) {
+          setError('Motorista não encontrado com este CPF.');
+          setIsLoading(false);
+          return;
+        }
+
+        if (!driverData.active) {
+          setError('Este motorista está inativo no sistema.');
+          setIsLoading(false);
+          return;
+        }
+
+        const userProfile: User = {
+          id: driverData.id,
+          name: driverData.name,
+          email: driverData.cpf, // Usando CPF como identificador
+          profile: UserProfile.Motorista,
+          active: driverData.active,
+        };
+
+        console.log('[LoginPage] Login motorista bem-sucedido:', userProfile.name);
+        onLogin(userProfile);
+
+      } else {
+        const cleanEmail = email.trim().toLowerCase();
+        const cleanPassword = password.trim();
+
+        console.log('[LoginPage] Iniciando login interno para:', cleanEmail);
+        
+        const { data: dbUser, error: dbError } = await supabase
+          .from('app_users')
+          .select('*')
+          .eq('email', cleanEmail)
+          .eq('password', cleanPassword)
+          .single();
+
+        if (dbError || !dbUser) {
+          console.error('[LoginPage] Erro de login:', dbError);
+          setError('Email ou senha inválidos no sistema interno.');
+          setIsLoading(false);
+          return;
+        }
+
+        const userProfile: User = {
+          id: dbUser.id,
+          name: dbUser.name,
+          email: dbUser.email,
+          profile: dbUser.profile,
+          active: dbUser.active,
+          password: dbUser.password,
+          clientId: dbUser.client_id,
+          requirePasswordChange: dbUser.require_password_change,
+          authId: dbUser.auth_id
+        };
+
+        if (!userProfile.active) {
+          setError('Este usuário está inativo.');
+          setIsLoading(false);
+          return;
+        }
+
+        console.log('[LoginPage] Login bem-sucedido:', userProfile.name);
+        onLogin(userProfile);
       }
-
-      const userProfile: User = {
-        id: dbUser.id,
-        name: dbUser.name,
-        email: dbUser.email,
-        profile: dbUser.profile,
-        active: dbUser.active,
-        password: dbUser.password,
-        clientId: dbUser.client_id,
-        requirePasswordChange: dbUser.require_password_change,
-        authId: dbUser.auth_id
-      };
-
-      if (!userProfile.active) {
-        setError('Este usuário está inativo.');
-        setIsLoading(false);
-        return;
-      }
-
-      console.log('[LoginPage] Login bem-sucedido:', userProfile.name);
-      onLogin(userProfile);
-      
     } catch (err: any) {
       console.error('Login error:', err);
       setError('Ocorreu um erro interno ao tentar entrar.');
+    } finally {
       setIsLoading(false);
     }
   };
@@ -95,35 +171,76 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, users, companyLogo }) =>
           </div>
         </div>
 
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          <div className="space-y-4">
-            <div className="relative">
-              <input
-                id="email-address"
-                name="email"
-                type="email"
-                required
-                disabled={isLoading}
-                className="appearance-none block w-full px-4 py-3 border border-gray-200 dark:border-gray-700 placeholder-gray-400 text-gray-900 rounded-xl focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent sm:text-sm dark:bg-gray-800 dark:text-white transition-all disabled:opacity-50"
-                placeholder="Seu email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-              />
-            </div>
-            <div className="relative">
-              <input
-                id="password"
-                name="password"
-                type="password"
-                required
-                disabled={isLoading}
-                className="appearance-none block w-full px-4 py-3 border border-gray-200 dark:border-gray-700 placeholder-gray-400 text-gray-900 rounded-xl focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent sm:text-sm dark:bg-gray-800 dark:text-white transition-all disabled:opacity-50"
-                placeholder="Sua senha"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-              />
-            </div>
+        {profilePermissions?.system_settings?.driver_portal_enabled !== false && (
+          <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
+            <button
+              type="button"
+              className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${loginType === 'interno' ? 'bg-white dark:bg-gray-700 shadow-sm text-primary dark:text-white' : 'text-gray-500 hover:text-gray-700'}`}
+              onClick={() => { setLoginType('interno'); setError(''); }}
+            >
+              Acesso Restrito
+            </button>
+            <button
+              type="button"
+              className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${loginType === 'motorista' ? 'bg-white dark:bg-gray-700 shadow-sm text-accent dark:text-orange-400' : 'text-gray-500 hover:text-gray-700'}`}
+              onClick={() => { setLoginType('motorista'); setError(''); }}
+            >
+              Sou Motorista
+            </button>
           </div>
+        )}
+
+        <form className="mt-6 space-y-6" onSubmit={handleSubmit}>
+          {loginType === 'interno' ? (
+            <div className="space-y-4">
+              <div className="relative">
+                <input
+                  id="email-address"
+                  name="email"
+                  type="email"
+                  required
+                  disabled={isLoading}
+                  className="appearance-none block w-full px-4 py-3 border border-gray-200 dark:border-gray-700 placeholder-gray-400 text-gray-900 rounded-xl focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent sm:text-sm dark:bg-gray-800 dark:text-white transition-all disabled:opacity-50"
+                  placeholder="Seu email"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                />
+              </div>
+              <div className="relative">
+                <input
+                  id="password"
+                  name="password"
+                  type="password"
+                  required
+                  disabled={isLoading}
+                  className="appearance-none block w-full px-4 py-3 border border-gray-200 dark:border-gray-700 placeholder-gray-400 text-gray-900 rounded-xl focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent sm:text-sm dark:bg-gray-800 dark:text-white transition-all disabled:opacity-50"
+                  placeholder="Sua senha"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="relative">
+                <input
+                  id="cpf-motorista"
+                  name="cpf"
+                  type="text"
+                  required
+                  disabled={isLoading}
+                  className="appearance-none block w-full px-4 py-3 border border-gray-200 dark:border-gray-700 placeholder-gray-400 text-gray-900 rounded-xl focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent sm:text-sm dark:bg-gray-800 dark:text-white transition-all disabled:opacity-50 font-mono text-center text-lg"
+                  placeholder="Digite seu CPF"
+                  value={cpf}
+                  onChange={handleCpfChange}
+                  maxLength={14}
+                />
+              </div>
+              <p className="text-center text-sm text-gray-500 dark:text-gray-400">
+                Acesse o aplicativo utilizando apenas o seu CPF.
+              </p>
+            </div>
+          )}
 
           {error && (
             <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">

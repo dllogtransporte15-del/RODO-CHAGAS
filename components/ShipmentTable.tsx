@@ -12,10 +12,11 @@ import { ExternalLinkIcon } from './icons/ExternalLinkIcon';
 import { InfoIcon } from './icons/InfoIcon';
 import { TransferIcon } from './icons/TransferIcon';
 import { MoreVerticalIcon } from './icons/MoreVerticalIcon';
-import { Search, Filter, X, Trash2, RotateCcw, Clock, Package, AlertCircle } from 'lucide-react';
+import { Search, Filter, X, Trash2, RotateCcw, Clock, Package, AlertCircle, Smartphone } from 'lucide-react';
 import { StayRecord } from '../utils/toolStorage';
 import type { Ticket } from '../types';
 import { TicketStatus } from '../types';
+import { useDriverLocations } from '../hooks/useDriverLocations';
 
 import MultiSelectDropdown from './MultiSelectDropdown';
 import ShipmentDetailsModal from './ShipmentDetailsModal';
@@ -60,6 +61,8 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users,
   const [detailsModalShipment, setDetailsModalShipment] = useState<Shipment | null>(null);
   const actionMenuRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
+
+  const driverLocations = useDriverLocations();
 
   const [showFilters, setShowFilters] = useState(false);
   const [filterPlate, setFilterPlate] = useState<string[]>([]);
@@ -306,7 +309,21 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users,
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
                     <div className="text-[10px] text-gray-400 uppercase font-bold">Motorista</div>
-                    <div className="font-medium dark:text-gray-200">{shipment.driverName}</div>
+                    <div className="flex items-center gap-1.5">
+                      <div className="font-medium dark:text-gray-200">{shipment.driverName}</div>
+                      {(() => {
+                          const locationInfo = Array.from(driverLocations.values()).find(loc => loc.driverName === shipment.driverName);
+                          if (locationInfo) {
+                              const mapUrl = `https://www.google.com/maps/search/?api=1&query=${locationInfo.lat},${locationInfo.lng}`;
+                              return (
+                                  <a href={mapUrl} target="_blank" rel="noopener noreferrer" title="App conectado. Ver localização no Maps." className="text-blue-500 hover:text-blue-600 transition-colors">
+                                      <Smartphone className="w-4 h-4 animate-pulse" />
+                                  </a>
+                              );
+                          }
+                          return null;
+                      })()}
+                    </div>
                     <div className="text-xs text-gray-500">{shipment.horsePlate}</div>
                     {(vehicle || shipment.vehicleSetType || shipment.vehicleBodyType) && (
                       <span className="mt-1 inline-block px-2 py-0.5 text-[10px] font-semibold rounded-full bg-gray-200 text-gray-700 dark:bg-gray-600 dark:text-gray-200">
@@ -488,7 +505,21 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users,
                       )}
                     </td>
                     <td className="px-6 py-[11px] whitespace-nowrap">
-                      <div className="text-sm text-gray-900 dark:text-white">{shipment.driverName}</div>
+                      <div className="flex items-center gap-1.5">
+                        <div className="text-sm text-gray-900 dark:text-white">{shipment.driverName}</div>
+                        {(() => {
+                            const locationInfo = Array.from(driverLocations.values()).find(loc => loc.driverName === shipment.driverName);
+                            if (locationInfo) {
+                                const mapUrl = `https://www.google.com/maps/search/?api=1&query=${locationInfo.lat},${locationInfo.lng}`;
+                                return (
+                                    <a href={mapUrl} target="_blank" rel="noopener noreferrer" title="App conectado. Ver localização no Maps." className="text-blue-500 hover:text-blue-600 transition-colors">
+                                        <Smartphone className="w-4 h-4 animate-pulse" />
+                                    </a>
+                                );
+                            }
+                            return null;
+                        })()}
+                      </div>
                       <div className="text-sm text-gray-500 dark:text-gray-400">{shipment.horsePlate}</div>
                       <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                           Sol.: <span className="font-medium">{getEmbarcadorName(shipment.embarcadorId)}</span>
@@ -556,7 +587,7 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users,
                             </span>
                           </div>
                         )}
-                        {currentUser.profile !== UserProfile.Embarcador && (
+                        {currentUser.profile !== UserProfile.Embarcador && currentUser.profile !== UserProfile.Motorista && (
                           <div className="flex items-center gap-1.5">
                             <span className="text-[10px] text-gray-400 font-bold uppercase">Emp:</span>
                             <span className="font-medium text-primary dark:text-blue-400">

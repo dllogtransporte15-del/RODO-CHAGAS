@@ -150,6 +150,35 @@ const App: React.FC = () => {
     isAnyModalActiveRef.current = isAnyModalActive;
   }, [isAnyModalActive, isAnyModalActiveRef]);
 
+  // Controle de PWA (Instalação)
+  useEffect(() => {
+    const isPwaEnabled = profilePermissions?.system_settings?.pwa_enabled !== false;
+    
+    // Prevent beforeinstallprompt if disabled
+    const handleBeforeInstallPrompt = (e: any) => {
+      if (!isPwaEnabled) {
+        e.preventDefault();
+      }
+    };
+    
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    
+    // Manipulate manifest link
+    let manifestLink = document.querySelector("link[rel='manifest']") as HTMLLinkElement | null;
+    if (!isPwaEnabled) {
+      if (manifestLink) {
+        manifestLink.setAttribute('data-href', manifestLink.href);
+        manifestLink.removeAttribute('href');
+      }
+    } else {
+      if (manifestLink && manifestLink.hasAttribute('data-href')) {
+        manifestLink.href = manifestLink.getAttribute('data-href') as string;
+      }
+    }
+    
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+  }, [profilePermissions?.system_settings?.pwa_enabled]);
+
   // Persistência local do usuário logado
   useEffect(() => {
     if (currentUser) {
@@ -282,7 +311,11 @@ const App: React.FC = () => {
   const handleLogin = (user: User) => {
     localStorage.setItem('rodo_user_email', user.email);
     setCurrentUser(user);
-    setCurrentPage('dashboard');
+    if (user.profile === UserProfile.Motorista) {
+      setCurrentPage('operational-loads');
+    } else {
+      setCurrentPage('dashboard');
+    }
   };
 
   const handleLogout = () => {
@@ -437,7 +470,7 @@ const App: React.FC = () => {
   // --- DATA FILTERING BASED ON USER ---
   const visibleLoads = useMemo(() => {
     if (!currentUser) return [];
-    if (currentUser.profile === UserProfile.Embarcador) {
+    if (currentUser.profile === UserProfile.Embarcador || currentUser.profile === UserProfile.Motorista) {
       return cargos;
     }
     if (currentUser.profile === UserProfile.Cliente && currentUser.clientId) {
@@ -459,6 +492,10 @@ const App: React.FC = () => {
 
   const visibleShipments = useMemo(() => {
     if (!currentUser) return [];
+    if (currentUser.profile === UserProfile.Motorista) {
+      // Para motorista, o email guarda o CPF dele no objeto User criado dinamicamente no login
+      return shipments.filter(s => s.driverCpf === currentUser.email);
+    }
     if (currentUser.profile === UserProfile.Embarcador) {
       return shipments.filter(s => s.embarcadorId === currentUser.id);
     }
@@ -507,6 +544,20 @@ const App: React.FC = () => {
 
   const handleAcceptFreightOffer = async (offer: FreightOffer) => {
     try {
+      if (offer.cargoId && offer.driverId) {
+        // It's a Driver's request for a Shipment
+        // We will accept it immediately and ideally open the shipment modal, but since it's hard to pass state directly,
+        // we can just approve it and show a message to go to the Cargo to dispatch.
+        await handleSaveFreightOffer({ ...offer, status: FreightOfferStatus.Aceita, history: [...(offer.history || []), {
+          id: `log_${Date.now()}_sys`,
+          userId: currentUser?.id || 'system',
+          timestamp: new Date().toISOString(),
+          description: `Solicitação aprovada. O embarque deve ser criado na página de Cargas Operacionais.`
+        }]});
+        showToast('Solicitação aprovada! Vá para Cargas Operacionais e clique em Novo Embarque para esta carga.', 'success');
+        return;
+      }
+
       setOfferToConvert(offer);
       setCurrentPage('loads');
       showToast('Preenchendo dados da nova carga a partir da oferta...', 'success');
@@ -550,6 +601,40 @@ const App: React.FC = () => {
       console.error('Erro ao salvar oferta de frete:', err);
       showToast('Erro ao atualizar oferta de frete.', 'error');
     }
+  };
+
+  const handleRequestLoadOrder = async (cargo: Cargo) => {
+    if (!currentUser) return;
+    
+    // Check if the user already has a pending offer for this cargo
+    const existingOffer = freightOffers.find(o => o.cargoId === cargo.id && o.driverId === currentUser.id && o.status === FreightOfferStatus.Pendente);
+    if (existingOffer) {
+       showToast('Você já possui uma solicitação pendente para esta carga!', 'warning');
+       return;
+    }
+    
+    const newOffer: FreightOffer | Omit<FreightOffer, 'id' | 'createdAt'> = {
+      clientId: cargo.clientId,
+      origin: cargo.origin,
+      originLocation: cargo.originMapLink,
+      destination: cargo.destination,
+      destinationLocation: cargo.destinationMapLink,
+      totalTonnage: Math.max(0, cargo.scheduledVolume - cargo.loadedVolume) || cargo.scheduledVolume, 
+      productId: cargo.productId,
+      freightValuePerTon: cargo.driverFreightValuePerTon,
+      status: FreightOfferStatus.Pendente,
+      driverId: currentUser.id,
+      cargoId: cargo.id,
+      history: [{
+        id: `log_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+        userId: currentUser.id,
+        timestamp: new Date().toISOString(),
+        description: `Motorista ${currentUser.name} solicitou ordem de carregamento para a Carga ${cargo.sequenceId}.`
+      }]
+    };
+    
+    await handleSaveFreightOffer(newOffer);
+    showToast('Ordem de carregamento solicitada com sucesso! Aguarde aprovação do Embarcador.', 'success');
   };
 
   const handleDeleteFreightOffer = async (offer: FreightOffer) => {
@@ -1945,6 +2030,7 @@ const App: React.FC = () => {
             users={users}
             onDeleteLoad={handleDeleteCargo}
             onUpdatePrice={handleUpdateShipmentPrice}
+            onRequestLoadOrder={handleRequestLoadOrder}
             onModalStateChange={setIsAnyModalOpen}
             onDeleteAttachment={handleDeleteShipmentAttachment}
             branches={branches}
@@ -1995,7 +2081,7 @@ const App: React.FC = () => {
                   onSaveTheme={handleSaveThemeImage}
                 />;
       case 'system-monitor':
-        return <SystemMonitorPage />;
+        return <SystemMonitorPage currentUser={currentUser} profilePermissions={profilePermissions} onSavePermissions={handleSavePermissions} />;
       case 'shipment-history':
         return <ShipmentHistoryPage
                   shipments={visibleShipments}
@@ -2050,7 +2136,7 @@ const App: React.FC = () => {
   }
 
   if (!currentUser) {
-    return <LoginPage onLogin={handleLogin} users={users} companyLogo={companyLogo} />;
+    return <LoginPage onLogin={handleLogin} users={users} companyLogo={companyLogo} profilePermissions={profilePermissions} />;
   }
 
   const operationalPages: Page[] = ['loads', 'shipments', 'shipment-history', 'load-history', 'operational-loads', 'operational-map'];

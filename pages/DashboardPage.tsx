@@ -701,7 +701,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({
     o.status !== FreightOfferStatus.Recusada
   );
 
-  const canViewOffers = currentUser && [UserProfile.Admin, UserProfile.Comercial, UserProfile.Supervisor].includes(currentUser.profile);
+  const canViewOffers = currentUser && [UserProfile.Admin, UserProfile.Comercial, UserProfile.Supervisor, UserProfile.Embarcador].includes(currentUser.profile);
 
   return (
     <>

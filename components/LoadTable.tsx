@@ -32,12 +32,13 @@ interface LoadTableProps {
   onShowShipments?: (load: Cargo) => void;
   onRecommendDrivers?: (load: Cargo) => void;
   onDelete?: (cargoId: string) => void;
+  onRequestLoadOrder?: (load: Cargo) => void;
   currentUser: User;
   stays?: StayRecord[];
   tickets?: Ticket[];
 }
 
-const LoadTable: React.FC<LoadTableProps> = ({ loads, clients, products, shipments, dailyBalanceDate, onDailyBalanceDateChange, onCreateShipment, onSuspend, onReactivate, onFinalize, onEdit, onClose, onShowHistory, onShowDetails, onEditSchedule, onShowShipments, onRecommendDrivers, onDelete, currentUser, stays = [], tickets = [] }) => {
+const LoadTable: React.FC<LoadTableProps> = ({ loads, clients, products, shipments, dailyBalanceDate, onDailyBalanceDateChange, onCreateShipment, onSuspend, onReactivate, onFinalize, onEdit, onClose, onShowHistory, onShowDetails, onEditSchedule, onShowShipments, onRecommendDrivers, onDelete, onRequestLoadOrder, currentUser, stays = [], tickets = [] }) => {
   const [openActionMenu, setOpenActionMenu] = useState<string | null>(null);
   
   const [showFilters, setShowFilters] = useState(false);
@@ -412,6 +413,11 @@ const LoadTable: React.FC<LoadTableProps> = ({ loads, clients, products, shipmen
                           {onCreateShipment && load.status === CargoStatus.EmAndamento && (
                             <button onClick={() => { onCreateShipment(load); setOpenActionMenu(null); }} className="w-full text-left px-4 py-2 text-sm text-primary dark:text-blue-400 font-medium hover:bg-gray-100 dark:hover:bg-gray-700">
                               Novo Embarque
+                            </button>
+                          )}
+                          {onRequestLoadOrder && currentUser.profile === UserProfile.Motorista && load.status === CargoStatus.EmAndamento && (
+                            <button onClick={() => { onRequestLoadOrder(load); setOpenActionMenu(null); }} className="w-full text-left px-4 py-2 text-sm text-blue-600 dark:text-blue-400 font-bold hover:bg-gray-100 dark:hover:bg-gray-700">
+                              Solicitar Ordem
                             </button>
                           )}
                           {onRecommendDrivers && load.status === CargoStatus.EmAndamento && (

@@ -11,6 +11,7 @@ export enum UserProfile {
   Financeiro = "Financeiro",
   Cliente = "Cliente",
   Admin = "Administrador do Sistema",
+  Motorista = "Motorista",
 }
 
 export interface Branch {
@@ -89,6 +90,16 @@ export interface Driver {
   ownerId?: string;
   active: boolean;
   restrictionReason?: string;
+}
+
+export interface DriverLocation {
+  driverId: string;
+  driverName: string;
+  lat: number;
+  lng: number;
+  speed: number | null;
+  heading: number | null;
+  timestamp: string;
 }
 
 export enum VehicleSetType {
@@ -297,11 +308,16 @@ export interface Shipment {
 
 
 
-export interface ProfilePermissions {
-  [profile: string]: {
+export type ProfilePermissions = {
+  [profile in UserProfile]?: {
     [page in Page]?: CrudPermissions;
   };
-}
+} & {
+  system_settings?: {
+    driver_portal_enabled?: boolean;
+    pwa_enabled?: boolean;
+  };
+};
 
 export interface CrudPermissions {
   read: boolean;
@@ -382,6 +398,8 @@ export interface FreightOffer {
   dailySchedule?: string;
   freightValuePerTon?: number;
   productId: string;
+  driverId?: string;
+  cargoId?: string;
   status: FreightOfferStatus;
   counterOfferValue?: number;
   createdAt: string;

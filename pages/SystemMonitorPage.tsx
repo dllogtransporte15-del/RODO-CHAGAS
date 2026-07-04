@@ -1,8 +1,10 @@
-
 import React, { useState, useEffect } from 'react';
 import Header from '../components/Header';
 import { Activity, CheckCircle2, AlertCircle, RefreshCw, Code, Database, Globe } from 'lucide-react';
 import { supabase } from '../supabase';
+import { UserProfile } from '../types';
+
+import type { User, ProfilePermissions } from '../types';
 
 interface ServiceStatus {
   name: string;
@@ -11,7 +13,13 @@ interface ServiceStatus {
   latency?: number;
 }
 
-const SystemMonitorPage: React.FC = () => {
+interface SystemMonitorPageProps {
+  currentUser?: User;
+  profilePermissions?: ProfilePermissions;
+  onSavePermissions?: (permissions: ProfilePermissions) => void;
+}
+
+const SystemMonitorPage: React.FC<SystemMonitorPageProps> = ({ currentUser, profilePermissions, onSavePermissions }) => {
   const [statuses, setStatuses] = useState<Record<string, ServiceStatus>>({
     github: { name: 'GitHub Infrastructure', status: 'loading', message: 'Verificando...' },
     supabase: { name: 'Supabase Database', status: 'loading', message: 'Verificando...' },
@@ -174,6 +182,69 @@ const SystemMonitorPage: React.FC = () => {
                 </div>
             </div>
         </div>
+
+        {currentUser?.profile === UserProfile.Admin && (
+            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-6 mt-6">
+                <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-4 flex items-center gap-2">
+                    <Globe className="w-5 h-5 text-indigo-500" />
+                    Controles do Sistema (Suporte)
+                </h3>
+                
+                <div className="space-y-4">
+                    <div className="flex items-center justify-between p-4 border rounded-lg dark:border-gray-700">
+                        <div>
+                            <h4 className="font-bold text-gray-800 dark:text-white">Portal do Motorista</h4>
+                            <p className="text-sm text-gray-500">Habilita ou desabilita o acesso dos motoristas ao sistema.</p>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                            <input 
+                                type="checkbox" 
+                                className="sr-only peer"
+                                checked={profilePermissions?.system_settings?.driver_portal_enabled !== false}
+                                onChange={(e) => {
+                                    if (profilePermissions && onSavePermissions) {
+                                        onSavePermissions({
+                                            ...profilePermissions,
+                                            system_settings: {
+                                                ...profilePermissions.system_settings,
+                                                driver_portal_enabled: e.target.checked
+                                            }
+                                        });
+                                    }
+                                }}
+                            />
+                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+                        </label>
+                    </div>
+                    
+                    <div className="flex items-center justify-between p-4 border rounded-lg dark:border-gray-700">
+                        <div>
+                            <h4 className="font-bold text-gray-800 dark:text-white">Sistema Instalável (PWA)</h4>
+                            <p className="text-sm text-gray-500">Permite que o sistema seja instalado como aplicativo nos dispositivos.</p>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                            <input 
+                                type="checkbox" 
+                                className="sr-only peer"
+                                checked={profilePermissions?.system_settings?.pwa_enabled !== false}
+                                onChange={(e) => {
+                                    if (profilePermissions && onSavePermissions) {
+                                        onSavePermissions({
+                                            ...profilePermissions,
+                                            system_settings: {
+                                                ...profilePermissions.system_settings,
+                                                pwa_enabled: e.target.checked
+                                            }
+                                        });
+                                    }
+                                }}
+                            />
+                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+                        </label>
+                    </div>
+                </div>
+            </div>
+        )}
 
         <p className="mt-8 text-center text-xs text-gray-400 uppercase tracking-widest">
             RodoChagas Logística - Painel de Controle de Infraestrutura

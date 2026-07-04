@@ -20,6 +20,8 @@ const toFreightOffer = (row: any): FreightOffer => {
       additionalDestinations = parsed.additionalDestinations;
       observations = parsed.observations;
       attachments = parsed.attachments;
+      if (parsed.driverId) row.driverId = parsed.driverId;
+      if (parsed.cargoId) row.cargoId = parsed.cargoId;
     } catch (e) {
       console.error('Error parsing freight offer metadata:', e);
     }
@@ -43,6 +45,8 @@ const toFreightOffer = (row: any): FreightOffer => {
     additionalDestinations,
     observations,
     attachments,
+    driverId: row.driverId,
+    cargoId: row.cargoId,
   };
 };
 
@@ -66,7 +70,7 @@ export const fetchFreightOffers = async (): Promise<FreightOffer[]> => {
 const fromFreightOffer = (o: FreightOffer | Omit<FreightOffer, 'id'>) => {
   const history = [...(o.history || [])].filter(h => h.id !== 'meta_dest_obs');
   
-  if ((o.additionalDestinations && o.additionalDestinations.length > 0) || o.observations || (o.attachments && o.attachments.length > 0)) {
+  if ((o.additionalDestinations && o.additionalDestinations.length > 0) || o.observations || (o.attachments && o.attachments.length > 0) || o.driverId || o.cargoId) {
     history.push({
       id: 'meta_dest_obs',
       userId: 'system',
@@ -74,7 +78,9 @@ const fromFreightOffer = (o: FreightOffer | Omit<FreightOffer, 'id'>) => {
       description: JSON.stringify({
         additionalDestinations: o.additionalDestinations,
         observations: o.observations,
-        attachments: o.attachments
+        attachments: o.attachments,
+        driverId: o.driverId,
+        cargoId: o.cargoId
       })
     });
   }
