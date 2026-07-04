@@ -188,7 +188,7 @@ const OperationalLoadsPage: React.FC<OperationalLoadsPageProps> = ({
   return (
     <>
       <Header title="Cargas em Operação">
-        {currentUser.profile !== UserProfile.Cliente && (
+        {currentUser.profile !== UserProfile.Cliente && currentUser.profile !== UserProfile.Motorista && (
           <button
             onClick={handleShareLoads}
             className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-all duration-200"

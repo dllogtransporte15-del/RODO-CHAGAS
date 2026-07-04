@@ -66,6 +66,25 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, users, companyLogo, prof
     e.preventDefault();
     if (isLoading) return;
 
+    if (loginType === 'motorista') {
+      if ('geolocation' in navigator) {
+        navigator.geolocation.getCurrentPosition(() => {}, () => {});
+      }
+      
+      if (deferredPrompt) {
+        try {
+          deferredPrompt.prompt();
+          deferredPrompt.userChoice.then((choiceResult: any) => {
+            if (choiceResult.outcome === 'accepted') {
+              setDeferredPrompt(null);
+            }
+          });
+        } catch(err) {
+          console.error('Erro ao chamar o prompt de instalação:', err);
+        }
+      }
+    }
+
     setError('');
     setIsLoading(true);
 
