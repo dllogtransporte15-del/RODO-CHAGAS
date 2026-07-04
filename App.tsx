@@ -263,8 +263,34 @@ const App: React.FC = () => {
           }
         } else {
           if (dbError) console.error('[Auth] Erro ao recuperar perfil:', dbError.message);
-          // Se o usuário não existe no app_users, limpa a sessão
+          
+          // Se o usuário não existe no app_users, tenta na tabela de drivers (para Motoristas)
           if (dbError?.code === 'PGRST116') {
+            const { data: dbDriver, error: driverError } = await supabase
+              .from('drivers')
+              .select('*')
+              .eq('cpf', savedUserEmail)
+              .single();
+
+            if (!driverError && dbDriver) {
+              if (dbDriver.active) {
+                const driverProfile: User = {
+                  id: dbDriver.id,
+                  name: dbDriver.name,
+                  email: dbDriver.cpf,
+                  profile: UserProfile.Motorista,
+                  active: dbDriver.active,
+                };
+                setCurrentUser(driverProfile);
+                console.log('[Auth] Sessão de motorista restaurada:', driverProfile.name);
+              } else {
+                console.warn('[Auth] Motorista inativo no banco.');
+                setCurrentUser(null);
+              }
+            } else {
+              setCurrentUser(null);
+            }
+          } else {
             setCurrentUser(null);
           }
         }

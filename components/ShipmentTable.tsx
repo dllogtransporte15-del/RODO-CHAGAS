@@ -508,8 +508,15 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users,
                       <div className="flex items-center gap-1.5">
                         <div className="text-sm text-gray-900 dark:text-white">{shipment.driverName}</div>
                         {(() => {
-                            const locationInfo = Array.from(driverLocations.values()).find(loc => loc.driverName === shipment.driverName);
+                            const locationInfo = Array.from(driverLocations.values()).find(loc => loc.driverName === shipment.driverName) as any;
                             if (locationInfo) {
+                                if (locationInfo.isAppActive && locationInfo.lat === 0 && locationInfo.lng === 0) {
+                                  return (
+                                    <span title="Motorista ativo no aplicativo" className="text-blue-500">
+                                        <Smartphone className="w-4 h-4 animate-pulse" />
+                                    </span>
+                                  );
+                                }
                                 const mapUrl = `https://www.google.com/maps/search/?api=1&query=${locationInfo.lat},${locationInfo.lng}`;
                                 return (
                                     <a href={mapUrl} target="_blank" rel="noopener noreferrer" title="App conectado. Ver localização no Maps." className="text-blue-500 hover:text-blue-600 transition-colors">

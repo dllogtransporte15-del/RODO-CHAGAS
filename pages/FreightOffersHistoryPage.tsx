@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import Header from '../components/Header';
 import FreightOffersList from '../components/FreightOffersList';
 import type { FreightOffer, Client, Product, Cargo, User } from '../types';
-import { FreightOfferStatus } from '../types';
+import { FreightOfferStatus, UserProfile } from '../types';
 import { HistoryIcon, FilterIcon, SearchIcon, RefreshCwIcon } from 'lucide-react';
 
 interface FreightOffersHistoryPageProps {
@@ -35,9 +35,10 @@ const FreightOffersHistoryPage: React.FC<FreightOffersHistoryPageProps> = ({
       if (filterClientId !== 'all' && offer.clientId !== filterClientId) return false;
       if (filterOrigin && !offer.origin.toLowerCase().includes(filterOrigin.toLowerCase())) return false;
       if (filterDestination && !offer.destination.toLowerCase().includes(filterDestination.toLowerCase())) return false;
+      if (currentUser?.profile !== UserProfile.Embarcador && currentUser?.profile !== UserProfile.Cliente && offer.driverId) return false;
       return true;
     }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  }, [freightOffers, filterStatus, filterClientId, filterOrigin, filterDestination]);
+  }, [freightOffers, filterStatus, filterClientId, filterOrigin, filterDestination, currentUser]);
 
   const clearFilters = () => {
     setFilterStatus('all');

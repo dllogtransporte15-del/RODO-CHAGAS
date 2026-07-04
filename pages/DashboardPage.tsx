@@ -698,7 +698,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({
   }
 
   const pendingOffers = freightOffers.filter(o => 
-    o.status !== FreightOfferStatus.Recusada
+    o.status !== FreightOfferStatus.Recusada && !o.driverId
   );
 
   const canViewOffers = currentUser && [UserProfile.Admin, UserProfile.Comercial, UserProfile.Supervisor, UserProfile.Embarcador].includes(currentUser.profile);

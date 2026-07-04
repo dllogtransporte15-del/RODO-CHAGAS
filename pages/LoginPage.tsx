@@ -314,10 +314,22 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, users, companyLogo, prof
           </div>
         </form>
 
-        {deferredPrompt && (
+        {loginType === 'motorista' && (
           <div className="pt-4 border-t border-gray-100 dark:border-gray-800">
             <button
-              onClick={handleInstallApp}
+              onClick={(e) => {
+                e.preventDefault();
+                if (deferredPrompt) {
+                  deferredPrompt.prompt();
+                  deferredPrompt.userChoice.then((choiceResult: any) => {
+                    if (choiceResult.outcome === 'accepted') {
+                      setDeferredPrompt(null);
+                    }
+                  });
+                } else {
+                  alert("Para instalar o aplicativo no seu celular:\n\nNo Android (Chrome): Toque nos 3 pontinhos e selecione 'Adicionar à tela inicial'.\n\nNo iPhone (Safari): Toque no ícone de Compartilhar e selecione 'Adicionar à Tela de Início'.");
+                }
+              }}
               className="w-full flex justify-center py-3 px-4 border-2 border-primary dark:border-blue-500 text-primary dark:text-blue-500 hover:bg-primary hover:text-white dark:hover:bg-blue-600 dark:hover:text-white text-sm font-black rounded-xl transition-all"
             >
               BAIXAR APLICATIVO PARA MOTORISTA

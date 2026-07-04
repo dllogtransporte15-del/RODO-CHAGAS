@@ -19,6 +19,18 @@ export function useDriverLocations() {
             const latest = presences[presences.length - 1];
             if (latest.location) {
               locations.set(key, latest.location as DriverLocation);
+            } else if (latest.isAppActive) {
+              // Create a dummy location just to show they are active
+              locations.set(key, {
+                driverId: key,
+                driverName: latest.driverName,
+                lat: 0,
+                lng: 0,
+                speed: null,
+                heading: null,
+                timestamp: new Date().toISOString(),
+                isAppActive: true
+              } as any);
             }
           }
         });
