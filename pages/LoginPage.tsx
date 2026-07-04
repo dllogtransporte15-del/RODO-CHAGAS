@@ -101,23 +101,22 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, users, companyLogo, prof
 
         console.log('[LoginPage] Iniciando login motorista para:', cleanCpf);
 
-        // Busca o motorista na tabela drivers
-        const { data: dbDriver, error: dbError } = await supabase
+        const formattedCpf = cleanCpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
+
+        // Busca o motorista na tabela drivers (com ou sem formatação)
+        let { data: driverData, error: dbError } = await supabase
           .from('drivers')
           .select('*')
-          .eq('cpf', cpf) // O banco de dados pode estar salvando com ou sem formatação. Assumindo que salva formatado conforme handleCpfChange ou vamos tentar o formatado e o limpo.
-          // Para garantir, podemos buscar usando ilike se o formato variar, mas vamos testar o exato primeiro, ou formatado
-          .single();
+          .eq('cpf', formattedCpf)
+          .maybeSingle();
 
-        // Se falhar a busca exata, podemos tentar buscar apenas os números usando um select todos e filtrando no cliente se houver poucos, mas vamos assumir que o BD salva a string exata do form (que é formatada)
-        
-        let driverData = dbDriver;
         if (!driverData) {
-            // Tenta buscar ignorando pontuação puxando todos e filtrando (fallback simples se houver problema de máscara)
-            const { data: allDrivers } = await supabase.from('drivers').select('*');
-            if (allDrivers) {
-                driverData = allDrivers.find(d => d.cpf.replace(/\D/g, '') === cleanCpf);
-            }
+          const { data: dbDriverClean } = await supabase
+            .from('drivers')
+            .select('*')
+            .eq('cpf', cleanCpf)
+            .maybeSingle();
+          driverData = dbDriverClean;
         }
 
         if (!driverData) {

@@ -292,11 +292,24 @@ const App: React.FC = () => {
           
           // Se o usuário não existe no app_users, tenta na tabela de drivers (para Motoristas)
           if (dbError?.code === 'PGRST116') {
-            const { data: dbDriver, error: driverError } = await supabase
+            const cleanCpf = savedUserEmail.replace(/\D/g, '');
+            const formattedCpf = cleanCpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
+
+            let { data: dbDriver, error: driverError } = await supabase
               .from('drivers')
               .select('*')
-              .eq('cpf', savedUserEmail)
-              .single();
+              .eq('cpf', formattedCpf)
+              .maybeSingle();
+
+            if (!dbDriver) {
+              const { data: dbDriverClean, error: cleanError } = await supabase
+                .from('drivers')
+                .select('*')
+                .eq('cpf', cleanCpf)
+                .maybeSingle();
+              dbDriver = dbDriverClean;
+              driverError = cleanError;
+            }
 
             if (!driverError && dbDriver) {
               if (dbDriver.active) {
