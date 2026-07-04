@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import type { FreightOffer, Client, Product, Cargo, User } from '../types';
 import { FreightOfferStatus, CargoStatus, UserProfile } from '../types';
-import { PackageIcon, CheckIcon, XIcon, MessageCircleIcon, HistoryIcon, TrashIcon, MapPinIcon, EyeIcon } from 'lucide-react';
+import { PackageIcon, CheckIcon, XIcon, MessageCircleIcon, HistoryIcon, TrashIcon, MapPinIcon, EyeIcon, PaperclipIcon, DownloadIcon } from 'lucide-react';
 import VolumeBar from './VolumeBar';
 
 interface FreightOffersListProps {
@@ -440,6 +440,30 @@ const FreightOffersList: React.FC<FreightOffersListProps> = ({
                  <div>
                     <span className="font-semibold block text-gray-500 dark:text-gray-400 mb-1">Observações:</span>
                     <p className="whitespace-pre-wrap bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg border border-gray-100 dark:border-gray-600 text-sm font-medium text-gray-900 dark:text-gray-100">{detailsModal.observations}</p>
+                 </div>
+               )}
+
+               {detailsModal.attachments && detailsModal.attachments.length > 0 && (
+                 <div>
+                    <span className="font-semibold block text-gray-500 dark:text-gray-400 mb-1">Anexos:</span>
+                    <ul className="space-y-2">
+                      {detailsModal.attachments.map((fileName, i) => (
+                        <li key={i} className="flex items-center justify-between bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg border border-gray-100 dark:border-gray-600 text-sm font-medium text-gray-900 dark:text-gray-100">
+                          <div className="flex items-center gap-2 overflow-hidden">
+                            <PaperclipIcon className="w-4 h-4 text-indigo-500 shrink-0" />
+                            <span className="truncate">{fileName}</span>
+                          </div>
+                          <button 
+                            type="button" 
+                            onClick={() => alert(`Download de ${fileName} iniciado.`)}
+                            className="p-1.5 text-indigo-600 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 rounded-lg transition-colors ml-2 shrink-0"
+                            title="Baixar anexo"
+                          >
+                            <DownloadIcon className="w-4 h-4" />
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
                  </div>
                )}
             </div>

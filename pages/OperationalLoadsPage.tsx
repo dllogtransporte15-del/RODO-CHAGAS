@@ -181,13 +181,15 @@ const OperationalLoadsPage: React.FC<OperationalLoadsPageProps> = ({
   return (
     <>
       <Header title="Cargas em Operação">
-        <button
-          onClick={handleShareLoads}
-          className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-all duration-200"
-        >
-          <CopyIcon className="w-5 h-5 mr-2" />
-          {copyButtonText}
-        </button>
+        {currentUser.profile !== UserProfile.Cliente && (
+          <button
+            onClick={handleShareLoads}
+            className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-all duration-200"
+          >
+            <CopyIcon className="w-5 h-5 mr-2" />
+            {copyButtonText}
+          </button>
+        )}
       </Header>
       
       <h2 className="text-2xl font-semibold text-gray-800 dark:text-white mb-4">Lista de Cargas em Andamento</h2>

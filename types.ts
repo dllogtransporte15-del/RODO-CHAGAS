@@ -388,5 +388,6 @@ export interface FreightOffer {
   history?: HistoryLog[];
   observations?: string;
   additionalDestinations?: { city: string; location?: string }[];
+  attachments?: string[];
 }
 

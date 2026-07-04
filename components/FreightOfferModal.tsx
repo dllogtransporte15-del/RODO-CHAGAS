@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import type { Client, Product, FreightOffer } from '../types';
 import { FreightOfferStatus } from '../types';
-import { XIcon, PackageIcon, MapPinIcon, DollarSignIcon, CalendarIcon, ScaleIcon } from 'lucide-react';
+import { XIcon, PackageIcon, MapPinIcon, DollarSignIcon, CalendarIcon, ScaleIcon, PaperclipIcon } from 'lucide-react';
 
 interface FreightOfferModalProps {
   isOpen: boolean;
@@ -28,6 +28,8 @@ const FreightOfferModal: React.FC<FreightOfferModalProps> = ({
 
   const [additionalDestinations, setAdditionalDestinations] = useState<{city: string, location: string}[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [attachments, setAttachments] = useState<string[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!isOpen) return null;
 
@@ -50,6 +52,23 @@ const FreightOfferModal: React.FC<FreightOfferModalProps> = ({
     setAdditionalDestinations(additionalDestinations.filter((_, i) => i !== index));
   };
 
+  const handleAttachmentClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files) {
+      const newFileNames = Array.from(files).map((file: File) => file.name);
+      setAttachments(prev => [...prev, ...newFileNames.filter(name => !prev.includes(name))]);
+    }
+    e.target.value = '';
+  };
+
+  const handleRemoveAttachment = (fileName: string) => {
+    setAttachments(prev => prev.filter(name => name !== fileName));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentClient) return;
@@ -68,6 +87,7 @@ const FreightOfferModal: React.FC<FreightOfferModalProps> = ({
         status: FreightOfferStatus.AguardandoPreco,
         observations: formData.observations,
         additionalDestinations: additionalDestinations.filter(d => d.city.trim() !== ''),
+        attachments,
       });
       onClose();
     } catch (error: any) {
@@ -179,6 +199,39 @@ const FreightOfferModal: React.FC<FreightOfferModalProps> = ({
                     <option key={p.id} value={p.id}>{p.name}</option>
                   ))}
                 </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Anexos</label>
+                <div className="relative">
+                  <input
+                    type="file"
+                    multiple
+                    ref={fileInputRef}
+                    onChange={handleFileChange}
+                    className="hidden"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAttachmentClick}
+                    className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600 justify-center transition-colors"
+                  >
+                    <PaperclipIcon className="w-4 h-4" />
+                    Anexar Arquivos
+                  </button>
+                </div>
+                {attachments.length > 0 && (
+                  <ul className="mt-2 space-y-1">
+                    {attachments.map((fileName, index) => (
+                      <li key={index} className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-900/50 px-2 py-1.5 rounded-md">
+                        <span className="truncate max-w-[85%]">{fileName}</span>
+                        <button type="button" onClick={() => handleRemoveAttachment(fileName)} className="p-1 text-red-500 hover:text-red-700 dark:hover:text-red-400 transition-colors">
+                          <XIcon className="w-4 h-4" />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
               <div className="col-span-1 md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Observações / Informações Adicionais</label>
