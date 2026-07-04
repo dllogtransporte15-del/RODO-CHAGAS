@@ -11,7 +11,8 @@ import RecommendedDriversModal from '../components/RecommendedDriversModal';
 import type { Cargo, Client, Product, Driver, Shipment, Vehicle, User, ProfilePermissions, VehicleSetType, VehicleBodyType, Branch } from '../types';
 import { can } from '../auth';
 import { CopyIcon } from '../components/icons/CopyIcon';
-import { CargoStatus, UserProfile } from '../types';
+import { CargoStatus, UserProfile, ShipmentStatus } from '../types';
+import ShipmentTable from '../components/ShipmentTable';
 import { StayRecord } from '../utils/toolStorage';
 import type { Ticket } from '../types';
 
@@ -180,6 +181,10 @@ const OperationalLoadsPage: React.FC<OperationalLoadsPageProps> = ({
     });
   };
 
+  const driverActiveShipments = currentUser.profile === UserProfile.Motorista
+    ? allShipments.filter(s => s.driverCpf === currentUser.email && s.status !== ShipmentStatus.Finalizado && s.status !== ShipmentStatus.Cancelado)
+    : [];
+
   return (
     <>
       <Header title="Cargas em Operação">
@@ -194,7 +199,25 @@ const OperationalLoadsPage: React.FC<OperationalLoadsPageProps> = ({
         )}
       </Header>
       
-      <h2 className="text-2xl font-semibold text-gray-800 dark:text-white mb-4">Lista de Cargas em Andamento</h2>
+      {currentUser.profile === UserProfile.Motorista && driverActiveShipments.length > 0 && (
+        <div className="mb-8">
+          <h2 className="text-2xl font-semibold text-primary dark:text-blue-400 mb-4 border-b-2 border-primary pb-2">Meu Embarque em Andamento</h2>
+          <ShipmentTable
+            shipments={driverActiveShipments}
+            cargos={loads} // active loads
+            clients={clients}
+            users={users}
+            vehicles={vehicles}
+            products={products}
+            currentUser={currentUser}
+            onShowCargoDetails={handleShowCargoDetails}
+            stays={stays}
+            activeStatus="all"
+          />
+        </div>
+      )}
+
+      <h2 className="text-2xl font-semibold text-gray-800 dark:text-white mb-4">Oportunidades de Carga</h2>
       <LoadTable 
         loads={loads} 
         clients={clients} 
@@ -204,8 +227,8 @@ const OperationalLoadsPage: React.FC<OperationalLoadsPageProps> = ({
         onDailyBalanceDateChange={setDailyBalanceDate}
         onCreateShipment={canCreateShipment ? handleOpenNewShipmentModal : undefined} 
         onShowHistory={handleShowHistory}
-        onReactivate={currentUser.profile !== UserProfile.Embarcador ? onReactivateLoad : undefined}
-        onSuspend={currentUser.profile !== UserProfile.Embarcador ? onSuspendLoad : undefined}
+        onReactivate={(currentUser.profile !== UserProfile.Embarcador && currentUser.profile !== UserProfile.Motorista) ? onReactivateLoad : undefined}
+        onSuspend={(currentUser.profile !== UserProfile.Embarcador && currentUser.profile !== UserProfile.Motorista) ? onSuspendLoad : undefined}
         onShowDetails={handleShowCargoDetails}
         onShowShipments={handleShowShipments}
         onDelete={onDeleteLoad}

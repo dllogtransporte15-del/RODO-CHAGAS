@@ -534,13 +534,15 @@ const App: React.FC = () => {
   const inProgressLoads = useMemo(() => {
     const today = new Date().toISOString().split('T')[0];
     return visibleLoads.filter(c => {
-      if (c.status === CargoStatus.Suspensa) return true;
+      if (c.status === CargoStatus.Suspensa) {
+        return currentUser?.profile !== UserProfile.Motorista;
+      }
       if (c.status === CargoStatus.EmAndamento) {
         return c.dailySchedule?.some(ds => ds.date >= today);
       }
       return false;
     });
-  }, [visibleLoads]);
+  }, [visibleLoads, currentUser]);
 
   const handleAcceptFreightOffer = async (offer: FreightOffer) => {
     try {

@@ -17,12 +17,36 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, users, companyLogo, prof
   const [cpf, setCpf] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
 
   React.useEffect(() => {
     if (profilePermissions?.system_settings?.driver_portal_enabled === false) {
       setLoginType('interno');
     }
   }, [profilePermissions]);
+
+  React.useEffect(() => {
+    const isPwaEnabled = profilePermissions?.system_settings?.pwa_enabled !== false;
+    if (!isPwaEnabled) return;
+    
+    const handler = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+    
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, [profilePermissions]);
+
+  const handleInstallApp = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') {
+        setDeferredPrompt(null);
+      }
+    }
+  };
 
   // Função simples para formatar CPF na digitação (opcional)
   const handleCpfChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -270,6 +294,17 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, users, companyLogo, prof
             </button>
           </div>
         </form>
+
+        {deferredPrompt && (
+          <div className="pt-4 border-t border-gray-100 dark:border-gray-800">
+            <button
+              onClick={handleInstallApp}
+              className="w-full flex justify-center py-3 px-4 border-2 border-primary dark:border-blue-500 text-primary dark:text-blue-500 hover:bg-primary hover:text-white dark:hover:bg-blue-600 dark:hover:text-white text-sm font-black rounded-xl transition-all"
+            >
+              BAIXAR APLICATIVO PARA MOTORISTA
+            </button>
+          </div>
+        )}
         
         <div className="text-center pt-4">
             <p className="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-widest font-bold">
