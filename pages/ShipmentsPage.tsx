@@ -270,6 +270,7 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({
       <ShipmentTable 
         shipments={filteredShipments} 
         cargos={cargos}
+        drivers={drivers}
         users={users}
         vehicles={vehicles}
         onAttach={(canUpdate || isClient) ? handleOpenAttachmentModal : undefined}

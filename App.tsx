@@ -150,6 +150,32 @@ const App: React.FC = () => {
     isAnyModalActiveRef.current = isAnyModalActive;
   }, [isAnyModalActive, isAnyModalActiveRef]);
 
+
+  // Track app activity for motoristas
+  useEffect(() => {
+    if (currentUser?.profile === UserProfile.Motorista) {
+      
+      // Update persistent status in database, silently catch error if column missing
+      supabase.from('drivers').update({ has_app: true }).eq('id', currentUser.id).then(({error}) => {
+         if (error) console.log("has_app column might not exist yet", error);
+      });
+
+      const channel = supabase.channel('driver_tracking', {
+        config: { presence: { key: currentUser.id } },
+      });
+      channel.on('presence', { event: 'sync' }, () => {});
+      channel.subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          await channel.track({ driverName: currentUser.name, isAppActive: true });
+        }
+      });
+      return () => {
+        channel.untrack();
+        supabase.removeChannel(channel);
+      };
+    }
+  }, [currentUser]);
+
   // Controle de PWA (Instalação)
   useEffect(() => {
     const isPwaEnabled = profilePermissions?.system_settings?.pwa_enabled !== false;
@@ -2114,6 +2140,7 @@ const App: React.FC = () => {
         return <ShipmentHistoryPage
                   shipments={visibleShipments}
                   cargos={cargos}
+                  drivers={drivers}
                   users={users}
                   currentUser={currentUser}
                   clients={clients}

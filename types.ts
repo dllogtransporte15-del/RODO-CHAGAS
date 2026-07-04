@@ -90,6 +90,7 @@ export interface Driver {
   ownerId?: string;
   active: boolean;
   restrictionReason?: string;
+  has_app?: boolean;
 }
 
 export interface DriverLocation {

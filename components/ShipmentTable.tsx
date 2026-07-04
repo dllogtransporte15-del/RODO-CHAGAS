@@ -14,7 +14,7 @@ import { TransferIcon } from './icons/TransferIcon';
 import { MoreVerticalIcon } from './icons/MoreVerticalIcon';
 import { Search, Filter, X, Trash2, RotateCcw, Clock, Package, AlertCircle, Smartphone } from 'lucide-react';
 import { StayRecord } from '../utils/toolStorage';
-import type { Ticket } from '../types';
+import type { Ticket, Driver } from '../types';
 import { TicketStatus } from '../types';
 import { useDriverLocations } from '../hooks/useDriverLocations';
 
@@ -23,6 +23,7 @@ import ShipmentDetailsModal from './ShipmentDetailsModal';
 
 interface ShipmentTableProps {
   shipments: Shipment[];
+  drivers: Driver[];
   cargos: Cargo[];
   users: User[];
   vehicles: Vehicle[];
@@ -53,7 +54,7 @@ interface ShipmentTableProps {
   tickets?: Ticket[];
 }
 
-const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users, vehicles, onAttach, onEditPrice, onCancel, onTransfer, onShowHistory, onShowCargoDetails, canUserAdvanceStatus, onMarkArrival, onDelete, onRevertStatus, onOpenCadastroAntt, onUpdatePrice, onUpdateShipmentData, onAddAttachments, onOpenEditScheduledDateTime, currentUser, activeStatus, clients, products, stays = [], companyLogo, onDeleteAttachment, onSwapCargo, tickets = [] }) => {
+const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, drivers, cargos, users, vehicles, onAttach, onEditPrice, onCancel, onTransfer, onShowHistory, onShowCargoDetails, canUserAdvanceStatus, onMarkArrival, onDelete, onRevertStatus, onOpenCadastroAntt, onUpdatePrice, onUpdateShipmentData, onAddAttachments, onOpenEditScheduledDateTime, currentUser, activeStatus, clients, products, stays = [], companyLogo, onDeleteAttachment, onSwapCargo, tickets = [] }) => {
 
 
   const [openActionMenu, setOpenActionMenu] = useState<string | null>(null);
@@ -312,8 +313,24 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users,
                     <div className="flex items-center gap-1.5">
                       <div className="font-medium dark:text-gray-200">{shipment.driverName}</div>
                       {(() => {
-                          const locationInfo = Array.from(driverLocations.values()).find(loc => loc.driverName === shipment.driverName);
+                          const driver = drivers?.find(d => d.name === shipment.driverName);
+                          if (driver?.has_app) {
+                              return (
+                                <span title="Motorista possui o aplicativo" className="text-blue-500">
+                                    <Smartphone className="w-4 h-4 animate-pulse" />
+                                </span>
+                              );
+                          }
+
+                          const locationInfo = Array.from(driverLocations.values()).find(loc => loc.driverName === shipment.driverName) as any;
                           if (locationInfo) {
+                              if (locationInfo.isAppActive && locationInfo.lat === 0 && locationInfo.lng === 0) {
+                                return (
+                                  <span title="Motorista ativo no aplicativo" className="text-blue-500">
+                                      <Smartphone className="w-4 h-4 animate-pulse" />
+                                  </span>
+                                );
+                              }
                               const mapUrl = `https://www.google.com/maps/search/?api=1&query=${locationInfo.lat},${locationInfo.lng}`;
                               return (
                                   <a href={mapUrl} target="_blank" rel="noopener noreferrer" title="App conectado. Ver localização no Maps." className="text-blue-500 hover:text-blue-600 transition-colors">
@@ -508,6 +525,15 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, cargos, users,
                       <div className="flex items-center gap-1.5">
                         <div className="text-sm text-gray-900 dark:text-white">{shipment.driverName}</div>
                         {(() => {
+                            const driver = drivers?.find(d => d.name === shipment.driverName);
+                            if (driver?.has_app) {
+                                return (
+                                  <span title="Motorista possui o aplicativo" className="text-blue-500">
+                                      <Smartphone className="w-4 h-4 animate-pulse" />
+                                  </span>
+                                );
+                            }
+                            
                             const locationInfo = Array.from(driverLocations.values()).find(loc => loc.driverName === shipment.driverName) as any;
                             if (locationInfo) {
                                 if (locationInfo.isAppActive && locationInfo.lat === 0 && locationInfo.lng === 0) {

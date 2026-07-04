@@ -7,13 +7,14 @@ import HistoryModal from '../components/HistoryModal';
 import AttachmentModal from '../components/AttachmentModal';
 import CargoDetailsModal from '../components/CargoDetailsModal';
 import CancellationReasonChart from '../components/CancellationReasonChart';
-import type { Shipment, Cargo, User, Product, Client, Vehicle } from '../types';
+import type { Shipment, Cargo, User, Product, Client, Vehicle, Driver } from '../types';
 import { ShipmentStatus } from '../types';
 import { StayRecord } from '../utils/toolStorage';
 
 interface ShipmentHistoryPageProps {
   shipments: Shipment[];
   cargos: Cargo[];
+  drivers: Driver[];
   users: User[];
   currentUser: User;
   clients: Client[];
@@ -26,7 +27,7 @@ interface ShipmentHistoryPageProps {
   stays?: StayRecord[];
 }
 
-const ShipmentHistoryPage: React.FC<ShipmentHistoryPageProps> = ({ shipments, cargos, users, currentUser, clients, products, vehicles, onDeleteShipment, onRevertStatus, onDeleteAttachment, onUpdatePrice, stays = [] }) => {
+const ShipmentHistoryPage: React.FC<ShipmentHistoryPageProps> = ({ shipments, cargos, drivers, users, currentUser, clients, products, vehicles, onDeleteShipment, onRevertStatus, onDeleteAttachment, onUpdatePrice, stays = [] }) => {
   const [activeStatus, setActiveStatus] = useState<ShipmentStatus>(ShipmentStatus.Finalizado);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [isAttachmentModalOpen, setAttachmentModalOpen] = useState(false);
@@ -176,6 +177,7 @@ const ShipmentHistoryPage: React.FC<ShipmentHistoryPageProps> = ({ shipments, ca
       <ShipmentTable 
         shipments={filteredShipments} 
         cargos={cargos}
+        drivers={drivers}
         users={users}
         vehicles={vehicles}
         onShowHistory={handleShowHistory}

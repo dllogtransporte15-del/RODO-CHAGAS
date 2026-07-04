@@ -204,7 +204,8 @@ const OperationalLoadsPage: React.FC<OperationalLoadsPageProps> = ({
           <h2 className="text-2xl font-semibold text-primary dark:text-blue-400 mb-4 border-b-2 border-primary pb-2">Meu Embarque em Andamento</h2>
           <ShipmentTable
             shipments={driverActiveShipments}
-            cargos={loads} // active loads
+            cargos={loads}
+            drivers={drivers}
             clients={clients}
             users={users}
             vehicles={vehicles}
