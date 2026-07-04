@@ -12,7 +12,7 @@ import { ExternalLinkIcon } from './icons/ExternalLinkIcon';
 import { InfoIcon } from './icons/InfoIcon';
 import { TransferIcon } from './icons/TransferIcon';
 import { MoreVerticalIcon } from './icons/MoreVerticalIcon';
-import { Search, Filter, X, Trash2, RotateCcw, Clock, Package, AlertCircle, Smartphone } from 'lucide-react';
+import { Search, Filter, X, Trash2, RotateCcw, Clock, Package, AlertCircle, Smartphone, MapPin } from 'lucide-react';
 import { StayRecord } from '../utils/toolStorage';
 import type { Ticket, Driver } from '../types';
 import { TicketStatus } from '../types';
@@ -210,6 +210,7 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, drivers, cargo
 
   return (
     <div className="space-y-4">
+      {currentUser.profile !== UserProfile.Motorista && (
       <div className="flex flex-col bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700">
         <div className="flex flex-col md:flex-row items-center justify-between p-4 gap-4">
           <div className="w-full md:w-auto">
@@ -245,6 +246,8 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, drivers, cargo
             </div>
         )}
       </div>
+      )}
+
 
       <div className="bg-white dark:bg-gray-800 shadow-md rounded-lg overflow-hidden border border-gray-100 dark:border-gray-700">
         {/* Mobile View - Cards */}
@@ -358,7 +361,7 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, drivers, cargo
                       }
                     </div>
                   </div>
-                  {currentUser.profile !== UserProfile.Embarcador && currentUser.profile !== UserProfile.Cliente && (
+                  {currentUser.profile !== UserProfile.Embarcador && currentUser.profile !== UserProfile.Cliente && currentUser.profile !== UserProfile.Motorista && (
                     <>
                       <div className="col-span-2 mt-1">
                         <div className="text-[10px] text-gray-400 uppercase font-bold mb-1">Detalhamento Financeiro</div>
@@ -434,12 +437,14 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, drivers, cargo
                   
                   <div className="flex gap-2">
                     {(!isClient || showActionsColumnForClient) && (
-                      <button 
-                        onClick={(e) => toggleActionMenu(shipment.id, e)}
-                        className="flex items-center gap-2 px-3 py-1.5 bg-primary text-white text-xs rounded-md shadow-sm hover:bg-primary/90"
-                      >
-                        Ações <MoreVerticalIcon className="w-3 h-3" />
-                      </button>
+                      currentUser.profile === UserProfile.Motorista && shipment.status !== ShipmentStatus.AguardandoCarregamento && shipment.status !== ShipmentStatus.AguardandoDescarga ? null : (
+                        <button 
+                          onClick={(e) => toggleActionMenu(shipment.id, e)}
+                          className="flex items-center gap-2 px-3 py-1.5 bg-primary text-white text-xs rounded-md shadow-sm hover:bg-primary/90"
+                        >
+                          Ações <MoreVerticalIcon className="w-3 h-3" />
+                        </button>
+                      )
                     )}
                   </div>
                 </div>
@@ -456,7 +461,7 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, drivers, cargo
                 <th scope="col" className="px-6 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">Embarque / Carga</th>
                 <th scope="col" className="px-6 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">Motorista / Solicitante</th>
                 <th scope="col" className="px-6 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">Origem / Destino</th>
-                {currentUser.profile !== UserProfile.Embarcador && currentUser.profile !== UserProfile.Cliente && (
+                {currentUser.profile !== UserProfile.Embarcador && currentUser.profile !== UserProfile.Cliente && currentUser.profile !== UserProfile.Motorista && (
                   <th scope="col" className="px-6 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">Margem</th>
                 )}
                 <th scope="col" className="px-6 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">Frete / Ton</th>
@@ -587,7 +592,7 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, drivers, cargo
                           </button>
                       )}
                     </td>
-                    {currentUser.profile !== UserProfile.Embarcador && currentUser.profile !== UserProfile.Cliente && (
+                    {currentUser.profile !== UserProfile.Embarcador && currentUser.profile !== UserProfile.Cliente && currentUser.profile !== UserProfile.Motorista && (
                       <td className="px-6 py-[11px] whitespace-nowrap text-sm">
                         {(() => {
                           const companyRate = shipment.companyFreightRateSnapshot || cargo?.companyFreightValuePerTon || 0;
@@ -693,81 +698,124 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, drivers, cargo
                               </>
                           ) : (
                               <div className="flex items-center justify-center space-x-1">
-                                  {whatsappLink && (
-                                      <a
-                                          href={whatsappLink}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          className="p-1 hover:opacity-80 transition-opacity"
-                                          title="Abrir WhatsApp"
-                                      >
-                                          <WhatsAppIcon className="w-6 h-6" />
-                                      </a>
-                                  )}
-  
-                                  {shipment.status === ShipmentStatus.Cancelado && currentUser.profile !== UserProfile.Admin && currentUser.profile !== UserProfile.Diretor ? (
-                                      <span className="text-xs text-gray-400 dark:text-gray-500 italic px-2">Cancelado</span>
-                                  ) : (
-                                      <div className="relative">
-                                          <button
-                                              onClick={(e) => toggleActionMenu(shipment.id, e)}
-                                              className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500 dark:text-gray-400"
-                                              title="Mais ações"
-                                          >
-                                              <MoreVerticalIcon className="h-5 w-5" />
-                                          </button>
-                                          
-                                          {openActionMenu === shipment.id && menuPosition && createPortal(
-                                              <div 
-                                                ref={actionMenuRef}
-                                                style={{
-                                                  position: 'fixed',
-                                                  top: menuPosition.isUp ? 'auto' : `${menuPosition.top + 8}px`,
-                                                  bottom: menuPosition.isUp ? `${window.innerHeight - menuPosition.top + 8}px` : 'auto',
-                                                  left: `${menuPosition.left - 224}px`, // 224 is w-56 (14rem * 16px)
-                                                  zIndex: 9999
-                                                }}
-                                                className="w-56 bg-white dark:bg-gray-800 rounded-md shadow-lg ring-1 ring-black ring-opacity-5 animate-in fade-in zoom-in duration-100"
+                                  {currentUser.profile === UserProfile.Motorista ? (
+                                      shipment.status !== ShipmentStatus.AguardandoCarregamento && shipment.status !== ShipmentStatus.AguardandoDescarga ? null : (
+                                          <div className="relative">
+                                              <button
+                                                  onClick={(e) => toggleActionMenu(shipment.id, e)}
+                                                  className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500 dark:text-gray-400"
+                                                  title="Mais ações"
                                               >
-                                                  <div className="py-1" role="menu" aria-orientation="vertical">
-                                                      {onShowHistory && <ActionMenuItem icon={HistoryIcon} text="Ver Histórico" onClick={() => onShowHistory(shipment)} />}
-                                                      {shipment.status !== ShipmentStatus.Cancelado && (
-                                                          <>
-                                                              {isActionable && onAttach && (
-                                                                <ActionMenuItem 
-                                                                    icon={PaperclipIcon} 
-                                                                    text="Anexa e Avançar" 
-                                                                    onClick={() => onAttach(shipment)} 
-                                                                    disabled={!canAdvance && shipment.status !== ShipmentStatus.AguardandoAdiantamento} 
-                                                                    title={(!canAdvance && shipment.status !== ShipmentStatus.AguardandoAdiantamento) ? disabledReason : undefined} 
-                                                                />
-                                                              )}
-                                                              {shipment.status === ShipmentStatus.PreCadastro && onOpenCadastroAntt && <ActionMenuItem icon={ExternalLinkIcon} text="Fazer Cadastro" onClick={() => onOpenCadastroAntt(shipment)} />}
-                                                              {isActionable && onEditPrice && <ActionMenuItem icon={DollarSignIcon} text="Alterar Preço" onClick={() => onEditPrice(shipment)} />}
-                                                              {isActionable && onTransfer && <ActionMenuItem icon={TransferIcon} text="Transferir Embarque" onClick={() => onTransfer(shipment)} />}
-                                                              {isActionable && (shipment.status === ShipmentStatus.PreCadastro || shipment.status === ShipmentStatus.AguardandoSeguradora) && onSwapCargo && <ActionMenuItem icon={Package} text="Trocar Carga" onClick={() => onSwapCargo(shipment)} />}
-                                                              {onOpenEditScheduledDateTime && <ActionMenuItem icon={Clock} text="Alterar Data/Hora" onClick={() => onOpenEditScheduledDateTime(shipment)} />}
-                                                              {shipment.status === ShipmentStatus.Finalizado && onAttach && <ActionMenuItem icon={PaperclipIcon} text="Gestor de Anexos" onClick={() => onAttach(shipment)} />}
-                                                              {isActionable && onCancel && (currentUser.profile !== UserProfile.Fiscal || shipment.status === ShipmentStatus.AguardandoSeguradora) && <ActionMenuItem icon={XIcon} text="Cancelar Embarque" onClick={() => onCancel(shipment)} isDestructive />}
-                                                          </>
-                                                      )}
-                                                      {onRevertStatus && statusHistoryCount > 1 && (currentUser.profile === UserProfile.Admin || currentUser.profile === UserProfile.Diretor) && (
-                                                          <ActionMenuItem 
-                                                              icon={RotateCcw} 
-                                                              text="Voltar Status Anterior" 
-                                                              onClick={() => {
-                                                                  if (confirm(`Tem certeza que deseja REVERTER o status do embarque ${shipment.id} para o estado anterior? Isso também removerá os anexos adicionados no último passo.`)) {
-                                                                      onRevertStatus(shipment.id);
-                                                                  }
-                                                              }} 
-                                                          />
-                                                      )}
-                                                      {onDelete && currentUser.profile === UserProfile.Admin && <ActionMenuItem icon={Trash2} text="Excluir Embarque" onClick={() => onDelete(shipment.id)} isDestructive />}
-                                                  </div>
-                                              </div>,
-                                              document.body
+                                                  <MoreVerticalIcon className="h-5 w-5" />
+                                              </button>
+                                              {openActionMenu === shipment.id && menuPosition && createPortal(
+                                                  <div 
+                                                    ref={actionMenuRef}
+                                                    style={{
+                                                      position: 'fixed',
+                                                      top: menuPosition.isUp ? 'auto' : `${menuPosition.top + 8}px`,
+                                                      bottom: menuPosition.isUp ? `${window.innerHeight - menuPosition.top + 8}px` : 'auto',
+                                                      left: `${menuPosition.left - 224}px`,
+                                                      zIndex: 9999
+                                                    }}
+                                                    className="w-56 bg-white dark:bg-gray-800 rounded-md shadow-lg ring-1 ring-black ring-opacity-5 animate-in fade-in zoom-in duration-100"
+                                                  >
+                                                      <div className="py-1" role="menu" aria-orientation="vertical">
+                                                          {shipment.status === ShipmentStatus.AguardandoCarregamento && (
+                                                              <>
+                                                                  <ActionMenuItem icon={MapPin} text="Informar Rota do Motorista" onClick={() => onAttach(shipment)} />
+                                                                  <ActionMenuItem icon={PaperclipIcon} text="Ticket de Carregamento" onClick={() => onAttach(shipment)} />
+                                                                  <ActionMenuItem icon={Package} text="Toneladas Carregadas" onClick={() => onAttach(shipment)} />
+                                                              </>
+                                                          )}
+                                                          {shipment.status === ShipmentStatus.AguardandoDescarga && (
+                                                              <ActionMenuItem icon={PaperclipIcon} text="Comprovante de Descarga" onClick={() => onAttach(shipment)} />
+                                                          )}
+                                                      </div>
+                                                  </div>,
+                                                  document.body
+                                              )}
+                                          </div>
+                                      )
+                                  ) : (
+                                      <>
+                                          {whatsappLink && (
+                                              <a
+                                                  href={whatsappLink}
+                                                  target="_blank"
+                                                  rel="noopener noreferrer"
+                                                  className="p-1 hover:opacity-80 transition-opacity"
+                                                  title="Abrir WhatsApp"
+                                              >
+                                                  <WhatsAppIcon className="w-6 h-6" />
+                                              </a>
                                           )}
-                                      </div>
+          
+                                          {shipment.status === ShipmentStatus.Cancelado && currentUser.profile !== UserProfile.Admin && currentUser.profile !== UserProfile.Diretor ? (
+                                              <span className="text-xs text-gray-400 dark:text-gray-500 italic px-2">Cancelado</span>
+                                          ) : (
+                                              <div className="relative">
+                                                  <button
+                                                      onClick={(e) => toggleActionMenu(shipment.id, e)}
+                                                      className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500 dark:text-gray-400"
+                                                      title="Mais ações"
+                                                  >
+                                                      <MoreVerticalIcon className="h-5 w-5" />
+                                                  </button>
+                                                  
+                                                  {openActionMenu === shipment.id && menuPosition && createPortal(
+                                                      <div 
+                                                        ref={actionMenuRef}
+                                                        style={{
+                                                          position: 'fixed',
+                                                          top: menuPosition.isUp ? 'auto' : `${menuPosition.top + 8}px`,
+                                                          bottom: menuPosition.isUp ? `${window.innerHeight - menuPosition.top + 8}px` : 'auto',
+                                                          left: `${menuPosition.left - 224}px`, // 224 is w-56 (14rem * 16px)
+                                                          zIndex: 9999
+                                                        }}
+                                                        className="w-56 bg-white dark:bg-gray-800 rounded-md shadow-lg ring-1 ring-black ring-opacity-5 animate-in fade-in zoom-in duration-100"
+                                                      >
+                                                          <div className="py-1" role="menu" aria-orientation="vertical">
+                                                              {onShowHistory && <ActionMenuItem icon={HistoryIcon} text="Ver Histórico" onClick={() => onShowHistory(shipment)} />}
+                                                              {shipment.status !== ShipmentStatus.Cancelado && (
+                                                                  <>
+                                                                      {isActionable && onAttach && (
+                                                                        <ActionMenuItem 
+                                                                            icon={PaperclipIcon} 
+                                                                            text="Anexa e Avançar" 
+                                                                            onClick={() => onAttach(shipment)} 
+                                                                            disabled={!canAdvance && shipment.status !== ShipmentStatus.AguardandoAdiantamento} 
+                                                                            title={(!canAdvance && shipment.status !== ShipmentStatus.AguardandoAdiantamento) ? disabledReason : undefined} 
+                                                                        />
+                                                                      )}
+                                                                      {shipment.status === ShipmentStatus.PreCadastro && onOpenCadastroAntt && <ActionMenuItem icon={ExternalLinkIcon} text="Fazer Cadastro" onClick={() => onOpenCadastroAntt(shipment)} />}
+                                                                      {isActionable && onEditPrice && <ActionMenuItem icon={DollarSignIcon} text="Alterar Preço" onClick={() => onEditPrice(shipment)} />}
+                                                                      {isActionable && onTransfer && <ActionMenuItem icon={TransferIcon} text="Transferir Embarque" onClick={() => onTransfer(shipment)} />}
+                                                                      {isActionable && (shipment.status === ShipmentStatus.PreCadastro || shipment.status === ShipmentStatus.AguardandoSeguradora) && onSwapCargo && <ActionMenuItem icon={Package} text="Trocar Carga" onClick={() => onSwapCargo(shipment)} />}
+                                                                      {onOpenEditScheduledDateTime && <ActionMenuItem icon={Clock} text="Alterar Data/Hora" onClick={() => onOpenEditScheduledDateTime(shipment)} />}
+                                                                      {shipment.status === ShipmentStatus.Finalizado && onAttach && <ActionMenuItem icon={PaperclipIcon} text="Gestor de Anexos" onClick={() => onAttach(shipment)} />}
+                                                                      {isActionable && onCancel && (currentUser.profile !== UserProfile.Fiscal || shipment.status === ShipmentStatus.AguardandoSeguradora) && <ActionMenuItem icon={XIcon} text="Cancelar Embarque" onClick={() => onCancel(shipment)} isDestructive />}
+                                                                  </>
+                                                              )}
+                                                              {onRevertStatus && statusHistoryCount > 1 && (currentUser.profile === UserProfile.Admin || currentUser.profile === UserProfile.Diretor) && (
+                                                                  <ActionMenuItem 
+                                                                      icon={RotateCcw} 
+                                                                      text="Voltar Status Anterior" 
+                                                                      onClick={() => {
+                                                                          if (confirm(`Tem certeza que deseja REVERTER o status do embarque ${shipment.id} para o estado anterior? Isso também removerá os anexos adicionados no último passo.`)) {
+                                                                              onRevertStatus(shipment.id);
+                                                                          }
+                                                                      }} 
+                                                                  />
+                                                              )}
+                                                              {onDelete && currentUser.profile === UserProfile.Admin && <ActionMenuItem icon={Trash2} text="Excluir Embarque" onClick={() => onDelete(shipment.id)} isDestructive />}
+                                                          </div>
+                                                      </div>,
+                                                      document.body
+                                                  )}
+                                              </div>
+                                          )}
+                                      </>
                                   )}
                               </div>
                           )}

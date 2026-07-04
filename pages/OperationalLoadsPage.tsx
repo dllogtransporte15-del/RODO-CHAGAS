@@ -8,6 +8,8 @@ import HistoryModal from '../components/HistoryModal';
 import CargoDetailsModal from '../components/CargoDetailsModal';
 import CargoShipmentsSidePanel from '../components/CargoShipmentsSidePanel';
 import RecommendedDriversModal from '../components/RecommendedDriversModal';
+import AttachmentModal from '../components/AttachmentModal';
+import { REQUIRED_DOCUMENT_MAP } from '../types';
 import type { Cargo, Client, Product, Driver, Shipment, Vehicle, User, ProfilePermissions, VehicleSetType, VehicleBodyType, Branch } from '../types';
 import { can } from '../auth';
 import { CopyIcon } from '../components/icons/CopyIcon';
@@ -39,6 +41,20 @@ interface OperationalLoadsPageProps {
   stays?: StayRecord[];
   tickets?: Ticket[];
   onRequestLoadOrder?: (cargo: Cargo) => void;
+  onUpdateAttachment?: (shipmentId: string, data: { 
+    filesToAttach: { [key: string]: File[] }, 
+    bankDetails?: string, 
+    loadedTonnage?: number, 
+    advancePercentage?: number, 
+    advanceValue?: number,
+    tollValue?: number, 
+    balanceToReceiveValue?: number,
+    discountValue?: number,
+    netBalanceValue?: number,
+    unloadedTonnage?: number,
+    route?: string 
+  }) => Promise<void>;
+  onAddAttachments?: (shipmentId: string, files: File[]) => Promise<void>;
 }
 
 const formatAllowedVehicleTypes = (allowed?: { setType: VehicleSetType; bodyTypes: VehicleBodyType[] }[]): string => {
@@ -71,6 +87,8 @@ const OperationalLoadsPage: React.FC<OperationalLoadsPageProps> = ({
   stays = [],
   tickets = [],
   onRequestLoadOrder,
+  onUpdateAttachment,
+  onAddAttachments,
 }) => {
   const [isShipmentModalOpen, setIsShipmentModalOpen] = useState(false);
   const [selectedCargo, setSelectedCargo] = useState<Cargo | null>(null);
@@ -89,10 +107,38 @@ const OperationalLoadsPage: React.FC<OperationalLoadsPageProps> = ({
   const [isRecommendedDriversModalOpen, setIsRecommendedDriversModalOpen] = useState(false);
   const [selectedCargoForRecommendations, setSelectedCargoForRecommendations] = useState<Cargo | null>(null);
 
+  const [isAttachmentModalOpen, setAttachmentModalOpen] = useState(false);
+  const [selectedShipment, setSelectedShipment] = useState<Shipment | null>(null);
+
   React.useEffect(() => {
-    const isAnyOpen = isShipmentModalOpen || isLoadFormModalOpen || isHistoryModalOpen || !!detailsModalCargo || isShipmentsPanelOpen || isRecommendedDriversModalOpen;
+    if (selectedShipment) {
+      const updated = allShipments.find(s => s.id === selectedShipment.id);
+      if (updated && JSON.stringify(updated) !== JSON.stringify(selectedShipment)) {
+        setSelectedShipment(updated);
+      }
+    }
+  }, [allShipments, selectedShipment]);
+
+  const handleOpenAttachmentModal = (shipment: Shipment) => {
+    setSelectedShipment(shipment);
+    setAttachmentModalOpen(true);
+  };
+
+  const handleCloseAttachmentModal = () => {
+    setAttachmentModalOpen(false);
+    setSelectedShipment(null);
+  };
+
+  const handleSaveAttachment = async (data: any) => {
+    if (!selectedShipment || !onUpdateAttachment) return;
+    await onUpdateAttachment(selectedShipment.id, data);
+    handleCloseAttachmentModal();
+  };
+
+  React.useEffect(() => {
+    const isAnyOpen = isShipmentModalOpen || isLoadFormModalOpen || isHistoryModalOpen || !!detailsModalCargo || isShipmentsPanelOpen || isRecommendedDriversModalOpen || isAttachmentModalOpen;
     onModalStateChange(isAnyOpen);
-  }, [isShipmentModalOpen, isLoadFormModalOpen, isHistoryModalOpen, detailsModalCargo, isShipmentsPanelOpen, isRecommendedDriversModalOpen, onModalStateChange]);
+  }, [isShipmentModalOpen, isLoadFormModalOpen, isHistoryModalOpen, detailsModalCargo, isShipmentsPanelOpen, isRecommendedDriversModalOpen, isAttachmentModalOpen, onModalStateChange]);
 
   const handleShowCargoDetails = (cargo: Cargo) => {
     setDetailsModalCargo(cargo);
@@ -219,6 +265,7 @@ const OperationalLoadsPage: React.FC<OperationalLoadsPageProps> = ({
             products={products}
             currentUser={currentUser}
             onShowCargoDetails={handleShowCargoDetails}
+            onAttach={handleOpenAttachmentModal}
             stays={stays}
             activeStatus="all"
           />
@@ -320,6 +367,17 @@ const OperationalLoadsPage: React.FC<OperationalLoadsPageProps> = ({
         shipments={allShipments}
         cargos={loads}
       />
+      {selectedShipment && (
+        <AttachmentModal
+          isOpen={isAttachmentModalOpen}
+          onClose={handleCloseAttachmentModal}
+          onSave={handleSaveAttachment}
+          shipment={selectedShipment}
+          documentName={REQUIRED_DOCUMENT_MAP[selectedShipment.status] || 'Documento'}
+          currentUser={currentUser}
+          cargo={loads.find(c => c.id === selectedShipment.cargoId)}
+        />
+      )}
     </>
   );
 };

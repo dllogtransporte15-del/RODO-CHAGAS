@@ -376,7 +376,7 @@ const LoadTable: React.FC<LoadTableProps> = ({ loads, clients, products, shipmen
                       <div className="text-sm font-bold text-primary dark:text-blue-400">
                         {currentUser.profile === UserProfile.Cliente ? formatCurrency(load.companyFreightValuePerTon) : formatCurrency(load.driverFreightValuePerTon)}
                       </div>
-                      {currentUser.profile !== UserProfile.Cliente && (
+                      {currentUser.profile !== UserProfile.Cliente && currentUser.profile !== UserProfile.Motorista && (
                           <div className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${marginColorClass}`} title="Margem de Lucro">
                             {netMarginPercentage}
                           </div>

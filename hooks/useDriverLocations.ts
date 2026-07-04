@@ -6,7 +6,7 @@ export function useDriverLocations() {
   const [driverLocations, setDriverLocations] = useState<Map<string, DriverLocation>>(new Map());
 
   useEffect(() => {
-    const channel = supabase.channel('driver_tracking');
+    const channel = supabase.channel('driver_locations_monitor');
 
     channel
       .on('presence', { event: 'sync' }, () => {

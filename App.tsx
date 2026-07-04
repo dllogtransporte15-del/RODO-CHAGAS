@@ -249,38 +249,78 @@ const App: React.FC = () => {
   const verifySession = useCallback(async () => {
     setIsAuthChecking(true);
     console.log('[Auth] Iniciando verificação de sessão...');
-    
+
     try {
-      // 1. Tenta recuperar e-mail do localStorage ou da sessão do Supabase
       const { data: { session } } = await supabase.auth.getSession();
       const savedUserEmail = localStorage.getItem('rodo_user_email') || session?.user?.email;
-      
+
       if (savedUserEmail) {
         if (localStorage.getItem('rodo_user_email') && session?.user?.email && localStorage.getItem('rodo_user_email') !== session?.user?.email) {
           console.warn('[Auth] Mismatch detected between localStorage and Supabase session.');
         }
         console.log('[Auth] Recuperando perfil para:', savedUserEmail);
+
+        // Verifica se o usuário salvo no localStorage já é um motorista
+        let savedUser: User | null = null;
+        try { savedUser = JSON.parse(localStorage.getItem('rodochagas_currentUser') || 'null'); } catch { savedUser = null; }
+        const isMotoristaSession = savedUser?.profile === UserProfile.Motorista;
+
+        if (isMotoristaSession) {
+          // Motorista: valida diretamente na tabela drivers via CPF (não existe em app_users)
+          const cleanCpf = savedUserEmail.replace(/\D/g, "");
+          const formattedCpf = cleanCpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
+
+          let { data: dbDriver } = await supabase
+            .from('drivers')
+            .select('*')
+            .eq("cpf", formattedCpf)
+            .maybeSingle();
+
+          if (!dbDriver) {
+            const { data: dbDriverClean } = await supabase
+              .from('drivers')
+              .select('*')
+              .eq("cpf", cleanCpf)
+              .maybeSingle();
+            dbDriver = dbDriverClean;
+          }
+
+          if (dbDriver && dbDriver.active) {
+            const driverProfile: User = {
+              id: dbDriver.id,
+              name: dbDriver.name,
+              email: dbDriver.cpf,
+              profile: UserProfile.Motorista,
+              active: dbDriver.active,
+            };
+            setCurrentUser(driverProfile);
+            console.log('[Auth] Sessão de motorista restaurada:', driverProfile.name);
+          } else {
+            console.warn('[Auth] Motorista não encontrado ou inativo.');
+            setCurrentUser(null);
+          }
+          return;
+        }
+
+        // Usuário interno: busca em app_users
         const { data: dbUser, error: dbError } = await supabase
           .from('app_users')
           .select('*')
-          .eq('email', savedUserEmail)
-          .single();
-          
+          .eq("email", savedUserEmail)
+          .maybeSingle();
+
         if (!dbError && dbUser) {
           const userProfile = toUser(dbUser);
-          
+
           if (userProfile.active) {
-            // Lógica de expiração de senha (30 dias)
             if (userProfile.passwordUpdatedAt) {
               const lastUpdate = new Date(userProfile.passwordUpdatedAt).getTime();
               const now = new Date().getTime();
               const daysSinceUpdate = (now - lastUpdate) / (1000 * 3600 * 24);
-              
               if (daysSinceUpdate >= 30) {
                 userProfile.requirePasswordChange = true;
               }
             }
-            
             setCurrentUser(userProfile);
             console.log('[Auth] Sessão restaurada com sucesso:', userProfile.name);
           } else {
@@ -289,49 +329,7 @@ const App: React.FC = () => {
           }
         } else {
           if (dbError) console.error('[Auth] Erro ao recuperar perfil:', dbError.message);
-          
-          // Se o usuário não existe no app_users, tenta na tabela de drivers (para Motoristas)
-          if (dbError?.code === 'PGRST116') {
-            const cleanCpf = savedUserEmail.replace(/\D/g, '');
-            const formattedCpf = cleanCpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
-
-            let { data: dbDriver, error: driverError } = await supabase
-              .from('drivers')
-              .select('*')
-              .eq('cpf', formattedCpf)
-              .maybeSingle();
-
-            if (!dbDriver) {
-              const { data: dbDriverClean, error: cleanError } = await supabase
-                .from('drivers')
-                .select('*')
-                .eq('cpf', cleanCpf)
-                .maybeSingle();
-              dbDriver = dbDriverClean;
-              driverError = cleanError;
-            }
-
-            if (!driverError && dbDriver) {
-              if (dbDriver.active) {
-                const driverProfile: User = {
-                  id: dbDriver.id,
-                  name: dbDriver.name,
-                  email: dbDriver.cpf,
-                  profile: UserProfile.Motorista,
-                  active: dbDriver.active,
-                };
-                setCurrentUser(driverProfile);
-                console.log('[Auth] Sessão de motorista restaurada:', driverProfile.name);
-              } else {
-                console.warn('[Auth] Motorista inativo no banco.');
-                setCurrentUser(null);
-              }
-            } else {
-              setCurrentUser(null);
-            }
-          } else {
-            setCurrentUser(null);
-          }
+          setCurrentUser(null);
         }
       } else {
         console.log('[Auth] Nenhuma sessão encontrada.');
@@ -1101,7 +1099,9 @@ const App: React.FC = () => {
 
     let nextStatus: ShipmentStatus | undefined;
 
-    if (originalShipment.status === ShipmentStatus.AguardandoAdiantamento) {
+    if (currentUser.profile === UserProfile.Motorista && originalShipment.status === ShipmentStatus.AguardandoDescarga) {
+        nextStatus = ShipmentStatus.AguardandoDescarga;
+    } else if (originalShipment.status === ShipmentStatus.AguardandoAdiantamento) {
         const relatedCargo = cargos.find(c => c.id === originalShipment.cargoId);
         if (relatedCargo?.requiresScheduling) {
             nextStatus = ShipmentStatus.AguardandoAgendamento;
@@ -1205,7 +1205,11 @@ const App: React.FC = () => {
     
     if (route) historyLogs.push(`Rota informada: ${route}`);
 
-    const statusChangeLog = createHistoryLog(`Status alterado para ${nextStatus}. ${historyLogs.join(' ')}`);
+    const isStatusSame = nextStatus === originalShipment.status;
+    const logMessage = isStatusSame
+        ? `Comprovante de descarga anexado pelo motorista. ${historyLogs.join(' ')}`
+        : `Status alterado para ${nextStatus}. ${historyLogs.join(' ')}`;
+    const statusChangeLog = createHistoryLog(logMessage);
 
     const updatedShipment: Shipment = {
         ...originalShipment,
@@ -1223,14 +1227,16 @@ const App: React.FC = () => {
         unloadedTonnage: finalUnloadedTonnage,
         route: route || originalShipment.route,
         history: [...originalShipment.history, statusChangeLog],
-        statusHistory: [
-            ...(originalShipment.statusHistory || []),
-            {
-                status: nextStatus,
-                timestamp: new Date().toISOString(),
-                userId: currentUser.id,
-            }
-        ],
+        statusHistory: isStatusSame
+            ? (originalShipment.statusHistory || [])
+            : [
+                ...(originalShipment.statusHistory || []),
+                {
+                    status: nextStatus,
+                    timestamp: new Date().toISOString(),
+                    userId: currentUser.id,
+                }
+            ],
     };
 
     // 3. Prepare Cargo Update (if applicable)
@@ -1258,11 +1264,39 @@ const App: React.FC = () => {
         }
     }
 
+    let createdTicket: Ticket | undefined;
+    if (currentUser.profile === UserProfile.Motorista && originalShipment.status === ShipmentStatus.AguardandoDescarga) {
+        const newTicketId = formatId(nextIds.ticket, 'TCK');
+        const commentMsg = `Chamado criado automaticamente após o envio do comprovante de descarga pelo motorista ${currentUser.name}.`;
+        const assignedToId = originalShipment.embarcadorId || '';
+
+        createdTicket = {
+            id: newTicketId,
+            title: `Confirmação de Descarga - Embarque ${shipmentId}`,
+            description: `O motorista ${currentUser.name} anexou o Comprovante de Descarga para o embarque ${shipmentId}.\nPor favor, confirme o peso descarregado (Informado pelo motorista: ${unloadedTonnage ? unloadedTonnage + ' Ton' : 'Não informado'}) e altere o status do embarque para "Ag. Saldo".`,
+            status: TicketStatus.Aberto,
+            priority: TicketPriority.Alta,
+            createdById: currentUser.id,
+            assignedToId: assignedToId,
+            createdAt: new Date().toISOString(),
+            shipmentId: shipmentId,
+            cargoId: originalShipment.cargoId,
+            history: [{
+                userId: currentUser.id,
+                timestamp: new Date().toISOString(),
+                comment: commentMsg
+            }]
+        };
+    }
+
     // 4. Persist to Supabase
     try {
       await upsertShipment(updatedShipment);
       if (updatedCargo) {
         await upsertCargo(updatedCargo);
+      }
+      if (createdTicket) {
+        await upsertTicket(createdTicket);
       }
       
       // 5. Update local state on SUCCESS
@@ -1271,8 +1305,16 @@ const App: React.FC = () => {
         const cargoToUpdate = updatedCargo; // capture for closure
         setCargos(prev => prev.map(c => c.id === cargoToUpdate.id ? cargoToUpdate : c));
       }
+      if (createdTicket) {
+        const ticketToUpdate = createdTicket;
+        setTickets((prev: Ticket[]) => [ticketToUpdate, ...prev]);
+        setNextIds((prev: any) => ({ ...prev, ticket: prev.ticket + 1 }));
+      }
       
-      showToast('Embarque atualizado com sucesso!', 'success');
+      const successMsg = (currentUser.profile === UserProfile.Motorista && originalShipment.status === ShipmentStatus.AguardandoDescarga)
+        ? 'Comprovante enviado! Aguardando confirmação do peso pelo embarcador.'
+        : 'Embarque atualizado com sucesso!';
+      showToast(successMsg, 'success');
     } catch(err: any) { 
       console.error('Erro ao salvar no Supabase:', err);
       const errorMessage = err?.message || 'Erro desconhecido ao salvar no banco de dados.';
@@ -2128,6 +2170,8 @@ const App: React.FC = () => {
             branches={branches}
             stays={stays}
             tickets={tickets}
+            onUpdateAttachment={handleUpdateShipmentAttachment}
+            onAddAttachments={handleAddShipmentAttachments}
           />
         );
       case 'operational-map':
