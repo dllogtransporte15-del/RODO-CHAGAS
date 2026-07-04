@@ -559,7 +559,9 @@ const App: React.FC = () => {
     if (!currentUser) return [];
     if (currentUser.profile === UserProfile.Motorista) {
       // Para motorista, o email guarda o CPF dele no objeto User criado dinamicamente no login
-      return shipments.filter(s => s.driverCpf === currentUser.email);
+      // Normalizamos o CPF removendo pontuação para evitar mismatch de formato
+      const driverCpfClean = (currentUser.email || '').replace(/\D/g, '');
+      return shipments.filter(s => (s.driverCpf || '').replace(/\D/g, '') === driverCpfClean);
     }
     if (currentUser.profile === UserProfile.Embarcador) {
       return shipments.filter(s => s.embarcadorId === currentUser.id);
@@ -598,7 +600,7 @@ const App: React.FC = () => {
 
   const inProgressLoads = useMemo(() => {
     const today = new Date().toISOString().split('T')[0];
-    return visibleLoads.filter(c => {
+    const filtered = visibleLoads.filter(c => {
       if (c.status === CargoStatus.Suspensa) {
         return currentUser?.profile !== UserProfile.Motorista;
       }
@@ -607,7 +609,30 @@ const App: React.FC = () => {
       }
       return false;
     });
-  }, [visibleLoads, currentUser]);
+
+    // Para motoristas: garantir que os cargos dos embarques ativos sempre estejam incluídos,
+    // mesmo que o dailySchedule da carga já tenha passado
+    if (currentUser?.profile === UserProfile.Motorista) {
+      const driverCpfClean = (currentUser.email || '').replace(/\D/g, '');
+      const activeShipmentCargoIds = new Set(
+        shipments
+          .filter(s =>
+            (s.driverCpf || '').replace(/\D/g, '') === driverCpfClean &&
+            s.status !== ShipmentStatus.Finalizado &&
+            s.status !== ShipmentStatus.Cancelado
+          )
+          .map(s => s.cargoId)
+      );
+      // Adicionar cargas faltantes (as que têm embarques ativos mas não passaram no filtro de datas)
+      const filteredIds = new Set(filtered.map(c => c.id));
+      const missingCargos = visibleLoads.filter(c =>
+        activeShipmentCargoIds.has(c.id) && !filteredIds.has(c.id)
+      );
+      return [...filtered, ...missingCargos];
+    }
+
+    return filtered;
+  }, [visibleLoads, currentUser, shipments]);
 
   const handleAcceptFreightOffer = async (offer: FreightOffer) => {
     try {

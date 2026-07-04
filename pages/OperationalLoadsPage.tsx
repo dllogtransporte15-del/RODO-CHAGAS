@@ -182,7 +182,14 @@ const OperationalLoadsPage: React.FC<OperationalLoadsPageProps> = ({
   };
 
   const driverActiveShipments = currentUser.profile === UserProfile.Motorista
-    ? allShipments.filter(s => s.driverCpf === currentUser.email && s.status !== ShipmentStatus.Finalizado && s.status !== ShipmentStatus.Cancelado)
+    ? (() => {
+        const driverCpfClean = (currentUser.email || '').replace(/\D/g, '');
+        return allShipments.filter(s =>
+          (s.driverCpf || '').replace(/\D/g, '') === driverCpfClean &&
+          s.status !== ShipmentStatus.Finalizado &&
+          s.status !== ShipmentStatus.Cancelado
+        );
+      })()
     : [];
 
   return (
