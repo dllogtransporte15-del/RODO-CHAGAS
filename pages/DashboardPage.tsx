@@ -9,6 +9,7 @@ import { TruckIcon } from '../components/icons/TruckIcon';
 import { PackageIcon } from '../components/icons/PackageIcon';
 import { DollarSignIcon } from '../components/icons/DollarSignIcon';
 import { ClientsIcon } from '../components/icons/ClientsIcon';
+import { WhatsAppIcon } from '../components/icons/WhatsAppIcon';
 import { CargoStatus, ShipmentStatus, UserProfile, FreightOfferStatus } from '../types';
 import type { Cargo, Shipment, User, Client, Product, Vehicle, FreightOffer } from '../types';
 import ShipmentDetailsModal from '../components/ShipmentDetailsModal';
@@ -46,6 +47,16 @@ interface ShipmentListCardProps {
 const ShipmentListCard: React.FC<ShipmentListCardProps> = ({ title, shipments, users, thresholds, onShowDetails }) => {
   const getEmbarcadorName = (embarcadorId: string): string => {
     return users.find(u => u.id === embarcadorId)?.name || 'N/A';
+  };
+
+  const getEmbarcadorWhatsAppLink = (embarcadorId: string): string | null => {
+    const user = users.find(u => u.id === embarcadorId);
+    if (!user || !user.phone) return null;
+    const cleanedPhone = user.phone.replace(/\D/g, '');
+    if (cleanedPhone.length >= 10) {
+      return `https://wa.me/55${cleanedPhone}`;
+    }
+    return null;
   };
   
   const getElapsedTimeColor = (startTime: string): string => {
@@ -126,7 +137,24 @@ const ShipmentListCard: React.FC<ShipmentListCardProps> = ({ title, shipments, u
                             <p className="text-xs text-gray-500 dark:text-gray-400">{formatDate(requestTimestamp)}</p>
                         </div>
                     </div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Solicitante: {getEmbarcadorName(shipment.embarcadorId)}</p>
+                    <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 flex items-center gap-1">
+                      <span>Solicitante: {getEmbarcadorName(shipment.embarcadorId)}</span>
+                      {(() => {
+                        const link = getEmbarcadorWhatsAppLink(shipment.embarcadorId);
+                        if (!link) return null;
+                        return (
+                          <a
+                            href={link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center text-green-500 hover:text-green-600 dark:text-green-400 dark:hover:text-green-300 transition-colors"
+                            title="Conversar com o embarcador no WhatsApp"
+                          >
+                            <WhatsAppIcon className="w-3 h-3" />
+                          </a>
+                        );
+                      })()}
+                    </div>
                 </div>
             )
           })

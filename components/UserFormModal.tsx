@@ -19,6 +19,7 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSave, 
   const getInitialState = (): Omit<User, 'id'> => ({
     name: '',
     email: '',
+    phone: '',
     profile: UserProfile.Comercial,
     active: true,
     password: '',
@@ -43,7 +44,7 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSave, 
     const { name, value, type } = e.target;
     const formattedValue = autoFormatInput(name, value);
 
-    let updatedValue: any = value;
+    let updatedValue: any = formattedValue;
     if (type === 'checkbox') {
         updatedValue = (e.target as HTMLInputElement).checked;
     }
@@ -93,6 +94,7 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSave, 
         <form onSubmit={handleSubmit} className="space-y-4">
           <input name="name" value={user.name} onChange={handleChange} placeholder="Nome Completo" className="p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600" required />
           <input name="email" value={user.email} onChange={handleChange} type="email" placeholder="Email de Acesso" className="p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600" required />
+          <input name="phone" value={user.phone || ''} onChange={handleChange} placeholder="Telefone" className="p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600" />
           <input name="password" value={user.password} onChange={handleChange} type="password" placeholder={userToEdit ? 'Nova Senha (deixe em branco para manter)' : 'Senha'} className="p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600" />
           
           <div>

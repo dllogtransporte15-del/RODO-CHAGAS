@@ -2,6 +2,7 @@
 import React, { useMemo } from 'react';
 import type { Shipment, Cargo, User } from '../types';
 import { UserProfile, ShipmentStatus } from '../types';
+import { WhatsAppIcon } from './icons/WhatsAppIcon';
 
 interface ShipperRankingCardProps {
   shipments: Shipment[];
@@ -25,6 +26,16 @@ const ShipperRankingCard: React.FC<ShipperRankingCardProps> = ({ shipments, carg
     if (!currentUser) return false;
     return [UserProfile.Diretor, UserProfile.Comercial, UserProfile.Admin].includes(currentUser.profile);
   }, [currentUser]);
+
+  const getWhatsAppLink = (shipperId: string): string | null => {
+    const shipper = users.find(u => u.id === shipperId);
+    if (!shipper || !shipper.phone) return null;
+    const cleanedPhone = shipper.phone.replace(/\D/g, '');
+    if (cleanedPhone.length >= 10) {
+      return `https://wa.me/55${cleanedPhone}`;
+    }
+    return null;
+  };
 
   const shipperStats = useMemo<ShipperStat[]>(() => {
     const now = new Date();
@@ -110,7 +121,26 @@ const ShipperRankingCard: React.FC<ShipperRankingCardProps> = ({ shipments, carg
             {shipperStats.map((stat, index) => (
               <tr key={stat.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                 <td className="py-3 px-3 text-sm font-medium text-gray-500 dark:text-gray-400">{index + 1}</td>
-                <td className="py-3 px-3 text-sm font-medium text-gray-900 dark:text-white">{stat.name}</td>
+                 <td className="py-3 px-3 text-sm font-medium text-gray-900 dark:text-white">
+                  <div className="flex items-center gap-1.5">
+                    <span>{stat.name}</span>
+                    {(() => {
+                      const link = getWhatsAppLink(stat.id);
+                      if (!link) return null;
+                      return (
+                        <a
+                          href={link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center text-green-500 hover:text-green-600 dark:text-green-400 dark:hover:text-green-300 transition-colors"
+                          title="Conversar com o embarcador no WhatsApp"
+                        >
+                          <WhatsAppIcon className="w-3.5 h-3.5" />
+                        </a>
+                      );
+                    })()}
+                  </div>
+                </td>
                 <td className="py-3 px-3 text-sm text-center text-gray-500 dark:text-gray-400">{stat.vehicleCount}</td>
                 <td className="py-3 px-3 text-sm text-center text-gray-500 dark:text-gray-400">{stat.shipmentCount}</td>
                 <td className="py-3 px-3 text-sm text-center font-medium text-gray-700 dark:text-gray-300">{stat.effectiveTonnage.toLocaleString('pt-BR')} t</td>

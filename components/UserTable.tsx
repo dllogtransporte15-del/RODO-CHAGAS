@@ -1,6 +1,7 @@
 
 import React from 'react';
 import type { User } from '../types';
+import { WhatsAppIcon } from './icons';
 
 interface UserTableProps {
   users: User[];
@@ -9,6 +10,12 @@ interface UserTableProps {
 }
 
 const UserTable: React.FC<UserTableProps> = ({ users, onEdit, onDelete }) => {
+  const getWhatsAppUrl = (phone: string) => {
+    const digits = phone.replace(/\D/g, '');
+    const finalDigits = (digits.length === 10 || digits.length === 11) ? `55${digits}` : digits;
+    return `https://wa.me/${finalDigits}`;
+  };
+
   return (
     <div className="bg-white dark:bg-gray-800 shadow-md rounded-lg overflow-hidden">
       <div className="overflow-x-auto">
@@ -17,6 +24,7 @@ const UserTable: React.FC<UserTableProps> = ({ users, onEdit, onDelete }) => {
             <tr>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">Nome</th>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">Email</th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">Telefone</th>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">Perfil</th>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">Status</th>
               {(onEdit || onDelete) && (
@@ -29,6 +37,24 @@ const UserTable: React.FC<UserTableProps> = ({ users, onEdit, onDelete }) => {
               <tr key={user.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{user.name}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{user.email}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                  {user.phone ? (
+                    <div className="flex items-center space-x-2">
+                      <span>{user.phone}</span>
+                      <a 
+                        href={getWhatsAppUrl(user.phone)} 
+                        target="_blank" 
+                        rel="noopener noreferrer" 
+                        className="inline-flex items-center justify-center hover:scale-105 transition-transform"
+                        title="Conversar no WhatsApp"
+                      >
+                        <WhatsAppIcon className="w-5 h-5" />
+                      </a>
+                    </div>
+                  ) : (
+                    <span className="text-gray-400 dark:text-gray-600">-</span>
+                  )}
+                </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{user.profile}</td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${user.active ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300' : 'bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-300'}`}>

@@ -118,6 +118,12 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, drivers, cargo
     return users.find(u => u.id === embarcadorId)?.name || 'N/A';
   };
 
+  const getEmbarcadorWhatsAppLink = (embarcadorId: string): string | null => {
+    const user = users.find(u => u.id === embarcadorId);
+    if (!user || !user.phone) return null;
+    return formatWhatsAppLink(user.phone);
+  };
+
   const getClientName = (clientId: string) => clients.find(c => c.id === clientId)?.nomeFantasia || 'N/A';
 
   // Filter options
@@ -559,8 +565,23 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, drivers, cargo
                         })()}
                       </div>
                       <div className="text-sm text-gray-500 dark:text-gray-400">{shipment.horsePlate}</div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 flex items-center gap-1">
                           Sol.: <span className="font-medium">{getEmbarcadorName(shipment.embarcadorId)}</span>
+                          {(() => {
+                            const link = getEmbarcadorWhatsAppLink(shipment.embarcadorId);
+                            if (!link) return null;
+                            return (
+                              <a
+                                href={link}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center text-green-500 hover:text-green-600 dark:text-green-400 dark:hover:text-green-300 transition-colors"
+                                title="Conversar com o embarcador no WhatsApp"
+                              >
+                                <WhatsAppIcon className="w-3.5 h-3.5" />
+                              </a>
+                            );
+                          })()}
                       </div>
                       {(vehicle || shipment.vehicleSetType || shipment.vehicleBodyType) && (
                           <div className="mt-1">
@@ -723,13 +744,13 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, drivers, cargo
                                                       <div className="py-1" role="menu" aria-orientation="vertical">
                                                           {shipment.status === ShipmentStatus.AguardandoCarregamento && (
                                                               <>
-                                                                  <ActionMenuItem icon={MapPin} text="Informar Rota do Motorista" onClick={() => onAttach(shipment)} />
-                                                                  <ActionMenuItem icon={PaperclipIcon} text="Ticket de Carregamento" onClick={() => onAttach(shipment)} />
-                                                                  <ActionMenuItem icon={Package} text="Toneladas Carregadas" onClick={() => onAttach(shipment)} />
+                                                                  <ActionMenuItem icon={MapPin} text="Informar Rota do Motorista" onClick={() => onAttach && onAttach(shipment)} />
+                                                                  <ActionMenuItem icon={PaperclipIcon} text="Ticket de Carregamento" onClick={() => onAttach && onAttach(shipment)} />
+                                                                  <ActionMenuItem icon={Package} text="Toneladas Carregadas" onClick={() => onAttach && onAttach(shipment)} />
                                                               </>
                                                           )}
                                                           {shipment.status === ShipmentStatus.AguardandoDescarga && (
-                                                              <ActionMenuItem icon={PaperclipIcon} text="Comprovante de Descarga" onClick={() => onAttach(shipment)} />
+                                                              <ActionMenuItem icon={PaperclipIcon} text="Comprovante de Descarga" onClick={() => onAttach && onAttach(shipment)} />
                                                           )}
                                                       </div>
                                                   </div>,

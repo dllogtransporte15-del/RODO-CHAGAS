@@ -28,6 +28,7 @@ export interface User {
   email: string;
   profile: UserProfile;
   active: boolean;
+  phone?: string;
   password?: string;
   clientId?: string;
   requirePasswordChange?: boolean;
