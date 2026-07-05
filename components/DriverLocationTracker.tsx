@@ -7,6 +7,8 @@ interface DriverLocationTrackerProps {
   user: User;
 }
 
+const CHANNEL_NAME = 'driver_locations_monitor';
+
 const DriverLocationTracker: React.FC<DriverLocationTrackerProps> = ({ user }) => {
   const [isSharing, setIsSharing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -26,29 +28,41 @@ const DriverLocationTracker: React.FC<DriverLocationTrackerProps> = ({ user }) =
       return;
     }
 
+    // Solicitar permissão antes de ligar o canal
+    navigator.permissions?.query({ name: 'geolocation' }).then((result) => {
+      if (result.state === 'denied') {
+        setError('Permissão de localização negada. Habilite nas configurações do navegador.');
+        return;
+      }
+      _initChannel();
+    }).catch(() => {
+      // API de permissões não disponível, tenta direto
+      _initChannel();
+    });
+  };
+
+  const _initChannel = () => {
     setIsSharing(true);
     setError(null);
 
-    // Initialize Supabase Channel for Presence
-    const channel = supabase.channel('driver_locations_monitor', {
-      config: {
-        presence: {
-          key: user.id,
-        },
-      },
-    });
-
-    channel.on('presence', { event: 'sync' }, () => {
-      console.log('Presence synced');
-    }).on('presence', { event: 'join' }, ({ key, newPresences }) => {
-      console.log('join', key, newPresences);
-    }).on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
-      console.log('leave', key, leftPresences);
-    });
+    // IMPORTANTE: Não passar `config.presence.key` aqui.
+    // O Supabase Presence usa a chave passada no `.track()`, não na criação do canal.
+    // Passar aqui causava comportamento assimétrico entre o sender e o receiver.
+    const channel = supabase.channel(CHANNEL_NAME);
 
     channel.subscribe(async (status) => {
+      console.log(`[DriverLocationTracker] Canal status: ${status}`);
+
       if (status === 'SUBSCRIBED') {
-        // Start watching position
+        // Enviar presença inicial para indicar que o motorista está online
+        await channel.track({
+          driverId: user.id,
+          driverName: user.name,
+          hasLocation: false,
+          timestamp: new Date().toISOString(),
+        });
+
+        // Iniciar rastreamento GPS
         watchIdRef.current = navigator.geolocation.watchPosition(
           async (position) => {
             const location: DriverLocation = {
@@ -61,19 +75,34 @@ const DriverLocationTracker: React.FC<DriverLocationTrackerProps> = ({ user }) =
               timestamp: new Date(position.timestamp).toISOString(),
             };
 
+            console.log(`[DriverLocationTracker] Enviando localização: ${location.lat}, ${location.lng}`);
+
+            // Rastrear com a chave sendo o ID do usuário (correto para Presence)
             await channel.track({ location });
           },
           (err) => {
-            console.error('Error watching position:', err);
-            setError(err.message);
+            console.error('[DriverLocationTracker] Erro no GPS:', err);
+            let mensagem = 'Erro ao obter localização.';
+            if (err.code === err.PERMISSION_DENIED) {
+              mensagem = 'Permissão de localização negada. Habilite nas configurações do navegador.';
+            } else if (err.code === err.POSITION_UNAVAILABLE) {
+              mensagem = 'Localização indisponível. Verifique o GPS do dispositivo.';
+            } else if (err.code === err.TIMEOUT) {
+              mensagem = 'Tempo esgotado ao obter localização. Tente novamente.';
+            }
+            setError(mensagem);
             stopTracking();
           },
           {
             enableHighAccuracy: true,
-            maximumAge: 10000,
-            timeout: 10000,
+            maximumAge: 5000,
+            timeout: 15000,
           }
         );
+      } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+        console.error(`[DriverLocationTracker] Erro no canal: ${status}`);
+        setError('Falha na conexão com o servidor. Tente novamente.');
+        stopTracking();
       }
     });
 
@@ -131,7 +160,7 @@ const DriverLocationTracker: React.FC<DriverLocationTrackerProps> = ({ user }) =
         )}
       </button>
       {error && (
-        <div className="absolute top-full mt-2 right-0 w-48 bg-white dark:bg-gray-800 text-red-500 text-xs p-2 rounded shadow-lg border border-red-200 z-50">
+        <div className="absolute top-full mt-2 right-0 w-56 bg-white dark:bg-gray-800 text-red-500 text-xs p-2 rounded shadow-lg border border-red-200 z-50">
           {error}
         </div>
       )}

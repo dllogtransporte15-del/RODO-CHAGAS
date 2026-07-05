@@ -364,6 +364,9 @@ const OperationalMapPage: React.FC<OperationalMapPageProps> = ({ cargos, shipmen
     driverLayerRef.current.clearLayers();
 
     driverLocations.forEach((location, driverId) => {
+      // Ignorar coordenadas inválidas (0,0 = dummy sem GPS real)
+      if (location.lat === 0 && location.lng === 0) return;
+
       const isRecent = new Date().getTime() - new Date(location.timestamp).getTime() < 5 * 60 * 1000;
       
       const iconHtml = `
@@ -488,10 +491,21 @@ const OperationalMapPage: React.FC<OperationalMapPageProps> = ({ cargos, shipmen
             {/* Legenda Minimalista */}
             <div className="absolute top-4 right-4 z-[400] bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm p-3 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700">
                <p className="text-[9px] font-bold text-gray-400 mb-2 uppercase tracking-widest border-b pb-1">Legenda</p>
-              <div className="flex gap-4">
-                <div className="flex items-center text-[10px]"><div className="w-2.5 h-2.5 bg-blue-500 rounded-full mr-1.5"></div><span className="text-gray-600 dark:text-gray-300 font-bold">Carga</span></div>
-                <div className="flex items-center text-[10px]"><div className="w-2.5 h-2.5 border-2 border-blue-600 rounded-full mr-1.5"></div><span className="text-gray-600 dark:text-gray-300 font-bold">Origem</span></div>
-                <div className="flex items-center text-[10px]"><div className="w-2.5 h-2.5 border-2 border-red-500 rounded-full mr-1.5"></div><span className="text-gray-600 dark:text-gray-300 font-bold">Destino</span></div>
+              <div className="flex flex-col gap-1.5">
+                <div className="flex gap-4">
+                  <div className="flex items-center text-[10px]"><div className="w-2.5 h-2.5 bg-blue-500 rounded-full mr-1.5"></div><span className="text-gray-600 dark:text-gray-300 font-bold">Carga</span></div>
+                  <div className="flex items-center text-[10px]"><div className="w-2.5 h-2.5 border-2 border-blue-600 rounded-full mr-1.5"></div><span className="text-gray-600 dark:text-gray-300 font-bold">Origem</span></div>
+                  <div className="flex items-center text-[10px]"><div className="w-2.5 h-2.5 border-2 border-red-500 rounded-full mr-1.5"></div><span className="text-gray-600 dark:text-gray-300 font-bold">Destino</span></div>
+                </div>
+                {/* Contador de Motoristas Online */}
+                <div className="flex items-center gap-2 mt-1 pt-1 border-t border-gray-100 dark:border-gray-700">
+                  <div className={`w-2.5 h-2.5 rounded-full ${driverLocations.size > 0 ? 'bg-green-500 animate-pulse' : 'bg-gray-300'}`}></div>
+                  <span className="text-[10px] text-gray-600 dark:text-gray-300 font-bold">
+                    {driverLocations.size > 0
+                      ? `${driverLocations.size} motorista${driverLocations.size > 1 ? 's' : ''} online`
+                      : 'Nenhum motorista online'}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
