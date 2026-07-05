@@ -10,6 +10,7 @@ if (!rootElement) {
 
 import { ToastProvider } from './hooks/useToast';
 import { ToastContainer } from './components/Toast';
+import { ReloadPrompt } from './components/ReloadPrompt';
 
 const root = ReactDOM.createRoot(rootElement);
 root.render(
@@ -17,6 +18,7 @@ root.render(
     <ToastProvider>
       <App />
       <ToastContainer />
+      <ReloadPrompt />
     </ToastProvider>
   </React.StrictMode>
 );
