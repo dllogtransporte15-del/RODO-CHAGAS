@@ -345,19 +345,12 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, drivers, cargo
                       <div className="font-medium dark:text-gray-200">{shipment.driverName}</div>
                       {(() => {
                           const driver = drivers?.find(d => d.name === shipment.driverName);
-                          if (driver?.has_app) {
-                              return (
-                                <span title="Motorista possui o aplicativo" className="text-blue-500">
-                                    <Smartphone className="w-4 h-4 animate-pulse" />
-                                </span>
-                              );
-                          }
-
                           const locationInfo = Array.from(driverLocations.values()).find(loc => loc.driverName === shipment.driverName) as any;
+
                           if (locationInfo) {
                               if (locationInfo.isAppActive && locationInfo.lat === 0 && locationInfo.lng === 0) {
                                 return (
-                                  <span title="Motorista ativo no aplicativo" className="text-blue-500">
+                                  <span title="Motorista ativo no aplicativo, buscando GPS..." className="text-blue-500 cursor-help">
                                       <Smartphone className="w-4 h-4 animate-pulse" />
                                   </span>
                                 );
@@ -370,13 +363,27 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, drivers, cargo
                                         lat: locationInfo.lat,
                                         lng: locationInfo.lng
                                       })}
-                                      title="App conectado. Ver localização."
+                                      title="App conectado. Ver localização em tempo real."
                                       className="text-blue-500 hover:text-blue-600 transition-colors focus:outline-none"
                                   >
                                       <Smartphone className="w-4 h-4 animate-pulse" />
                                   </button>
                               );
                           }
+
+                          if (driver?.has_app) {
+                              return (
+                                <button
+                                    type="button"
+                                    onClick={() => alert('Motorista possui o aplicativo, mas a localização não está sendo transmitida no momento.')}
+                                    title="Motorista possui o aplicativo (Localização inativa)"
+                                    className="text-gray-400 hover:text-blue-500 transition-colors focus:outline-none"
+                                >
+                                    <Smartphone className="w-4 h-4" />
+                                </button>
+                              );
+                          }
+
                           return null;
                       })()}
                     </div>
@@ -567,19 +574,12 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, drivers, cargo
                         <div className="text-sm text-gray-900 dark:text-white">{shipment.driverName}</div>
                         {(() => {
                             const driver = drivers?.find(d => d.name === shipment.driverName);
-                            if (driver?.has_app) {
-                                return (
-                                  <span title="Motorista possui o aplicativo" className="text-blue-500">
-                                      <Smartphone className="w-4 h-4 animate-pulse" />
-                                  </span>
-                                );
-                            }
-                            
                             const locationInfo = Array.from(driverLocations.values()).find(loc => loc.driverName === shipment.driverName) as any;
+
                             if (locationInfo) {
                                 if (locationInfo.isAppActive && locationInfo.lat === 0 && locationInfo.lng === 0) {
                                   return (
-                                    <span title="Motorista ativo no aplicativo" className="text-blue-500">
+                                    <span title="Motorista ativo no aplicativo, buscando GPS..." className="text-blue-500 cursor-help">
                                         <Smartphone className="w-4 h-4 animate-pulse" />
                                     </span>
                                   );
@@ -592,13 +592,27 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, drivers, cargo
                                           lat: locationInfo.lat,
                                           lng: locationInfo.lng
                                         })}
-                                        title="App conectado. Ver localização."
+                                        title="App conectado. Ver localização em tempo real."
                                         className="text-blue-500 hover:text-blue-600 transition-colors focus:outline-none"
                                     >
                                         <Smartphone className="w-4 h-4 animate-pulse" />
                                     </button>
                                 );
                             }
+
+                            if (driver?.has_app) {
+                                return (
+                                  <button
+                                      type="button"
+                                      onClick={() => alert('Motorista possui o aplicativo, mas a localização não está sendo transmitida no momento.')}
+                                      title="Motorista possui o aplicativo (Localização inativa)"
+                                      className="text-gray-400 hover:text-blue-500 transition-colors focus:outline-none"
+                                  >
+                                      <Smartphone className="w-4 h-4" />
+                                  </button>
+                                );
+                            }
+                            
                             return null;
                         })()}
                       </div>
