@@ -1,0 +1,128 @@
+﻿
+LineNumber Line                                                                                                        
+---------- ----                                                                                                        
+         6 import ShipmentFunnelCard from '../components/ShipmentFunnelCard';                                          
+        13 import { CargoStatus, ShipmentStatus, UserProfile, FreightOfferStatus } from '../types';                    
+        14 import type { Cargo, Shipment, User, Client, Product, Vehicle, FreightOffer } from '../types';              
+        15 import ShipmentDetailsModal from '../components/ShipmentDetailsModal';                                      
+        21   shipments: Shipment[];                                                                                    
+        28   onDeleteAttachment?: (shipmentId: string, url: string) => Promise<void>;                                  
+        29   onUpdatePrice?: (shipmentId: string, data: { newTotal: number, newRate?: number, newCompanyRate?: numbe...
+        39 interface ShipmentListCardProps {                                                                           
+        41   shipments: Shipment[];                                                                                    
+        44   onShowDetails?: (shipment: Shipment) => void;                                                             
+        47 const ShipmentListCard: React.FC<ShipmentListCardProps> = ({ title, shipments, users, thresholds, onShowD...
+       110       <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-4">{title} ({shipments.len...
+       112         {shipments.length > 0 ? (                                                                           
+       113           shipments.map(shipment => {                                                                       
+       114             const currentStatusEntry = shipment.statusHistory?.[shipment.statusHistory.length - 1];         
+       115             const requestTimestamp = currentStatusEntry?.timestamp || shipment.createdAt;                   
+       119                 <div key={shipment.id} className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-md border-l-...
+       124                                     onClick={() => onShowDetails(shipment)}                                 
+       127                                     {shipment.id}                                                           
+       130                                 <p className="font-mono text-xs text-gray-500 mb-1">{shipment.id}</p>       
+       132                             <p className="font-semibold text-gray-900 dark:text-white truncate">{shipment...
+       133                             <p className="text-sm text-gray-600 dark:text-gray-300">{shipment.horsePlate}...
+       141                       <span>Solicitante: {getEmbarcadorName(shipment.embarcadorId)}</span>                  
+       143                         const link = getEmbarcadorWhatsAppLink(shipment.embarcadorId);                      
+       162           <p className="text-sm text-center text-gray-500 dark:text-gray-400 pt-8">Nenhum embarque neste ...
+       172   shipments,                                                                                                
+       187   const [detailsModalShipment, setDetailsModalShipment] = React.useState<Shipment | null>(null);            
+       203   // Sync modal shipment with latest data from props                                                        
+       205     if (detailsModalShipment) {                                                                             
+       206       const updated = shipments.find(s => s.id === detailsModalShipment.id);                                
+       207       if (updated && JSON.stringify(updated) !== JSON.stringify(detailsModalShipment)) {                    
+       208         setDetailsModalShipment(updated);                                                                   
+       211   }, [shipments, detailsModalShipment]);                                                                    
+       226   const shipmentStatusData = useMemo(() => {                                                                
+       227     const activeStatuses = Object.values(ShipmentStatus).filter(                                            
+       228       status => status !== ShipmentStatus.Finalizado && status !== ShipmentStatus.Cancelado                 
+       230     const counts = shipments.reduce((acc, shipment) => {                                                    
+       231       acc[shipment.status] = (acc[shipment.status] || 0) + 1;                                               
+       233     }, {} as Record<ShipmentStatus, number>);                                                               
+       235     return activeStatuses.map(status => ({                                                                  
+       239   }, [shipments]);                                                                                          
+       247     shipments.forEach(s => {                                                                                
+       249       const effectiveEntry = s.statusHistory?.find(h => h.status === ShipmentStatus.AguardandoNota);        
+       255             volumesByClient[cargo.clientId] = (volumesByClient[cargo.clientId] || 0) + s.shipmentTonnage;   
+       273   }, [shipments, cargos, clients]);                                                                         
+       275   const activeShipments = useMemo(() => {                                                                   
+       276     return shipments.filter(s => s.status !== ShipmentStatus.Finalizado && s.status !== ShipmentStatus.Ca...
+       277   }, [shipments]);                                                                                          
+       295     shipments.forEach(s => {                                                                                
+       296       const effectiveEntry = s.statusHistory?.find(h => h.status === ShipmentStatus.AguardandoNota);        
+       300           monthlyEffectiveTonnage += s.shipmentTonnage || 0;                                                
+       313   }, [shipments, currentUser]);                                                                             
+       327     const scheduledStatuses: ShipmentStatus[] = [                                                           
+       328         ShipmentStatus.AguardandoSeguradora,                                                                
+       329         ShipmentStatus.AguardandoCarregamento,                                                              
+       330         ShipmentStatus.AguardandoNota,                                                                      
+       331         ShipmentStatus.AguardandoAdiantamento,                                                              
+       332         ShipmentStatus.AguardandoAgendamento,                                                               
+       335     const loadedAndFinishedStatuses: ShipmentStatus[] = [                                                   
+       336         ShipmentStatus.AguardandoDescarga,                                                                  
+       337         ShipmentStatus.AguardandoPagamentoSaldo,                                                            
+       338         ShipmentStatus.Finalizado,                                                                          
+       341     shipments.forEach(s => {                                                                                
+       343         const effectiveEntry = s.statusHistory?.find(h => h.status === ShipmentStatus.AguardandoNota);      
+       347                 volumeLoadedThisYear += s.shipmentTonnage;                                                  
+       349                     volumeLoadedThisMonth += s.shipmentTonnage;                                             
+       370   }, [cargos, shipments, currentUser]);                                                                     
+       373     const totalActiveLoads = cargos.filter(c => c.status === CargoStatus.EmAndamento || c.status === Carg...
+       374     const shipmentsAwaitingLoading = shipments.filter(s => s.status === ShipmentStatus.AguardandoCarregam...
+       425               value={totalActiveLoads.toString()}                                                           
+       430                 <ShipmentListCard                                                                           
+       431                     title="Embarques Aguardando Carregamento"                                               
+       432                     shipments={shipmentsAwaitingLoading}                                                    
+       442     const shipmentsPreCadastro = shipments.filter(s => s.status === ShipmentStatus.PreCadastro);            
+       443     const shipmentsAwaitingInsurance = shipments.filter(s => s.status === ShipmentStatus.AguardandoSegura...
+       444     const shipmentsAwaitingNote = shipments.filter(s => s.status === ShipmentStatus.AguardandoNota);        
+       450           <ShipmentListCard title="Aguardando Seguradora" shipments={shipmentsAwaitingInsurance} users={u...
+       451           <ShipmentListCard title="Aguardando Cadastro" shipments={shipmentsPreCadastro} users={users} th...
+       452           <ShipmentListCard title="Aguardando Nota" shipments={shipmentsAwaitingNote} users={users} thres...
+       454         <ShipmentDetailsModal                                                                               
+       455           isOpen={!!detailsModalShipment}                                                                   
+       456           onClose={() => setDetailsModalShipment(null)}                                                     
+       457           shipment={detailsModalShipment}                                                                   
+       458           cargo={detailsModalShipment ? cargos.find(c => c.id === detailsModalShipment.cargoId) : undefined}
+       473     const shipmentsAwaitingAdvance = shipments.filter(s => s.status === ShipmentStatus.AguardandoAdiantam...
+       474     const shipmentsAwaitingBalance = shipments.filter(s => s.status === ShipmentStatus.AguardandoPagament...
+       475     const shipmentsInTransit = shipments.filter(s => s.status === ShipmentStatus.AguardandoDescarga); // ...
+       476     const shipmentsUnloaded = shipments.filter(s => s.status === ShipmentStatus.AguardandoPagamentoSaldo)...
+       482           <ShipmentListCard                                                                                 
+       484             shipments={shipmentsAwaitingAdvance}                                                            
+       487             onShowDetails={setDetailsModalShipment} // Added onShowDetails                                  
+       489           <ShipmentListCard                                                                                 
+       491             shipments={shipmentsAwaitingBalance}                                                            
+       494             onShowDetails={setDetailsModalShipment} // Added onShowDetails                                  
+       496           <ShipmentListCard                                                                                 
+       498             shipments={shipmentsInTransit}                                                                  
+       501             onShowDetails={setDetailsModalShipment}                                                         
+       503           <ShipmentListCard                                                                                 
+       505             shipments={shipmentsUnloaded}                                                                   
+       508             onShowDetails={setDetailsModalShipment}                                                         
+       511         <ShipmentDetailsModal                                                                               
+       512           isOpen={!!detailsModalShipment}                                                                   
+       513           onClose={() => setDetailsModalShipment(null)}                                                     
+       514           shipment={detailsModalShipment}                                                                   
+       515           cargo={detailsModalShipment ? cargos.find(c => c.id === detailsModalShipment.cargoId) : undefined}
+       565     const myShipments = shipments.filter(s => clientCargoIds.has(s.cargoId));                               
+       568       { label: ShipmentStatus.PreCadastro, value: myShipments.filter(s => s.status === ShipmentStatus.Pre...
+       569       { label: ShipmentStatus.AguardandoCarregamento, value: myShipments.filter(s => s.status === Shipmen...
+       570       { label: ShipmentStatus.AguardandoNota, value: myShipments.filter(s => s.status === ShipmentStatus....
+       571       { label: ShipmentStatus.AguardandoDescarga, value: myShipments.filter(s => s.status === ShipmentSta...
+       572       { label: ShipmentStatus.Finalizado, value: myShipments.filter(s => s.status === ShipmentStatus.Fina...
+       628               <ShipmentFunnelCard title="Status dos Embarques (Ativos)" data={funnelData as any} />         
+       631                 <p className="text-gray-500 dark:text-gray-400">Nenhum dado de embarques disponÃ­vel.</p>   
+       729     o.status !== FreightOfferStatus.Recusada && !o.driverId                                                 
+       778           title="Embarques Ativos"                                                                          
+       779           value={activeShipments.toString()}                                                                
+       816         <ShipmentFunnelCard title="Funil de Embarques" data={shipmentStatusData} />                         
+       817         {canViewRanking && <ShipperRankingCard shipments={shipments} cargos={cargos} users={users} curren...
+       820       <ShipmentDetailsModal                                                                                 
+       821         isOpen={!!detailsModalShipment}                                                                     
+       822         onClose={() => setDetailsModalShipment(null)}                                                       
+       823         shipment={detailsModalShipment}                                                                     
+       824         cargo={detailsModalShipment ? cargos.find(c => c.id === detailsModalShipment.cargoId) : undefined}  
+
+
