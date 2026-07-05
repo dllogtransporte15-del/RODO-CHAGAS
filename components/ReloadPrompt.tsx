@@ -9,7 +9,12 @@ export function ReloadPrompt() {
     updateServiceWorker,
   } = useRegisterSW({
     onRegistered(r: any) {
-      console.log('SW Registered: ' + r);
+      // Verifica se há atualizações a cada 1 minuto (60000 ms)
+      if (r) {
+        setInterval(() => {
+          r.update();
+        }, 60 * 1000);
+      }
     },
     onRegisterError(error: any) {
       console.log('SW registration error', error);

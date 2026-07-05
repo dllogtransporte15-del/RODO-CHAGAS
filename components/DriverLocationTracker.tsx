@@ -30,7 +30,7 @@ const DriverLocationTracker: React.FC<DriverLocationTrackerProps> = ({ user }) =
     setError(null);
 
     // Initialize Supabase Channel for Presence
-    const channel = supabase.channel('driver_tracking', {
+    const channel = supabase.channel('driver_locations_monitor', {
       config: {
         presence: {
           key: user.id,

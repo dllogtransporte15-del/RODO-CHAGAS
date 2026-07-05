@@ -70,22 +70,8 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, drivers, cargo
 
   const realDriverLocations = useDriverLocations();
   const driverLocations = useMemo(() => {
-    const map = new Map(realDriverLocations);
-    if (map.size === 0 && shipments.length > 0) {
-      const firstShipment = shipments.find(s => s.driverName);
-      if (firstShipment) {
-        map.set('mock-driver-id', {
-          driverId: 'mock-driver-id',
-          driverName: firstShipment.driverName,
-          lat: -23.55052,
-          lng: -46.633308,
-          timestamp: new Date().toISOString(),
-          isAppActive: true
-        } as any);
-      }
-    }
-    return map;
-  }, [realDriverLocations, shipments]);
+    return new Map(realDriverLocations);
+  }, [realDriverLocations]);
 
   const [showFilters, setShowFilters] = useState(false);
   const [filterPlate, setFilterPlate] = useState<string[]>([]);
