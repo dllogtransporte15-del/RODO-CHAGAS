@@ -22,6 +22,8 @@ const toFreightOffer = (row: any): FreightOffer => {
       attachments = parsed.attachments;
       if (parsed.driverId) row.driverId = parsed.driverId;
       if (parsed.cargoId) row.cargoId = parsed.cargoId;
+      if (parsed.requestedEmbarcadorId) row.requestedEmbarcadorId = parsed.requestedEmbarcadorId;
+      if (parsed.requestTimestamp) row.requestTimestamp = parsed.requestTimestamp;
     } catch (e) {
       console.error('Error parsing freight offer metadata:', e);
     }
@@ -47,6 +49,8 @@ const toFreightOffer = (row: any): FreightOffer => {
     attachments,
     driverId: row.driverId,
     cargoId: row.cargoId,
+    requestedEmbarcadorId: row.requestedEmbarcadorId,
+    requestTimestamp: row.requestTimestamp,
   };
 };
 
@@ -70,7 +74,7 @@ export const fetchFreightOffers = async (): Promise<FreightOffer[]> => {
 const fromFreightOffer = (o: FreightOffer | Omit<FreightOffer, 'id'>) => {
   const history = [...(o.history || [])].filter(h => h.id !== 'meta_dest_obs');
   
-  if ((o.additionalDestinations && o.additionalDestinations.length > 0) || o.observations || (o.attachments && o.attachments.length > 0) || o.driverId || o.cargoId) {
+  if ((o.additionalDestinations && o.additionalDestinations.length > 0) || o.observations || (o.attachments && o.attachments.length > 0) || o.driverId || o.cargoId || o.requestedEmbarcadorId || o.requestTimestamp) {
     history.push({
       id: 'meta_dest_obs',
       userId: 'system',
@@ -80,7 +84,9 @@ const fromFreightOffer = (o: FreightOffer | Omit<FreightOffer, 'id'>) => {
         observations: o.observations,
         attachments: o.attachments,
         driverId: o.driverId,
-        cargoId: o.cargoId
+        cargoId: o.cargoId,
+        requestedEmbarcadorId: o.requestedEmbarcadorId,
+        requestTimestamp: o.requestTimestamp
       })
     });
   }

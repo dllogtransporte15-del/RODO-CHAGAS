@@ -113,10 +113,10 @@ export function useDatabase(currentUser: User | null) {
         // Skip heavy tables: drivers (914), vehicles (1000), users, locks, branches, etc.
         const [
           dbCargos, dbShipments, dbSettings, dbPermissions,
-          dbProducts, dbClients, dbFreightOffers
+          dbProducts, dbClients, dbFreightOffers, dbUsers
         ] = await Promise.all([
           fetchCargos(), fetchShipments(), fetchAppSettings(), fetchProfilePermissions(),
-          fetchProducts(), fetchClients(), fetchFreightOffers()
+          fetchProducts(), fetchClients(), fetchFreightOffers(), fetchUsers()
         ]);
 
         setCargos(dbCargos);
@@ -124,6 +124,7 @@ export function useDatabase(currentUser: User | null) {
         setProducts(dbProducts);
         setClients(dbClients);
         setFreightOffers(dbFreightOffers);
+        setUsers(dbUsers);
 
         if (dbPermissions) setProfilePermissions(dbPermissions);
         if (dbSettings) {

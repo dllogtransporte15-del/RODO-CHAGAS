@@ -11,10 +11,12 @@ import { DollarSignIcon } from '../components/icons/DollarSignIcon';
 import { ClientsIcon } from '../components/icons/ClientsIcon';
 import { WhatsAppIcon } from '../components/icons/WhatsAppIcon';
 import { CargoStatus, ShipmentStatus, UserProfile, FreightOfferStatus } from '../types';
-import type { Cargo, Shipment, User, Client, Product, Vehicle, FreightOffer } from '../types';
+import type { Cargo, Driver, Shipment, User, Client, Product, Vehicle, FreightOffer } from '../types';
 import ShipmentDetailsModal from '../components/ShipmentDetailsModal';
 import FreightOfferModal from '../components/FreightOfferModal';
 import FreightOffersList from '../components/FreightOffersList';
+import ShipmentHistoryModal from '../components/ShipmentHistoryModal';
+import NewShipmentModal from '../components/NewShipmentModal';
 
 interface DashboardPageProps {
   cargos: Cargo[];
@@ -25,6 +27,7 @@ interface DashboardPageProps {
   products: Product[];
   companyLogo?: string | null;
   vehicles: Vehicle[];
+  drivers?: Driver[];
   onDeleteAttachment?: (shipmentId: string, url: string) => Promise<void>;
   onUpdatePrice?: (shipmentId: string, data: { newTotal: number, newRate?: number, newCompanyRate?: number }) => void;
   freightOffers?: FreightOffer[];
@@ -32,6 +35,7 @@ interface DashboardPageProps {
   onAcceptFreightOffer?: (offer: FreightOffer) => void;
   onDeleteFreightOffer?: (offer: FreightOffer) => void;
   onConvertToCargo?: (offer: FreightOffer) => void;
+  onCreateShipment?: (data: any) => Promise<void>;
 }
 
 
@@ -176,19 +180,23 @@ const DashboardPage: React.FC<DashboardPageProps> = ({
   products, 
   companyLogo,
   vehicles,
+  drivers = [],
   onDeleteAttachment,
   onUpdatePrice,
   freightOffers = [],
   onSaveFreightOffer,
   onAcceptFreightOffer,
   onDeleteFreightOffer,
-  onConvertToCargo
+  onConvertToCargo,
+  onCreateShipment
 }) => {
   const [detailsModalShipment, setDetailsModalShipment] = React.useState<Shipment | null>(null);
   const [isOfferModalOpen, setIsOfferModalOpen] = React.useState(false);
   const [offerFilterStatus, setOfferFilterStatus] = React.useState<string>('all');
   const [offerFilterOrigin, setOfferFilterOrigin] = React.useState<string>('');
   const [offerFilterDestination, setOfferFilterDestination] = React.useState<string>('');
+  const [selectedDriverForHistoryId, setSelectedDriverForHistoryId] = React.useState<string | null>(null);
+  const [offerForNewShipment, setOfferForNewShipment] = React.useState<FreightOffer | null>(null);
   
   const addOfferHistory = (offer: FreightOffer, description: string) => {
     const newLog = {
@@ -385,28 +393,43 @@ const DashboardPage: React.FC<DashboardPageProps> = ({
     return (
       <>
         <Header title="Dashboard do Embarcador" />
-        {pendingRequests.length > 0 && (
-          <div className="mb-8">
-            <FreightOffersList
-              offers={pendingRequests}
-              clients={clients}
-              products={products}
-              cargos={cargos}
-              isClientProfile={false}
-              onAccept={async (offer) => {
-                if (onAcceptFreightOffer) {
-                  onAcceptFreightOffer(offer);
-                }
-              }}
-              onRefuse={async (offer) => {
-                if (onSaveFreightOffer) {
-                  await onSaveFreightOffer({ ...offer, status: FreightOfferStatus.Recusada });
-                }
-              }}
-              onCounterOffer={() => {}}
-            />
-          </div>
-        )}
+        <div className="mb-8">
+          <FreightOffersList
+            title="Solicitações de Motoristas"
+            offers={pendingRequests}
+            clients={clients}
+            products={products}
+            cargos={cargos}
+            isClientProfile={false}
+            onAccept={async (offer) => {
+              // Mark offer as accepted in the DB, then open the shipment modal
+              if (onSaveFreightOffer) {
+                const history = [...(offer.history || []), {
+                  id: `log_${Date.now()}_sys`,
+                  userId: currentUser.id,
+                  timestamp: new Date().toISOString(),
+                  description: `Solicitação aceita por ${currentUser.name}. Criando embarque...`
+                }];
+                await onSaveFreightOffer({ ...offer, status: FreightOfferStatus.Aceita, history });
+              }
+              // Open NewShipmentModal pre-filled with driver data
+              setOfferForNewShipment(offer);
+            }}
+            onRefuse={async (offer) => {
+              if (onSaveFreightOffer) {
+                const history = [...(offer.history || []), {
+                  id: `log_${Date.now()}_sys`,
+                  userId: currentUser.id,
+                  timestamp: new Date().toISOString(),
+                  description: `Solicitação recusada por ${currentUser.name}.`
+                }];
+                await onSaveFreightOffer({ ...offer, status: FreightOfferStatus.Recusada, history });
+              }
+            }}
+            onCounterOffer={() => {}}
+            onShowDriverHistory={(driverId) => setSelectedDriverForHistoryId(driverId)}
+          />
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <Card
             title="Embarques Ativos"
@@ -434,6 +457,27 @@ const DashboardPage: React.FC<DashboardPageProps> = ({
           onDeleteAttachment={onDeleteAttachment}
           onUpdatePrice={onUpdatePrice}
         />
+        {offerForNewShipment && onCreateShipment && (
+          <NewShipmentModal
+            isOpen={!!offerForNewShipment}
+            onClose={() => setOfferForNewShipment(null)}
+            onSave={async (data) => {
+              await onCreateShipment({
+                cargoId: offerForNewShipment.cargoId,
+                ...data
+              });
+              setOfferForNewShipment(null);
+            }}
+            cargo={cargos.find(c => c.id === offerForNewShipment.cargoId) || null}
+            drivers={drivers}
+            clients={clients}
+            vehicles={vehicles}
+            currentUser={currentUser}
+            shipments={shipments}
+            users={users}
+            offer={offerForNewShipment}
+          />
+        )}
       </>
     );
   }
@@ -798,11 +842,38 @@ const DashboardPage: React.FC<DashboardPageProps> = ({
     o.status !== FreightOfferStatus.Recusada && !o.driverId
   );
 
+  const driverOffers = freightOffers.filter(o => 
+    o.driverId === currentUser?.id && o.status === FreightOfferStatus.Pendente
+  );
+
   const canViewOffers = currentUser && [UserProfile.Admin, UserProfile.Comercial, UserProfile.Supervisor, UserProfile.Diretor].includes(currentUser.profile);
+  const isMotorista = currentUser?.profile === UserProfile.Motorista;
 
   return (
     <>
       <Header title="Dashboard" />
+
+      {isMotorista && driverOffers.length > 0 && (
+        <div className="mb-8">
+          <div className="mb-4">
+            <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-2">Minhas Solicitações de Embarque</h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400">Acompanhe o status dos embarques que você solicitou.</p>
+          </div>
+          <FreightOffersList
+            title="Minhas Solicitações de Embarque"
+            offers={driverOffers}
+            clients={clients}
+            products={products}
+            cargos={cargos}
+            isClientProfile={true}
+            onAccept={async () => {}} 
+            onRefuse={async () => {}}
+            onCounterOffer={async () => {}}
+            currentUser={currentUser || undefined}
+          />
+        </div>
+      )}
+
       {canViewOffers && pendingOffers.length > 0 && (
         <div className="mb-8">
           <FreightOffersList
@@ -839,6 +910,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({
             currentUser={currentUser || undefined}
             onDelete={onDeleteFreightOffer}
             onConvertToCargo={onConvertToCargo}
+            onShowDriverHistory={(driverId) => setSelectedDriverForHistoryId(driverId)}
           />
         </div>
       )}
@@ -900,7 +972,19 @@ const DashboardPage: React.FC<DashboardPageProps> = ({
         onUpdatePrice={onUpdatePrice}
       />
 
-
+      <ShipmentHistoryModal
+        isOpen={!!selectedDriverForHistoryId}
+        onClose={() => setSelectedDriverForHistoryId(null)}
+        shipments={(() => {
+          if (!selectedDriverForHistoryId) return [];
+          const driverUser = users.find(u => u.id === selectedDriverForHistoryId);
+          if (!driverUser) return [];
+          const driverCpfClean = (driverUser.email || '').replace(/\D/g, '');
+          return shipments.filter(s => (s.driverCpf || '').replace(/\D/g, '') === driverCpfClean || s.driverName === driverUser.name);
+        })()}
+        cargos={cargos}
+        title={`Histórico de ${users.find(u => u.id === selectedDriverForHistoryId)?.name || 'Motorista'}`}
+      />
     </>
   );
 };

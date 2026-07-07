@@ -17,9 +17,10 @@ interface NewShipmentModalProps {
   currentUser: User | null;
   shipments: Shipment[];
   users: User[];
+  offer?: any;
 }
 
-const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, onSave, cargo, drivers, clients, vehicles, currentUser, shipments, users }) => {
+const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, onSave, cargo, drivers, clients, vehicles, currentUser, shipments, users, offer }) => {
   const [driverName, setDriverName] = useState('');
   const [driverCpf, setDriverCpf] = useState('');
   const [ownerContact, setOwnerContact] = useState('');
@@ -101,24 +102,38 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
 
   useEffect(() => {
     if (isOpen && !prevIsOpen.current) {
-      setDriverName('');
-      setDriverCpf('');
-      setOwnerContact('');
-      setHorsePlate('');
-      setTrailer1Plate('');
-      setTrailer2Plate('');
-      setTrailer3Plate('');
+      const driverUser = users.find(u => u.id === offer?.driverId);
+      const initialDriverName = offer?.driverName || driverUser?.name || '';
+      setDriverName(initialDriverName);
+      
+      const driverInDb = initialDriverName 
+        ? drivers.find(d => d.name.trim().toLowerCase() === initialDriverName.trim().toLowerCase())
+        : undefined;
+
+      let lastShipment;
+      if (initialDriverName) {
+         lastShipment = shipments
+            .filter(s => s.driverName.trim().toLowerCase() === initialDriverName.trim().toLowerCase())
+            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+      }
+
+      setDriverCpf(driverInDb?.cpf || lastShipment?.driverCpf || '');
+      setOwnerContact(lastShipment?.ownerContact || '');
+      setHorsePlate(lastShipment?.horsePlate || '');
+      setTrailer1Plate(lastShipment?.trailer1Plate || '');
+      setTrailer2Plate(lastShipment?.trailer2Plate || '');
+      setTrailer3Plate(lastShipment?.trailer3Plate || '');
       setShipmentTonnage(0);
-      setDriverContact('');
+      setDriverContact(offer?.driverContact || lastShipment?.driverContact || '');
       setScheduledDate('');
       setScheduledTime('');
       setSelectedVehicle(null);
-      setVehicleSetType('');
-      setVehicleBodyType('');
-      setBankDetails('');
-      setVehicleTag('');
+      setVehicleSetType(lastShipment?.vehicleSetType || '');
+      setVehicleBodyType(lastShipment?.vehicleBodyType || '');
+      setBankDetails(lastShipment?.bankDetails || '');
+      setVehicleTag(lastShipment?.vehicleTag || '');
       setFilesToAttach([]);
-      setDriverReferences('');
+      setDriverReferences(lastShipment?.driverReferences || '');
       setEmbarcadorId(
           currentUser?.profile === UserProfile.Embarcador
               ? currentUser.id
@@ -230,7 +245,10 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!cargo) return;
+    if (!cargo) {
+      showToast('Esta carga não existe mais no sistema ou foi removida. Não é possível criar o embarque.', 'error');
+      return;
+    }
 
     // Check for Restricted Driver
     const selectedDriverObj = drivers.find(d => 
@@ -314,6 +332,7 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
 
 
     onSave({
+      cargoId: cargo.id,
       driverName,
       driverCpf,
       driverContact,
@@ -336,7 +355,35 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
     });
   };
 
-  if (!isOpen || !cargo) return null;
+  if (!isOpen) return null;
+
+  if (!cargo) {
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-8 max-w-md w-full">
+          <div className="flex flex-col items-center gap-4 text-center">
+            <div className="w-14 h-14 rounded-full bg-red-100 flex items-center justify-center">
+              <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+              </svg>
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-1">Carga Não Encontrada</h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                A carga vinculada a esta solicitação foi removida do sistema ou não está mais disponível. Não é possível criar o embarque.
+              </p>
+            </div>
+            <button
+              onClick={onClose}
+              className="px-6 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-medium transition-colors"
+            >
+              Fechar
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const clientName = clients.find(c => c.id === cargo.clientId)?.nomeFantasia || 'Cliente não encontrado';
   const isExistingDriver = !!drivers.find(d => d.name.trim().toLowerCase() === driverName.trim().toLowerCase() && driverName.trim() !== '');

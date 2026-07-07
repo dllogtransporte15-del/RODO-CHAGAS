@@ -357,11 +357,15 @@ const LoadTable: React.FC<LoadTableProps> = ({ loads, clients, products, shipmen
                 <div className="min-w-[180px] space-y-1 bg-gray-50 dark:bg-gray-700/30 p-2 rounded-md border border-gray-100 dark:border-gray-600">
                   <div className="flex justify-between text-[10px] font-bold text-gray-500 uppercase">
                     <span>Diário {dailyScheduleInfo?.type ? `(${dailyScheduleInfo.type})` : ''}</span>
-                    <span className="text-blue-600 dark:text-blue-400">{formatNumber(dailyScheduledTonnage)} ton</span>
+                    <span className="text-blue-600 dark:text-blue-400">
+                      {dailyScheduleInfo?.tonnage 
+                        ? `${formatNumber(dailyScheduledTonnage)} / ${formatNumber(dailyScheduleInfo.tonnage)} ton`
+                        : `${formatNumber(dailyScheduledTonnage)} ton`}
+                    </span>
                   </div>
                   <VolumeBar
                     loaded={dailyScheduledTonnage}
-                    total={dailyScheduleInfo?.type === DailyScheduleType.Fixo && dailyScheduleInfo.tonnage ? dailyScheduleInfo.tonnage : (dailyScheduledTonnage > 0 ? dailyScheduledTonnage : 1)}
+                    total={dailyScheduleInfo?.tonnage ? dailyScheduleInfo.tonnage : (dailyScheduledTonnage > 0 ? dailyScheduledTonnage : 1)}
                     scheduled={0}
                     loadedColor="bg-blue-500"
                     onClick={onShowShipments ? () => onShowShipments(load) : undefined}
@@ -417,7 +421,7 @@ const LoadTable: React.FC<LoadTableProps> = ({ loads, clients, products, shipmen
                           )}
                           {onRequestLoadOrder && currentUser.profile === UserProfile.Motorista && load.status === CargoStatus.EmAndamento && (
                             <button onClick={() => { onRequestLoadOrder(load); setOpenActionMenu(null); }} className="w-full text-left px-4 py-2 text-sm text-blue-600 dark:text-blue-400 font-bold hover:bg-gray-100 dark:hover:bg-gray-700">
-                              Solicitar Ordem
+                              Solicitar Embarque
                             </button>
                           )}
                           {onRecommendDrivers && load.status === CargoStatus.EmAndamento && (
