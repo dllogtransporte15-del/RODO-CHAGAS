@@ -370,20 +370,43 @@ const DashboardPage: React.FC<DashboardPageProps> = ({
   }, [cargos, shipments, currentUser]);
 
   if (currentUser?.profile === UserProfile.Embarcador) {
-    const shipmentsPreCadastro = shipments.filter(s => s.status === ShipmentStatus.PreCadastro);
+    const pendingRequests = freightOffers?.filter(o => {
+       if (o.status !== FreightOfferStatus.Pendente) return false;
+       if (!o.driverId) return false;
+       if (o.requestedEmbarcadorId === currentUser.id) return true;
+       if (o.requestTimestamp) {
+         const requestTime = new Date(o.requestTimestamp).getTime();
+         const now = Date.now();
+         if ((now - requestTime) > 5 * 60 * 1000) return true;
+       }
+       return false;
+    }) || [];
 
     return (
       <>
         <Header title="Dashboard do Embarcador" />
-        <div className="mb-8">
-          <ShipmentListCard 
-            title="Ordens Pendentes (Solicitadas por Motoristas)" 
-            shipments={shipmentsPreCadastro} 
-            users={users} 
-            thresholds={{ yellow: 60, red: 90 }} 
-            onShowDetails={setDetailsModalShipment} 
-          />
-        </div>
+        {pendingRequests.length > 0 && (
+          <div className="mb-8">
+            <FreightOffersList
+              offers={pendingRequests}
+              clients={clients}
+              products={products}
+              cargos={cargos}
+              isClientProfile={false}
+              onAccept={async (offer) => {
+                if (onAcceptFreightOffer) {
+                  onAcceptFreightOffer(offer);
+                }
+              }}
+              onRefuse={async (offer) => {
+                if (onSaveFreightOffer) {
+                  await onSaveFreightOffer({ ...offer, status: FreightOfferStatus.Recusada });
+                }
+              }}
+              onCounterOffer={() => {}}
+            />
+          </div>
+        )}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <Card
             title="Embarques Ativos"

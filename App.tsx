@@ -100,6 +100,8 @@ interface NewShipmentRequestData extends Omit<Shipment, 'id' | 'orderId' | 'stat
   filesToAttach?: File[];
 }
 
+import SelectEmbarcadorModal from './components/SelectEmbarcadorModal';
+
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
     const saved = localStorage.getItem('rodochagas_currentUser');
@@ -117,6 +119,8 @@ const App: React.FC = () => {
   const [isTicketModalOpen, setIsTicketModalOpen] = useState(false);
   const [isAnyModalOpen, setIsAnyModalOpen] = useState(false);
   const [offerToConvert, setOfferToConvert] = useState<FreightOffer | null>(null);
+  const [isSelectEmbarcadorModalOpen, setIsSelectEmbarcadorModalOpen] = useState(false);
+  const [selectedCargoForRequest, setSelectedCargoForRequest] = useState<Cargo | null>(null);
   
   // Use custom hook for all database-related state and logic
   const {
@@ -693,7 +697,7 @@ const App: React.FC = () => {
     }
   };
 
-  const handleRequestLoadOrder = async (cargo: Cargo) => {
+  const handleRequestLoadOrder = (cargo: Cargo) => {
     if (!currentUser) return;
     
     // Check if the user already has a pending offer for this cargo
@@ -702,6 +706,14 @@ const App: React.FC = () => {
        showToast('Você já possui uma solicitação pendente para esta carga!', 'warning');
        return;
     }
+    
+    setSelectedCargoForRequest(cargo);
+    setIsSelectEmbarcadorModalOpen(true);
+  };
+
+  const handleConfirmRequestOrder = async (embarcadorId: string) => {
+    if (!currentUser || !selectedCargoForRequest) return;
+    const cargo = selectedCargoForRequest;
     
     const newOffer: FreightOffer | Omit<FreightOffer, 'id' | 'createdAt'> = {
       clientId: cargo.clientId,
@@ -715,6 +727,8 @@ const App: React.FC = () => {
       status: FreightOfferStatus.Pendente,
       driverId: currentUser.id,
       cargoId: cargo.id,
+      requestedEmbarcadorId: embarcadorId,
+      requestTimestamp: new Date().toISOString(),
       history: [{
         id: `log_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
         userId: currentUser.id,
@@ -725,6 +739,8 @@ const App: React.FC = () => {
     
     await handleSaveFreightOffer(newOffer);
     showToast('Ordem de carregamento solicitada com sucesso! Aguarde aprovação do Embarcador.', 'success');
+    setIsSelectEmbarcadorModalOpen(false);
+    setSelectedCargoForRequest(null);
   };
 
   const handleDeleteFreightOffer = async (offer: FreightOffer) => {
@@ -2299,6 +2315,13 @@ const App: React.FC = () => {
             {renderPage()}
         </div>
       </main>
+       <SelectEmbarcadorModal
+         isOpen={isSelectEmbarcadorModalOpen}
+         onClose={() => setIsSelectEmbarcadorModalOpen(false)}
+         onConfirm={handleConfirmRequestOrder}
+         users={users}
+         cargo={selectedCargoForRequest}
+       />
        <TicketModal
         isOpen={isTicketModalOpen}
         onClose={() => setIsTicketModalOpen(false)}

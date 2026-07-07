@@ -409,5 +409,7 @@ export interface FreightOffer {
   observations?: string;
   additionalDestinations?: { city: string; location?: string }[];
   attachments?: string[];
+  requestedEmbarcadorId?: string;
+  requestTimestamp?: string;
 }
 
