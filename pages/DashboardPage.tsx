@@ -369,6 +369,52 @@ const DashboardPage: React.FC<DashboardPageProps> = ({
     };
   }, [cargos, shipments, currentUser]);
 
+  if (currentUser?.profile === UserProfile.Embarcador) {
+    const shipmentsPreCadastro = shipments.filter(s => s.status === ShipmentStatus.PreCadastro);
+
+    return (
+      <>
+        <Header title="Dashboard do Embarcador" />
+        <div className="mb-8">
+          <ShipmentListCard 
+            title="Ordens Pendentes (Solicitadas por Motoristas)" 
+            shipments={shipmentsPreCadastro} 
+            users={users} 
+            thresholds={{ yellow: 60, red: 90 }} 
+            onShowDetails={setDetailsModalShipment} 
+          />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <Card
+            title="Embarques Ativos"
+            value={activeShipments.toString()}
+            icon={<TruckIcon className="w-6 h-6 text-white" />}
+            colorClass="bg-primary"
+          />
+          <Card
+            title="Cargas em Andamento"
+            value={pendingLoads.toString()}
+            icon={<PackageIcon className="w-6 h-6 text-white" />}
+            colorClass="bg-secondary"
+          />
+        </div>
+        <ShipmentDetailsModal
+          isOpen={!!detailsModalShipment}
+          onClose={() => setDetailsModalShipment(null)}
+          shipment={detailsModalShipment}
+          cargo={detailsModalShipment ? cargos.find(c => c.id === detailsModalShipment.cargoId) : undefined}
+          clients={clients}
+          products={products}
+          companyLogo={companyLogo}
+          vehicles={vehicles}
+          users={users}
+          onDeleteAttachment={onDeleteAttachment}
+          onUpdatePrice={onUpdatePrice}
+        />
+      </>
+    );
+  }
+
   if (currentUser?.profile === UserProfile.Supervisor) {
     const totalActiveLoads = cargos.filter(c => c.status === CargoStatus.EmAndamento || c.status === CargoStatus.Suspensa).length;
     const shipmentsAwaitingLoading = shipments.filter(s => s.status === ShipmentStatus.AguardandoCarregamento);
@@ -729,7 +775,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({
     o.status !== FreightOfferStatus.Recusada && !o.driverId
   );
 
-  const canViewOffers = currentUser && [UserProfile.Admin, UserProfile.Comercial, UserProfile.Supervisor, UserProfile.Embarcador].includes(currentUser.profile);
+  const canViewOffers = currentUser && [UserProfile.Admin, UserProfile.Comercial, UserProfile.Supervisor, UserProfile.Diretor].includes(currentUser.profile);
 
   return (
     <>
