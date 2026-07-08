@@ -33,6 +33,7 @@ import ToolsHistoryPage from './pages/ToolsHistoryPage';
 import FreightOffersHistoryPage from './pages/FreightOffersHistoryPage';
 import BranchesPage from './pages/BranchesPage';
 import SystemMonitorPage from './pages/SystemMonitorPage';
+import DownloadAppPage from './pages/DownloadAppPage';
 
 // Component Imports
 import TopNavBar from './components/TopNavBar';
@@ -2176,6 +2177,10 @@ const App: React.FC = () => {
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
     );
+  }
+
+  if (location.pathname === '/baixar-app') {
+    return <DownloadAppPage companyLogo={companyLogo} />;
   }
 
   if (!currentUser) {
