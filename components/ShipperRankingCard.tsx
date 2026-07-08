@@ -118,36 +118,56 @@ const ShipperRankingCard: React.FC<ShipperRankingCardProps> = ({ shipments, carg
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-            {shipperStats.map((stat, index) => (
-              <tr key={stat.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                <td className="py-3 px-3 text-sm font-medium text-gray-500 dark:text-gray-400">{index + 1}</td>
-                 <td className="py-3 px-3 text-sm font-medium text-gray-900 dark:text-white">
-                  <div className="flex items-center gap-1.5">
-                    <span>{stat.name}</span>
-                    {(() => {
-                      const link = getWhatsAppLink(stat.id);
-                      if (!link) return null;
-                      return (
-                        <a
-                          href={link}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center text-green-500 hover:text-green-600 dark:text-green-400 dark:hover:text-green-300 transition-colors"
-                          title="Conversar com o embarcador no WhatsApp"
-                        >
-                          <WhatsAppIcon className="w-3.5 h-3.5" />
-                        </a>
-                      );
-                    })()}
-                  </div>
-                </td>
+            {shipperStats.map((stat, index) => {
+              const isCurrentUser = stat.id === currentUser?.id;
+              if (currentUser?.profile === UserProfile.Embarcador && !isCurrentUser) {
+                return null;
+              }
+              return (
+                <tr 
+                  key={stat.id} 
+                  className={`hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${
+                    isCurrentUser 
+                      ? 'bg-indigo-50 dark:bg-indigo-950/30 border-l-4 border-indigo-500' 
+                      : ''
+                  }`}
+                >
+                  <td className={`py-3 px-3 text-sm font-medium ${isCurrentUser ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-500 dark:text-gray-400'}`}>{index + 1}</td>
+                  <td className={`py-3 px-3 text-sm font-medium ${isCurrentUser ? 'text-indigo-900 dark:text-indigo-200 font-bold' : 'text-gray-900 dark:text-white'}`}>
+                    <div className="flex items-center gap-1.5">
+                      <span>
+                        {stat.name} 
+                        {isCurrentUser && (
+                          <span className="ml-2 px-2 py-0.5 text-[10px] font-semibold bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 rounded-full">
+                            Você
+                          </span>
+                        )}
+                      </span>
+                      {(() => {
+                        const link = getWhatsAppLink(stat.id);
+                        if (!link) return null;
+                        return (
+                          <a
+                            href={link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center text-green-500 hover:text-green-600 dark:text-green-400 dark:hover:text-green-300 transition-colors"
+                            title="Conversar com o embarcador no WhatsApp"
+                          >
+                            <WhatsAppIcon className="w-3.5 h-3.5" />
+                          </a>
+                        );
+                      })()}
+                    </div>
+                  </td>
                 <td className="py-3 px-3 text-sm text-center text-gray-500 dark:text-gray-400">{stat.vehicleCount}</td>
                 <td className="py-3 px-3 text-sm text-center text-gray-500 dark:text-gray-400">{stat.shipmentCount}</td>
                 <td className="py-3 px-3 text-sm text-center font-medium text-gray-700 dark:text-gray-300">{stat.effectiveTonnage.toLocaleString('pt-BR')} t</td>
 
                 {canViewCommission && <td className="py-3 px-3 text-sm text-right font-semibold text-emerald-600 dark:text-emerald-400">{formatCurrency(stat.commission)}</td>}
               </tr>
-            ))}
+              );
+            })}
             {shipperStats.length === 0 && (
                 <tr>
                     <td colSpan={canViewCommission ? 6 : 5} className="py-4 px-3 text-center text-sm text-gray-500 dark:text-gray-400">Nenhum embarcador com movimentação.</td>

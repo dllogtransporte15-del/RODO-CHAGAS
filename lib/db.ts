@@ -528,10 +528,50 @@ export async function fetchCargos(): Promise<Cargo[]> {
   return (data || []).map(toCargo);
 }
 
+export async function fetchPaginatedCargos(page: number, limit: number, filters?: { status?: string }): Promise<{ data: Cargo[], count: number }> {
+  let query = supabase.from('cargos').select('*', { count: 'exact' });
+  
+  if (filters?.status && filters.status !== 'all') {
+    query = query.eq('status', filters.status);
+  } else if (filters?.status === 'all') {
+    // Optionally exclude 'Fechada' by default if that's the logic
+  }
+  
+  const from = (page - 1) * limit;
+  const to = from + limit - 1;
+  
+  const { data, error, count } = await query.order('created_at', { ascending: false }).range(from, to);
+  if (error) {
+    console.error('Error fetching paginated cargos:', error);
+    return { data: [], count: 0 };
+  }
+  return { data: (data || []).map(toCargo), count: count || 0 };
+}
+
 export async function fetchShipments(): Promise<Shipment[]> {
   const { data, error } = await supabase.from('shipments').select('*').order('created_at', { ascending: false });
   if (error) return handleAuthError(error, []);
   return (data || []).map(toShipment);
+}
+
+export async function fetchPaginatedShipments(page: number, limit: number, filters?: { status?: string }): Promise<{ data: Shipment[], count: number }> {
+  let query = supabase.from('shipments').select('*', { count: 'exact' });
+  
+  if (filters?.status && filters.status !== 'all') {
+    query = query.eq('status', filters.status);
+  } else if (filters?.status === 'all') {
+    query = query.neq('status', 'Cancelado').neq('status', 'Finalizado');
+  }
+  
+  const from = (page - 1) * limit;
+  const to = from + limit - 1;
+  
+  const { data, error, count } = await query.order('created_at', { ascending: false }).range(from, to);
+  if (error) {
+    console.error('Error fetching paginated shipments:', error);
+    return { data: [], count: 0 };
+  }
+  return { data: (data || []).map(toShipment), count: count || 0 };
 }
 
 export async function fetchUsers(): Promise<User[]> {

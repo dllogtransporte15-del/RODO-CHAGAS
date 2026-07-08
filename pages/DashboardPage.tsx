@@ -36,6 +36,7 @@ interface DashboardPageProps {
   onDeleteFreightOffer?: (offer: FreightOffer) => void;
   onConvertToCargo?: (offer: FreightOffer) => void;
   onCreateShipment?: (data: any) => Promise<void>;
+  allShipments?: Shipment[];
 }
 
 
@@ -188,7 +189,8 @@ const DashboardPage: React.FC<DashboardPageProps> = ({
   onAcceptFreightOffer,
   onDeleteFreightOffer,
   onConvertToCargo,
-  onCreateShipment
+  onCreateShipment,
+  allShipments
 }) => {
   const [detailsModalShipment, setDetailsModalShipment] = React.useState<Shipment | null>(null);
   const [isOfferModalOpen, setIsOfferModalOpen] = React.useState(false);
@@ -443,6 +445,14 @@ const DashboardPage: React.FC<DashboardPageProps> = ({
             icon={<PackageIcon className="w-6 h-6 text-white" />}
             colorClass="bg-secondary"
           />
+        </div>
+        <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="space-y-6">
+            <DonutChartCard title="Distribuição de Cargas por Status" data={cargoStatusData} />
+            <DonutChartCard title="Volume Carregado por Cliente (Mês)" data={clientVolumeData} unit="t" />
+          </div>
+          <ShipmentFunnelCard title="Funil de Embarques" data={shipmentStatusData} />
+          <ShipperRankingCard shipments={allShipments || shipments} cargos={cargos} users={users} currentUser={currentUser} />
         </div>
         <ShipmentDetailsModal
           isOpen={!!detailsModalShipment}
