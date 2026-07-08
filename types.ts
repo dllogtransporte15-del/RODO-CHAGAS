@@ -32,6 +32,7 @@ export interface User {
   password?: string;
   clientId?: string;
   requirePasswordChange?: boolean;
+  isFirstSetup?: boolean;
   authId?: string;
   passwordUpdatedAt?: string;
   branchId?: string;

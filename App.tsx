@@ -396,16 +396,37 @@ const App: React.FC = () => {
     
     try {
       // 1. Atualiza no Banco de Dados
-      const { data, error: dbError } = await supabase
-        .from('app_users')
-        .update({ 
-          password: newPassword,
-          require_password_change: false,
-          password_updated_at: new Date().toISOString()
-        })
-        .eq('email', currentUser.email)
-        .eq('password', currentPassword)
-        .select();
+      let data, dbError;
+      
+      if (currentUser.isFirstSetup) {
+         // Primeira vez configurando a senha (motorista)
+         const result = await supabase.from('app_users').upsert({
+           id: currentUser.id,
+           name: currentUser.name,
+           email: currentUser.email,
+           profile: currentUser.profile,
+           active: currentUser.active,
+           password: newPassword,
+           require_password_change: false,
+           password_updated_at: new Date().toISOString()
+         }).select();
+         data = result.data;
+         dbError = result.error;
+      } else {
+          // Atualização de senha padrão
+          const result = await supabase
+            .from('app_users')
+            .update({ 
+              password: newPassword,
+              require_password_change: false,
+              password_updated_at: new Date().toISOString()
+            })
+            .eq('id', currentUser.id)
+            .eq('password', currentPassword)
+            .select();
+          data = result.data;
+          dbError = result.error;
+      }
       
       if (dbError || !data || data.length === 0) {
         console.error('Erro ao atualizar senha no Banco:', dbError || 'Nenhuma linha afetada (senha incorreta)');
@@ -413,7 +434,7 @@ const App: React.FC = () => {
       }
 
       // Atualiza estado local
-      const updatedUser: User = { 
+      const updatedUser: User = {
         ...currentUser, 
         password: newPassword, 
         requirePasswordChange: false,
@@ -2211,6 +2232,7 @@ const App: React.FC = () => {
         <PasswordChangeModal 
           user={currentUser} 
           onPasswordChange={handlePasswordChange} 
+          onCancel={handleLogout}
         />
       )}
     </div>

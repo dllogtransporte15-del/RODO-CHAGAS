@@ -130,6 +130,35 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, users, companyLogo, prof
           setIsLoading(false);
           return;
         }
+        
+        // Verifica se o motorista já tem uma senha configurada em app_users
+        const { data: appUser } = await supabase
+          .from('app_users')
+          .select('password, require_password_change')
+          .eq('id', driverData.id)
+          .maybeSingle();
+
+        let isFirstSetup = false;
+        let requirePasswordChange = false;
+
+        if (appUser) {
+           // Já existe em app_users, precisa de senha
+           if (!password) {
+             setError('Senha obrigatória para acessar.');
+             setIsLoading(false);
+             return;
+           }
+           if (appUser.password !== password) {
+             setError('Senha incorreta.');
+             setIsLoading(false);
+             return;
+           }
+           requirePasswordChange = appUser.require_password_change;
+        } else {
+           // Primeiro acesso, loga com sucesso mas força criação da senha
+           isFirstSetup = true;
+           requirePasswordChange = true;
+        }
 
         const userProfile: User = {
           id: driverData.id,
@@ -137,6 +166,8 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, users, companyLogo, prof
           email: driverData.cpf, // Usando CPF como identificador
           profile: UserProfile.Motorista,
           active: driverData.active,
+          requirePasswordChange,
+          isFirstSetup
         };
 
         console.log('[LoginPage] Login motorista bem-sucedido:', userProfile.name);
@@ -278,8 +309,25 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, users, companyLogo, prof
                   maxLength={14}
                 />
               </div>
-              <p className="text-center text-sm text-gray-500 dark:text-gray-400">
-                Acesse o aplicativo utilizando apenas o seu CPF.
+              
+              <div className="mt-4 relative group">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-accent transition-colors">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
+                </div>
+                <input
+                  type="password"
+                  className="appearance-none block w-full pl-12 pr-4 py-3 border border-gray-200 dark:border-gray-700 placeholder-gray-400 text-gray-900 rounded-xl focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent sm:text-sm dark:bg-gray-800 dark:text-white transition-all disabled:opacity-50 text-center text-lg"
+                  placeholder="Senha (Opcional no 1º acesso)"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  disabled={isLoading}
+                />
+              </div>
+
+              <p className="mt-4 text-center text-sm text-gray-500 dark:text-gray-400">
+                Acesse o aplicativo utilizando seu CPF e Senha. <br/>(Se for o seu primeiro acesso, deixe a senha em branco)
               </p>
             </div>
           )}
