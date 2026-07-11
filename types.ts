@@ -387,7 +387,8 @@ export enum FreightOfferStatus {
   Aceita = "Aceita",
   Recusada = "Recusada",
   Contraproposta = "Contraproposta",
-  ContrapropostaAceita = "Contraproposta Aceita" // Mantido para retrocompatibilidade
+  ContrapropostaAceita = "Contraproposta Aceita", // Mantido para retrocompatibilidade
+  AguardandoFechamento = "Aguardando Fechamento"
 }
 
 export interface FreightOffer {

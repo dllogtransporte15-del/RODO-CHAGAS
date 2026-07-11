@@ -66,7 +66,7 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
         ],
         dailySchedule: [],
         observations: offerToConvert.dailySchedule ? `Cadência sugerida pelo cliente: ${offerToConvert.dailySchedule}` : '',
-        attachments: [],
+        attachments: offerToConvert.attachments || [],
         salespersonCommissionPerTon: 0,
         branchId: currentUser.branchId
       };

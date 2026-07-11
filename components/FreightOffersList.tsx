@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import type { FreightOffer, Client, Product, Cargo, User } from '../types';
 import { FreightOfferStatus, CargoStatus, UserProfile } from '../types';
-import { PackageIcon, CheckIcon, XIcon, MessageCircleIcon, HistoryIcon, TrashIcon, MapPinIcon, EyeIcon, PaperclipIcon, DownloadIcon, UserIcon } from 'lucide-react';
+import { PackageIcon, CheckIcon, XIcon, MessageCircleIcon, HistoryIcon, TrashIcon, MapPinIcon, EyeIcon, PaperclipIcon, DownloadIcon, UserIcon, Clock } from 'lucide-react';
 import VolumeBar from './VolumeBar';
 
 interface FreightOffersListProps {
@@ -18,16 +18,20 @@ interface FreightOffersListProps {
   onConvertToCargo?: (offer: FreightOffer) => void;
   onShowDriverHistory?: (driverId: string) => void;
   title?: string;
+  onUpdateStatus?: (offer: FreightOffer, status: FreightOfferStatus) => void;
 }
 
 const FreightOffersList: React.FC<FreightOffersListProps> = ({
-  offers, clients, products, cargos, isClientProfile, currentUser, onAccept, onRefuse, onCounterOffer, onDelete, onConvertToCargo, onShowDriverHistory, title
+  offers, clients, products, cargos, isClientProfile, currentUser, onAccept, onRefuse, onCounterOffer, onDelete, onConvertToCargo, onShowDriverHistory, title, onUpdateStatus
 }) => {
   const [counterOfferModal, setCounterOfferModal] = useState<FreightOffer | null>(null);
   const [counterValue, setCounterValue] = useState<string>('');
   const [historyModal, setHistoryModal] = useState<FreightOffer | null>(null);
   const [detailsModal, setDetailsModal] = useState<FreightOffer | null>(null);
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
+  const [confirmAcceptModal, setConfirmAcceptModal] = useState<FreightOffer | null>(null);
+  const [acceptAttachments, setAcceptAttachments] = useState<string[]>([]);
+  const acceptFileInputRef = useRef<HTMLInputElement>(null);
 
   if (offers.length === 0) {
     return (
@@ -73,6 +77,7 @@ const FreightOffersList: React.FC<FreightOffersListProps> = ({
       case FreightOfferStatus.Recusada: return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400';
       case FreightOfferStatus.Contraproposta: return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400';
       case FreightOfferStatus.ContrapropostaAceita: return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400';
+      case FreightOfferStatus.AguardandoFechamento: return 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400';
       default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400';
     }
   };
@@ -194,17 +199,21 @@ const FreightOffersList: React.FC<FreightOffersListProps> = ({
                         ? 'Aguardando preço da transportadora'
                         : isClientProfile && offer.status === FreightOfferStatus.AnaliseCliente
                           ? 'Aguardando sua análise'
+                          : isClientProfile && offer.status === FreightOfferStatus.AguardandoFechamento
+                            ? 'Aguardando fechamento'
+                          : !isClientProfile && offer.status === FreightOfferStatus.AguardandoFechamento
+                            ? 'Aguardando fechamento do cliente'
                           : !isClientProfile && offer.status === FreightOfferStatus.AnaliseCliente
                             ? 'Aguardando análise do cliente'
-                            : !isClientProfile && offer.status === FreightOfferStatus.AguardandoPreco
-                              ? 'Aguardando envio de preço'
-                              : isClientProfile && offer.status === FreightOfferStatus.ContrapropostaAceita
-                                ? 'Aceita'
-                                : offer.status === FreightOfferStatus.Pendente && isClientProfile
-                                  ? 'Oferta enviada, aguardando resposta'
-                                  : offer.status === FreightOfferStatus.Contraproposta && !isClientProfile
-                                    ? 'Contraproposta enviada, aguardando aprovação'
-                                    : offer.status}
+                          : !isClientProfile && offer.status === FreightOfferStatus.AguardandoPreco
+                            ? 'Aguardando envio de preço'
+                            : isClientProfile && offer.status === FreightOfferStatus.ContrapropostaAceita
+                              ? 'Aceita'
+                              : offer.status === FreightOfferStatus.Pendente && isClientProfile
+                                ? 'Oferta enviada, aguardando resposta'
+                                : offer.status === FreightOfferStatus.Contraproposta && !isClientProfile
+                                  ? 'Contraproposta enviada, aguardando aprovação'
+                                  : offer.status}
                   </span>
                 </td>
                 <td className="px-4 py-3 text-right">
@@ -277,9 +286,12 @@ const FreightOffersList: React.FC<FreightOffersListProps> = ({
                     {/* Ações do Cliente */}
                     {isClientProfile && (
                       <>
-                        {offer.status === FreightOfferStatus.AnaliseCliente && (
+                        {(offer.status === FreightOfferStatus.AnaliseCliente || offer.status === FreightOfferStatus.AguardandoFechamento) && (
                           <>
-                            <button onClick={() => onAccept(offer)} title="Aceitar Preço" className="p-1.5 text-green-600 bg-green-50 hover:bg-green-100 rounded-lg transition-colors">
+                            <button onClick={() => {
+                              setConfirmAcceptModal(offer);
+                              setAcceptAttachments([]);
+                            }} title="Aceitar Preço" className="p-1.5 text-green-600 bg-green-50 hover:bg-green-100 rounded-lg transition-colors">
                               <CheckIcon className="w-4 h-4" />
                             </button>
                             <button onClick={() => setCounterOfferModal(offer)} title="Fazer Contraproposta" className="p-1.5 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors">
@@ -288,6 +300,11 @@ const FreightOffersList: React.FC<FreightOffersListProps> = ({
                             <button onClick={() => onRefuse(offer)} title="Recusar Preço" className="p-1.5 text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors">
                               <XIcon className="w-4 h-4" />
                             </button>
+                            {offer.status === FreightOfferStatus.AnaliseCliente && onUpdateStatus && (
+                              <button onClick={() => onUpdateStatus(offer, FreightOfferStatus.AguardandoFechamento)} title="Mudar para Aguardando Fechamento" className="p-1.5 text-orange-600 bg-orange-50 hover:bg-orange-100 rounded-lg transition-colors">
+                                <Clock className="w-4 h-4" />
+                              </button>
+                            )}
                           </>
                         )}
                       </>
@@ -502,6 +519,114 @@ const FreightOffersList: React.FC<FreightOffersListProps> = ({
             <div className="p-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 flex justify-end">
               <button onClick={() => setDetailsModal(null)} className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors">
                 Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmAcceptModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-md overflow-hidden flex flex-col">
+            <div className="flex justify-between items-center p-5 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+              <h3 className="text-lg font-bold text-gray-800 dark:text-white flex items-center gap-2">
+                <CheckIcon className="w-5 h-5 text-green-500" />
+                Confirmar Aceite de Preço
+              </h3>
+              <button 
+                onClick={() => {
+                  setConfirmAcceptModal(null);
+                  setAcceptAttachments([]);
+                }} 
+                className="p-1 text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full"
+              >
+                <XIcon className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="p-5 overflow-y-auto max-h-[60vh] space-y-4">
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Tem certeza que deseja aceitar o preço de{' '}
+                <strong className="text-gray-900 dark:text-white">
+                  R$ {(confirmAcceptModal.counterOfferValue || confirmAcceptModal.freightValuePerTon || 0).toFixed(2)} / Ton
+                </strong>{' '}
+                para a oferta de <strong className="text-gray-900 dark:text-white">{confirmAcceptModal.origin}</strong> para{' '}
+                <strong className="text-gray-900 dark:text-white">{confirmAcceptModal.destination}</strong>?
+              </p>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Anexos</label>
+                <div className="relative">
+                  <input
+                    type="file"
+                    multiple
+                    ref={acceptFileInputRef}
+                    onChange={(e) => {
+                      const files = e.target.files;
+                      if (files) {
+                        const newFileNames = Array.from(files).map((file: File) => file.name);
+                        setAcceptAttachments(prev => [
+                          ...prev,
+                          ...newFileNames.filter(name => !prev.includes(name))
+                        ]);
+                      }
+                      e.target.value = '';
+                    }}
+                    className="hidden"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => acceptFileInputRef.current?.click()}
+                    className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600 justify-center transition-colors font-medium"
+                  >
+                    <PaperclipIcon className="w-4 h-4" />
+                    Anexar Arquivos
+                  </button>
+                </div>
+                {acceptAttachments.length > 0 && (
+                  <ul className="mt-2 space-y-1">
+                    {acceptAttachments.map((fileName, index) => (
+                      <li key={index} className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-900/50 px-2 py-1.5 rounded-md">
+                        <span className="truncate max-w-[85%]">{fileName}</span>
+                        <button 
+                          type="button" 
+                          onClick={() => setAcceptAttachments(prev => prev.filter(name => name !== fileName))} 
+                          className="p-1 text-red-500 hover:text-red-700 dark:hover:text-red-400 transition-colors"
+                        >
+                          <XIcon className="w-4 h-4" />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+
+            <div className="p-5 border-t border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 flex justify-end gap-3">
+              <button 
+                type="button" 
+                onClick={() => {
+                  setConfirmAcceptModal(null);
+                  setAcceptAttachments([]);
+                }} 
+                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              >
+                Cancelar
+              </button>
+              <button 
+                type="button" 
+                onClick={() => {
+                  const updatedOffer = {
+                    ...confirmAcceptModal,
+                    attachments: [...(confirmAcceptModal.attachments || []), ...acceptAttachments]
+                  };
+                  onAccept(updatedOffer);
+                  setConfirmAcceptModal(null);
+                  setAcceptAttachments([]);
+                }} 
+                className="px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors font-medium"
+              >
+                Confirmar
               </button>
             </div>
           </div>

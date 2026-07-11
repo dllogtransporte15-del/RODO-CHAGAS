@@ -831,9 +831,15 @@ const DashboardPage: React.FC<DashboardPageProps> = ({
                 await onSaveFreightOffer({ ...offer, status: FreightOfferStatus.Contraproposta, counterOfferValue: newValue, history });
               }
             }}
-            currentUser={currentUser || undefined}
+             currentUser={currentUser || undefined}
             onDelete={onDeleteFreightOffer}
             onConvertToCargo={onConvertToCargo}
+            onUpdateStatus={async (offer, status) => {
+              if (onSaveFreightOffer) {
+                const history = addOfferHistory(offer, `Status alterado para "${status}" pelo Cliente.`);
+                await onSaveFreightOffer({ ...offer, status, history });
+              }
+            }}
           />
 
           <FreightOfferModal

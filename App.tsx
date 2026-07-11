@@ -674,6 +674,10 @@ const App: React.FC = () => {
         return;
       }
 
+      // Salva a oferta imediatamente no Supabase e atualiza o estado local com os novos anexos
+      await upsertFreightOffer(offer);
+      setFreightOffers(prev => prev.map(o => o.id === offer.id ? offer : o));
+
       setOfferToConvert(offer);
       setCurrentPage('loads');
       showToast('Preenchendo dados da nova carga a partir da oferta...', 'success');
