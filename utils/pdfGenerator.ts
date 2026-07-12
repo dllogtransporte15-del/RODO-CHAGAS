@@ -14,7 +14,8 @@ export const generateLoadingOrderPDF = (
   const doc = new jsPDF();
   const client = clients.find((c) => c.id === cargo.clientId);
   const product = products.find((p) => p.id === cargo.productId);
-  const mainVehicle = vehicles.find((v) => v.plate.trim().toLowerCase() === shipment.horsePlate.trim().toLowerCase());
+  const normalizePlate = (p: string | undefined | null) => p ? p.replace(/[^a-zA-Z0-9]/g, "").toLowerCase() : "";
+  const mainVehicle = vehicles.find((v) => normalizePlate(v.plate) === normalizePlate(shipment.horsePlate));
 
   // Brand Colors
   const primaryBlue: [number, number, number] = [29, 59, 141]; // #1D3B8D
@@ -105,8 +106,8 @@ export const generateLoadingOrderPDF = (
       ["CPF DO CONDUTOR", shipment.driverCpf || "N/A"],
       ["TELEFONE CONTATO", shipment.driverContact || "N/A"],
       ["PLACA (CAVALO)", shipment.horsePlate.toUpperCase()],
-      ["TIPO DE VEÍCULO", mainVehicle?.setType?.toUpperCase() || "N/A"],
-      ["CARROCERIA", mainVehicle?.bodyType?.toUpperCase() || "N/A"],
+      ["TIPO DE VEÍCULO", (mainVehicle?.setType || shipment.vehicleSetType || "N/A").toUpperCase()],
+      ["CARROCERIA", (mainVehicle?.bodyType || shipment.vehicleBodyType || "N/A").toUpperCase()],
       ["PLACA(S) CARRETA(S)", [shipment.trailer1Plate, shipment.trailer2Plate, shipment.trailer3Plate].filter(Boolean).join(" / ").toUpperCase() || "N/A"],
       ["PROPRIETÁRIO / TITULAR", (shipment.anttOwnerIdentifier || shipment.ownerContact || "N/A").toUpperCase()],
     ],

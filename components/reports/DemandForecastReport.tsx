@@ -9,6 +9,7 @@ interface DemandForecastReportProps {
   cargos: Cargo[];
   clients: Client[];
   shipments: Shipment[];
+  companyLogo?: string | null;
 }
 
 interface ClientDemandRow {
@@ -38,7 +39,7 @@ function getWeekdayLabel(dateStr: string): string {
   return WEEKDAY_LABELS[new Date(dateStr + "T00:00:00").getDay()];
 }
 
-const DemandForecastReport: React.FC<DemandForecastReportProps> = ({ cargos, clients, shipments }) => {
+const DemandForecastReport: React.FC<DemandForecastReportProps> = ({ cargos, clients, shipments, companyLogo }) => {
   const today = new Date();
   const monday = new Date(today);
   monday.setDate(today.getDate() - today.getDay() + 1);
@@ -146,6 +147,15 @@ const DemandForecastReport: React.FC<DemandForecastReportProps> = ({ cargos, cli
 
   const handleExportPDF = () => {
     const doc = new jsPDF("landscape");
+
+    if (companyLogo) {
+      try {
+        const pageWidth = doc.internal.pageSize.getWidth();
+        doc.addImage(companyLogo, 'PNG', pageWidth - 14 - 35, 5, 35, 15);
+      } catch (e) {
+        console.warn("Could not add company logo to PDF", e);
+      }
+    }
     doc.setFontSize(14);
     doc.text("Previsao de Demandas", 14, 14);
     doc.setFontSize(9);
@@ -167,7 +177,19 @@ const DemandForecastReport: React.FC<DemandForecastReportProps> = ({ cargos, cli
         ],
         theme: "grid",
         styles: { fontSize: 8 },
-        headStyles: { fillColor: [41, 128, 185], textColor: 255 },
+        headStyles: { fillColor: [29, 59, 141], textColor: 255 },
+        didParseCell: (data) => {
+          if (data.cell.section === 'body') {
+            const rawRow = data.row.raw;
+            if (Array.isArray(rawRow)) {
+              if (rawRow[0] === 'TOTAL' || rawRow[0] === 'TOTAIS') {
+                data.cell.styles.fillColor = [240, 240, 240];
+                data.cell.styles.fontStyle = 'bold';
+                data.cell.styles.textColor = [0, 0, 0];
+              }
+            }
+          }
+        }
       });
     } else {
       autoTable(doc, {
@@ -188,7 +210,19 @@ const DemandForecastReport: React.FC<DemandForecastReportProps> = ({ cargos, cli
         ],
         theme: "grid",
         styles: { fontSize: 7 },
-        headStyles: { fillColor: [41, 128, 185], textColor: 255 },
+        headStyles: { fillColor: [29, 59, 141], textColor: 255 },
+        didParseCell: (data) => {
+          if (data.cell.section === 'body') {
+            const rawRow = data.row.raw;
+            if (Array.isArray(rawRow)) {
+              if (rawRow[0] === 'TOTAL' || rawRow[0] === 'TOTAIS') {
+                data.cell.styles.fillColor = [240, 240, 240];
+                data.cell.styles.fontStyle = 'bold';
+                data.cell.styles.textColor = [0, 0, 0];
+              }
+            }
+          }
+        }
       });
     }
 

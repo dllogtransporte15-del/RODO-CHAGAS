@@ -28,11 +28,12 @@ interface ReportsPageProps {
   clients: Client[];
   branches: Branch[];
   stays?: StayRecord[];
+  companyLogo?: string | null;
 }
 
 type ActiveReport = 'comercial' | 'embarcadores' | 'clientes' | 'vendedores' | 'tempo-operacao' | 'filiais' | 'estadias' | 'previsao-demandas';
 
-const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, cargos, users, currentUser, clients, branches, stays = [] }) => {
+const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, cargos, users, currentUser, clients, branches, stays = [], companyLogo }) => {
   const [activeReport, setActiveReport] = useState<ActiveReport>('comercial');
   const [loadingStays, setLoadingStays] = useState(false);
   
@@ -216,9 +217,9 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, carg
       case 'comercial':
         return <SupervisorReport shipments={filteredShipments} cargos={cargos} users={users} stays={stays} />;
       case 'embarcadores':
-        return <ShipperReport shipments={filteredShipments} cargos={cargos} clients={clients} users={users} currentUser={currentUser} />;
+        return <ShipperReport shipments={filteredShipments} cargos={cargos} clients={clients} users={users} currentUser={currentUser} companyLogo={companyLogo} />;
       case 'clientes':
-        return <ClientReport shipments={filteredShipments} cargos={cargos} clients={clients} stays={stays} />;
+        return <ClientReport shipments={filteredShipments} cargos={cargos} clients={clients} stays={stays} companyLogo={companyLogo} />;
       case 'vendedores':
         return <ExternalSalespersonReport shipments={filteredShipments} cargos={cargos} />;
       case 'tempo-operacao':
@@ -236,7 +237,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, carg
         }
         return <StayFinancialReport stays={filteredStays} />;
       case 'previsao-demandas':
-        return <DemandForecastReport cargos={cargos} clients={clients} shipments={shipments} />;
+        return <DemandForecastReport cargos={cargos} clients={clients} shipments={shipments} companyLogo={companyLogo} />;
       default:
         return null;
     }

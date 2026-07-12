@@ -14,6 +14,7 @@ interface ClientReportProps {
   cargos: Cargo[];
   clients: Client[];
   stays?: StayRecord[];
+  companyLogo?: string | null;
 }
 
 interface ClientStats {
@@ -43,7 +44,7 @@ const StatCard: React.FC<{ title: string, value: string | number, icon: React.Re
 };
 
 
-const ClientReport: React.FC<ClientReportProps> = ({ shipments, cargos, clients, stays = [] }) => {
+const ClientReport: React.FC<ClientReportProps> = ({ shipments, cargos, clients, stays = [], companyLogo }) => {
   const [showListModal, setShowListModal] = useState(false);
   const [selectedClientId, setSelectedClientId] = useState<string | 'ALL'>('ALL');
   const [filterModalStatus, setFilterModalStatus] = useState<string[]>([]);
@@ -161,6 +162,15 @@ const ClientReport: React.FC<ClientReportProps> = ({ shipments, cargos, clients,
 
       const doc = new jsPDF('landscape');
 
+      if (companyLogo) {
+          try {
+              const pageWidth = doc.internal.pageSize.getWidth();
+              doc.addImage(companyLogo, 'PNG', pageWidth - 14 - 35, 5, 35, 15);
+          } catch (e) {
+              console.warn("Could not add company logo to PDF", e);
+          }
+      }
+
       doc.setFontSize(16);
       doc.text(`Listagem de Embarques - Cliente: ${clientName}`, 14, 15);
       doc.setFontSize(10);
@@ -254,7 +264,23 @@ const ClientReport: React.FC<ClientReportProps> = ({ shipments, cargos, clients,
           startY,
           theme: 'grid',
           styles: { fontSize: 7.5 },
-          headStyles: { fillColor: [41, 128, 185], textColor: 255 }
+          headStyles: { fillColor: [29, 59, 141], textColor: 255 },
+          didParseCell: (data) => {
+              if (data.cell.section === 'body') {
+                  const rawRow = data.row.raw;
+                  if (Array.isArray(rawRow)) {
+                      if (rawRow[0] === 'TOTAIS' || rawRow[0] === 'TOTAL') {
+                          data.cell.styles.fillColor = [240, 240, 240];
+                          data.cell.styles.fontStyle = 'bold';
+                          data.cell.styles.textColor = [0, 0, 0];
+                      } else if (rawRow[0] === 'LÍQUIDO') {
+                          data.cell.styles.fillColor = [220, 245, 220];
+                          data.cell.styles.fontStyle = 'bold';
+                          data.cell.styles.textColor = [0, 102, 0];
+                      }
+                  }
+              }
+          }
       });
 
       const suffix = activeModalFiltersCount > 0 ? '_filtrado' : '';
@@ -268,6 +294,15 @@ const ClientReport: React.FC<ClientReportProps> = ({ shipments, cargos, clients,
           : 'Geral';
 
       const doc = new jsPDF('landscape');
+      
+      if (companyLogo) {
+          try {
+              const pageWidth = doc.internal.pageSize.getWidth();
+              doc.addImage(companyLogo, 'PNG', pageWidth - 14 - 35, 5, 35, 15);
+          } catch (e) {
+              console.warn("Could not add company logo to PDF", e);
+          }
+      }
       
       doc.setFontSize(16);
       doc.text(`Relatório de Embarques Finalizados - Cliente: ${clientName || 'Todos'}`, 14, 15);
@@ -353,7 +388,23 @@ const ClientReport: React.FC<ClientReportProps> = ({ shipments, cargos, clients,
           startY: 28,
           theme: 'grid',
           styles: { fontSize: 8 },
-          headStyles: { fillColor: [41, 128, 185], textColor: 255 }
+          headStyles: { fillColor: [29, 59, 141], textColor: 255 },
+          didParseCell: (data) => {
+              if (data.cell.section === 'body') {
+                  const rawRow = data.row.raw;
+                  if (Array.isArray(rawRow)) {
+                      if (rawRow[0] === 'TOTAIS' || rawRow[0] === 'TOTAL') {
+                          data.cell.styles.fillColor = [240, 240, 240];
+                          data.cell.styles.fontStyle = 'bold';
+                          data.cell.styles.textColor = [0, 0, 0];
+                      } else if (rawRow[0] === 'LÍQUIDO') {
+                          data.cell.styles.fillColor = [220, 245, 220];
+                          data.cell.styles.fontStyle = 'bold';
+                          data.cell.styles.textColor = [0, 102, 0];
+                      }
+                  }
+              }
+          }
       });
 
       doc.save(`Relatorio_Embarques_Cliente_${clientName?.replace(/\s+/g, '_')}_${new Date().getTime()}.pdf`);
