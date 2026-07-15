@@ -239,6 +239,82 @@ const App: React.FC = () => {
     }
   }, [companyLogo]);
 
+  // Notification Sound Generator using Web Audio API
+  const playNotificationSound = useCallback(() => {
+    try {
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const playNote = (delay: number, frequency: number, duration: number) => {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(frequency, audioCtx.currentTime + delay);
+        
+        gain.gain.setValueAtTime(0.08, audioCtx.currentTime + delay);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + delay + duration);
+        
+        osc.start(audioCtx.currentTime + delay);
+        osc.stop(audioCtx.currentTime + delay + duration);
+      };
+      
+      playNote(0, 587.33, 0.15); // D5
+      playNote(0.15, 880, 0.3);   // A5
+    } catch (e) {
+      console.warn("Web Audio API not supported or blocked by user interaction policy", e);
+    }
+  }, []);
+
+  // Notifications in document title (bell in tab) and sound alert
+  const lastPendingCountRef = useRef(0);
+  useEffect(() => {
+    if (!currentUser || !freightOffers) {
+      document.title = "Rodochagas Logística";
+      return;
+    }
+
+    const isClient = currentUser.profile === UserProfile.Cliente;
+    
+    // Filter offers relevant to the logged-in user's pending actions (only "Aguardando envio de preço" which is FreightOfferStatus.AguardandoPreco)
+    const relevantOffers = freightOffers.filter(offer => {
+      if (isClient) {
+        // Client side: waiting for carrier to send initial price (Aguardando preço da transportadora)
+        return offer.clientId === currentUser.clientId && offer.status === FreightOfferStatus.AguardandoPreco;
+      } else {
+        // Carrier/Internal side: waiting to send price (Aguardando envio de preço)
+        return !offer.driverId && offer.status === FreightOfferStatus.AguardandoPreco;
+      }
+    });
+
+    const pendingCount = relevantOffers.length;
+
+    // Update document title with a bell emoji and count
+    if (pendingCount > 0) {
+      document.title = `🔔 (${pendingCount}) Rodochagas Logística`;
+    } else {
+      document.title = "Rodochagas Logística";
+    }
+
+    // Play notification sound
+    if (pendingCount > 0) {
+      // Play immediately if count increased
+      if (pendingCount > lastPendingCountRef.current) {
+        playNotificationSound();
+      }
+      
+      // Setup periodic reminder sound every 60 seconds
+      const intervalId = setInterval(() => {
+        playNotificationSound();
+      }, 60000);
+
+      lastPendingCountRef.current = pendingCount;
+      return () => clearInterval(intervalId);
+    } else {
+      lastPendingCountRef.current = 0;
+    }
+  }, [freightOffers, currentUser, playNotificationSound]);
+
   useEffect(() => {
     if (themeImage) {
       localStorage.setItem('rodochagas_themeImage', themeImage);

@@ -530,6 +530,10 @@ const DashboardPage: React.FC<DashboardPageProps> = ({
                   if (offer.status === FreightOfferStatus.AguardandoPreco) {
                     const history = addOfferHistory(offer, `Preço inicial de R$ ${newValue.toFixed(2)} enviado pela Transportadora.`);
                     await onSaveFreightOffer({ ...offer, status: FreightOfferStatus.AnaliseCliente, freightValuePerTon: newValue, history });
+                  } else if (offer.status === FreightOfferStatus.AnaliseCliente) {
+                    const oldPrice = offer.freightValuePerTon ? ` (era R$ ${offer.freightValuePerTon.toFixed(2)})` : '';
+                    const history = addOfferHistory(offer, `Preço inicial editado para R$ ${newValue.toFixed(2)} pela Transportadora${oldPrice}.`);
+                    await onSaveFreightOffer({ ...offer, status: FreightOfferStatus.AnaliseCliente, freightValuePerTon: newValue, history });
                   } else {
                     const history = addOfferHistory(offer, `Contraproposta de R$ ${newValue.toFixed(2)} enviada pela Transportadora.`);
                     await onSaveFreightOffer({ ...offer, status: FreightOfferStatus.Contraproposta, counterOfferValue: newValue, history });
@@ -916,6 +920,10 @@ const DashboardPage: React.FC<DashboardPageProps> = ({
               if (onSaveFreightOffer) {
                 if (offer.status === FreightOfferStatus.AguardandoPreco) {
                   const history = addOfferHistory(offer, `Preço inicial de R$ ${newValue.toFixed(2)} enviado pela Transportadora.`);
+                  await onSaveFreightOffer({ ...offer, status: FreightOfferStatus.AnaliseCliente, freightValuePerTon: newValue, history });
+                } else if (offer.status === FreightOfferStatus.AnaliseCliente) {
+                  const oldPrice = offer.freightValuePerTon ? ` (era R$ ${offer.freightValuePerTon.toFixed(2)})` : '';
+                  const history = addOfferHistory(offer, `Preço inicial editado para R$ ${newValue.toFixed(2)} pela Transportadora${oldPrice}.`);
                   await onSaveFreightOffer({ ...offer, status: FreightOfferStatus.AnaliseCliente, freightValuePerTon: newValue, history });
                 } else {
                   const history = addOfferHistory(offer, `Contraproposta de R$ ${newValue.toFixed(2)} enviada pela Transportadora.`);

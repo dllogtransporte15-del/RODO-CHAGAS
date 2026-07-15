@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import type { FreightOffer, Client, Product, Cargo, User } from '../types';
 import { FreightOfferStatus, CargoStatus, UserProfile } from '../types';
-import { PackageIcon, CheckIcon, XIcon, MessageCircleIcon, HistoryIcon, TrashIcon, MapPinIcon, EyeIcon, PaperclipIcon, DownloadIcon, UserIcon, Clock } from 'lucide-react';
+import { PackageIcon, CheckIcon, XIcon, MessageCircleIcon, HistoryIcon, TrashIcon, MapPinIcon, EyeIcon, PaperclipIcon, DownloadIcon, UserIcon, Clock, Edit } from 'lucide-react';
 import VolumeBar from './VolumeBar';
 
 interface FreightOffersListProps {
@@ -222,8 +222,26 @@ const FreightOffersList: React.FC<FreightOffersListProps> = ({
                     {!isClientProfile && (
                       <>
                         {offer.status === FreightOfferStatus.AguardandoPreco && (
-                          <button onClick={() => setCounterOfferModal(offer)} title="Enviar Preço" className="p-1.5 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors">
+                          <button onClick={() => {
+                            setCounterOfferModal(offer);
+                            setCounterValue('');
+                          }} title="Enviar Preço" className="p-1.5 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors">
                             <MessageCircleIcon className="w-4 h-4" />
+                          </button>
+                        )}
+                        {(offer.status === FreightOfferStatus.AnaliseCliente || offer.status === FreightOfferStatus.AguardandoFechamento) && (
+                          <button 
+                            onClick={() => {
+                              if (offer.status === FreightOfferStatus.AnaliseCliente) {
+                                setCounterOfferModal(offer);
+                                setCounterValue(offer.freightValuePerTon ? offer.freightValuePerTon.toString() : '');
+                              }
+                            }} 
+                            disabled={offer.status === FreightOfferStatus.AguardandoFechamento}
+                            title={offer.status === FreightOfferStatus.AguardandoFechamento ? "Edição desabilitada - Aguardando Fechamento" : "Editar Preço Enviado"} 
+                            className={`p-1.5 rounded-lg transition-colors ${offer.status === FreightOfferStatus.AguardandoFechamento ? 'text-gray-400 bg-gray-100 cursor-not-allowed dark:bg-gray-700/50 dark:text-gray-500' : 'text-blue-600 bg-blue-50 hover:bg-blue-100'}`}
+                          >
+                            <Edit className="w-4 h-4" />
                           </button>
                         )}
                         {offer.status === FreightOfferStatus.Contraproposta && (
@@ -350,14 +368,20 @@ const FreightOffersList: React.FC<FreightOffersListProps> = ({
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-sm overflow-hidden">
             <div className="p-5">
               <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-2">
-                {counterOfferModal.status === FreightOfferStatus.AguardandoPreco ? 'Enviar Preço da Oferta' : 'Fazer Contraproposta'}
+                {counterOfferModal.status === FreightOfferStatus.AguardandoPreco 
+                  ? 'Enviar Preço da Oferta' 
+                  : counterOfferModal.status === FreightOfferStatus.AnaliseCliente 
+                    ? 'Editar Preço Enviado' 
+                    : 'Fazer Contraproposta'}
               </h3>
               <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
                 {counterOfferModal.status === FreightOfferStatus.AguardandoPreco 
                   ? `Informe o valor por tonelada (R$) para o frete do cliente ${getClientName(counterOfferModal.clientId)}.`
-                  : isClientProfile 
-                    ? 'Informe o novo valor por tonelada (R$) que deseja contrapropor para a transportadora.' 
-                    : `Informe o novo valor por tonelada (R$) que deseja propor ao cliente ${getClientName(counterOfferModal.clientId)}.`}
+                  : counterOfferModal.status === FreightOfferStatus.AnaliseCliente 
+                    ? `Informe o novo valor por tonelada (R$) para o frete do cliente ${getClientName(counterOfferModal.clientId)}.`
+                    : isClientProfile 
+                      ? 'Informe o novo valor por tonelada (R$) que deseja contrapropor para a transportadora.' 
+                      : `Informe o novo valor por tonelada (R$) que deseja propor ao cliente ${getClientName(counterOfferModal.clientId)}.`}
               </p>
               <form onSubmit={handleCounterSubmit}>
                 <div className="mb-4">
@@ -378,7 +402,11 @@ const FreightOffersList: React.FC<FreightOffersListProps> = ({
                     Cancelar
                   </button>
                   <button type="submit" className="px-3 py-1.5 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors">
-                    {counterOfferModal.status === FreightOfferStatus.AguardandoPreco ? 'Enviar Preço' : 'Enviar Contraproposta'}
+                    {counterOfferModal.status === FreightOfferStatus.AguardandoPreco 
+                      ? 'Enviar Preço' 
+                      : counterOfferModal.status === FreightOfferStatus.AnaliseCliente 
+                        ? 'Salvar Preço' 
+                        : 'Enviar Contraproposta'}
                   </button>
                 </div>
               </form>
