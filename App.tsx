@@ -276,14 +276,17 @@ const App: React.FC = () => {
 
     const isClient = currentUser.profile === UserProfile.Cliente;
     
-    // Filter offers relevant to the logged-in user's pending actions (only "Aguardando envio de preço" which is FreightOfferStatus.AguardandoPreco)
+    // Filter offers relevant to the logged-in user's pending actions (only "Aguardando envio de preço" or "Contraproposta enviada, aguardando aprovação")
     const relevantOffers = freightOffers.filter(offer => {
       if (isClient) {
         // Client side: waiting for carrier to send initial price (Aguardando preço da transportadora)
         return offer.clientId === currentUser.clientId && offer.status === FreightOfferStatus.AguardandoPreco;
       } else {
-        // Carrier/Internal side: waiting to send price (Aguardando envio de preço)
-        return !offer.driverId && offer.status === FreightOfferStatus.AguardandoPreco;
+        // Carrier/Internal side: waiting to send price or counter-offer pending approval
+        return !offer.driverId && (
+          offer.status === FreightOfferStatus.AguardandoPreco ||
+          offer.status === FreightOfferStatus.Contraproposta
+        );
       }
     });
 
