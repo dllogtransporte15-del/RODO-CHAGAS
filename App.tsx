@@ -274,6 +274,17 @@ const App: React.FC = () => {
       return;
     }
 
+    const isAllowedProfile = 
+      currentUser.profile === UserProfile.Admin ||
+      currentUser.profile === UserProfile.Diretor ||
+      currentUser.profile === UserProfile.Comercial;
+
+    if (!isAllowedProfile) {
+      document.title = "Rodochagas Logística";
+      lastPendingCountRef.current = 0;
+      return;
+    }
+
     const isClient = currentUser.profile === UserProfile.Cliente;
     
     // Filter offers relevant to the logged-in user's pending actions (only "Aguardando envio de preço" or "Contraproposta enviada, aguardando aprovação")
