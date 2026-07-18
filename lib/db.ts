@@ -55,12 +55,10 @@ const toFreightOffer = (row: any): FreightOffer => {
 };
 
 export const fetchFreightOffers = async (): Promise<FreightOffer[]> => {
-  const { data, error } = await supabase
-    .from('freight_offers')
-    .select('*')
-    .order('created_at', { ascending: false });
-
-  if (error) {
+  try {
+    const data = await fetchAllRows('freight_offers', 'created_at', { ascending: false });
+    return data.map(toFreightOffer);
+  } catch (error: any) {
     if (error.code === '42P01') {
       console.warn('Table freight_offers does not exist yet. Returning empty array.');
       return [];
@@ -68,7 +66,6 @@ export const fetchFreightOffers = async (): Promise<FreightOffer[]> => {
     console.error('Error fetching freight offers:', error);
     return [];
   }
-  return (data || []).map(toFreightOffer);
 };
 
 const fromFreightOffer = (o: FreightOffer | Omit<FreightOffer, 'id'>) => {
@@ -492,40 +489,98 @@ const handleAuthError = (error: any, defaultValue: any) => {
 // FETCH ALL
 // ─────────────────────────────────────────────
 
+async function fetchAllRows(
+  tableName: string,
+  orderColumn: string,
+  orderOptions?: { ascending?: boolean }
+): Promise<any[]> {
+  let allData: any[] = [];
+  let page = 0;
+  const pageSize = 1000;
+  let hasMore = true;
+
+  while (hasMore) {
+    const from = page * pageSize;
+    const to = from + pageSize - 1;
+
+    const { data, error } = await supabase
+      .from(tableName)
+      .select('*')
+      .order(orderColumn, orderOptions)
+      .range(from, to);
+
+    if (error) {
+      throw error;
+    }
+
+    if (!data || data.length === 0) {
+      break;
+    }
+
+    allData = allData.concat(data);
+
+    if (data.length < pageSize) {
+      hasMore = false;
+    } else {
+      page++;
+    }
+  }
+
+  return allData;
+}
+
 export async function fetchClients(): Promise<Client[]> {
-  const { data, error } = await supabase.from('clients').select('*').order('nome_fantasia');
-  if (error) return handleAuthError(error, []);
-  return (data || []).map(toClient);
+  try {
+    const data = await fetchAllRows('clients', 'nome_fantasia');
+    return data.map(toClient);
+  } catch (error) {
+    return handleAuthError(error, []);
+  }
 }
 
 export async function fetchOwners(): Promise<Owner[]> {
-  const { data, error } = await supabase.from('owners').select('*').order('name');
-  if (error) return handleAuthError(error, []);
-  return (data || []).map(toOwner);
+  try {
+    const data = await fetchAllRows('owners', 'name');
+    return data.map(toOwner);
+  } catch (error) {
+    return handleAuthError(error, []);
+  }
 }
 
 export async function fetchDrivers(): Promise<Driver[]> {
-  const { data, error } = await supabase.from('drivers').select('*').order('name');
-  if (error) return handleAuthError(error, []);
-  return (data || []).map(toDriver);
+  try {
+    const data = await fetchAllRows('drivers', 'name');
+    return data.map(toDriver);
+  } catch (error) {
+    return handleAuthError(error, []);
+  }
 }
 
 export async function fetchVehicles(): Promise<Vehicle[]> {
-  const { data, error } = await supabase.from('vehicles').select('*').order('plate');
-  if (error) return handleAuthError(error, []);
-  return (data || []).map(toVehicle);
+  try {
+    const data = await fetchAllRows('vehicles', 'plate');
+    return data.map(toVehicle);
+  } catch (error) {
+    return handleAuthError(error, []);
+  }
 }
 
 export async function fetchProducts(): Promise<Product[]> {
-  const { data, error } = await supabase.from('products').select('*').order('name');
-  if (error) return handleAuthError(error, []);
-  return (data || []).map(toProduct);
+  try {
+    const data = await fetchAllRows('products', 'name');
+    return data.map(toProduct);
+  } catch (error) {
+    return handleAuthError(error, []);
+  }
 }
 
 export async function fetchCargos(): Promise<Cargo[]> {
-  const { data, error } = await supabase.from('cargos').select('*').order('created_at', { ascending: false });
-  if (error) return handleAuthError(error, []);
-  return (data || []).map(toCargo);
+  try {
+    const data = await fetchAllRows('cargos', 'created_at', { ascending: false });
+    return data.map(toCargo);
+  } catch (error) {
+    return handleAuthError(error, []);
+  }
 }
 
 export async function fetchPaginatedCargos(page: number, limit: number, filters?: { status?: string }): Promise<{ data: Cargo[], count: number }> {
@@ -549,9 +604,12 @@ export async function fetchPaginatedCargos(page: number, limit: number, filters?
 }
 
 export async function fetchShipments(): Promise<Shipment[]> {
-  const { data, error } = await supabase.from('shipments').select('*').order('created_at', { ascending: false });
-  if (error) return handleAuthError(error, []);
-  return (data || []).map(toShipment);
+  try {
+    const data = await fetchAllRows('shipments', 'created_at', { ascending: false });
+    return data.map(toShipment);
+  } catch (error) {
+    return handleAuthError(error, []);
+  }
 }
 
 export async function fetchPaginatedShipments(page: number, limit: number, filters?: { status?: string }): Promise<{ data: Shipment[], count: number }> {
@@ -575,21 +633,30 @@ export async function fetchPaginatedShipments(page: number, limit: number, filte
 }
 
 export async function fetchUsers(): Promise<User[]> {
-  const { data, error } = await supabase.from('app_users').select('*').order('name');
-  if (error) return handleAuthError(error, []);
-  return (data || []).map(toUser);
+  try {
+    const data = await fetchAllRows('app_users', 'name');
+    return data.map(toUser);
+  } catch (error) {
+    return handleAuthError(error, []);
+  }
 }
 
 export async function fetchTickets(): Promise<Ticket[]> {
-  const { data, error } = await supabase.from('tickets').select('*').order('created_at', { ascending: false });
-  if (error) return handleAuthError(error, []);
-  return (data || []).map(toTicket);
+  try {
+    const data = await fetchAllRows('tickets', 'created_at', { ascending: false });
+    return data.map(toTicket);
+  } catch (error) {
+    return handleAuthError(error, []);
+  }
 }
 
 export async function fetchBranches(): Promise<Branch[]> {
-  const { data, error } = await supabase.from('branches').select('*').order('name');
-  if (error) return handleAuthError(error, []);
-  return (data || []).map(toBranch);
+  try {
+    const data = await fetchAllRows('branches', 'name');
+    return data.map(toBranch);
+  } catch (error) {
+    return handleAuthError(error, []);
+  }
 }
 
 export async function fetchShipmentLocks(): Promise<ShipmentLock[]> {
