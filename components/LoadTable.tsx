@@ -1,12 +1,12 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import type { Cargo, Client, Product, Shipment, User } from '../types';
 import { DailyScheduleType, CargoStatus, UserProfile, ShipmentStatus } from '../types';
 import VolumeBar from './VolumeBar';
 import { Trash2 } from 'lucide-react';
 import { PlusIcon } from './icons/PlusIcon';
 import { HistoryIcon } from './icons/HistoryIcon';
-import { Search, Filter, X } from 'lucide-react';
+import { Search, Filter, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import MultiSelectDropdown from './MultiSelectDropdown';
 import { StayRecord } from '../utils/toolStorage';
 import type { Ticket } from '../types';
@@ -58,16 +58,29 @@ const LoadTable: React.FC<LoadTableProps> = ({ loads, clients, products, shipmen
   const originOptions = Array.from(new Set(loads.map(l => l.origin))).filter(Boolean).sort();
   const destOptions = Array.from(new Set(loads.map(l => l.destination))).filter(Boolean).sort();
 
-  const filteredLoads = loads.filter(load => {
-    if (filterId.length > 0 && !filterId.includes(load.sequenceId?.toString() || '')) return false;
-    if (filterClient.length > 0 && !filterClient.includes(getClientName(load.clientId))) return false;
-    if (filterProduct.length > 0 && !filterProduct.includes(getProductName(load.productId))) return false;
-    if (filterOrigin.length > 0 && !filterOrigin.includes(load.origin)) return false;
-    if (filterDest.length > 0 && !filterDest.includes(load.destination)) return false;
-    return true;
-  });
+  const filteredLoads = useMemo(() => {
+    return loads.filter(load => {
+      if (filterId.length > 0 && !filterId.includes(load.sequenceId?.toString() || '')) return false;
+      if (filterClient.length > 0 && !filterClient.includes(getClientName(load.clientId))) return false;
+      if (filterProduct.length > 0 && !filterProduct.includes(getProductName(load.productId))) return false;
+      if (filterOrigin.length > 0 && !filterOrigin.includes(load.origin)) return false;
+      if (filterDest.length > 0 && !filterDest.includes(load.destination)) return false;
+      return true;
+    });
+  }, [loads, filterId, filterClient, filterProduct, filterOrigin, filterDest, clients, products]);
 
   const activeFiltersCount = (filterId.length > 0 ? 1 : 0) + (filterClient.length > 0 ? 1 : 0) + (filterProduct.length > 0 ? 1 : 0) + (filterOrigin.length > 0 ? 1 : 0) + (filterDest.length > 0 ? 1 : 0);
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 50;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filteredLoads]);
+
+  const totalPages = Math.ceil(filteredLoads.length / itemsPerPage) || 1;
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const paginatedLoads = filteredLoads.slice((safeCurrentPage - 1) * itemsPerPage, safeCurrentPage * itemsPerPage);
 
   const clearFilters = () => {
       setFilterId([]);
@@ -151,7 +164,7 @@ const LoadTable: React.FC<LoadTableProps> = ({ loads, clients, products, shipmen
       </div>
 
       <div className="space-y-3">
-        {filteredLoads.map((load) => {
+        {paginatedLoads.map((load) => {
           const scheduledButNotLoaded = Math.max(0, load.scheduledVolume - load.loadedVolume);
           const dailyScheduledTonnage = shipments
             .filter(s => s.cargoId === load.id && s.scheduledDate === dailyBalanceDate)
@@ -464,6 +477,33 @@ const LoadTable: React.FC<LoadTableProps> = ({ loads, clients, products, shipmen
           );
         })}
       </div>
+
+      {totalPages > 1 && (
+        <div className="px-6 py-4 flex flex-col sm:flex-row items-center justify-between border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 gap-4 rounded-lg shadow-sm border mt-4">
+          <div className="text-sm text-gray-500 dark:text-gray-400">
+            Mostrando <span className="font-medium">{(safeCurrentPage - 1) * itemsPerPage + 1}</span> a <span className="font-medium">{Math.min(safeCurrentPage * itemsPerPage, filteredLoads.length)}</span> de <span className="font-medium">{filteredLoads.length}</span> cargas
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+              disabled={safeCurrentPage === 1}
+              className="p-2 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              Página {safeCurrentPage} de {totalPages}
+            </span>
+            <button
+              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+              disabled={safeCurrentPage === totalPages}
+              className="p-2 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

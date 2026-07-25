@@ -1,9 +1,9 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import Header from '../components/Header';
 import FreightOffersList from '../components/FreightOffersList';
 import type { FreightOffer, Client, Product, Cargo, User } from '../types';
 import { FreightOfferStatus, UserProfile } from '../types';
-import { HistoryIcon, FilterIcon, SearchIcon, RefreshCwIcon } from 'lucide-react';
+import { HistoryIcon, FilterIcon, SearchIcon, RefreshCwIcon, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface FreightOffersHistoryPageProps {
   freightOffers: FreightOffer[];
@@ -46,6 +46,17 @@ const FreightOffersHistoryPage: React.FC<FreightOffersHistoryPageProps> = ({
     setFilterOrigin('');
     setFilterDestination('');
   };
+
+  const itemsPerPage = 40;
+  const [currentPage, setCurrentPage] = useState(1);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filteredOffers]);
+
+  const totalPages = Math.ceil(filteredOffers.length / itemsPerPage) || 1;
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const paginatedOffers = filteredOffers.slice((safeCurrentPage - 1) * itemsPerPage, safeCurrentPage * itemsPerPage);
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
@@ -135,7 +146,7 @@ const FreightOffersHistoryPage: React.FC<FreightOffersHistoryPageProps> = ({
 
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
         <FreightOffersList
-          offers={filteredOffers}
+          offers={paginatedOffers}
           clients={clients}
           products={products}
           cargos={cargos}
@@ -146,6 +157,35 @@ const FreightOffersHistoryPage: React.FC<FreightOffersHistoryPageProps> = ({
           onCounterOffer={async () => {}} // Disabled actions for history
           onDelete={onDeleteFreightOffer}
         />
+
+        {totalPages > 1 && (
+          <div className="px-6 py-4 flex flex-col sm:flex-row items-center justify-between border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 gap-4">
+            <div className="text-sm text-gray-500 dark:text-gray-400">
+              Mostrando <span className="font-medium">{(safeCurrentPage - 1) * itemsPerPage + 1}</span> a{' '}
+              <span className="font-medium">{Math.min(safeCurrentPage * itemsPerPage, filteredOffers.length)}</span> de{' '}
+              <span className="font-medium">{filteredOffers.length}</span> ofertas
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                disabled={safeCurrentPage === 1}
+                className="p-2 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Página {safeCurrentPage} de {totalPages}
+              </span>
+              <button
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                disabled={safeCurrentPage === totalPages}
+                className="p-2 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

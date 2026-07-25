@@ -496,9 +496,13 @@ const DashboardPage: React.FC<DashboardPageProps> = ({
     const totalActiveLoads = cargos.filter(c => c.status === CargoStatus.EmAndamento || c.status === CargoStatus.Suspensa).length;
     const shipmentsAwaitingLoading = shipments.filter(s => s.status === ShipmentStatus.AguardandoCarregamento);
 
-    const pendingOffers = freightOffers.filter(o => 
-      o.status !== FreightOfferStatus.Recusada
-    );
+    const SEVENTY_TWO_HOURS_MS = 72 * 60 * 60 * 1000;
+    const pendingOffers = freightOffers.filter(o => {
+      if (o.status === FreightOfferStatus.Recusada) return false;
+      const age = Date.now() - new Date(o.createdAt).getTime();
+      if (age > SEVENTY_TWO_HOURS_MS) return false;
+      return true;
+    });
 
     return (
       <>
@@ -858,9 +862,13 @@ const DashboardPage: React.FC<DashboardPageProps> = ({
     )
   }
 
-  const pendingOffers = freightOffers.filter(o => 
-    o.status !== FreightOfferStatus.Recusada && !o.driverId
-  );
+  const SEVENTY_TWO_HOURS_MS = 72 * 60 * 60 * 1000;
+  const pendingOffers = freightOffers.filter(o => {
+    if (o.status === FreightOfferStatus.Recusada || o.driverId) return false;
+    const age = Date.now() - new Date(o.createdAt).getTime();
+    if (age > SEVENTY_TWO_HOURS_MS) return false;
+    return true;
+  });
 
   const driverOffers = freightOffers.filter(o => 
     o.driverId === currentUser?.id && o.status === FreightOfferStatus.Pendente

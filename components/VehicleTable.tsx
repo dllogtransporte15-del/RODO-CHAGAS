@@ -1,6 +1,6 @@
 
-import React from 'react';
-import { History } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { History, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { Vehicle, Owner } from '../types';
 
 interface VehicleTableProps {
@@ -12,6 +12,17 @@ interface VehicleTableProps {
 }
 
 const VehicleTable: React.FC<VehicleTableProps> = ({ vehicles, owners, onEdit, onDelete, onShowHistory }) => {
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 50;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [vehicles]);
+
+  const totalPages = Math.ceil(vehicles.length / itemsPerPage) || 1;
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const paginatedVehicles = vehicles.slice((safeCurrentPage - 1) * itemsPerPage, safeCurrentPage * itemsPerPage);
+
   const getOwnerName = (ownerId: string) => {
     return owners.find(o => o.id === ownerId)?.name || 'Desconhecido';
   };
@@ -31,7 +42,7 @@ const VehicleTable: React.FC<VehicleTableProps> = ({ vehicles, owners, onEdit, o
             </tr>
           </thead>
           <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-            {vehicles.map((vehicle) => (
+            {paginatedVehicles.map((vehicle) => (
               <tr key={vehicle.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{vehicle.plate}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm">
@@ -60,6 +71,33 @@ const VehicleTable: React.FC<VehicleTableProps> = ({ vehicles, owners, onEdit, o
           </tbody>
         </table>
       </div>
+
+      {totalPages > 1 && (
+        <div className="px-6 py-4 flex flex-col sm:flex-row items-center justify-between border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 gap-4">
+          <div className="text-sm text-gray-500 dark:text-gray-400">
+            Mostrando <span className="font-medium">{(safeCurrentPage - 1) * itemsPerPage + 1}</span> a <span className="font-medium">{Math.min(safeCurrentPage * itemsPerPage, vehicles.length)}</span> de <span className="font-medium">{vehicles.length}</span> veículos
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+              disabled={safeCurrentPage === 1}
+              className="p-2 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              Página {safeCurrentPage} de {totalPages}
+            </span>
+            <button
+              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+              disabled={safeCurrentPage === totalPages}
+              className="p-2 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
