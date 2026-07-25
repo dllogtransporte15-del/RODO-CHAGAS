@@ -1,6 +1,6 @@
 
-import React, { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { ChevronLeft, ChevronRight, ArrowUpDown } from 'lucide-react';
 import type { Client } from '../types';
 
 interface ClientTableProps {
@@ -13,16 +13,56 @@ const ClientTable: React.FC<ClientTableProps> = ({ clients, onEdit, onDelete }) 
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 50;
 
+  const [sortKey, setSortKey] = useState<string>('name');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+
+  const sortedClients = useMemo(() => {
+    return [...clients].sort((a, b) => {
+      let valA = '';
+      let valB = '';
+      if (sortKey === 'name') { valA = a.nomeFantasia || ''; valB = b.nomeFantasia || ''; }
+      else if (sortKey === 'city') { valA = a.city || ''; valB = b.city || ''; }
+      else if (sortKey === 'state') { valA = a.state || ''; valB = b.state || ''; }
+      const cmp = valA.localeCompare(valB, 'pt-BR');
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+  }, [clients, sortKey, sortDir]);
+
   useEffect(() => {
     setCurrentPage(1);
-  }, [clients]);
+  }, [sortedClients]);
 
-  const totalPages = Math.ceil(clients.length / itemsPerPage) || 1;
+  const totalPages = Math.ceil(sortedClients.length / itemsPerPage) || 1;
   const safeCurrentPage = Math.min(currentPage, totalPages);
-  const paginatedClients = clients.slice((safeCurrentPage - 1) * itemsPerPage, safeCurrentPage * itemsPerPage);
+  const paginatedClients = sortedClients.slice((safeCurrentPage - 1) * itemsPerPage, safeCurrentPage * itemsPerPage);
 
   return (
     <div className="bg-white dark:bg-gray-800 shadow-md rounded-lg overflow-hidden">
+      {/* Sort controls */}
+      <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+          <ArrowUpDown className="w-4 h-4 text-gray-400" />
+          <span className="font-medium">Ordenar por:</span>
+        </div>
+        <select
+          value={sortKey}
+          onChange={e => { setSortKey(e.target.value); setCurrentPage(1); }}
+          className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-primary outline-none"
+        >
+          <option value="name">Nome Fantasia</option>
+          <option value="city">Cidade</option>
+          <option value="state">UF</option>
+        </select>
+        <select
+          value={sortDir}
+          onChange={e => { setSortDir(e.target.value as 'asc' | 'desc'); setCurrentPage(1); }}
+          className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-primary outline-none"
+        >
+          <option value="asc">Crescente (A → Z)</option>
+          <option value="desc">Decrescente (Z → A)</option>
+        </select>
+        <span className="ml-auto text-xs text-gray-500 dark:text-gray-400">{sortedClients.length} clientes</span>
+      </div>
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
           <thead className="bg-gray-50 dark:bg-gray-700">

@@ -12,7 +12,7 @@ import { ExternalLinkIcon } from './icons/ExternalLinkIcon';
 import { InfoIcon } from './icons/InfoIcon';
 import { TransferIcon } from './icons/TransferIcon';
 import { MoreVerticalIcon } from './icons/MoreVerticalIcon';
-import { Search, Filter, X, Trash2, RotateCcw, Clock, Package, AlertCircle, Smartphone, MapPin, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, Filter, X, Trash2, RotateCcw, Clock, Package, AlertCircle, Smartphone, MapPin, ChevronLeft, ChevronRight, ArrowUpDown } from 'lucide-react';
 import { StayRecord } from '../utils/toolStorage';
 import type { Ticket, Driver } from '../types';
 import { TicketStatus } from '../types';
@@ -155,6 +155,9 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, drivers, cargo
 
   const activeFiltersCount = (filterPlate.length > 0 ? 1 : 0) + (filterName.length > 0 ? 1 : 0) + (filterOrigin.length > 0 ? 1 : 0) + (filterDest.length > 0 ? 1 : 0) + (filterClient.length > 0 ? 1 : 0);
 
+  const [sortKey, setSortKey] = useState<string>('default');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 50;
 
@@ -164,7 +167,27 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, drivers, cargo
 
   const totalPages = Math.ceil(filteredShipments.length / itemsPerPage) || 1;
   const safeCurrentPage = Math.min(currentPage, totalPages);
-  const paginatedShipments = filteredShipments.slice((safeCurrentPage - 1) * itemsPerPage, safeCurrentPage * itemsPerPage);
+
+  const sortedShipments = useMemo(() => {
+    if (sortKey === 'default') return filteredShipments;
+    return [...filteredShipments].sort((a, b) => {
+      let valA = '';
+      let valB = '';
+      const cargoA = getCargoInfo(a.cargoId);
+      const cargoB = getCargoInfo(b.cargoId);
+      if (sortKey === 'driver') { valA = a.driverName || ''; valB = b.driverName || ''; }
+      else if (sortKey === 'plate') { valA = a.horsePlate || ''; valB = b.horsePlate || ''; }
+      else if (sortKey === 'origin') { valA = cargoA?.origin || ''; valB = cargoB?.origin || ''; }
+      else if (sortKey === 'destination') { valA = cargoA?.destination || ''; valB = cargoB?.destination || ''; }
+      else if (sortKey === 'client') { valA = getClientName(cargoA?.clientId || ''); valB = getClientName(cargoB?.clientId || ''); }
+      else if (sortKey === 'scheduledDate') { valA = a.scheduledDate || ''; valB = b.scheduledDate || ''; }
+      else if (sortKey === 'status') { valA = a.status || ''; valB = b.status || ''; }
+      const cmp = valA.localeCompare(valB, 'pt-BR', { numeric: true });
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+  }, [filteredShipments, sortKey, sortDir]);
+
+  const paginatedShipments = sortedShipments.slice((safeCurrentPage - 1) * itemsPerPage, safeCurrentPage * itemsPerPage);
 
   const clearFilters = () => {
     setFilterPlate([]);
@@ -172,6 +195,8 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, drivers, cargo
     setFilterOrigin([]);
     setFilterDest([]);
     setFilterClient([]);
+    setSortKey('default');
+    setSortDir('desc');
   };
 
   const formatCurrency = (value: number) => {
@@ -261,13 +286,44 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, drivers, cargo
                     <MultiSelectDropdown label="Cidade de Destino" options={destOptions} selectedValues={filterDest} onChange={setFilterDest} placeholder="Todos os Destinos..." />
                     <MultiSelectDropdown label="Cliente" options={clientOptions} selectedValues={filterClient} onChange={setFilterClient} placeholder="Todos os Clientes..." />
                 </div>
-                {activeFiltersCount > 0 && (
-                    <div className="mt-4 flex justify-end">
-                        <button onClick={clearFilters} className="text-sm flex items-center gap-1 text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300">
-                            <X className="w-4 h-4" /> Limpar Filtros
-                        </button>
+                {/* Ordenação */}
+                <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-600 flex flex-wrap items-end gap-4">
+                    <div className="flex items-center gap-2">
+                        <ArrowUpDown className="w-4 h-4 text-gray-500" />
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Ordenar por:</span>
                     </div>
-                )}
+                    <div className="flex flex-wrap gap-3">
+                        <select
+                            value={sortKey}
+                            onChange={e => setSortKey(e.target.value)}
+                            className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-primary outline-none"
+                        >
+                            <option value="default">Padrão (sem ordenação)</option>
+                            <option value="driver">Motorista</option>
+                            <option value="plate">Placa</option>
+                            <option value="origin">Cidade de Origem</option>
+                            <option value="destination">Cidade de Destino</option>
+                            <option value="client">Cliente</option>
+                            <option value="scheduledDate">Data Agendada</option>
+                            <option value="status">Status</option>
+                        </select>
+                        {sortKey !== 'default' && (
+                            <select
+                                value={sortDir}
+                                onChange={e => setSortDir(e.target.value as 'asc' | 'desc')}
+                                className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-primary outline-none"
+                            >
+                                <option value="asc">Crescente (A → Z)</option>
+                                <option value="desc">Decrescente (Z → A)</option>
+                            </select>
+                        )}
+                    </div>
+                    {(activeFiltersCount > 0 || sortKey !== 'default') && (
+                        <button onClick={clearFilters} className="ml-auto text-sm flex items-center gap-1 text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300">
+                            <X className="w-4 h-4" /> Limpar Tudo
+                        </button>
+                    )}
+                </div>
             </div>
         )}
       </div>

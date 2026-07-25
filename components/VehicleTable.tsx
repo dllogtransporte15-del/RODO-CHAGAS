@@ -1,6 +1,6 @@
 
-import React, { useState, useEffect } from 'react';
-import { History, ChevronLeft, ChevronRight } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { History, ChevronLeft, ChevronRight, ArrowUpDown } from 'lucide-react';
 import type { Vehicle, Owner } from '../types';
 
 interface VehicleTableProps {
@@ -15,13 +15,29 @@ const VehicleTable: React.FC<VehicleTableProps> = ({ vehicles, owners, onEdit, o
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 50;
 
+  const [sortKey, setSortKey] = useState<string>('plate');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+
+  const sortedVehicles = useMemo(() => {
+    return [...vehicles].sort((a, b) => {
+      let valA = '';
+      let valB = '';
+      if (sortKey === 'plate') { valA = a.plate; valB = b.plate; }
+      else if (sortKey === 'type') { valA = a.type || ''; valB = b.type || ''; }
+      else if (sortKey === 'classification') { valA = a.classification || ''; valB = b.classification || ''; }
+      else if (sortKey === 'owner') { valA = getOwnerName(a.ownerId); valB = getOwnerName(b.ownerId); }
+      const cmp = valA.localeCompare(valB, 'pt-BR');
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+  }, [vehicles, sortKey, sortDir, owners]);
+
   useEffect(() => {
     setCurrentPage(1);
-  }, [vehicles]);
+  }, [sortedVehicles]);
 
-  const totalPages = Math.ceil(vehicles.length / itemsPerPage) || 1;
+  const totalPages = Math.ceil(sortedVehicles.length / itemsPerPage) || 1;
   const safeCurrentPage = Math.min(currentPage, totalPages);
-  const paginatedVehicles = vehicles.slice((safeCurrentPage - 1) * itemsPerPage, safeCurrentPage * itemsPerPage);
+  const paginatedVehicles = sortedVehicles.slice((safeCurrentPage - 1) * itemsPerPage, safeCurrentPage * itemsPerPage);
 
   const getOwnerName = (ownerId: string) => {
     return owners.find(o => o.id === ownerId)?.name || 'Desconhecido';
@@ -29,6 +45,32 @@ const VehicleTable: React.FC<VehicleTableProps> = ({ vehicles, owners, onEdit, o
 
   return (
     <div className="bg-white dark:bg-gray-800 shadow-md rounded-lg overflow-hidden">
+      {/* Sort controls */}
+      <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+          <ArrowUpDown className="w-4 h-4 text-gray-400" />
+          <span className="font-medium">Ordenar por:</span>
+        </div>
+        <select
+          value={sortKey}
+          onChange={e => { setSortKey(e.target.value); setCurrentPage(1); }}
+          className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-primary outline-none"
+        >
+          <option value="plate">Placa</option>
+          <option value="type">Tipo</option>
+          <option value="classification">Classificação</option>
+          <option value="owner">Proprietário</option>
+        </select>
+        <select
+          value={sortDir}
+          onChange={e => { setSortDir(e.target.value as 'asc' | 'desc'); setCurrentPage(1); }}
+          className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-primary outline-none"
+        >
+          <option value="asc">Crescente (A → Z)</option>
+          <option value="desc">Decrescente (Z → A)</option>
+        </select>
+        <span className="ml-auto text-xs text-gray-500 dark:text-gray-400">{sortedVehicles.length} veículos</span>
+      </div>
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
           <thead className="bg-gray-50 dark:bg-gray-700">

@@ -6,7 +6,7 @@ import VolumeBar from './VolumeBar';
 import { Trash2 } from 'lucide-react';
 import { PlusIcon } from './icons/PlusIcon';
 import { HistoryIcon } from './icons/HistoryIcon';
-import { Search, Filter, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, Filter, X, ChevronLeft, ChevronRight, ArrowUpDown } from 'lucide-react';
 import MultiSelectDropdown from './MultiSelectDropdown';
 import { StayRecord } from '../utils/toolStorage';
 import type { Ticket } from '../types';
@@ -47,6 +47,8 @@ const LoadTable: React.FC<LoadTableProps> = ({ loads, clients, products, shipmen
   const [filterProduct, setFilterProduct] = useState<string[]>([]);
   const [filterOrigin, setFilterOrigin] = useState<string[]>([]);
   const [filterDest, setFilterDest] = useState<string[]>([]);
+  const [sortKey, setSortKey] = useState<string>('default');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
   const getClientName = (clientId: string) => clients.find(c => c.id === clientId)?.nomeFantasia || 'N/A';
   const getProductName = (productId: string) => products.find(p => p.id === productId)?.name || 'N/A';
@@ -59,7 +61,7 @@ const LoadTable: React.FC<LoadTableProps> = ({ loads, clients, products, shipmen
   const destOptions = Array.from(new Set(loads.map(l => l.destination))).filter(Boolean).sort();
 
   const filteredLoads = useMemo(() => {
-    return loads.filter(load => {
+    const filtered = loads.filter(load => {
       if (filterId.length > 0 && !filterId.includes(load.sequenceId?.toString() || '')) return false;
       if (filterClient.length > 0 && !filterClient.includes(getClientName(load.clientId))) return false;
       if (filterProduct.length > 0 && !filterProduct.includes(getProductName(load.productId))) return false;
@@ -67,7 +69,22 @@ const LoadTable: React.FC<LoadTableProps> = ({ loads, clients, products, shipmen
       if (filterDest.length > 0 && !filterDest.includes(load.destination)) return false;
       return true;
     });
-  }, [loads, filterId, filterClient, filterProduct, filterOrigin, filterDest, clients, products]);
+
+    if (sortKey === 'default') return filtered;
+
+    return [...filtered].sort((a, b) => {
+      let valA = '';
+      let valB = '';
+      if (sortKey === 'id') { valA = (a.sequenceId ?? 0).toString().padStart(10, '0'); valB = (b.sequenceId ?? 0).toString().padStart(10, '0'); }
+      else if (sortKey === 'client') { valA = getClientName(a.clientId); valB = getClientName(b.clientId); }
+      else if (sortKey === 'product') { valA = getProductName(a.productId); valB = getProductName(b.productId); }
+      else if (sortKey === 'origin') { valA = a.origin; valB = b.origin; }
+      else if (sortKey === 'destination') { valA = a.destination; valB = b.destination; }
+      else if (sortKey === 'createdAt') { valA = a.createdAt || ''; valB = b.createdAt || ''; }
+      const cmp = valA.localeCompare(valB, 'pt-BR', { numeric: true });
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+  }, [loads, filterId, filterClient, filterProduct, filterOrigin, filterDest, clients, products, sortKey, sortDir]);
 
   const activeFiltersCount = (filterId.length > 0 ? 1 : 0) + (filterClient.length > 0 ? 1 : 0) + (filterProduct.length > 0 ? 1 : 0) + (filterOrigin.length > 0 ? 1 : 0) + (filterDest.length > 0 ? 1 : 0);
 
@@ -88,6 +105,8 @@ const LoadTable: React.FC<LoadTableProps> = ({ loads, clients, products, shipmen
       setFilterProduct([]);
       setFilterOrigin([]);
       setFilterDest([]);
+      setSortKey('default');
+      setSortDir('asc');
   };
   
   const formatCurrency = (value: number) => {
@@ -152,13 +171,43 @@ const LoadTable: React.FC<LoadTableProps> = ({ loads, clients, products, shipmen
                     <MultiSelectDropdown label="Cidade de Origem" options={originOptions} selectedValues={filterOrigin} onChange={setFilterOrigin} placeholder="Todas as Origens..." />
                     <MultiSelectDropdown label="Cidade de Destino" options={destOptions} selectedValues={filterDest} onChange={setFilterDest} placeholder="Todos os Destinos..." />
                 </div>
-                {activeFiltersCount > 0 && (
-                    <div className="mt-4 flex justify-end">
-                        <button onClick={clearFilters} className="text-sm flex items-center gap-1 text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300">
-                            <X className="w-4 h-4" /> Limpar Filtros
-                        </button>
+                {/* Ordenação */}
+                <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-600 flex flex-wrap items-end gap-4">
+                    <div className="flex items-center gap-2">
+                        <ArrowUpDown className="w-4 h-4 text-gray-500" />
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Ordenar por:</span>
                     </div>
-                )}
+                    <div className="flex flex-wrap gap-3">
+                        <select
+                            value={sortKey}
+                            onChange={e => setSortKey(e.target.value)}
+                            className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-primary outline-none"
+                        >
+                            <option value="default">Padrão (sem ordenação)</option>
+                            <option value="id">ID da Carga</option>
+                            <option value="client">Nome do Cliente</option>
+                            <option value="product">Nome do Produto</option>
+                            <option value="origin">Cidade de Origem</option>
+                            <option value="destination">Cidade de Destino</option>
+                            <option value="createdAt">Data de Criação</option>
+                        </select>
+                        {sortKey !== 'default' && (
+                            <select
+                                value={sortDir}
+                                onChange={e => setSortDir(e.target.value as 'asc' | 'desc')}
+                                className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-primary outline-none"
+                            >
+                                <option value="asc">Crescente (A → Z)</option>
+                                <option value="desc">Decrescente (Z → A)</option>
+                            </select>
+                        )}
+                    </div>
+                    {(activeFiltersCount > 0 || sortKey !== 'default') && (
+                        <button onClick={clearFilters} className="ml-auto text-sm flex items-center gap-1 text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300">
+                            <X className="w-4 h-4" /> Limpar Tudo
+                        </button>
+                    )}
+                </div>
             </div>
         )}
       </div>

@@ -1,6 +1,6 @@
 
-import React, { useState, useEffect } from 'react';
-import { History, ChevronLeft, ChevronRight } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { History, ChevronLeft, ChevronRight, ArrowUpDown } from 'lucide-react';
 import type { Driver, Owner } from '../types';
 
 interface DriverTableProps {
@@ -15,13 +15,28 @@ const DriverTable: React.FC<DriverTableProps> = ({ drivers, owners, onEdit, onDe
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 50;
 
+  const [sortKey, setSortKey] = useState<string>('name');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+
+  const sortedDrivers = useMemo(() => {
+    return [...drivers].sort((a, b) => {
+      let valA = '';
+      let valB = '';
+      if (sortKey === 'name') { valA = a.name; valB = b.name; }
+      else if (sortKey === 'classification') { valA = a.classification || ''; valB = b.classification || ''; }
+      else if (sortKey === 'status') { valA = a.active ? 'Ativo' : 'Restrito'; valB = b.active ? 'Ativo' : 'Restrito'; }
+      const cmp = valA.localeCompare(valB, 'pt-BR');
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+  }, [drivers, sortKey, sortDir]);
+
   useEffect(() => {
     setCurrentPage(1);
-  }, [drivers]);
+  }, [sortedDrivers]);
 
-  const totalPages = Math.ceil(drivers.length / itemsPerPage) || 1;
+  const totalPages = Math.ceil(sortedDrivers.length / itemsPerPage) || 1;
   const safeCurrentPage = Math.min(currentPage, totalPages);
-  const paginatedDrivers = drivers.slice((safeCurrentPage - 1) * itemsPerPage, safeCurrentPage * itemsPerPage);
+  const paginatedDrivers = sortedDrivers.slice((safeCurrentPage - 1) * itemsPerPage, safeCurrentPage * itemsPerPage);
 
   const getOwnerName = (ownerId?: string) => {
     if (!ownerId) return 'N/A';
@@ -40,6 +55,31 @@ const DriverTable: React.FC<DriverTableProps> = ({ drivers, owners, onEdit, onDe
 
   return (
     <div className="bg-white dark:bg-gray-800 shadow-md rounded-lg overflow-hidden">
+      {/* Sort controls */}
+      <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+          <ArrowUpDown className="w-4 h-4 text-gray-400" />
+          <span className="font-medium">Ordenar por:</span>
+        </div>
+        <select
+          value={sortKey}
+          onChange={e => { setSortKey(e.target.value); setCurrentPage(1); }}
+          className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-primary outline-none"
+        >
+          <option value="name">Nome</option>
+          <option value="classification">Classificação</option>
+          <option value="status">Status</option>
+        </select>
+        <select
+          value={sortDir}
+          onChange={e => { setSortDir(e.target.value as 'asc' | 'desc'); setCurrentPage(1); }}
+          className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-primary outline-none"
+        >
+          <option value="asc">Crescente (A → Z)</option>
+          <option value="desc">Decrescente (Z → A)</option>
+        </select>
+        <span className="ml-auto text-xs text-gray-500 dark:text-gray-400">{sortedDrivers.length} motoristas</span>
+      </div>
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
           <thead className="bg-gray-50 dark:bg-gray-700">
@@ -110,7 +150,7 @@ const DriverTable: React.FC<DriverTableProps> = ({ drivers, owners, onEdit, onDe
       {totalPages > 1 && (
         <div className="px-6 py-4 flex flex-col sm:flex-row items-center justify-between border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 gap-4">
           <div className="text-sm text-gray-500 dark:text-gray-400">
-            Mostrando <span className="font-medium">{(safeCurrentPage - 1) * itemsPerPage + 1}</span> a <span className="font-medium">{Math.min(safeCurrentPage * itemsPerPage, drivers.length)}</span> de <span className="font-medium">{drivers.length}</span> motoristas
+             Mostrando <span className="font-medium">{(safeCurrentPage - 1) * itemsPerPage + 1}</span> a <span className="font-medium">{Math.min(safeCurrentPage * itemsPerPage, sortedDrivers.length)}</span> de <span className="font-medium">{sortedDrivers.length}</span> motoristas
           </div>
           <div className="flex items-center gap-2">
             <button
