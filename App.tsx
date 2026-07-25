@@ -1058,13 +1058,11 @@ const App: React.FC = () => {
     // Persist to Supabase
     try {
       const updatedCargo = newCargos.find(c => c.id === data.cargoId);
-      await Promise.all([
-        addedOwner ? upsertOwner(addedOwner) : Promise.resolve(),
-        upsertManyDrivers(addedDrivers),
-        upsertManyVehicles(addedVehicles),
-        insertShipment(newShipment),
-        updatedCargo ? upsertCargo(updatedCargo) : Promise.resolve(),
-      ]);
+      if (addedOwner) await upsertOwner(addedOwner);
+      await upsertManyDrivers(addedDrivers);
+      await upsertManyVehicles(addedVehicles);
+      await insertShipment(newShipment);
+      if (updatedCargo) await upsertCargo(updatedCargo);
     } catch (err: any) {
       console.error('Erro ao salvar embarque no Supabase:', err);
       const errorMessage = err?.message || 'Erro desconhecido ao salvar no banco de dados.';
