@@ -81,9 +81,33 @@ export const autoFormatInput = (name: string, value: string): string => {
   if (lowerName.includes('origem') || lowerName.includes('destino') || lowerName.includes('origin') || lowerName.includes('destination') || lowerName === 'city') {
     return formatCityState(value);
   }
-  if (lowerName.includes('name') || lowerName.includes('nome') || lowerName === 'driver' || lowerName === 'client') {
-    return formatName(value);
-  }
   return value;
 };
+
+export const FRETEBRAS_VEHICLE_MAP: Record<string, string | null> = {
+  'Rodotrem (3x3)': 'Bitrem 9 eixos',
+  'Carreta 4e': 'Carreta 4º eixo',
+  'Cavalo 4e': 'Carreta',
+  'Bitrem 8e': null,
+  'Bitrem 7e': 'Bitrem 7 eixos',
+  'LS Trucada': 'Carreta LS',
+  'Vanderleia': 'Vanderléia',
+  'Caminhão Truck': 'Truck',
+};
+
+export const formatFretebrasVehicleTypes = (allowed?: { setType: string }[]): string => {
+  if (!allowed || allowed.length === 0) return '';
+  const mapped = allowed
+    .map(t => {
+      const typeStr = t.setType;
+      if (Object.prototype.hasOwnProperty.call(FRETEBRAS_VEHICLE_MAP, typeStr)) {
+        return FRETEBRAS_VEHICLE_MAP[typeStr];
+      }
+      return typeStr;
+    })
+    .filter((t): t is string => t !== null && t !== undefined && t !== '');
+
+  return [...new Set(mapped)].join(', ');
+};
+
 

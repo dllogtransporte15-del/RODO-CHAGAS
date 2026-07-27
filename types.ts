@@ -116,6 +116,7 @@ export enum VehicleSetType {
   Rodotrem3x3 = "Rodotrem (3x3)",
   Rodotrem = "Rodotrem",
   Truck = "Caminhão Truck",
+  Bitruck = "Bitruck",
 }
 
 export enum VehicleBodyType {

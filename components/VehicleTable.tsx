@@ -23,7 +23,7 @@ const VehicleTable: React.FC<VehicleTableProps> = ({ vehicles, owners, onEdit, o
       let valA = '';
       let valB = '';
       if (sortKey === 'plate') { valA = a.plate; valB = b.plate; }
-      else if (sortKey === 'type') { valA = a.type || ''; valB = b.type || ''; }
+      else if (sortKey === 'type') { valA = a.setType || ''; valB = b.setType || ''; }
       else if (sortKey === 'classification') { valA = a.classification || ''; valB = b.classification || ''; }
       else if (sortKey === 'owner') { valA = getOwnerName(a.ownerId); valB = getOwnerName(b.ownerId); }
       const cmp = valA.localeCompare(valB, 'pt-BR');

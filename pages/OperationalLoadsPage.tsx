@@ -16,6 +16,7 @@ import { CopyIcon } from '../components/icons/CopyIcon';
 import { CargoStatus, UserProfile, ShipmentStatus } from '../types';
 import ShipmentTable from '../components/ShipmentTable';
 import { StayRecord } from '../utils/toolStorage';
+import { formatFretebrasVehicleTypes } from '../utils/formatters';
 import type { Ticket } from '../types';
 
 interface OperationalLoadsPageProps {
@@ -254,9 +255,7 @@ const OperationalLoadsPage: React.FC<OperationalLoadsPageProps> = ({
       const price = `R$ ${load.driverFreightValuePerTon.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
       
       const allowed = load.allowedVehicleTypes || [];
-      const vehicleTypes = allowed.length > 0
-        ? [...new Set(allowed.map(t => t.setType))].join(', ')
-        : '';
+      const vehicleTypes = formatFretebrasVehicleTypes(load.allowedVehicleTypes);
       const bodyTypes = allowed.length > 0
         ? [...new Set(allowed.flatMap(t => t.bodyTypes))].join(', ')
         : '';
