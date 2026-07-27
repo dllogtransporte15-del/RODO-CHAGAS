@@ -218,6 +218,7 @@ export interface Cargo {
   originCoords?: { lat: number; lng: number };
   destinationCoords?: { lat: number; lng: number };
   branchId?: string;
+  requiresTracker?: boolean;
 }
 
 

@@ -743,7 +743,7 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Status da Carga</label>
                         <select name="status" value={load.status} onChange={handleChange} className="mt-1 p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600">{Object.values(CargoStatus).map(s => <option key={s} value={s}>{s}</option>)}</select>
                     </div>
-                    <div className="col-span-1 md:col-span-2 flex items-center space-x-6"><label className="flex items-center space-x-2 cursor-pointer"><input type="checkbox" name="requiresScheduling" checked={load.requiresScheduling} onChange={handleChange} className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary" /><span className="text-sm text-gray-700 dark:text-gray-300">Exige Agendamento</span></label></div>
+                    <div className="col-span-1 md:col-span-2 flex items-center space-x-6"><label className="flex items-center space-x-2 cursor-pointer"><input type="checkbox" name="requiresScheduling" checked={load.requiresScheduling} onChange={handleChange} className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary" /><span className="text-sm text-gray-700 dark:text-gray-300">Exige Agendamento</span></label><label className="flex items-center space-x-2 cursor-pointer"><input type="checkbox" name="requiresTracker" checked={load.requiresTracker || false} onChange={handleChange} className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary" /><span className="text-sm text-gray-700 dark:text-gray-300">Precisa de Rastreador</span></label></div>
                 </div>
             </div>
           )}

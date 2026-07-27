@@ -391,7 +391,7 @@ const OperationalMapPage: React.FC<OperationalMapPageProps> = ({ cargos, shipmen
     if (!allowed || allowed.length === 0) return 'N/A';
     const allBodyTypes = allowed.flatMap(type => type.bodyTypes);
     const uniqueBodyTypes = [...new Set(allBodyTypes)];
-    return uniqueBodyTypes.join(';');
+    return uniqueBodyTypes.join(', ');
   };
 
   const handleShareFilteredLoads = () => {

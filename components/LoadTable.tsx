@@ -36,9 +36,10 @@ interface LoadTableProps {
   currentUser: User;
   stays?: StayRecord[];
   tickets?: Ticket[];
+  onFilteredLoadsChange?: (loads: Cargo[]) => void;
 }
 
-const LoadTable: React.FC<LoadTableProps> = ({ loads, clients, products, shipments, dailyBalanceDate, onDailyBalanceDateChange, onCreateShipment, onSuspend, onReactivate, onFinalize, onEdit, onClose, onShowHistory, onShowDetails, onEditSchedule, onShowShipments, onRecommendDrivers, onDelete, onRequestLoadOrder, currentUser, stays = [], tickets = [] }) => {
+const LoadTable: React.FC<LoadTableProps> = ({ loads, clients, products, shipments, dailyBalanceDate, onDailyBalanceDateChange, onCreateShipment, onSuspend, onReactivate, onFinalize, onEdit, onClose, onShowHistory, onShowDetails, onEditSchedule, onShowShipments, onRecommendDrivers, onDelete, onRequestLoadOrder, currentUser, stays = [], tickets = [], onFilteredLoadsChange }) => {
   const [openActionMenu, setOpenActionMenu] = useState<string | null>(null);
   
   const [showFilters, setShowFilters] = useState(false);
@@ -85,6 +86,10 @@ const LoadTable: React.FC<LoadTableProps> = ({ loads, clients, products, shipmen
       return sortDir === 'asc' ? cmp : -cmp;
     });
   }, [loads, filterId, filterClient, filterProduct, filterOrigin, filterDest, clients, products, sortKey, sortDir]);
+
+  useEffect(() => {
+    onFilteredLoadsChange?.(filteredLoads);
+  }, [filteredLoads, onFilteredLoadsChange]);
 
   const activeFiltersCount = (filterId.length > 0 ? 1 : 0) + (filterClient.length > 0 ? 1 : 0) + (filterProduct.length > 0 ? 1 : 0) + (filterOrigin.length > 0 ? 1 : 0) + (filterDest.length > 0 ? 1 : 0);
 

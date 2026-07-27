@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import Header from '../components/Header';
 import LoadTable from '../components/LoadTable';
 import NewShipmentModal from '../components/NewShipmentModal';
@@ -61,7 +61,14 @@ const formatAllowedVehicleTypes = (allowed?: { setType: VehicleSetType; bodyType
     if (!allowed || allowed.length === 0) return 'N/A';
     const allBodyTypes = allowed.flatMap(type => type.bodyTypes);
     const uniqueBodyTypes = [...new Set(allBodyTypes)];
-    return uniqueBodyTypes.join(';');
+    return uniqueBodyTypes.join(', ');
+};
+
+const formatAllowedSetTypes = (allowed?: { setType: VehicleSetType; bodyTypes: VehicleBodyType[] }[]): string => {
+    if (!allowed || allowed.length === 0) return '';
+    const allSetTypes = allowed.map(type => type.setType);
+    const uniqueSetTypes = [...new Set(allSetTypes)];
+    return uniqueSetTypes.join(', ');
 };
 
 const OperationalLoadsPage: React.FC<OperationalLoadsPageProps> = ({
@@ -93,8 +100,14 @@ const OperationalLoadsPage: React.FC<OperationalLoadsPageProps> = ({
   const [isShipmentModalOpen, setIsShipmentModalOpen] = useState(false);
   const [selectedCargo, setSelectedCargo] = useState<Cargo | null>(null);
   const [copyButtonText, setCopyButtonText] = useState('Divulgar Cargas');
+  const [fretebrasButtonText, setFretebrasButtonText] = useState('Prompt Fretebras');
   const [dailyBalanceDate, setDailyBalanceDate] = useState(new Date().toISOString().split('T')[0]);
   const canCreateShipment = can('create', currentUser, 'shipments', profilePermissions);
+  const [displayedLoads, setDisplayedLoads] = useState<Cargo[]>([]);
+
+  const handleFilteredLoadsChange = useCallback((filteredLoads: Cargo[]) => {
+    setDisplayedLoads(filteredLoads);
+  }, []);
 
   const [isLoadFormModalOpen, setIsLoadFormModalOpen] = useState(false);
   const [loadToEdit, setLoadToEdit] = useState<Cargo | null>(null);
@@ -190,15 +203,15 @@ const OperationalLoadsPage: React.FC<OperationalLoadsPageProps> = ({
   };
   
   const handleShareLoads = () => {
-    const activeLoads = loads.filter(load => load.status === CargoStatus.EmAndamento);
-    if (activeLoads.length === 0) {
+    const loadsToShare = displayedLoads.filter(load => load.status === CargoStatus.EmAndamento);
+    if (loadsToShare.length === 0) {
       alert('Nenhuma carga em andamento para divulgar.');
       return;
     }
 
     const header = '🌐 *LIBERADOS RODOCHAGAS* 🌐\n';
 
-    const loadsText = activeLoads.map(load => {
+    const loadsText = loadsToShare.map(load => {
       const product = products.find(p => p.id === load.productId)?.name?.toUpperCase() || 'N/A';
       const origin = load.origin.toUpperCase();
       const destination = load.destination.toUpperCase();
@@ -227,6 +240,51 @@ const OperationalLoadsPage: React.FC<OperationalLoadsPageProps> = ({
     });
   };
 
+  const handleShareFretebras = () => {
+    const loadsToShare = displayedLoads.filter(load => load.status === CargoStatus.EmAndamento);
+    if (loadsToShare.length === 0) {
+      alert('Nenhuma carga em andamento para divulgar.');
+      return;
+    }
+
+    const loadsText = loadsToShare.map(load => {
+      const product = products.find(p => p.id === load.productId)?.name || '';
+      const origin = load.origin;
+      const destination = load.destination;
+      const price = `R$ ${load.driverFreightValuePerTon.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      
+      const allowed = load.allowedVehicleTypes || [];
+      const vehicleTypes = allowed.length > 0
+        ? [...new Set(allowed.map(t => t.setType))].join(', ')
+        : '';
+      const bodyTypes = allowed.length > 0
+        ? [...new Set(allowed.flatMap(t => t.bodyTypes))].join(', ')
+        : '';
+      const rastreada = load.requiresTracker ? 'Sim' : 'Não';
+
+      return [
+        `ORIGEM: ${origin}`,
+        `DESTINO: ${destination}`,
+        `PRODUTO: ${product}`,
+        `VALOR: ${price}`,
+        `VEÍCULO: ${vehicleTypes}`,
+        `CARROCERIA: ${bodyTypes}`,
+        `RASTREADA: ${rastreada}`,
+        `LONA: Sim`,
+        `FORMA DE PAGAMENTO: Pix, Cartão`,
+        `OBSERVAÇÕES:`,
+      ].join('\n');
+    }).join('\n\n---\n\n');
+
+    navigator.clipboard.writeText(loadsText).then(() => {
+      setFretebrasButtonText('Copiado!');
+      setTimeout(() => setFretebrasButtonText('Prompt Fretebras'), 3000);
+    }, (err) => {
+      console.error('Falha ao copiar: ', err);
+      alert('Não foi possível copiar as cargas. Verifique as permissões do navegador.');
+    });
+  };
+
   const driverActiveShipments = currentUser.profile === UserProfile.Motorista
     ? (() => {
         const driverCpfClean = (currentUser.email || '').replace(/\D/g, '');
@@ -242,13 +300,22 @@ const OperationalLoadsPage: React.FC<OperationalLoadsPageProps> = ({
     <>
       <Header title="Cargas em Operação">
         {currentUser.profile !== UserProfile.Cliente && currentUser.profile !== UserProfile.Motorista && (
-          <button
-            onClick={handleShareLoads}
-            className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-all duration-200"
-          >
-            <CopyIcon className="w-5 h-5 mr-2" />
-            {copyButtonText}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleShareLoads}
+              className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-all duration-200"
+            >
+              <CopyIcon className="w-5 h-5 mr-2" />
+              {copyButtonText}
+            </button>
+            <button
+              onClick={handleShareFretebras}
+              className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200"
+            >
+              <CopyIcon className="w-5 h-5 mr-2" />
+              {fretebrasButtonText}
+            </button>
+          </div>
         )}
       </Header>
       
@@ -291,6 +358,7 @@ const OperationalLoadsPage: React.FC<OperationalLoadsPageProps> = ({
         stays={stays}
         tickets={tickets}
         onRequestLoadOrder={onRequestLoadOrder}
+        onFilteredLoadsChange={handleFilteredLoadsChange}
       />
 
       <NewShipmentModal
