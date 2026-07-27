@@ -85,10 +85,11 @@ export const autoFormatInput = (name: string, value: string): string => {
 };
 
 export const FRETEBRAS_VEHICLE_MAP: Record<string, string | null> = {
+  'LS Simples': null,
+  'Cavalo 4e': null,
+  'Bitrem 8e': null,
   'Rodotrem (3x3)': 'Bitrem 9 eixos',
   'Carreta 4e': 'Carreta 4º eixo',
-  'Cavalo 4e': 'Carreta',
-  'Bitrem 8e': null,
   'Bitrem 7e': 'Bitrem 7 eixos',
   'LS Trucada': 'Carreta LS',
   'Vanderleia': 'Vanderléia',
