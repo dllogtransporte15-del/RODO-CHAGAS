@@ -1,5 +1,5 @@
-export const formatId = (num: number, prefix: string): string => {
-  return `${prefix}-${String(num).padStart(3, '0')}`;
+export const formatId = (num: number, prefix: string, pad: number = 3): string => {
+  return `${prefix}-${String(num).padStart(pad, '0')}`;
 };
 
 const numberToWordsPtBr = (num: number, gender: 'm' | 'f' = 'm'): string => {

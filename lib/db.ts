@@ -56,8 +56,28 @@ const toFreightOffer = (row: any): FreightOffer => {
 
 export const fetchFreightOffers = async (): Promise<FreightOffer[]> => {
   try {
-    const data = await fetchAllRows('freight_offers', 'created_at', { ascending: false });
-    return data.map(toFreightOffer);
+    const data = await fetchAllRows('freight_offers', 'created_at', { ascending: true });
+    const rawOffers = data.map(toFreightOffer);
+
+    let currentSeq = 1;
+    const formattedOffers = rawOffers.map((offer: FreightOffer) => {
+      if (offer.id && /^OFR-\d+$/i.test(offer.id)) {
+        const match = offer.id.match(/^OFR-(\d+)$/i);
+        if (match) {
+          const num = parseInt(match[1], 10);
+          if (!isNaN(num) && num >= currentSeq) {
+            currentSeq = num + 1;
+          }
+        }
+        return { ...offer, displayId: offer.id };
+      } else {
+        const formattedId = `OFR-${String(currentSeq).padStart(2, '0')}`;
+        currentSeq++;
+        return { ...offer, displayId: formattedId };
+      }
+    });
+
+    return formattedOffers.reverse();
   } catch (error: any) {
     if (error.code === '42P01') {
       console.warn('Table freight_offers does not exist yet. Returning empty array.');

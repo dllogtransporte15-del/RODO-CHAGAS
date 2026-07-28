@@ -104,6 +104,7 @@ const FreightOffersList: React.FC<FreightOffersListProps> = ({
         <table className="w-full text-sm text-left">
           <thead className="text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/50">
             <tr>
+              <th className="px-4 py-3 font-medium">ID</th>
               {!isClientProfile && <th className="px-4 py-3 font-medium">Cliente</th>}
               <th className="px-4 py-3 font-medium">Origem</th>
               <th className="px-4 py-3 font-medium">Destino</th>
@@ -129,6 +130,11 @@ const FreightOffersList: React.FC<FreightOffersListProps> = ({
 
               return (
               <tr key={offer.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                <td className="px-4 py-3 text-xs font-bold text-indigo-600 dark:text-indigo-400 whitespace-nowrap">
+                  <span className="inline-block px-2 py-0.5 bg-indigo-50 dark:bg-indigo-900/40 border border-indigo-200 dark:border-indigo-800 rounded-md">
+                    {offer.displayId || offer.id}
+                  </span>
+                </td>
                 {!isClientProfile && (
                   <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">
                     {getClientName(offer.clientId)}
@@ -464,6 +470,9 @@ const FreightOffersList: React.FC<FreightOffersListProps> = ({
               <h3 className="text-lg font-bold text-gray-800 dark:text-white flex items-center gap-2">
                 <PackageIcon className="w-5 h-5 text-indigo-500" />
                 Detalhes da Oferta
+                <span className="text-xs font-semibold px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 rounded-md">
+                  {detailsModal.displayId || detailsModal.id}
+                </span>
               </h3>
               <button onClick={() => setDetailsModal(null)} className="p-1 text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full">
                 <XIcon className="w-5 h-5" />

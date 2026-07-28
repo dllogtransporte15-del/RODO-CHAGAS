@@ -779,11 +779,19 @@ const App: React.FC = () => {
 
   const handleSaveFreightOffer = async (offerData: FreightOffer | Omit<FreightOffer, 'id' | 'createdAt'>) => {
     try {
-      const isNew = !('id' in offerData);
+      const isNew = !('id' in offerData) || !(offerData as FreightOffer).id;
+      let newId = '';
+      if (isNew) {
+        const nextNum = nextIds.freightOffer || 1;
+        newId = formatId(nextNum, 'OFR', 2);
+        setNextIds((prev: any) => ({ ...prev, freightOffer: (prev.freightOffer || nextNum) + 1 }));
+      }
+
       const tempOffer = isNew 
         ? { 
             ...offerData, 
-            id: crypto.randomUUID(), 
+            id: newId, 
+            displayId: newId,
             createdAt: new Date().toISOString(),
             history: [{
               id: `log_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
@@ -802,11 +810,7 @@ const App: React.FC = () => {
         }
       });
       
-      const savedOffer = await upsertFreightOffer(tempOffer);
-      
-      // If the real DB function returns the saved item, we could update the tempId.
-      // But currently upsertFreightOffer is Promise<void>, so realtime subscription will fetch the new one.
-      // For updates, the optimistic update is exact.
+      await upsertFreightOffer(tempOffer);
     } catch (err) {
       console.error('Erro ao salvar oferta de frete:', err);
       showToast('Erro ao atualizar oferta de frete.', 'error');
@@ -2252,7 +2256,7 @@ const App: React.FC = () => {
         <Route path="/freight-quote" element={<FreightQuotePage currentUser={currentUser} />} />
         <Route path="/tools-history" element={<ToolsHistoryPage currentUser={currentUser} shipments={shipments} cargos={cargos} clients={clients} />} />
         <Route path="/branches" element={<BranchesPage branches={branches} onSaveBranch={handleSaveBranch} onDeleteBranch={handleDeleteBranch} currentUser={currentUser} profilePermissions={profilePermissions} />} />
-        <Route path="/freight-offers-history" element={<FreightOffersHistoryPage currentUser={currentUser} freightOffers={freightOffers} clients={clients} products={products} cargos={cargos} onSaveFreightOffer={handleSaveFreightOffer} onDeleteFreightOffer={handleDeleteFreightOffer} />} />
+        <Route path="/freight-offers-history" element={<FreightOffersHistoryPage currentUser={currentUser} freightOffers={freightOffers} clients={clients} products={products} cargos={cargos} onSaveFreightOffer={handleSaveFreightOffer} onDeleteFreightOffer={handleDeleteFreightOffer} onConvertToCargo={(offer) => { setOfferToConvert(offer); setCurrentPage('loads'); }} />} />
         <Route path="*" element={<DashboardPage cargos={activeLoads} shipments={visibleShipments} users={users} currentUser={currentUser} clients={clients} products={products} companyLogo={companyLogo} vehicles={vehicles} drivers={drivers} onDeleteAttachment={handleDeleteShipmentAttachment} freightOffers={freightOffers} onSaveFreightOffer={handleSaveFreightOffer} onAcceptFreightOffer={handleAcceptFreightOffer} onDeleteFreightOffer={handleDeleteFreightOffer} onCreateShipment={handleCreateShipment} />} />
       </Routes>
     );

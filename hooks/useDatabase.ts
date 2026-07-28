@@ -22,9 +22,12 @@ function getMaxId(items: any[], startOffset: number): number {
   }
   let maxNum = startOffset - 1;
   for (const item of items) {
-    if (item?.id && typeof item.id === 'string' && item.id.includes('-')) {
-      const num = parseInt(item.id.split('-')[1], 10);
-      if (!isNaN(num) && num > maxNum) maxNum = num;
+    if (item?.id && typeof item.id === 'string') {
+      const match = item.id.match(/-(\d+)$/);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (!isNaN(num) && num > maxNum) maxNum = num;
+      }
     }
   }
   const nextId = maxNum + 1;
@@ -35,7 +38,7 @@ function getMaxId(items: any[], startOffset: number): number {
 function calculateNextIds(
   dbClients: any[], dbOwners: any[], dbDrivers: any[], dbVehicles: any[], 
   dbProducts: any[], dbShipments: any[], dbCargos: any[], dbUsers: any[], dbTickets: any[],
-  dbBranches: any[]
+  dbBranches: any[], dbOffers: any[] = []
 ) {
   const result = {
     client: getMaxId(dbClients, 100),
@@ -48,6 +51,7 @@ function calculateNextIds(
     user: getMaxId(dbUsers, 100),
     ticket: getMaxId(dbTickets, 1),
     branch: getMaxId(dbBranches, 10),
+    freightOffer: getMaxId(dbOffers, 1),
     history: 9999,
   };
   console.log('[DB] Next IDs calculated:', result);
@@ -80,7 +84,7 @@ export function useDatabase(currentUser: User | null) {
   const [nextIds, setNextIds] = useState(() => {
     const saved = localStorage.getItem('rodochagas_nextIds');
     if (saved) return JSON.parse(saved);
-    return { client: 100, owner: 100, driver: 100, vehicle: 100, product: 100, shipment: 100, cargo: 100, user: 100, ticket: 1, branch: 10, history: 1000 };
+    return { client: 100, owner: 100, driver: 100, vehicle: 100, product: 100, shipment: 100, cargo: 100, user: 100, ticket: 1, branch: 10, freightOffer: 1, history: 1000 };
   });
 
   const isAnyModalActiveRef = useRef(false);
@@ -166,7 +170,7 @@ export function useDatabase(currentUser: User | null) {
 
         setNextIds(calculateNextIds(
           dbClients, dbOwners, dbDrivers, dbVehicles,
-          dbProducts, dbShipments, dbCargos, dbUsers, dbTickets, dbBranches
+          dbProducts, dbShipments, dbCargos, dbUsers, dbTickets, dbBranches, dbFreightOffers
         ));
       }
 
@@ -265,6 +269,7 @@ export function useDatabase(currentUser: User | null) {
           case 'freight_offers': {
             const dbOffers = await fetchFreightOffers();
             setFreightOffers(dbOffers);
+            setNextIds((prev: any) => ({ ...prev, freightOffer: getMaxId(dbOffers, 1) }));
             break;
           }
           case 'branches': {

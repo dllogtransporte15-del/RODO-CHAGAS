@@ -395,6 +395,7 @@ export enum FreightOfferStatus {
 
 export interface FreightOffer {
   id: string;
+  displayId?: string;
   clientId: string;
   origin: string;
   originLocation?: string;
