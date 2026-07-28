@@ -287,16 +287,36 @@ const App: React.FC = () => {
 
     const isClient = currentUser.profile === UserProfile.Cliente;
     
-    // Filter offers relevant to the logged-in user's pending actions (only "Aguardando envio de preço" or "Contraproposta enviada, aguardando aprovação")
+    // Filter offers relevant to the logged-in user's pending actions (Aguardando preço, Contraproposta, ou Aceita sem carga gerada)
     const relevantOffers = freightOffers.filter(offer => {
+      // Se a oferta foi aceita, verifica se já existe carga gerada para ela
+      if (offer.status === FreightOfferStatus.Aceita || offer.status === FreightOfferStatus.ContrapropostaAceita) {
+        const hasCargo = (offer.cargoId && cargos.some(c => c.id === offer.cargoId)) ||
+          cargos.some(c => 
+            c.clientId === offer.clientId &&
+            c.productId === offer.productId &&
+            c.origin === offer.origin &&
+            c.destination === offer.destination &&
+            c.status === CargoStatus.EmAndamento
+          );
+        // Se já existe carga gerada/vinculada, desativa a notificação para esta oferta aceita
+        if (hasCargo) return false;
+      }
+
       if (isClient) {
-        // Client side: waiting for carrier to send initial price (Aguardando preço da transportadora)
-        return offer.clientId === currentUser.clientId && offer.status === FreightOfferStatus.AguardandoPreco;
+        // Client side: waiting for carrier to send initial price or accepted without load
+        return offer.clientId === currentUser.clientId && (
+          offer.status === FreightOfferStatus.AguardandoPreco ||
+          offer.status === FreightOfferStatus.Aceita ||
+          offer.status === FreightOfferStatus.ContrapropostaAceita
+        );
       } else {
-        // Carrier/Internal side: waiting to send price or counter-offer pending approval
+        // Carrier/Internal side: waiting to send price, counter-offer pending approval, or accepted without load
         return !offer.driverId && (
           offer.status === FreightOfferStatus.AguardandoPreco ||
-          offer.status === FreightOfferStatus.Contraproposta
+          offer.status === FreightOfferStatus.Contraproposta ||
+          offer.status === FreightOfferStatus.Aceita ||
+          offer.status === FreightOfferStatus.ContrapropostaAceita
         );
       }
     });
@@ -327,7 +347,7 @@ const App: React.FC = () => {
     } else {
       lastPendingCountRef.current = 0;
     }
-  }, [freightOffers, currentUser, playNotificationSound]);
+  }, [freightOffers, cargos, currentUser, playNotificationSound]);
 
   useEffect(() => {
     if (themeImage) {
@@ -2024,6 +2044,7 @@ const App: React.FC = () => {
         if (offerToConvert) {
           const updatedOffer = {
             ...offerToConvert, 
+            cargoId: savedCargo.id,
             status: FreightOfferStatus.Aceita,
             history: [
               ...(offerToConvert.history || []),
