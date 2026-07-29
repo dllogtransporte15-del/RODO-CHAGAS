@@ -277,7 +277,9 @@ const App: React.FC = () => {
     const isAllowedProfile = 
       currentUser.profile === UserProfile.Admin ||
       currentUser.profile === UserProfile.Diretor ||
-      currentUser.profile === UserProfile.Comercial;
+      currentUser.profile === UserProfile.Comercial ||
+      currentUser.profile === UserProfile.Supervisor ||
+      currentUser.profile === UserProfile.Cliente;
 
     if (!isAllowedProfile) {
       document.title = "Rodochagas Logística";
@@ -289,31 +291,32 @@ const App: React.FC = () => {
     
     // Filter offers relevant to the logged-in user's pending actions (Aguardando preço, Contraproposta, ou Aceita sem carga gerada)
     const relevantOffers = freightOffers.filter(offer => {
-      // Se a oferta foi aceita, verifica se já existe carga gerada para ela
+      // Se a oferta foi aceita, verifica se já existe carga gerada para ela no passado ou presente
       if (offer.status === FreightOfferStatus.Aceita || offer.status === FreightOfferStatus.ContrapropostaAceita) {
         const hasCargo = (offer.cargoId && cargos.some(c => c.id === offer.cargoId)) ||
           cargos.some(c => 
             c.clientId === offer.clientId &&
             c.productId === offer.productId &&
             c.origin === offer.origin &&
-            c.destination === offer.destination &&
-            c.status === CargoStatus.EmAndamento
+            c.destination === offer.destination
           );
-        // Se já existe carga gerada/vinculada, desativa a notificação para esta oferta aceita
+        // Se já existe carga gerada/vinculada no passado, desativa a notificação para esta oferta aceita
         if (hasCargo) return false;
       }
 
       if (isClient) {
-        // Client side: waiting for carrier to send initial price or accepted without load
+        // Client side: waiting for carrier to send initial price, pending offer, or accepted without load
         return offer.clientId === currentUser.clientId && (
           offer.status === FreightOfferStatus.AguardandoPreco ||
+          offer.status === FreightOfferStatus.Pendente ||
           offer.status === FreightOfferStatus.Aceita ||
           offer.status === FreightOfferStatus.ContrapropostaAceita
         );
       } else {
-        // Carrier/Internal side: waiting to send price, counter-offer pending approval, or accepted without load
+        // Carrier/Internal side: pending offers, waiting to send price, counter-offer pending approval, or accepted without load
         return !offer.driverId && (
           offer.status === FreightOfferStatus.AguardandoPreco ||
+          offer.status === FreightOfferStatus.Pendente ||
           offer.status === FreightOfferStatus.Contraproposta ||
           offer.status === FreightOfferStatus.Aceita ||
           offer.status === FreightOfferStatus.ContrapropostaAceita
