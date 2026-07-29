@@ -1,15 +1,7 @@
-import { fetchFreightOffers } from './lib/db.ts';
+import { fetchFreightOffers } from './lib/db';
 
 async function test() {
-  try {
-    const offers = await fetchFreightOffers();
-    if (offers.length > 0) {
-      console.log('Offer:', JSON.stringify(offers[0], null, 2));
-    } else {
-      console.log('No offers found to test.');
-    }
-  } catch (err) {
-    console.error('Error:', err);
-  }
+  const offers = await fetchFreightOffers();
+  console.log('Total offers:', offers.length);
 }
 test();

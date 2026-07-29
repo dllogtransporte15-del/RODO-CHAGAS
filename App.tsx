@@ -296,9 +296,9 @@ const App: React.FC = () => {
             c.clientId === offer.clientId &&
             c.productId === offer.productId &&
             c.origin === offer.origin &&
-            c.destination === offer.destination &&
-            c.status === CargoStatus.EmAndamento
-          );
+            c.destination === offer.destination
+          ) ||
+          (offer.history && offer.history.some(h => h.description && h.description.includes('criada a partir da oferta')));
         // Se já existe carga gerada/vinculada, desativa a notificação para esta oferta aceita
         if (hasCargo) return false;
       }
@@ -799,34 +799,36 @@ const App: React.FC = () => {
 
   const handleSaveFreightOffer = async (offerData: FreightOffer | Omit<FreightOffer, 'id' | 'createdAt'>) => {
     try {
-      const isNew = !('id' in offerData) || !(offerData as FreightOffer).id;
-      let newId = '';
-      if (isNew) {
+      const isUuid = 'id' in offerData && typeof (offerData as FreightOffer).id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test((offerData as FreightOffer).id);
+      const isNew = !isUuid;
+      const uuid = isUuid ? (offerData as FreightOffer).id : crypto.randomUUID();
+
+      let displayId = ('displayId' in offerData && (offerData as FreightOffer).displayId) ? (offerData as FreightOffer).displayId : '';
+      if (!displayId || isNew) {
         const nextNum = nextIds.freightOffer || 1;
-        newId = formatId(nextNum, 'OFR', 2);
+        displayId = formatId(nextNum, 'OFR', 2);
         setNextIds((prev: any) => ({ ...prev, freightOffer: (prev.freightOffer || nextNum) + 1 }));
       }
 
-      const tempOffer = isNew 
-        ? { 
-            ...offerData, 
-            id: newId, 
-            displayId: newId,
-            createdAt: new Date().toISOString(),
-            history: [{
-              id: `log_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
-              userId: currentUser?.id || '',
-              timestamp: new Date().toISOString(),
-              description: offerData.freightValuePerTon ? `Oferta criada com valor inicial de R$ ${(offerData.freightValuePerTon || 0).toFixed(2)}.` : `Oferta criada. Aguardando preço da transportadora.`
-            }]
-          } as FreightOffer 
-        : offerData as FreightOffer;
+      const tempOffer: FreightOffer = {
+        ...offerData,
+        id: uuid,
+        displayId: displayId,
+        createdAt: ('createdAt' in offerData && offerData.createdAt) ? offerData.createdAt : new Date().toISOString(),
+        history: ('history' in offerData && offerData.history?.length) ? offerData.history : [{
+          id: `log_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+          userId: currentUser?.id || '',
+          timestamp: new Date().toISOString(),
+          description: offerData.freightValuePerTon ? `Oferta criada com valor inicial de R$ ${(offerData.freightValuePerTon || 0).toFixed(2)}.` : `Oferta criada. Aguardando preço da transportadora.`
+        }]
+      };
 
       setFreightOffers(prev => {
-        if (isNew) {
-          return [tempOffer, ...prev];
-        } else {
+        const exists = prev.some(o => o.id === tempOffer.id);
+        if (exists) {
           return prev.map(o => o.id === tempOffer.id ? tempOffer : o);
+        } else {
+          return [tempOffer, ...prev];
         }
       });
       
@@ -2277,7 +2279,7 @@ const App: React.FC = () => {
         <Route path="/freight-quote" element={<FreightQuotePage currentUser={currentUser} />} />
         <Route path="/tools-history" element={<ToolsHistoryPage currentUser={currentUser} shipments={shipments} cargos={cargos} clients={clients} />} />
         <Route path="/branches" element={<BranchesPage branches={branches} onSaveBranch={handleSaveBranch} onDeleteBranch={handleDeleteBranch} currentUser={currentUser} profilePermissions={profilePermissions} />} />
-        <Route path="/freight-offers-history" element={<FreightOffersHistoryPage currentUser={currentUser} freightOffers={freightOffers} clients={clients} products={products} cargos={cargos} onSaveFreightOffer={handleSaveFreightOffer} onDeleteFreightOffer={handleDeleteFreightOffer} onConvertToCargo={(offer) => { setOfferToConvert(offer); setCurrentPage('loads'); }} />} />
+        <Route path="/freight-offers-history" element={!can('read', currentUser, 'freight-offers-history', profilePermissions) ? <Navigate to="/" replace /> : <FreightOffersHistoryPage currentUser={currentUser} freightOffers={freightOffers} clients={clients} products={products} cargos={cargos} onSaveFreightOffer={handleSaveFreightOffer} onDeleteFreightOffer={handleDeleteFreightOffer} onConvertToCargo={(offer) => { setOfferToConvert(offer); setCurrentPage('loads'); }} />} />
         <Route path="*" element={<DashboardPage cargos={activeLoads} shipments={visibleShipments} users={users} currentUser={currentUser} clients={clients} products={products} companyLogo={companyLogo} vehicles={vehicles} drivers={drivers} onDeleteAttachment={handleDeleteShipmentAttachment} freightOffers={freightOffers} onSaveFreightOffer={handleSaveFreightOffer} onAcceptFreightOffer={handleAcceptFreightOffer} onDeleteFreightOffer={handleDeleteFreightOffer} onCreateShipment={handleCreateShipment} />} />
       </Routes>
     );

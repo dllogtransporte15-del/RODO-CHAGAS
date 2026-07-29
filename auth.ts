@@ -2,7 +2,7 @@
 import type { User, Page, ProfilePermissions, CrudPermissions } from './types';
 import { UserProfile } from './types';
 
-const allPages: Page[] = ['dashboard', 'clients', 'owners', 'embarcadores', 'drivers', 'vehicles', 'loads', 'shipments', 'financial', 'reports', 'operational-loads', 'operational-map', 'users-register', 'commissions', 'appearance', 'shipment-history', 'load-history', 'layover-calculator', 'freight-quote', 'ai-assistant', 'tools-history'];
+const allPages: Page[] = ['dashboard', 'clients', 'owners', 'embarcadores', 'drivers', 'vehicles', 'loads', 'shipments', 'financial', 'reports', 'operational-loads', 'operational-map', 'users-register', 'commissions', 'appearance', 'shipment-history', 'load-history', 'layover-calculator', 'freight-quote', 'ai-assistant', 'tools-history', 'branches', 'system-monitor', 'freight-offers-history'];
 
 const createPermissions = (pages: Page[], readOnly = false): { [key in Page]?: CrudPermissions } => {
   const permissions: { [key in Page]?: CrudPermissions } = {};
@@ -20,11 +20,11 @@ const createPermissions = (pages: Page[], readOnly = false): { [key in Page]?: C
 
 const supervisorAndDiretorPages = allPages.filter(p => p !== 'appearance');
 export const INITIAL_PERMISSIONS: ProfilePermissions = {
-  [UserProfile.Comercial]: createPermissions(['dashboard', 'clients', 'owners', 'drivers', 'vehicles', 'loads', 'shipments', 'reports', 'operational-loads', 'financial', 'operational-map', 'commissions', 'shipment-history', 'load-history', 'layover-calculator', 'freight-quote']),
+  [UserProfile.Comercial]: createPermissions(['dashboard', 'clients', 'owners', 'drivers', 'vehicles', 'loads', 'shipments', 'reports', 'operational-loads', 'financial', 'operational-map', 'commissions', 'shipment-history', 'load-history', 'layover-calculator', 'freight-quote', 'freight-offers-history']),
   [UserProfile.Fiscal]: createPermissions(['dashboard', 'shipments', 'shipment-history', 'load-history'], true),
   [UserProfile.Financeiro]: createPermissions(['dashboard', 'shipments', 'reports', 'financial', 'commissions', 'shipment-history', 'load-history'], true),
   [UserProfile.Embarcador]: createPermissions(['dashboard', 'reports', 'operational-loads', 'shipments', 'operational-map', 'shipment-history', 'load-history', 'layover-calculator'], true),
-  [UserProfile.Cliente]: createPermissions(['dashboard', 'loads', 'shipments', 'shipment-history', 'load-history', 'operational-loads'], true),
+  [UserProfile.Cliente]: createPermissions(['dashboard', 'loads', 'shipments', 'shipment-history', 'load-history', 'operational-loads', 'freight-offers-history'], true),
   [UserProfile.Supervisor]: createPermissions(supervisorAndDiretorPages),
   [UserProfile.Diretor]: createPermissions(supervisorAndDiretorPages, true),
   [UserProfile.Motorista]: createPermissions(['operational-loads', 'shipment-history'], true),
@@ -60,10 +60,9 @@ export const can = (
   }
 
   const userProfilePermissions = permissions[user.profile];
-  if (!userProfilePermissions) return false;
-
-  const pagePermissions = userProfilePermissions[page];
+  const pagePermissions = userProfilePermissions?.[page] ?? INITIAL_PERMISSIONS[user.profile]?.[page];
   if (!pagePermissions) return false;
 
   return pagePermissions[action];
 };
+

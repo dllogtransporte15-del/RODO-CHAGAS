@@ -33,6 +33,9 @@ const FreightOffersHistoryPage: React.FC<FreightOffersHistoryPageProps> = ({
 
   const filteredOffers = useMemo(() => {
     return freightOffers.filter(offer => {
+      if (currentUser?.profile === UserProfile.Cliente && currentUser?.clientId) {
+        if (offer.clientId !== currentUser.clientId) return false;
+      }
       if (filterStatus !== 'all' && offer.status !== filterStatus) return false;
       if (filterClientId !== 'all' && offer.clientId !== filterClientId) return false;
       if (filterOrigin && !offer.origin.toLowerCase().includes(filterOrigin.toLowerCase())) return false;
@@ -75,22 +78,24 @@ const FreightOffersHistoryPage: React.FC<FreightOffersHistoryPageProps> = ({
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Cliente</label>
-            <select
-              value={filterClientId}
-              onChange={(e) => setFilterClientId(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
-            >
-              <option value="all">Todos os Clientes</option>
-              {clients.map(client => (
-                <option key={client.id} value={client.id}>
-                  {client.nomeFantasia || client.razaoSocial}
-                </option>
-              ))}
-            </select>
-          </div>
+        <div className={`grid grid-cols-1 md:grid-cols-2 ${currentUser?.profile === UserProfile.Cliente ? 'lg:grid-cols-3' : 'lg:grid-cols-4'} gap-4 mb-6`}>
+          {currentUser?.profile !== UserProfile.Cliente && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Cliente</label>
+              <select
+                value={filterClientId}
+                onChange={(e) => setFilterClientId(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
+              >
+                <option value="all">Todos os Clientes</option>
+                {clients.map(client => (
+                  <option key={client.id} value={client.id}>
+                    {client.nomeFantasia || client.razaoSocial}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
@@ -152,7 +157,7 @@ const FreightOffersHistoryPage: React.FC<FreightOffersHistoryPageProps> = ({
           clients={clients}
           products={products}
           cargos={cargos}
-          isClientProfile={false}
+          isClientProfile={currentUser?.profile === UserProfile.Cliente}
           currentUser={currentUser || undefined}
           onAccept={async () => {}} // Disabled actions for history
           onRefuse={async () => {}} // Disabled actions for history
@@ -160,6 +165,7 @@ const FreightOffersHistoryPage: React.FC<FreightOffersHistoryPageProps> = ({
           onDelete={onDeleteFreightOffer}
           onConvertToCargo={onConvertToCargo}
         />
+
 
         {totalPages > 1 && (
           <div className="px-6 py-4 flex flex-col sm:flex-row items-center justify-between border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 gap-4">

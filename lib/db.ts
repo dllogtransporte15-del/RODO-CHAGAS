@@ -127,9 +127,12 @@ const fromFreightOffer = (o: FreightOffer | Omit<FreightOffer, 'id'>) => {
 };
 
 export const upsertFreightOffer = async (offer: FreightOffer | Omit<FreightOffer, 'id' | 'createdAt'>): Promise<void> => {
+  const isUuid = 'id' in offer && typeof offer.id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(offer.id);
+  const offerUuid = isUuid ? (offer as FreightOffer).id : crypto.randomUUID();
+
   const row = fromFreightOffer({
     ...offer,
-    id: ('id' in offer && offer.id) ? offer.id : crypto.randomUUID(),
+    id: offerUuid,
     createdAt: ('createdAt' in offer && offer.createdAt) ? offer.createdAt : new Date().toISOString()
   });
   
