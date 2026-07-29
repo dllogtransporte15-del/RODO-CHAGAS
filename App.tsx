@@ -296,9 +296,9 @@ const App: React.FC = () => {
             c.clientId === offer.clientId &&
             c.productId === offer.productId &&
             c.origin === offer.origin &&
-            c.destination === offer.destination
-          ) ||
-          (offer.history && offer.history.some(h => h.description && h.description.includes('criada a partir da oferta')));
+            c.destination === offer.destination &&
+            c.status === CargoStatus.EmAndamento
+          );
         // Se já existe carga gerada/vinculada, desativa a notificação para esta oferta aceita
         if (hasCargo) return false;
       }
