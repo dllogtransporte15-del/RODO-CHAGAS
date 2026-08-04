@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import type { Client, Product, FreightOffer } from '../types';
 import { FreightOfferStatus } from '../types';
 import { XIcon, PackageIcon, MapPinIcon, DollarSignIcon, CalendarIcon, ScaleIcon, PaperclipIcon } from 'lucide-react';
+import { supabase } from '../supabase';
 
 interface FreightOfferModalProps {
   isOpen: boolean;
@@ -28,7 +29,7 @@ const FreightOfferModal: React.FC<FreightOfferModalProps> = ({
 
   const [additionalDestinations, setAdditionalDestinations] = useState<{city: string, location: string}[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [attachments, setAttachments] = useState<string[]>([]);
+  const [attachments, setAttachments] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!isOpen) return null;
@@ -59,14 +60,18 @@ const FreightOfferModal: React.FC<FreightOfferModalProps> = ({
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files) {
-      const newFileNames = Array.from(files).map((file: File) => file.name);
-      setAttachments(prev => [...prev, ...newFileNames.filter(name => !prev.includes(name))]);
+      const newFiles = Array.from(files);
+      setAttachments(prev => {
+        const existingNames = prev.map(f => f.name);
+        const filesToAdd = newFiles.filter(f => !existingNames.includes(f.name));
+        return [...prev, ...filesToAdd];
+      });
     }
     e.target.value = '';
   };
 
   const handleRemoveAttachment = (fileName: string) => {
-    setAttachments(prev => prev.filter(name => name !== fileName));
+    setAttachments(prev => prev.filter(file => file.name !== fileName));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -75,6 +80,27 @@ const FreightOfferModal: React.FC<FreightOfferModalProps> = ({
 
     setIsSubmitting(true);
     try {
+      const uploadedUrls: string[] = [];
+      for (const file of attachments) {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `freight_offer_${Date.now()}_${Math.random().toString(36).substring(2)}.${fileExt}`;
+        const filePath = `freight_offers/${fileName}`;
+        
+        const { error: uploadError } = await supabase.storage
+          .from('shipment_attachments')
+          .upload(filePath, file);
+          
+        if (uploadError) {
+          throw new Error('Falha ao fazer upload de anexo: ' + file.name);
+        }
+        
+        const { data } = supabase.storage
+          .from('shipment_attachments')
+          .getPublicUrl(filePath);
+          
+        uploadedUrls.push(`${data.publicUrl}?name=${encodeURIComponent(file.name)}`);
+      }
+
       await onSave({
         clientId: currentClient.id,
         origin: formData.origin,
@@ -87,7 +113,7 @@ const FreightOfferModal: React.FC<FreightOfferModalProps> = ({
         status: FreightOfferStatus.AguardandoPreco,
         observations: formData.observations,
         additionalDestinations: additionalDestinations.filter(d => d.city.trim() !== ''),
-        attachments,
+        attachments: uploadedUrls,
       });
       onClose();
     } catch (error: any) {
@@ -222,10 +248,10 @@ const FreightOfferModal: React.FC<FreightOfferModalProps> = ({
                 </div>
                 {attachments.length > 0 && (
                   <ul className="mt-2 space-y-1">
-                    {attachments.map((fileName, index) => (
+                    {attachments.map((file, index) => (
                       <li key={index} className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-900/50 px-2 py-1.5 rounded-md">
-                        <span className="truncate max-w-[85%]">{fileName}</span>
-                        <button type="button" onClick={() => handleRemoveAttachment(fileName)} className="p-1 text-red-500 hover:text-red-700 dark:hover:text-red-400 transition-colors">
+                        <span className="truncate max-w-[85%]">{file.name}</span>
+                        <button type="button" onClick={() => handleRemoveAttachment(file.name)} className="p-1 text-red-500 hover:text-red-700 dark:hover:text-red-400 transition-colors">
                           <XIcon className="w-4 h-4" />
                         </button>
                       </li>

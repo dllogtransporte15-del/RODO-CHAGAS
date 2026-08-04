@@ -3,6 +3,7 @@ import type { FreightOffer, Client, Product, Cargo, User } from '../types';
 import { FreightOfferStatus, CargoStatus, UserProfile } from '../types';
 import { PackageIcon, CheckIcon, XIcon, MessageCircleIcon, HistoryIcon, TrashIcon, MapPinIcon, EyeIcon, PaperclipIcon, DownloadIcon, UserIcon, Clock, Edit } from 'lucide-react';
 import VolumeBar from './VolumeBar';
+import { supabase } from '../supabase';
 
 interface FreightOffersListProps {
   offers: FreightOffer[];
@@ -30,7 +31,8 @@ const FreightOffersList: React.FC<FreightOffersListProps> = ({
   const [detailsModal, setDetailsModal] = useState<FreightOffer | null>(null);
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
   const [confirmAcceptModal, setConfirmAcceptModal] = useState<FreightOffer | null>(null);
-  const [acceptAttachments, setAcceptAttachments] = useState<string[]>([]);
+  const [acceptAttachments, setAcceptAttachments] = useState<File[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
   const acceptFileInputRef = useRef<HTMLInputElement>(null);
 
   if (offers.length === 0) {
@@ -533,22 +535,32 @@ const FreightOffersList: React.FC<FreightOffersListProps> = ({
                  <div>
                     <span className="font-semibold block text-gray-500 dark:text-gray-400 mb-1">Anexos:</span>
                     <ul className="space-y-2">
-                      {detailsModal.attachments.map((fileName, i) => (
+                      {detailsModal.attachments.map((fileUrlOrName, i) => {
+                        const isUrl = fileUrlOrName.startsWith('http');
+                        const displayName = fileUrlOrName.includes('?name=') ? decodeURIComponent(fileUrlOrName.split('?name=')[1]) : fileUrlOrName;
+                        return (
                         <li key={i} className="flex items-center justify-between bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg border border-gray-100 dark:border-gray-600 text-sm font-medium text-gray-900 dark:text-gray-100">
                           <div className="flex items-center gap-2 overflow-hidden">
                             <PaperclipIcon className="w-4 h-4 text-indigo-500 shrink-0" />
-                            <span className="truncate">{fileName}</span>
+                            <span className="truncate">{displayName}</span>
                           </div>
                           <button 
                             type="button" 
-                            onClick={() => alert(`Download de ${fileName} iniciado.`)}
+                            onClick={() => {
+                              if (isUrl) {
+                                window.open(fileUrlOrName, '_blank');
+                              } else {
+                                alert(`O anexo ${displayName} é de uma versão antiga e o arquivo não foi salvo no servidor.`);
+                              }
+                            }}
                             className="p-1.5 text-indigo-600 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 rounded-lg transition-colors ml-2 shrink-0"
                             title="Baixar anexo"
                           >
                             <DownloadIcon className="w-4 h-4" />
                           </button>
                         </li>
-                      ))}
+                        );
+                      })}
                     </ul>
                  </div>
                )}
@@ -601,11 +613,12 @@ const FreightOffersList: React.FC<FreightOffersListProps> = ({
                     onChange={(e) => {
                       const files = e.target.files;
                       if (files) {
-                        const newFileNames = Array.from(files).map((file: File) => file.name);
-                        setAcceptAttachments(prev => [
-                          ...prev,
-                          ...newFileNames.filter(name => !prev.includes(name))
-                        ]);
+                        const newFiles = Array.from(files);
+                        setAcceptAttachments(prev => {
+                          const existingNames = prev.map(f => f.name);
+                          const filesToAdd = newFiles.filter(f => !existingNames.includes(f.name));
+                          return [...prev, ...filesToAdd];
+                        });
                       }
                       e.target.value = '';
                     }}
@@ -622,12 +635,12 @@ const FreightOffersList: React.FC<FreightOffersListProps> = ({
                 </div>
                 {acceptAttachments.length > 0 && (
                   <ul className="mt-2 space-y-1">
-                    {acceptAttachments.map((fileName, index) => (
+                    {acceptAttachments.map((file, index) => (
                       <li key={index} className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-900/50 px-2 py-1.5 rounded-md">
-                        <span className="truncate max-w-[85%]">{fileName}</span>
+                        <span className="truncate max-w-[85%]">{file.name}</span>
                         <button 
                           type="button" 
-                          onClick={() => setAcceptAttachments(prev => prev.filter(name => name !== fileName))} 
+                          onClick={() => setAcceptAttachments(prev => prev.filter(f => f.name !== file.name))} 
                           className="p-1 text-red-500 hover:text-red-700 dark:hover:text-red-400 transition-colors"
                         >
                           <XIcon className="w-4 h-4" />
@@ -652,18 +665,46 @@ const FreightOffersList: React.FC<FreightOffersListProps> = ({
               </button>
               <button 
                 type="button" 
-                onClick={() => {
-                  const updatedOffer = {
-                    ...confirmAcceptModal,
-                    attachments: [...(confirmAcceptModal.attachments || []), ...acceptAttachments]
-                  };
-                  onAccept(updatedOffer);
-                  setConfirmAcceptModal(null);
-                  setAcceptAttachments([]);
+                disabled={isUploading}
+                onClick={async () => {
+                  setIsUploading(true);
+                  try {
+                    const uploadedUrls: string[] = [];
+                    for (const file of acceptAttachments) {
+                      const fileExt = file.name.split('.').pop();
+                      const fileName = `freight_offer_accept_${Date.now()}_${Math.random().toString(36).substring(2)}.${fileExt}`;
+                      const filePath = `freight_offers/${fileName}`;
+                      
+                      const { error: uploadError } = await supabase.storage
+                        .from('shipment_attachments')
+                        .upload(filePath, file);
+                        
+                      if (uploadError) throw new Error('Falha no upload: ' + file.name);
+                      
+                      const { data } = supabase.storage
+                        .from('shipment_attachments')
+                        .getPublicUrl(filePath);
+                        
+                      uploadedUrls.push(`${data.publicUrl}?name=${encodeURIComponent(file.name)}`);
+                    }
+
+                    const updatedOffer = {
+                      ...confirmAcceptModal,
+                      attachments: [...(confirmAcceptModal.attachments || []), ...uploadedUrls]
+                    };
+                    onAccept(updatedOffer);
+                    setConfirmAcceptModal(null);
+                    setAcceptAttachments([]);
+                  } catch (error: any) {
+                    console.error('Error uploading attachments:', error);
+                    alert(`Erro ao salvar anexos: ${error.message}`);
+                  } finally {
+                    setIsUploading(false);
+                  }
                 }} 
-                className="px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors font-medium"
+                className="px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors font-medium disabled:opacity-50"
               >
-                Confirmar
+                {isUploading ? 'Processando...' : 'Confirmar'}
               </button>
             </div>
           </div>
