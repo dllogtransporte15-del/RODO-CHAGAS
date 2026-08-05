@@ -546,9 +546,24 @@ const FreightOffersList: React.FC<FreightOffersListProps> = ({
                           </div>
                           <button 
                             type="button" 
-                            onClick={() => {
+                            onClick={async () => {
                               if (isUrl) {
-                                window.open(fileUrlOrName, '_blank');
+                                try {
+                                  const urlObj = new URL(fileUrlOrName);
+                                  // O parâmetro 'download' força o Supabase Storage a retornar Content-Disposition: attachment
+                                  urlObj.searchParams.set('download', '');
+                                  
+                                  const link = document.createElement('a');
+                                  link.href = urlObj.toString();
+                                  link.download = displayName;
+                                  link.target = '_blank';
+                                  
+                                  document.body.appendChild(link);
+                                  link.click();
+                                  document.body.removeChild(link);
+                                } catch (error) {
+                                  window.open(fileUrlOrName, '_blank');
+                                }
                               } else {
                                 alert(`O anexo ${displayName} é de uma versão antiga e o arquivo não foi salvo no servidor.`);
                               }
