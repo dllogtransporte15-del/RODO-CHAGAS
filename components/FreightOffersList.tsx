@@ -548,20 +548,22 @@ const FreightOffersList: React.FC<FreightOffersListProps> = ({
                             type="button" 
                             onClick={async () => {
                               if (isUrl) {
+                                alert(`Download de ${displayName} iniciado.`);
                                 try {
-                                  const urlObj = new URL(fileUrlOrName);
-                                  // O parâmetro 'download' força o Supabase Storage a retornar Content-Disposition: attachment
-                                  urlObj.searchParams.set('download', '');
-                                  
-                                  const link = document.createElement('a');
-                                  link.href = urlObj.toString();
-                                  link.download = displayName;
-                                  link.target = '_blank';
-                                  
-                                  document.body.appendChild(link);
-                                  link.click();
-                                  document.body.removeChild(link);
+                                  const response = await fetch(fileUrlOrName);
+                                  if (!response.ok) throw new Error('Network response was not ok');
+                                  const blob = await response.blob();
+                                  const url = window.URL.createObjectURL(blob);
+                                  const a = document.createElement('a');
+                                  a.style.display = 'none';
+                                  a.href = url;
+                                  a.download = displayName || 'download';
+                                  document.body.appendChild(a);
+                                  a.click();
+                                  window.URL.revokeObjectURL(url);
+                                  document.body.removeChild(a);
                                 } catch (error) {
+                                  console.error('Erro ao baixar arquivo via blob:', error);
                                   window.open(fileUrlOrName, '_blank');
                                 }
                               } else {
