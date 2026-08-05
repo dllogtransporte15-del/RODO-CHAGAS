@@ -544,37 +544,29 @@ const FreightOffersList: React.FC<FreightOffersListProps> = ({
                             <PaperclipIcon className="w-4 h-4 text-indigo-500 shrink-0" />
                             <span className="truncate">{displayName}</span>
                           </div>
-                          <button 
-                            type="button" 
-                            onClick={async () => {
-                              if (isUrl) {
-                                alert(`Download de ${displayName} iniciado.`);
-                                try {
-                                  const response = await fetch(fileUrlOrName);
-                                  if (!response.ok) throw new Error('Network response was not ok');
-                                  const blob = await response.blob();
-                                  const url = window.URL.createObjectURL(blob);
-                                  const a = document.createElement('a');
-                                  a.style.display = 'none';
-                                  a.href = url;
-                                  a.download = displayName || 'download';
-                                  document.body.appendChild(a);
-                                  a.click();
-                                  window.URL.revokeObjectURL(url);
-                                  document.body.removeChild(a);
-                                } catch (error) {
-                                  console.error('Erro ao baixar arquivo via blob:', error);
-                                  window.open(fileUrlOrName, '_blank');
-                                }
-                              } else {
+                          {isUrl ? (
+                            <a 
+                              href={fileUrlOrName.includes('?') ? `${fileUrlOrName}&download=` : `${fileUrlOrName}?download=`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              download={displayName || 'download'}
+                              className="p-1.5 text-indigo-600 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 rounded-lg transition-colors ml-2 shrink-0"
+                              title="Baixar anexo"
+                            >
+                              <DownloadIcon className="w-4 h-4" />
+                            </a>
+                          ) : (
+                            <button 
+                              type="button" 
+                              onClick={() => {
                                 alert(`O anexo ${displayName} é de uma versão antiga e o arquivo não foi salvo no servidor.`);
-                              }
-                            }}
-                            className="p-1.5 text-indigo-600 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 rounded-lg transition-colors ml-2 shrink-0"
-                            title="Baixar anexo"
-                          >
-                            <DownloadIcon className="w-4 h-4" />
-                          </button>
+                              }}
+                              className="p-1.5 text-indigo-600 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 rounded-lg transition-colors ml-2 shrink-0"
+                              title="Baixar anexo"
+                            >
+                              <DownloadIcon className="w-4 h-4" />
+                            </button>
+                          )}
                         </li>
                         );
                       })}

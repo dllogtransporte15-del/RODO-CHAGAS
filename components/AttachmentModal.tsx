@@ -369,13 +369,18 @@ const AttachmentModal: React.FC<AttachmentModalProps> = ({ isOpen, onClose, onSa
         <li key={docType}>
           <p className="font-medium text-sm text-gray-800 dark:text-gray-200">{docType}:</p>
           <ul className="list-disc pl-5 text-sm text-gray-600 dark:text-gray-400">
-            {Array.isArray(files) && files.map((file, index) => (
+            {Array.isArray(files) && files.map((file, index) => {
+              const downloadUrl = file.startsWith('http') 
+                ? (file.includes('?') ? `${file}&download=` : `${file}?download=`)
+                : file;
+              return (
               <li key={index}>
-                <a href={file} target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline">
+                <a href={downloadUrl} target="_blank" rel="noopener noreferrer" download className="text-blue-600 dark:text-blue-400 hover:underline">
                   {file.split('_').pop() || 'Acessar Anexo'}
                 </a>
               </li>
-            ))}
+              );
+            })}
           </ul>
         </li>
       ))}
