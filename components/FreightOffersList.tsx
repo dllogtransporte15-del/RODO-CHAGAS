@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import type { FreightOffer, Client, Product, Cargo, User } from '../types';
 import { FreightOfferStatus, CargoStatus, UserProfile } from '../types';
-import { PackageIcon, CheckIcon, XIcon, MessageCircleIcon, HistoryIcon, TrashIcon, MapPinIcon, EyeIcon, PaperclipIcon, DownloadIcon, UserIcon, Clock, Edit } from 'lucide-react';
+import { PackageIcon, CheckIcon, XIcon, MessageCircleIcon, HistoryIcon, TrashIcon, MapPinIcon, EyeIcon, PaperclipIcon, DownloadIcon, UserIcon, Clock, Edit, ExternalLink } from 'lucide-react';
 import VolumeBar from './VolumeBar';
 import { supabase } from '../supabase';
 
@@ -536,39 +536,55 @@ const FreightOffersList: React.FC<FreightOffersListProps> = ({
                     <span className="font-semibold block text-gray-500 dark:text-gray-400 mb-1">Anexos:</span>
                     <ul className="space-y-2">
                       {detailsModal.attachments.map((fileUrlOrName, i) => {
-                        const isUrl = fileUrlOrName.startsWith('http');
-                        const displayName = fileUrlOrName.includes('?name=') ? decodeURIComponent(fileUrlOrName.split('?name=')[1]) : fileUrlOrName;
-                        return (
-                        <li key={i} className="flex items-center justify-between bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg border border-gray-100 dark:border-gray-600 text-sm font-medium text-gray-900 dark:text-gray-100">
-                          <div className="flex items-center gap-2 overflow-hidden">
-                            <PaperclipIcon className="w-4 h-4 text-indigo-500 shrink-0" />
-                            <span className="truncate">{displayName}</span>
-                          </div>
-                          {isUrl ? (
+                        const isUrl = typeof fileUrlOrName === 'string' && fileUrlOrName.startsWith('http');
+                        const displayName = fileUrlOrName.includes('?name=') 
+                          ? decodeURIComponent(fileUrlOrName.split('?name=')[1]) 
+                          : (fileUrlOrName.split('/').pop()?.split('?')[0] || fileUrlOrName);
+
+                        if (isUrl) {
+                          const targetUrl = fileUrlOrName.replace(/[?&]download(=[^&]*)?/g, '').replace(/\?$/, '').replace(/&$/, '');
+                          return (
+                          <li key={i}>
                             <a 
-                              href={fileUrlOrName.includes('?') ? `${fileUrlOrName}&download=` : `${fileUrlOrName}?download=`}
+                              href={targetUrl}
                               target="_blank"
                               rel="noopener noreferrer"
-                              download={displayName || 'download'}
-                              className="p-1.5 text-indigo-600 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 rounded-lg transition-colors ml-2 shrink-0"
-                              title="Baixar anexo"
+                              className="flex items-center justify-between bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg border border-gray-100 dark:border-gray-600 text-sm font-medium text-gray-900 dark:text-gray-100 hover:bg-indigo-50/60 dark:hover:bg-indigo-900/30 hover:border-indigo-200 transition-colors group cursor-pointer"
+                              title="Clique para visualizar o arquivo em nova janela"
                             >
-                              <DownloadIcon className="w-4 h-4" />
+                              <div className="flex items-center gap-2 overflow-hidden flex-1">
+                                <PaperclipIcon className="w-4 h-4 text-indigo-500 shrink-0" />
+                                <span className="truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400">{displayName}</span>
+                              </div>
+                              <span className="flex items-center gap-1 text-xs font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/50 px-2.5 py-1 rounded-md ml-2 shrink-0 group-hover:bg-indigo-100 dark:group-hover:bg-indigo-900/80">
+                                <ExternalLink className="w-3.5 h-3.5" />
+                                Visualizar
+                              </span>
                             </a>
-                          ) : (
-                            <button 
-                              type="button" 
+                          </li>
+                          );
+                        } else {
+                          return (
+                          <li key={i}>
+                            <button
+                              type="button"
                               onClick={() => {
-                                alert(`O anexo ${displayName} é de uma versão antiga e o arquivo não foi salvo no servidor.`);
+                                alert(`O anexo "${displayName}" é de uma oferta antiga/mock e o arquivo físico não foi enviado para o servidor.`);
                               }}
-                              className="p-1.5 text-indigo-600 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 rounded-lg transition-colors ml-2 shrink-0"
-                              title="Baixar anexo"
+                              className="w-full flex items-center justify-between bg-amber-50/50 dark:bg-amber-900/20 p-3 rounded-lg border border-amber-200 dark:border-amber-800/50 text-sm font-medium text-amber-900 dark:text-amber-200 hover:bg-amber-100/60 dark:hover:bg-amber-900/40 transition-colors group cursor-pointer text-left"
+                              title="Anexo antigo sem arquivo físico no servidor"
                             >
-                              <DownloadIcon className="w-4 h-4" />
+                              <div className="flex items-center gap-2 overflow-hidden flex-1">
+                                <PaperclipIcon className="w-4 h-4 text-amber-500 shrink-0" />
+                                <span className="truncate">{displayName}</span>
+                              </div>
+                              <span className="flex items-center gap-1 text-xs font-semibold text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/60 px-2.5 py-1 rounded-md ml-2 shrink-0">
+                                Sem arquivo no servidor
+                              </span>
                             </button>
-                          )}
-                        </li>
-                        );
+                          </li>
+                          );
+                        }
                       })}
                     </ul>
                  </div>

@@ -5,6 +5,7 @@ import VolumeBar from './VolumeBar';
 import { PaperclipIcon } from './icons/PaperclipIcon';
 import { StayRecord } from '../utils/toolStorage';
 import { ShipmentStatus } from '../types';
+import { getShipmentAttachmentUrl } from '../lib/db';
 
 interface CargoDetailsModalProps {
   isOpen: boolean;
@@ -220,14 +221,26 @@ const CargoDetailsModal: React.FC<CargoDetailsModalProps> = ({ isOpen, onClose, 
                 <div className="border-t dark:border-gray-700 pt-4">
                     <DetailItem label="Anexos">
                         <ul className="mt-1 space-y-2">
-                            {cargo.attachments.map((fileName, index) => (
+                            {cargo.attachments.map((fileName, index) => {
+                                const targetUrl = getShipmentAttachmentUrl(fileName);
+                                const displayName = fileName.includes('?name=') 
+                                    ? decodeURIComponent(fileName.split('?name=')[1]) 
+                                    : (fileName.split('/').pop()?.split('?')[0] || fileName);
+                                return (
                                 <li key={index}>
-                                    <a href="#" onClick={(e) => e.preventDefault()} className="flex items-center text-sm text-blue-600 dark:text-blue-400 hover:underline">
+                                    <a 
+                                        href={targetUrl} 
+                                        target="_blank" 
+                                        rel="noopener noreferrer" 
+                                        className="flex items-center text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                                        title="Clique para visualizar o arquivo em nova janela"
+                                    >
                                         <PaperclipIcon className="w-4 h-4 mr-2" />
-                                        {fileName}
+                                        {displayName}
                                     </a>
                                 </li>
-                            ))}
+                                );
+                            })}
                         </ul>
                     </DetailItem>
                 </div>

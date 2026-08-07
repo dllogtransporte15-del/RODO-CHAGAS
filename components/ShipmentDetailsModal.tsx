@@ -586,6 +586,7 @@ const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
                                             <p className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase mb-1">{category}</p>
                                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                                 {urls.map((url, idx) => {
+                                                    const targetUrl = getShipmentAttachmentUrl(url);
                                                     // Attempt to extract a cleaner filename from the path
                                                     const urlParts = url.split('/');
                                                     const rawFileName = decodeURIComponent(urlParts[urlParts.length - 1]);
@@ -594,10 +595,11 @@ const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
                                                     return (
                                                         <div key={idx} className="flex items-center gap-1 group">
                                                             <a 
-                                                                href={url} 
+                                                                href={targetUrl} 
                                                                 target="_blank" 
                                                                 rel="noopener noreferrer"
                                                                 className="flex-1 flex items-center p-2 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800/50 rounded-md text-xs font-medium text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors"
+                                                                title="Clique para visualizar o arquivo em nova janela"
                                                             >
                                                                 <FileTextIcon size={14} className="mr-2 flex-shrink-0" />
                                                                 <span className="truncate">{fileName}</span>

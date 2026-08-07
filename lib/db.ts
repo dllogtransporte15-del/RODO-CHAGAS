@@ -880,9 +880,18 @@ export async function uploadShipmentAttachment(shipmentId: string, docType: stri
 }
 
 export function getShipmentAttachmentUrl(path: string): string {
+  if (!path) return '';
+  if (path.startsWith('http')) {
+    let url = path.replace(/[?&]download(=[^&]*)?/g, '');
+    url = url.replace(/\?$/, '').replace(/&$/, '');
+    return url;
+  }
+  const cleanPath = path.startsWith('shipment_attachments/') 
+    ? path.replace('shipment_attachments/', '') 
+    : path;
   const { data } = supabase.storage
     .from('shipment_attachments')
-    .getPublicUrl(path);
+    .getPublicUrl(cleanPath.split('?')[0]);
     
   return data.publicUrl;
 }

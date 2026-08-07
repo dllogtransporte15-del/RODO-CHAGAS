@@ -5,6 +5,7 @@ import { fetchRouteGeometry, getRouteSuggestions, RouteSuggestion } from '../ser
 import { formatWeightPtBr } from '../utils';
 import { useToast } from '../hooks/useToast';
 import { X } from 'lucide-react';
+import { getShipmentAttachmentUrl } from '../lib/db';
 
 interface AttachmentModalProps {
   isOpen: boolean;
@@ -370,16 +371,41 @@ const AttachmentModal: React.FC<AttachmentModalProps> = ({ isOpen, onClose, onSa
           <p className="font-medium text-sm text-gray-800 dark:text-gray-200">{docType}:</p>
           <ul className="list-disc pl-5 text-sm text-gray-600 dark:text-gray-400">
             {Array.isArray(files) && files.map((file, index) => {
-              const downloadUrl = file.startsWith('http') 
-                ? (file.includes('?') ? `${file}&download=` : `${file}?download=`)
-                : file;
-              return (
-              <li key={index}>
-                <a href={downloadUrl} target="_blank" rel="noopener noreferrer" download className="text-blue-600 dark:text-blue-400 hover:underline">
-                  {file.split('_').pop() || 'Acessar Anexo'}
-                </a>
-              </li>
-              );
+              const isUrl = typeof file === 'string' && file.startsWith('http');
+              const rawFileName = typeof file === 'string'
+                ? (file.includes('?name=') ? decodeURIComponent(file.split('?name=')[1]) : (file.split('_').pop() || file))
+                : 'Acessar Anexo';
+
+              if (isUrl) {
+                const targetUrl = getShipmentAttachmentUrl(file);
+                return (
+                <li key={index}>
+                  <a 
+                    href={targetUrl} 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-1"
+                    title="Clique para visualizar o arquivo em nova janela"
+                  >
+                    <span>{rawFileName}</span>
+                    <ExternalLinkIcon className="w-3 h-3 text-blue-500" />
+                  </a>
+                </li>
+                );
+              } else {
+                return (
+                <li key={index}>
+                  <button
+                    type="button"
+                    onClick={() => alert(`O anexo "${rawFileName}" é uma referência antiga/mock e não possui arquivo físico salvo no servidor.`)}
+                    className="text-amber-600 dark:text-amber-400 hover:underline inline-flex items-center gap-1 text-left"
+                    title="Arquivo não armazenado no servidor"
+                  >
+                    <span>{rawFileName} <span className="text-xs opacity-75">(não no servidor)</span></span>
+                  </button>
+                </li>
+                );
+              }
             })}
           </ul>
         </li>
