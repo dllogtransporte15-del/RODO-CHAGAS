@@ -119,13 +119,17 @@ const FreightOffersList: React.FC<FreightOffersListProps> = ({
           </thead>
           <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
             {displayedOffers.map(offer => {
-              const matchedCargo = offer.status === FreightOfferStatus.Aceita && cargos
+              const isAceita = offer.status === FreightOfferStatus.Aceita || offer.status === FreightOfferStatus.ContrapropostaAceita;
+              const matchedCargo = isAceita && cargos
                 ? cargos.find(c => 
-                    c.clientId === offer.clientId && 
-                    c.productId === offer.productId && 
-                    c.origin === offer.origin && 
-                    c.destination === offer.destination && 
-                    c.status === CargoStatus.EmAndamento
+                    (offer.cargoId && c.id === offer.cargoId) ||
+                    (
+                      c.clientId === offer.clientId && 
+                      c.productId === offer.productId && 
+                      c.origin === offer.origin && 
+                      c.destination === offer.destination && 
+                      c.status === CargoStatus.EmAndamento
+                    )
                   )
                 : null;
               const scheduledButNotLoaded = matchedCargo ? Math.max(0, matchedCargo.scheduledVolume - matchedCargo.loadedVolume) : 0;

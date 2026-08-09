@@ -659,12 +659,15 @@ const DashboardPage: React.FC<DashboardPageProps> = ({
   if (currentUser?.profile === UserProfile.Cliente && clientDashboardData) {
     const myOffers = freightOffers.filter(o => {
       if (o.clientId !== currentUser.clientId) return false;
-      if (o.status === FreightOfferStatus.Aceita) {
+      if (o.status === FreightOfferStatus.Aceita || o.status === FreightOfferStatus.ContrapropostaAceita) {
         const matchedCargo = cargos.find(c => 
-          c.clientId === o.clientId && 
-          c.productId === o.productId && 
-          c.origin === o.origin && 
-          c.destination === o.destination
+          (o.cargoId && c.id === o.cargoId) ||
+          (
+            c.clientId === o.clientId && 
+            c.productId === o.productId && 
+            c.origin === o.origin && 
+            c.destination === o.destination
+          )
         );
         if (!matchedCargo || matchedCargo.status === CargoStatus.Fechada) {
           return false;
