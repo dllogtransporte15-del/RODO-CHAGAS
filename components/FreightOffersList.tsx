@@ -4,6 +4,7 @@ import { FreightOfferStatus, CargoStatus, UserProfile } from '../types';
 import { PackageIcon, CheckIcon, XIcon, MessageCircleIcon, HistoryIcon, TrashIcon, MapPinIcon, EyeIcon, PaperclipIcon, DownloadIcon, UserIcon, Clock, Edit, ExternalLink } from 'lucide-react';
 import VolumeBar from './VolumeBar';
 import { supabase } from '../supabase';
+import { getMatchedCargo } from '../utils';
 
 interface FreightOffersListProps {
   offers: FreightOffer[];
@@ -119,19 +120,7 @@ const FreightOffersList: React.FC<FreightOffersListProps> = ({
           </thead>
           <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
             {displayedOffers.map(offer => {
-              const isAceita = offer.status === FreightOfferStatus.Aceita || offer.status === FreightOfferStatus.ContrapropostaAceita;
-              const matchedCargo = isAceita && cargos
-                ? cargos.find(c => 
-                    (offer.cargoId && c.id === offer.cargoId) ||
-                    (
-                      c.clientId === offer.clientId && 
-                      c.productId === offer.productId && 
-                      c.origin === offer.origin && 
-                      c.destination === offer.destination && 
-                      c.status === CargoStatus.EmAndamento
-                    )
-                  )
-                : null;
+              const matchedCargo = getMatchedCargo(offer, cargos);
               const scheduledButNotLoaded = matchedCargo ? Math.max(0, matchedCargo.scheduledVolume - matchedCargo.loadedVolume) : 0;
 
               return (
@@ -204,9 +193,17 @@ const FreightOffersList: React.FC<FreightOffersListProps> = ({
                   )}
                 </td>
                 <td className="px-4 py-3">
-                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium text-center ${getStatusColor(offer.status)}`}>
-                    {isClientProfile && matchedCargo
-                      ? 'Carga em andamento'
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium text-center ${
+                    matchedCargo
+                      ? matchedCargo.status === CargoStatus.Fechada
+                        ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400'
+                        : 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
+                      : getStatusColor(offer.status)
+                  }`}>
+                    {matchedCargo
+                      ? matchedCargo.status === CargoStatus.Fechada
+                        ? 'Carga concluída'
+                        : 'Carga em andamento'
                       : isClientProfile && offer.status === FreightOfferStatus.AguardandoPreco
                         ? 'Aguardando preço da transportadora'
                         : isClientProfile && offer.status === FreightOfferStatus.AnaliseCliente
@@ -301,7 +298,7 @@ const FreightOffersList: React.FC<FreightOffersListProps> = ({
                              )}
                            </>
                          )}
-                         {offer.status === FreightOfferStatus.Aceita && onConvertToCargo && !offer.driverId && (
+                         {offer.status === FreightOfferStatus.Aceita && onConvertToCargo && !offer.driverId && !matchedCargo && (
                            <button onClick={() => onConvertToCargo(offer)} title="Gerar Carga a partir desta oferta" className="p-1.5 text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors flex items-center gap-1">
                              <PackageIcon className="w-4 h-4" />
                            </button>

@@ -1,3 +1,6 @@
+import type { FreightOffer, Cargo } from './types';
+import { CargoStatus } from './types';
+
 export const formatId = (num: number, prefix: string, pad: number = 3): string => {
   return `${prefix}-${String(num).padStart(pad, '0')}`;
 };
@@ -83,3 +86,58 @@ export const formatWeightPtBr = (num: number): string => {
 
   return (result || 'zero toneladas').toUpperCase();
 };
+
+/**
+ * Encontra a carga associada a uma oferta de frete,
+ * seja pelo offer.cargoId direto, pelo histórico de logs (Carga #... criada a partir da oferta),
+ * ou por dados equivalentes.
+ */
+export const getMatchedCargo = (offer: FreightOffer, cargos?: Cargo[]): Cargo | null => {
+  if (!offer || !cargos || cargos.length === 0) return null;
+
+  // 1. Associação direta via offer.cargoId
+  if (offer.cargoId) {
+    const directMatch = cargos.find(c => 
+      c.id === offer.cargoId || 
+      String(c.sequenceId) === offer.cargoId || 
+      formatId(c.sequenceId, 'CRG') === offer.cargoId
+    );
+    if (directMatch) return directMatch;
+  }
+
+  // 2. Associação através do histórico de logs da oferta (ex: "Carga #CRG-001 criada a partir da oferta.")
+  if (offer.history && offer.history.length > 0) {
+    for (let i = offer.history.length - 1; i >= 0; i--) {
+      const log = offer.history[i];
+      if (log.description && log.description.toLowerCase().includes('criada a partir da oferta')) {
+        const match = log.description.match(/Carga\s+#?([^\s.]+)/i);
+        if (match && match[1]) {
+          const extractedRef = match[1].replace(/[.,]/g, '').trim();
+          const logMatch = cargos.find(c => 
+            c.id === extractedRef || 
+            formatId(c.sequenceId, 'CRG') === extractedRef || 
+            String(c.sequenceId) === extractedRef ||
+            c.id.toLowerCase() === extractedRef.toLowerCase()
+          );
+          if (logMatch) return logMatch;
+        }
+      }
+    }
+  }
+
+  // 3. Fallback: Associação por dados equivalentes (cliente, produto, origem e destino)
+  const isAceita = offer.status === 'Aceita' || offer.status === 'Contraproposta Aceita';
+  if (isAceita) {
+    const attrMatch = cargos.find(c =>
+      c.clientId === offer.clientId &&
+      c.productId === offer.productId &&
+      c.origin === offer.origin &&
+      c.destination === offer.destination &&
+      c.status === CargoStatus.EmAndamento
+    );
+    if (attrMatch) return attrMatch;
+  }
+
+  return null;
+};
+
