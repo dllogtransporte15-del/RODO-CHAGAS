@@ -10,13 +10,16 @@ import { PackageIcon } from '../components/icons/PackageIcon';
 import { DollarSignIcon } from '../components/icons/DollarSignIcon';
 import { ClientsIcon } from '../components/icons/ClientsIcon';
 import { WhatsAppIcon } from '../components/icons/WhatsAppIcon';
-import { CargoStatus, ShipmentStatus, UserProfile, FreightOfferStatus } from '../types';
+import { CargoStatus, ShipmentStatus, UserProfile, FreightOfferStatus, REQUIRED_DOCUMENT_MAP } from '../types';
 import type { Cargo, Driver, Shipment, User, Client, Product, Vehicle, FreightOffer } from '../types';
 import ShipmentDetailsModal from '../components/ShipmentDetailsModal';
+import AttachmentModal from '../components/AttachmentModal';
 import FreightOfferModal from '../components/FreightOfferModal';
 import FreightOffersList from '../components/FreightOffersList';
 import ShipmentHistoryModal from '../components/ShipmentHistoryModal';
 import NewShipmentModal from '../components/NewShipmentModal';
+import OptimizedShipmentsBoard, { BoardColumnConfig } from '../components/OptimizedShipmentsBoard';
+import { ShieldCheck, FileCheck2, Receipt, Wallet, Truck as TruckLucide, Clock } from 'lucide-react';
 
 interface DashboardPageProps {
   cargos: Cargo[];
@@ -30,6 +33,21 @@ interface DashboardPageProps {
   drivers?: Driver[];
   onDeleteAttachment?: (shipmentId: string, url: string) => Promise<void>;
   onUpdatePrice?: (shipmentId: string, data: { newTotal: number, newRate?: number, newCompanyRate?: number }) => void;
+  onUpdateAttachment?: (shipmentId: string, data: { 
+    filesToAttach: { [key: string]: File[] }, 
+    bankDetails?: string, 
+    loadedTonnage?: number, 
+    advancePercentage?: number, 
+    advanceValue?: number, 
+    tollValue?: number, 
+    balanceToReceiveValue?: number, 
+    discountValue?: number, 
+    netBalanceValue?: number, 
+    unloadedTonnage?: number, 
+    route?: string 
+  }) => Promise<void>;
+  onUpdateShipmentData?: (shipmentId: string, data: Partial<Shipment>) => void;
+  onAddAttachments?: (shipmentId: string, files: File[]) => Promise<void>;
   freightOffers?: FreightOffer[];
   onSaveFreightOffer?: (offer: Omit<FreightOffer, 'id' | 'createdAt'>) => Promise<void>;
   onAcceptFreightOffer?: (offer: FreightOffer) => void;
@@ -184,6 +202,9 @@ const DashboardPage: React.FC<DashboardPageProps> = ({
   drivers = [],
   onDeleteAttachment,
   onUpdatePrice,
+  onUpdateAttachment,
+  onUpdateShipmentData,
+  onAddAttachments,
   freightOffers = [],
   onSaveFreightOffer,
   onAcceptFreightOffer,
@@ -193,6 +214,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({
   allShipments
 }) => {
   const [detailsModalShipment, setDetailsModalShipment] = React.useState<Shipment | null>(null);
+  const [attachmentModalShipment, setAttachmentModalShipment] = React.useState<Shipment | null>(null);
   const [isOfferModalOpen, setIsOfferModalOpen] = React.useState(false);
   const [offerFilterStatus, setOfferFilterStatus] = React.useState<string>('all');
   const [offerFilterOrigin, setOfferFilterOrigin] = React.useState<string>('');
@@ -200,6 +222,20 @@ const DashboardPage: React.FC<DashboardPageProps> = ({
   const [selectedDriverForHistoryId, setSelectedDriverForHistoryId] = React.useState<string | null>(null);
   const [offerForNewShipment, setOfferForNewShipment] = React.useState<FreightOffer | null>(null);
   
+  const handleOpenAttachmentModal = (shipment: Shipment) => {
+    setAttachmentModalShipment(shipment);
+  };
+
+  const handleCloseAttachmentModal = () => {
+    setAttachmentModalShipment(null);
+  };
+
+  const handleSaveAttachment = async (data: any) => {
+    if (!attachmentModalShipment || !onUpdateAttachment) return;
+    await onUpdateAttachment(attachmentModalShipment.id, data);
+    handleCloseAttachmentModal();
+  };
+
   const addOfferHistory = (offer: FreightOffer, description: string) => {
     const newLog = {
       id: `log_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
@@ -562,26 +598,91 @@ const DashboardPage: React.FC<DashboardPageProps> = ({
                     title="Embarques Aguardando Carregamento"
                     shipments={shipmentsAwaitingLoading}
                     users={users}
+                    onShowDetails={setDetailsModalShipment}
                 />
             </div>
         </div>
+        <ShipmentDetailsModal
+          isOpen={!!detailsModalShipment}
+          onClose={() => setDetailsModalShipment(null)}
+          shipment={detailsModalShipment}
+          cargo={detailsModalShipment ? cargos.find(c => c.id === detailsModalShipment.cargoId) : undefined}
+          clients={clients}
+          products={products}
+          companyLogo={companyLogo}
+          vehicles={vehicles}
+          users={users}
+          onDeleteAttachment={onDeleteAttachment}
+          onUpdatePrice={onUpdatePrice}
+          onUpdateShipmentData={onUpdateShipmentData}
+          onAddAttachments={onAddAttachments}
+        />
+        {attachmentModalShipment && (
+          <AttachmentModal
+            isOpen={!!attachmentModalShipment}
+            onClose={handleCloseAttachmentModal}
+            onSave={handleSaveAttachment}
+            shipment={attachmentModalShipment}
+            cargo={cargos.find(c => c.id === attachmentModalShipment.cargoId)}
+            documentName={REQUIRED_DOCUMENT_MAP[attachmentModalShipment.status] || 'Documento'}
+            currentUser={currentUser || undefined as any}
+            canSave={true}
+          />
+        )}
       </>
     );
   }
 
   if (currentUser?.profile === UserProfile.Fiscal) {
-    const shipmentsPreCadastro = shipments.filter(s => s.status === ShipmentStatus.PreCadastro);
-    const shipmentsAwaitingInsurance = shipments.filter(s => s.status === ShipmentStatus.AguardandoSeguradora);
-    const shipmentsAwaitingNote = shipments.filter(s => s.status === ShipmentStatus.AguardandoNota);
+    const fiscalColumns: BoardColumnConfig[] = [
+      {
+        id: 'col-seguradora',
+        title: 'Aguardando Seguradora',
+        status: ShipmentStatus.AguardandoSeguradora,
+        thresholds: { yellow: 30, red: 50 },
+        colorTheme: 'blue',
+        icon: <ShieldCheck className="w-4 h-4 text-blue-500" />
+      },
+      {
+        id: 'col-cadastro',
+        title: 'Aguardando Cadastro',
+        status: ShipmentStatus.PreCadastro,
+        thresholds: { yellow: 60, red: 90 },
+        colorTheme: 'amber',
+        icon: <FileCheck2 className="w-4 h-4 text-amber-500" />
+      },
+      {
+        id: 'col-nota',
+        title: 'Aguardando Nota',
+        status: ShipmentStatus.AguardandoNota,
+        thresholds: { yellow: 120, red: 240 },
+        colorTheme: 'purple',
+        icon: <Receipt className="w-4 h-4 text-purple-500" />
+      },
+    ];
+
+    const fiscalShipments = shipments.filter(s => 
+      s.status === ShipmentStatus.AguardandoSeguradora || 
+      s.status === ShipmentStatus.PreCadastro || 
+      s.status === ShipmentStatus.AguardandoNota
+    );
 
     return (
       <>
         <Header title="Dashboard Fiscal" />
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <ShipmentListCard title="Aguardando Seguradora" shipments={shipmentsAwaitingInsurance} users={users} thresholds={{ yellow: 30, red: 50 }} onShowDetails={setDetailsModalShipment} />
-          <ShipmentListCard title="Aguardando Cadastro" shipments={shipmentsPreCadastro} users={users} thresholds={{ yellow: 60, red: 90 }} onShowDetails={setDetailsModalShipment} />
-          <ShipmentListCard title="Aguardando Nota" shipments={shipmentsAwaitingNote} users={users} thresholds={{ yellow: 120, red: 240 }} onShowDetails={setDetailsModalShipment} />
-        </div>
+        <OptimizedShipmentsBoard
+          columns={fiscalColumns}
+          shipments={fiscalShipments}
+          cargos={cargos}
+          clients={clients}
+          products={products}
+          drivers={drivers}
+          vehicles={vehicles}
+          users={users}
+          currentUser={currentUser}
+          onShowDetails={setDetailsModalShipment}
+          onAttach={onUpdateAttachment ? handleOpenAttachmentModal : undefined}
+        />
         <ShipmentDetailsModal
           isOpen={!!detailsModalShipment}
           onClose={() => setDetailsModalShipment(null)}
@@ -593,52 +694,76 @@ const DashboardPage: React.FC<DashboardPageProps> = ({
           vehicles={vehicles}
           users={users}
           onDeleteAttachment={onDeleteAttachment}
+          onUpdatePrice={onUpdatePrice}
+          onUpdateShipmentData={onUpdateShipmentData}
+          onAddAttachments={onAddAttachments}
         />
-
-
+        {attachmentModalShipment && (
+          <AttachmentModal
+            isOpen={!!attachmentModalShipment}
+            onClose={handleCloseAttachmentModal}
+            onSave={handleSaveAttachment}
+            shipment={attachmentModalShipment}
+            cargo={cargos.find(c => c.id === attachmentModalShipment.cargoId)}
+            documentName={REQUIRED_DOCUMENT_MAP[attachmentModalShipment.status] || 'Documento'}
+            currentUser={currentUser || undefined as any}
+            canSave={true}
+          />
+        )}
       </>
     );
   }
 
   if (currentUser?.profile === UserProfile.Financeiro) {
-    const shipmentsAwaitingAdvance = shipments.filter(s => s.status === ShipmentStatus.AguardandoAdiantamento);
-    const shipmentsAwaitingBalance = shipments.filter(s => s.status === ShipmentStatus.AguardandoPagamentoSaldo);
-    const shipmentsInTransit = shipments.filter(s => s.status === ShipmentStatus.AguardandoDescarga); // Added filter
-    const shipmentsUnloaded = shipments.filter(s => s.status === ShipmentStatus.AguardandoPagamentoSaldo); // Added filter
+    const financialColumns: BoardColumnConfig[] = [
+      {
+        id: 'col-adiantamento',
+        title: 'Aguardando Pagamento de Adiantamento',
+        status: ShipmentStatus.AguardandoAdiantamento,
+        thresholds: { yellow: 30, red: 60 },
+        colorTheme: 'emerald',
+        icon: <Wallet className="w-4 h-4 text-emerald-500" />
+      },
+      {
+        id: 'col-saldo',
+        title: 'Aguardando Pagamento de Saldo',
+        status: ShipmentStatus.AguardandoPagamentoSaldo,
+        thresholds: { yellow: 24 * 60, red: 47 * 60 },
+        colorTheme: 'indigo',
+        icon: <Receipt className="w-4 h-4 text-indigo-500" />
+      },
+      {
+        id: 'col-transito',
+        title: 'Em Trânsito / Entrega',
+        status: ShipmentStatus.AguardandoDescarga,
+        thresholds: { yellow: 24 * 60, red: 48 * 60 },
+        colorTheme: 'blue',
+        icon: <TruckLucide className="w-4 h-4 text-blue-500" />
+      },
+    ];
+
+    const financialShipments = shipments.filter(s => 
+      s.status === ShipmentStatus.AguardandoAdiantamento || 
+      s.status === ShipmentStatus.AguardandoPagamentoSaldo || 
+      s.status === ShipmentStatus.AguardandoDescarga
+    );
 
     return (
       <>
         <Header title="Dashboard Financeiro" />
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <ShipmentListCard 
-            title="Aguardando Pagamento de Adiantamento" 
-            shipments={shipmentsAwaitingAdvance} 
-            users={users} 
-            thresholds={{ yellow: 30, red: 60 }} 
-            onShowDetails={setDetailsModalShipment} // Added onShowDetails
-          />
-          <ShipmentListCard 
-            title="Aguardando Pagamento de Saldo" 
-            shipments={shipmentsAwaitingBalance} 
-            users={users} 
-            thresholds={{ yellow: 24 * 60, red: 47 * 60 }} 
-            onShowDetails={setDetailsModalShipment} // Added onShowDetails
-          />
-          <ShipmentListCard 
-            title="Em Trânsito / Entrega" 
-            shipments={shipmentsInTransit} 
-            users={users} 
-            thresholds={{ yellow: 24 * 60, red: 48 * 60 }}
-            onShowDetails={setDetailsModalShipment}
-          />
-          <ShipmentListCard 
-            title="Descarga Pronta / Fechamento" 
-            shipments={shipmentsUnloaded} 
-            users={users} 
-            thresholds={{ yellow: 12 * 60, red: 24 * 60 }}
-            onShowDetails={setDetailsModalShipment}
-          />
-        </div>
+        <OptimizedShipmentsBoard
+          columns={financialColumns}
+          shipments={financialShipments}
+          cargos={cargos}
+          clients={clients}
+          products={products}
+          drivers={drivers}
+          vehicles={vehicles}
+          users={users}
+          currentUser={currentUser}
+          onShowDetails={setDetailsModalShipment}
+          onAttach={onUpdateAttachment ? handleOpenAttachmentModal : undefined}
+        />
         <ShipmentDetailsModal
           isOpen={!!detailsModalShipment}
           onClose={() => setDetailsModalShipment(null)}
@@ -650,8 +775,22 @@ const DashboardPage: React.FC<DashboardPageProps> = ({
           vehicles={vehicles}
           users={users}
           onDeleteAttachment={onDeleteAttachment}
+          onUpdatePrice={onUpdatePrice}
+          onUpdateShipmentData={onUpdateShipmentData}
+          onAddAttachments={onAddAttachments}
         />
-
+        {attachmentModalShipment && (
+          <AttachmentModal
+            isOpen={!!attachmentModalShipment}
+            onClose={handleCloseAttachmentModal}
+            onSave={handleSaveAttachment}
+            shipment={attachmentModalShipment}
+            cargo={cargos.find(c => c.id === attachmentModalShipment.cargoId)}
+            documentName={REQUIRED_DOCUMENT_MAP[attachmentModalShipment.status] || 'Documento'}
+            currentUser={currentUser || undefined as any}
+            canSave={true}
+          />
+        )}
       </>
     );
   }
@@ -1005,7 +1144,22 @@ const DashboardPage: React.FC<DashboardPageProps> = ({
         users={users}
         onDeleteAttachment={onDeleteAttachment}
         onUpdatePrice={onUpdatePrice}
+        onUpdateShipmentData={onUpdateShipmentData}
+        onAddAttachments={onAddAttachments}
       />
+
+      {attachmentModalShipment && (
+        <AttachmentModal
+          isOpen={!!attachmentModalShipment}
+          onClose={handleCloseAttachmentModal}
+          onSave={handleSaveAttachment}
+          shipment={attachmentModalShipment}
+          cargo={cargos.find(c => c.id === attachmentModalShipment.cargoId)}
+          documentName={REQUIRED_DOCUMENT_MAP[attachmentModalShipment.status] || 'Documento'}
+          currentUser={currentUser || undefined as any}
+          canSave={true}
+        />
+      )}
 
       <ShipmentHistoryModal
         isOpen={!!selectedDriverForHistoryId}
