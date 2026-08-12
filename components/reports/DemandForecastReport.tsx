@@ -1,15 +1,17 @@
 import React, { useState, useMemo } from "react";
 import type { Cargo, Client, Shipment } from "../../types";
-import { ShipmentStatus } from "../../types";
-import { Download, FileSpreadsheet } from "lucide-react";
+import { ShipmentStatus, DailyScheduleType } from "../../types";
+import { Download, FileSpreadsheet, Filter, X } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import MultiSelectDropdown from "../MultiSelectDropdown";
 
 interface DemandForecastReportProps {
   cargos: Cargo[];
   clients: Client[];
   shipments: Shipment[];
   companyLogo?: string | null;
+  filterScheduleTypeExternal?: string[];
 }
 
 interface ClientDemandRow {
@@ -39,7 +41,7 @@ function getWeekdayLabel(dateStr: string): string {
   return WEEKDAY_LABELS[new Date(dateStr + "T00:00:00").getDay()];
 }
 
-const DemandForecastReport: React.FC<DemandForecastReportProps> = ({ cargos, clients, shipments, companyLogo }) => {
+const DemandForecastReport: React.FC<DemandForecastReportProps> = ({ cargos, clients, shipments, companyLogo, filterScheduleTypeExternal }) => {
   const today = new Date();
   const monday = new Date(today);
   monday.setDate(today.getDate() - today.getDay() + 1);
@@ -49,6 +51,13 @@ const DemandForecastReport: React.FC<DemandForecastReportProps> = ({ cargos, cli
   const [startDate, setStartDate] = useState(monday.toISOString().split("T")[0]);
   const [endDate, setEndDate] = useState(sunday.toISOString().split("T")[0]);
   const [viewMode, setViewMode] = useState<"resumo" | "detalhado">("detalhado");
+  const [filterScheduleType, setFilterScheduleType] = useState<string[]>([]);
+
+  const activeScheduleTypes = filterScheduleTypeExternal && filterScheduleTypeExternal.length > 0
+    ? filterScheduleTypeExternal
+    : filterScheduleType;
+
+  const scheduleTypeOptions = Object.values(DailyScheduleType);
 
   const clientMap = useMemo(() => new Map(clients.map((c) => [c.id, c])), [clients]);
 
@@ -91,6 +100,7 @@ const DemandForecastReport: React.FC<DemandForecastReportProps> = ({ cargos, cli
 
       cargo.dailySchedule.forEach((entry) => {
         if (entry.date < startDate || entry.date > endDate) return;
+        if (activeScheduleTypes.length > 0 && !activeScheduleTypes.includes(entry.type)) return;
         // Accept all entries in range, even those without explicit tonnage
         const ton = entry.tonnage ?? 0;
 
@@ -120,7 +130,13 @@ const DemandForecastReport: React.FC<DemandForecastReportProps> = ({ cargos, cli
         const dateMap = attendedTonnageByCargoAndDate.get(cargo.id);
         if (!dateMap) return;
         dateMap.forEach((ton, date) => {
-          if (date >= startDate && date <= endDate) atendido += ton;
+          if (date >= startDate && date <= endDate) {
+            if (activeScheduleTypes.length > 0) {
+              const entryForDate = cargo.dailySchedule?.find(e => e.date === date);
+              if (!entryForDate || !activeScheduleTypes.includes(entryForDate.type)) return;
+            }
+            atendido += ton;
+          }
         });
       });
       row.atendido = atendido;
@@ -128,7 +144,7 @@ const DemandForecastReport: React.FC<DemandForecastReportProps> = ({ cargos, cli
     });
 
     return Array.from(rowMap.values()).sort((a, b) => b.previsto - a.previsto);
-  }, [cargos, clientMap, startDate, endDate, attendedTonnageByCargoAndDate]);
+  }, [cargos, clientMap, startDate, endDate, attendedTonnageByCargoAndDate, activeScheduleTypes]);
 
   const weekdayTotals = useMemo(() => {
     return weekdayColumns.map((col) =>
@@ -160,8 +176,9 @@ const DemandForecastReport: React.FC<DemandForecastReportProps> = ({ cargos, cli
     doc.text("Previsao de Demandas", 14, 14);
     doc.setFontSize(9);
     doc.setTextColor(120);
+    const scheduleFilterText = activeScheduleTypes.length > 0 ? ` - Tipos: ${activeScheduleTypes.join(", ")}` : "";
     doc.text(
-      `Periodo: ${new Date(startDate + "T00:00:00").toLocaleDateString("pt-BR")} ate ${new Date(endDate + "T00:00:00").toLocaleDateString("pt-BR")} - Gerado em: ${new Date().toLocaleString("pt-BR")}`,
+      `Periodo: ${new Date(startDate + "T00:00:00").toLocaleDateString("pt-BR")} ate ${new Date(endDate + "T00:00:00").toLocaleDateString("pt-BR")}${scheduleFilterText} - Gerado em: ${new Date().toLocaleString("pt-BR")}`,
       14,
       20
     );
@@ -295,6 +312,33 @@ const DemandForecastReport: React.FC<DemandForecastReportProps> = ({ cargos, cli
           >
             <FileSpreadsheet className="w-4 h-4" /> Excel
           </button>
+        </div>
+      </div>
+
+      {/* FILTER BAR */}
+      <div className="flex flex-wrap items-center justify-between gap-4 p-4 bg-gray-50/80 dark:bg-gray-800/60 rounded-xl border border-gray-100 dark:border-gray-700">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="w-72">
+            <MultiSelectDropdown
+              label="Tipo de Programação"
+              options={scheduleTypeOptions}
+              selectedValues={activeScheduleTypes}
+              onChange={setFilterScheduleType}
+              placeholder="Todos os Tipos..."
+            />
+          </div>
+          {activeScheduleTypes.length > 0 && (
+            <button
+              onClick={() => setFilterScheduleType([])}
+              className="text-xs text-red-500 hover:text-red-700 dark:text-red-400 flex items-center gap-1 font-medium bg-red-50 dark:bg-red-900/20 px-3 py-2 rounded-lg transition-colors mt-5"
+              title="Limpar filtro de programação"
+            >
+              <X className="w-3.5 h-3.5" /> Limpar ({activeScheduleTypes.length})
+            </button>
+          )}
+        </div>
+        <div className="text-xs font-semibold text-gray-500 dark:text-gray-400">
+          {rows.length} {rows.length === 1 ? 'cliente encontrado' : 'clientes encontrados'}
         </div>
       </div>
 

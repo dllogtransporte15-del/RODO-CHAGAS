@@ -1,10 +1,11 @@
 
 import React, { useMemo } from 'react';
 import type { Cargo, Client, Product, User, FreightLeg, Shipment } from '../types';
+import { UserProfile, ShipmentStatus } from '../types';
 import VolumeBar from './VolumeBar';
 import { PaperclipIcon } from './icons/PaperclipIcon';
 import { StayRecord } from '../utils/toolStorage';
-import { ShipmentStatus } from '../types';
+import { parseLocation } from '../utils/locationUtils';
 import { getShipmentAttachmentUrl } from '../lib/db';
 
 interface CargoDetailsModalProps {
@@ -26,18 +27,18 @@ const DetailItem: React.FC<{ label: string; value?: string | number | null; chil
     </div>
 );
 
-const FreightLegDetail: React.FC<{ leg: FreightLeg; index: number; hideSensitiveData?: boolean; isMotorista?: boolean }> = ({ leg, index, hideSensitiveData, isMotorista }) => (
+const FreightLegDetail: React.FC<{ leg: FreightLeg; index: number; hideSensitiveData?: boolean; hideCompanyFreight?: boolean; isMotorista?: boolean }> = ({ leg, index, hideSensitiveData, hideCompanyFreight, isMotorista }) => (
     <div className="p-4 border rounded-md dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
         <div className="flex justify-between items-center mb-3">
             <h4 className="font-semibold text-gray-600 dark:text-gray-300">Perna {index + 1}</h4>
-            {!isMotorista && (
+            {!hideCompanyFreight && (
                 <span className={`text-xs font-semibold px-2 py-1 rounded-full ${leg.hasIcms ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300' : 'bg-gray-200 text-gray-700 dark:bg-gray-600 dark:text-gray-200'}`}>
                     ICMS: {leg.hasIcms ? `Sim (${leg.icmsPercentage}%)` : 'Não'}
                 </span>
             )}
         </div>
         <div className="grid grid-cols-2 gap-4 text-sm">
-            {!isMotorista && (
+            {!hideCompanyFreight && (
                 <div>
                     <p className="text-xs text-gray-500">Frete Empresa</p>
                     <p className="font-medium text-gray-800 dark:text-gray-200">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(leg.companyFreightValuePerTon)}</p>
@@ -56,7 +57,9 @@ const FreightLegDetail: React.FC<{ leg: FreightLeg; index: number; hideSensitive
 
 const CargoDetailsModal: React.FC<CargoDetailsModalProps> = ({ isOpen, onClose, cargo, client, product, commercialUser, stays = [], shipments = [], currentUser }) => {
   if (!isOpen || !cargo) return null;
-  const isClient = currentUser?.profile === 'Cliente';
+  const isClient = currentUser?.profile === UserProfile.Cliente;
+  const isEmbarcador = currentUser?.profile === UserProfile.Embarcador;
+  const isMotorista = currentUser?.profile === UserProfile.Motorista;
 
   const scheduledButNotLoaded = Math.max(0, cargo.scheduledVolume - cargo.loadedVolume);
   
@@ -130,8 +133,32 @@ const CargoDetailsModal: React.FC<CargoDetailsModalProps> = ({ isOpen, onClose, 
                 <DetailItem label="Produto" value={product?.name} />
                 <DetailItem label="Origem" value={cargo.origin} />
                 <DetailItem label="Destino" value={cargo.destination} />
-                {cargo.originMapLink && <DetailItem label="Link Mapa (Origem)"><a href={cargo.originMapLink} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 dark:text-blue-400 underline truncate">Abrir link</a></DetailItem>}
-                {cargo.destinationMapLink && <DetailItem label="Link Mapa (Destino)"><a href={cargo.destinationMapLink} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 dark:text-blue-400 underline truncate">Abrir link</a></DetailItem>}
+                {cargo.originLocation && <DetailItem label="Local de Coleta" value={cargo.originLocation} />}
+                {cargo.destinationLocation && <DetailItem label="Local de Entrega" value={cargo.destinationLocation} />}
+                {cargo.originMapLink && (
+                  <DetailItem label="Link Mapa (Origem)">
+                    <a 
+                      href={parseLocation(cargo.originMapLink).href || cargo.originMapLink} 
+                      target="_blank" 
+                      rel="noopener noreferrer" 
+                      className="inline-flex items-center gap-1 text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline"
+                    >
+                      📍 Abrir no Mapa
+                    </a>
+                  </DetailItem>
+                )}
+                {cargo.destinationMapLink && (
+                  <DetailItem label="Link Mapa (Destino)">
+                    <a 
+                      href={parseLocation(cargo.destinationMapLink).href || cargo.destinationMapLink} 
+                      target="_blank" 
+                      rel="noopener noreferrer" 
+                      className="inline-flex items-center gap-1 text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline"
+                    >
+                      📍 Abrir no Mapa
+                    </a>
+                  </DetailItem>
+                )}
             </div>
 
             <div className="border-t dark:border-gray-700 pt-4">
@@ -166,14 +193,17 @@ const CargoDetailsModal: React.FC<CargoDetailsModalProps> = ({ isOpen, onClose, 
                             leg={leg} 
                             index={index} 
                             hideSensitiveData={isClient} 
-                            isMotorista={currentUser?.profile === 'Motorista'} 
+                            hideCompanyFreight={isMotorista || isEmbarcador}
+                            isMotorista={isMotorista || isEmbarcador} 
                         />
                     ))}
                 </div>
                  <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {currentUser?.profile === 'Motorista' ? (
-                        <div className="p-3 bg-gray-100 dark:bg-gray-700 rounded-md col-span-3">
-                            <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Valor do Frete (Final)</label>
+                    {isMotorista || isEmbarcador ? (
+                        <div className="p-3 bg-gray-100 dark:bg-gray-700 rounded-md col-span-1 md:col-span-3">
+                            <label className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                                {isEmbarcador ? 'Frete Motorista (Final)' : 'Valor do Frete (Final)'}
+                            </label>
                             <p className="text-lg font-bold text-gray-800 dark:text-gray-200">{formatCurrency(totalDriverFreight)}</p>
                         </div>
                     ) : (

@@ -5,6 +5,7 @@ import { PackageIcon, CheckIcon, XIcon, MessageCircleIcon, HistoryIcon, TrashIco
 import VolumeBar from './VolumeBar';
 import { supabase } from '../supabase';
 import { getMatchedCargo } from '../utils';
+import { parseLocation } from '../utils/locationUtils';
 
 interface FreightOffersListProps {
   offers: FreightOffer[];
@@ -51,24 +52,40 @@ const FreightOffersList: React.FC<FreightOffersListProps> = ({
 
   const renderLocationValue = (text: string | undefined, className: string, prefix?: React.ReactNode) => {
     if (!text) return null;
-    const isUrl = text.startsWith('http://') || text.startsWith('https://');
-    if (isUrl) {
+    const parsed = parseLocation(text);
+    
+    if (parsed.isUrl) {
       return (
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col items-start gap-1 max-w-full">
           {prefix && <span className={className}>{prefix}</span>}
+          {parsed.prefixText && (
+            <span className={`truncate max-w-[200px] ${className}`} title={parsed.prefixText}>
+              {parsed.prefixText}
+            </span>
+          )}
           <a 
-            href={text} 
+            href={parsed.href || parsed.cleanShortUrl || '#'} 
             target="_blank" 
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-md hover:bg-blue-100 hover:text-blue-800 transition-colors"
+            title={parsed.coordString ? `Coordenadas: ${parsed.coordString}\nClique para abrir no Google Maps` : `Abrir mapa: ${parsed.href}`}
+            className="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-md hover:bg-blue-100 hover:text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800 dark:hover:bg-blue-900/50 transition-colors shadow-2xs flex-shrink-0"
           >
-            <MapPinIcon className="w-3 h-3" />
-            Ver Localização
+            <MapPinIcon className="w-3 h-3 text-blue-500 flex-shrink-0" />
+            <span>Ver Localização</span>
+            {parsed.coordString && (
+              <span className="text-[10px] opacity-75 font-mono ml-0.5 hidden sm:inline">
+                ({parsed.coordString.split(',')[0].slice(0, 7)}...)
+              </span>
+            )}
           </a>
         </div>
       );
     }
-    return <span className={className}>{prefix}{text}</span>;
+    return (
+      <span className={`truncate max-w-[220px] inline-block ${className}`} title={text}>
+        {prefix}{text}
+      </span>
+    );
   };
 
   const getStatusColor = (status: FreightOfferStatus) => {
@@ -135,27 +152,27 @@ const FreightOffersList: React.FC<FreightOffersListProps> = ({
                     {getClientName(offer.clientId)}
                   </td>
                 )}
-                <td className="px-4 py-3 text-gray-600 dark:text-gray-300">
-                  <div className="flex flex-col items-start gap-1.5">
+                <td className="px-4 py-3 text-gray-600 dark:text-gray-300 max-w-[220px]">
+                  <div className="flex flex-col items-start gap-1">
                     {renderLocationValue(offer.origin, "")}
-                    {renderLocationValue(offer.originLocation, "block text-xs text-gray-500 mt-1")}
+                    {renderLocationValue(offer.originLocation, "block text-xs text-gray-500")}
                   </div>
                 </td>
-                <td className="px-4 py-3 text-gray-600 dark:text-gray-300">
-                  <div className="flex flex-col items-start gap-1.5">
-                    <div className="flex items-center gap-2">
+                <td className="px-4 py-3 text-gray-600 dark:text-gray-300 max-w-[240px]">
+                  <div className="flex flex-col items-start gap-1">
+                    <div className="flex items-center gap-2 max-w-full">
                       {renderLocationValue(offer.destination, "")}
                       {offer.additionalDestinations && offer.additionalDestinations.length > 0 && (
                         <button 
                           onClick={() => setDetailsModal(offer)}
-                          className="px-1.5 py-0.5 text-[10px] font-bold text-indigo-700 bg-indigo-100 hover:bg-indigo-200 border border-indigo-200 rounded-full transition-colors flex items-center justify-center min-w-[20px]"
+                          className="px-1.5 py-0.5 text-[10px] font-bold text-indigo-700 bg-indigo-100 hover:bg-indigo-200 border border-indigo-200 rounded-full transition-colors flex items-center justify-center min-w-[20px] flex-shrink-0"
                           title="Ver oferta para mais destinos"
                         >
                           +{offer.additionalDestinations.length}
                         </button>
                       )}
                     </div>
-                    {renderLocationValue(offer.destinationLocation, "block text-xs text-gray-500 mt-1")}
+                    {renderLocationValue(offer.destinationLocation, "block text-xs text-gray-500")}
                   </div>
                 </td>
                 <td className="px-4 py-3 text-gray-600 dark:text-gray-300">{getProductName(offer.productId)}</td>

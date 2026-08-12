@@ -60,13 +60,16 @@ export const formatCpfCnpj = (value: string): string => {
   });
 };
 
+import { cleanOrShortenLocationInput } from './locationUtils';
+export * from './locationUtils';
+
 export const autoFormatInput = (name: string, value: string): string => {
   if (!value) return value;
   
   const lowerName = name.toLowerCase();
   
   if (lowerName.includes('location') || lowerName.includes('maplink')) {
-    return value;
+    return cleanOrShortenLocationInput(value);
   }
 
   if (lowerName === 'cpf' || lowerName === 'drivercpf' || lowerName === 'ownercpf') {
@@ -79,6 +82,10 @@ export const autoFormatInput = (name: string, value: string): string => {
     return formatPhone(value);
   }
   if (lowerName.includes('origem') || lowerName.includes('destino') || lowerName.includes('origin') || lowerName.includes('destination') || lowerName === 'city') {
+    // If user pasted a link into origin/destination by accident, don't format as city/state
+    if (value.includes('http://') || value.includes('https://') || value.includes('google.com') || value.includes('maps.')) {
+      return cleanOrShortenLocationInput(value);
+    }
     return formatCityState(value);
   }
   return value;

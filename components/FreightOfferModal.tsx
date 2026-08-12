@@ -3,6 +3,7 @@ import type { Client, Product, FreightOffer } from '../types';
 import { FreightOfferStatus } from '../types';
 import { XIcon, PackageIcon, MapPinIcon, DollarSignIcon, CalendarIcon, ScaleIcon, PaperclipIcon } from 'lucide-react';
 import { supabase } from '../supabase';
+import { cleanOrShortenLocationInput, parseLocation } from '../utils/locationUtils';
 
 interface FreightOfferModalProps {
   isOpen: boolean;
@@ -36,7 +37,11 @@ const FreightOfferModal: React.FC<FreightOfferModalProps> = ({
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    let formattedValue = value;
+    if (name === 'originLocation' || name === 'destinationLocation') {
+      formattedValue = cleanOrShortenLocationInput(value);
+    }
+    setFormData(prev => ({ ...prev, [name]: formattedValue }));
   };
 
   const handleAddDestination = () => {
@@ -45,7 +50,7 @@ const FreightOfferModal: React.FC<FreightOfferModalProps> = ({
 
   const handleAdditionalDestinationChange = (index: number, field: 'city' | 'location', value: string) => {
     const newDests = [...additionalDestinations];
-    newDests[index][field] = value;
+    newDests[index][field] = field === 'location' ? cleanOrShortenLocationInput(value) : value;
     setAdditionalDestinations(newDests);
   };
 
@@ -104,15 +109,17 @@ const FreightOfferModal: React.FC<FreightOfferModalProps> = ({
       await onSave({
         clientId: currentClient.id,
         origin: formData.origin,
-        originLocation: formData.originLocation,
+        originLocation: cleanOrShortenLocationInput(formData.originLocation),
         destination: formData.destination,
-        destinationLocation: formData.destinationLocation,
+        destinationLocation: cleanOrShortenLocationInput(formData.destinationLocation),
         totalTonnage: Number(formData.totalTonnage),
         dailySchedule: formData.dailySchedule,
         productId: formData.productId,
         status: FreightOfferStatus.AguardandoPreco,
         observations: formData.observations,
-        additionalDestinations: additionalDestinations.filter(d => d.city.trim() !== ''),
+        additionalDestinations: additionalDestinations
+          .filter(d => d.city.trim() !== '')
+          .map(d => ({ ...d, location: cleanOrShortenLocationInput(d.location) })),
         attachments: uploadedUrls,
       });
       onClose();
@@ -152,8 +159,15 @@ const FreightOfferModal: React.FC<FreightOfferModalProps> = ({
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Local da Origem</label>
-                <input type="text" name="originLocation" value={formData.originLocation} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white" placeholder="Ex: Fazenda Boa Esperança" />
+                <div className="flex justify-between items-center mb-1">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Local da Origem</label>
+                  {parseLocation(formData.originLocation).isUrl && (
+                    <span className="text-[11px] font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/40 px-1.5 py-0.2 rounded">
+                      📍 GPS/Link detectado
+                    </span>
+                  )}
+                </div>
+                <input type="text" name="originLocation" value={formData.originLocation} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white" placeholder="Ex: Fazenda Boa Esperança ou Link Google Maps" />
               </div>
               
               <div>
@@ -171,8 +185,15 @@ const FreightOfferModal: React.FC<FreightOfferModalProps> = ({
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Local do Destino</label>
-                <input type="text" name="destinationLocation" value={formData.destinationLocation} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white" placeholder="Ex: Porto de Santos" />
+                <div className="flex justify-between items-center mb-1">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Local do Destino</label>
+                  {parseLocation(formData.destinationLocation).isUrl && (
+                    <span className="text-[11px] font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/40 px-1.5 py-0.2 rounded">
+                      📍 GPS/Link detectado
+                    </span>
+                  )}
+                </div>
+                <input type="text" name="destinationLocation" value={formData.destinationLocation} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white" placeholder="Ex: Porto de Santos ou Link Google Maps" />
               </div>
               {additionalDestinations.map((dest, idx) => (
                 <React.Fragment key={idx}>
@@ -191,8 +212,15 @@ const FreightOfferModal: React.FC<FreightOfferModalProps> = ({
                     </div>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Local do Destino Adicional {idx + 1}</label>
-                    <input type="text" value={dest.location} onChange={e => handleAdditionalDestinationChange(idx, 'location', e.target.value)} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white" placeholder="Ex: Galpão Central" />
+                    <div className="flex justify-between items-center mb-1">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Local do Destino Adicional {idx + 1}</label>
+                      {parseLocation(dest.location).isUrl && (
+                        <span className="text-[11px] font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/40 px-1.5 py-0.2 rounded">
+                          📍 GPS/Link detectado
+                        </span>
+                      )}
+                    </div>
+                    <input type="text" value={dest.location} onChange={e => handleAdditionalDestinationChange(idx, 'location', e.target.value)} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white" placeholder="Ex: Galpão Central ou Link Maps" />
                   </div>
                 </React.Fragment>
               ))}

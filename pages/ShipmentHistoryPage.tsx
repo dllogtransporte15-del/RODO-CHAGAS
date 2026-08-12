@@ -173,6 +173,7 @@ const ShipmentHistoryPage: React.FC<ShipmentHistoryPageProps> = ({ shipments, ca
         marginValue={marginValue}
         onMarginValueChange={setMarginValue}
         stays={stays}
+        currentUser={currentUser}
       />
       <ShipmentTable 
         shipments={filteredShipments} 

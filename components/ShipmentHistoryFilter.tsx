@@ -1,7 +1,7 @@
 
 import React from 'react';
-import { ShipmentStatus } from '../types';
-import type { Shipment, Cargo } from '../types';
+import { ShipmentStatus, UserProfile } from '../types';
+import type { Shipment, Cargo, User } from '../types';
 import { StayRecord } from '../utils/toolStorage';
 
 interface ShipmentHistoryFilterProps {
@@ -18,6 +18,7 @@ interface ShipmentHistoryFilterProps {
   marginValue: string;
   onMarginValueChange: (val: string) => void;
   stays?: StayRecord[];
+  currentUser?: User | null;
 }
 
 const ShipmentHistoryFilter: React.FC<ShipmentHistoryFilterProps> = ({ 
@@ -33,7 +34,8 @@ const ShipmentHistoryFilter: React.FC<ShipmentHistoryFilterProps> = ({
   onMarginOperatorChange,
   marginValue,
   onMarginValueChange,
-  stays = []
+  stays = [],
+  currentUser
 }) => {
   const cargoMap = React.useMemo(() => new Map(cargos.map(c => [c.id, c])), [cargos]);
 
@@ -93,27 +95,29 @@ const ShipmentHistoryFilter: React.FC<ShipmentHistoryFilterProps> = ({
             className="px-3 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-primary/20 outline-none transition-all dark:text-white"
           />
         </div>
-        <div className="flex flex-col gap-1.5 min-w-[200px]">
-          <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider ml-1">Margem (Total):</label>
-          <div className="flex items-center gap-1">
-            <select 
-              value={marginOperator}
-              onChange={(e) => onMarginOperatorChange(e.target.value as '>' | '<' | '')}
-              className="px-2 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-primary/20 outline-none transition-all dark:text-white"
-            >
-              <option value="">Operador</option>
-              <option value=">">Maior que (&gt;)</option>
-              <option value="<">Menor que (&lt;)</option>
-            </select>
-            <input 
-              type="number" 
-              placeholder="Valor R$"
-              value={marginValue} 
-              onChange={(e) => onMarginValueChange(e.target.value)}
-              className="w-24 px-3 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-primary/20 outline-none transition-all dark:text-white"
-            />
+        {currentUser?.profile !== UserProfile.Embarcador && currentUser?.profile !== UserProfile.Cliente && currentUser?.profile !== UserProfile.Motorista && (
+          <div className="flex flex-col gap-1.5 min-w-[200px]">
+            <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider ml-1">Margem (Total):</label>
+            <div className="flex items-center gap-1">
+              <select 
+                value={marginOperator}
+                onChange={(e) => onMarginOperatorChange(e.target.value as '>' | '<' | '')}
+                className="px-2 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-primary/20 outline-none transition-all dark:text-white"
+              >
+                <option value="">Operador</option>
+                <option value=">">Maior que (&gt;)</option>
+                <option value="<">Menor que (&lt;)</option>
+              </select>
+              <input 
+                type="number" 
+                placeholder="Valor R$"
+                value={marginValue} 
+                onChange={(e) => onMarginValueChange(e.target.value)}
+                className="w-24 px-3 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-primary/20 outline-none transition-all dark:text-white"
+              />
+            </div>
           </div>
-        </div>
+        )}
 
         <button 
           onClick={() => {

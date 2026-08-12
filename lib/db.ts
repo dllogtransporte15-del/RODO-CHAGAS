@@ -1,4 +1,5 @@
 import { supabase } from '../supabase';
+import { cleanOrShortenLocationInput } from '../utils/locationUtils';
 import type {
   Client, Owner, Driver, Vehicle, Product, Cargo, Shipment, User, Ticket, ProfilePermissions, ShipmentLock, Branch, FreightOffer
 } from '../types';
@@ -112,9 +113,9 @@ const fromFreightOffer = (o: FreightOffer | Omit<FreightOffer, 'id'>) => {
     id: (o as FreightOffer).id,
     client_id: o.clientId,
     origin: o.origin,
-    origin_location: o.originLocation,
+    origin_location: cleanOrShortenLocationInput(o.originLocation),
     destination: o.destination,
-    destination_location: o.destinationLocation,
+    destination_location: cleanOrShortenLocationInput(o.destinationLocation),
     total_tonnage: o.totalTonnage,
     daily_schedule: o.dailySchedule,
     freight_value_per_ton: o.freightValuePerTon || 0,
@@ -284,11 +285,11 @@ const fromCargo = (c: Cargo | Omit<Cargo, 'id'>) => ({
   client_id: c.clientId,
   product_id: c.productId,
   origin: c.origin,
-  origin_location: c.originLocation,
-  origin_map_link: c.originMapLink,
+  origin_location: cleanOrShortenLocationInput(c.originLocation),
+  origin_map_link: cleanOrShortenLocationInput(c.originMapLink),
   destination: c.destination,
-  destination_location: c.destinationLocation,
-  destination_map_link: c.destinationMapLink,
+  destination_location: cleanOrShortenLocationInput(c.destinationLocation),
+  destination_map_link: cleanOrShortenLocationInput(c.destinationMapLink),
   total_volume: c.totalVolume,
   scheduled_volume: c.scheduledVolume,
   loaded_volume: c.loadedVolume,

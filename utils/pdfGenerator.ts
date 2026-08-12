@@ -2,6 +2,7 @@
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { Shipment, Cargo, Client, Product, Vehicle } from "../types";
+import { formatLocationForPrint } from "./locationUtils";
 
 export const generateLoadingOrderPDF = (
   shipment: Shipment,
@@ -74,6 +75,9 @@ export const generateLoadingOrderPDF = (
   doc.setTextColor(primaryBlue[0], primaryBlue[1], primaryBlue[2]);
   doc.text("1. INFORMAÇÕES DA CARGA", margin, 68);
 
+  const formattedOriginLoc = formatLocationForPrint(cargo.originLocation);
+  const formattedDestLoc = formatLocationForPrint(cargo.destinationLocation);
+
   autoTable(doc, {
     startY: 71,
     head: [["Descrição do Requisito", "Informações Detalhadas"]],
@@ -81,8 +85,8 @@ export const generateLoadingOrderPDF = (
       ["CLIENTE / EMBARCADOR", (client?.nomeFantasia || client?.razaoSocial || cargo.clientId).toUpperCase()],
       ["PRODUTO / MERCADORIA", (product?.name || cargo.productId).toUpperCase()],
       ["PESO / TONELAGEM", `${shipment.shipmentTonnage.toLocaleString("pt-BR")} TON`],
-      ["ORIGEM DO CARREGAMENTO", cargo.originLocation ? `${cargo.origin} - ${cargo.originLocation}`.toUpperCase() : cargo.origin.toUpperCase()],
-      ["DESTINO DA CARGA", cargo.destinationLocation ? `${cargo.destination} - ${cargo.destinationLocation}`.toUpperCase() : cargo.destination.toUpperCase()],
+      ["ORIGEM DO CARREGAMENTO", formattedOriginLoc ? `${cargo.origin} - ${formattedOriginLoc}`.toUpperCase() : cargo.origin.toUpperCase()],
+      ["DESTINO DA CARGA", formattedDestLoc ? `${cargo.destination} - ${formattedDestLoc}`.toUpperCase() : cargo.destination.toUpperCase()],
       ["DATA PROGRAMADA", shipment.scheduledDate ? new Date(`${shipment.scheduledDate}T00:00:00`).toLocaleDateString('pt-BR') : 'N/A'],
     ],
     theme: "striped",

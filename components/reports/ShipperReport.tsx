@@ -173,8 +173,11 @@ const ShipperReport: React.FC<ShipperReportProps> = ({ shipments, cargos, client
             doc.setTextColor(0);
         }
 
+        const isEmbarcador = currentUser?.profile === UserProfile.Embarcador;
         const startY = filterDesc.length > 0 ? 34 : 28;
-        const tableColumn = ["ID", "Início", "Fim", "Cliente", "Motorista", "Placa", "Origem", "Destino", "Frete Emp/Ton", "Frete Mot/Ton", "Peso Carregado", "Peso Destino", "Quebra", "Status"];
+        const tableColumn = isEmbarcador
+            ? ["ID", "Início", "Fim", "Cliente", "Motorista", "Placa", "Origem", "Destino", "Frete/Ton", "Peso Carregado", "Peso Destino", "Quebra", "Status"]
+            : ["ID", "Início", "Fim", "Cliente", "Motorista", "Placa", "Origem", "Destino", "Frete Emp/Ton", "Frete Mot/Ton", "Peso Carregado", "Peso Destino", "Quebra", "Status"];
         const tableRows: any[] = [];
 
         let totalFreteEmpresa = 0;
@@ -214,40 +217,68 @@ const ShipperReport: React.FC<ShipperReportProps> = ({ shipments, cargos, client
 
             const fmt = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 
-            tableRows.push([
-                shipment.id,
-                dataInicio,
-                dataFim,
-                cliente,
-                shipment.driverName,
-                shipment.horsePlate || '-',
-                origem,
-                destino,
-                fmt(freteEmpresa),
-                fmt(freteMotorista),
-                pesoOrigem.toFixed(2) + ' t',
-                pesoDestino !== undefined ? pesoDestino.toFixed(2) + ' t' : '-',
-                quebra,
-                shipment.status
-            ]);
+            if (isEmbarcador) {
+                tableRows.push([
+                    shipment.id,
+                    dataInicio,
+                    dataFim,
+                    cliente,
+                    shipment.driverName,
+                    shipment.horsePlate || '-',
+                    origem,
+                    destino,
+                    fmt(freteMotorista),
+                    pesoOrigem.toFixed(2) + ' t',
+                    pesoDestino !== undefined ? pesoDestino.toFixed(2) + ' t' : '-',
+                    quebra,
+                    shipment.status
+                ]);
+            } else {
+                tableRows.push([
+                    shipment.id,
+                    dataInicio,
+                    dataFim,
+                    cliente,
+                    shipment.driverName,
+                    shipment.horsePlate || '-',
+                    origem,
+                    destino,
+                    fmt(freteEmpresa),
+                    fmt(freteMotorista),
+                    pesoOrigem.toFixed(2) + ' t',
+                    pesoDestino !== undefined ? pesoDestino.toFixed(2) + ' t' : '-',
+                    quebra,
+                    shipment.status
+                ]);
+            }
         });
 
         const fmt = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
         
-        tableRows.push([
-            "TOTAIS", "-", "-", "-", "-", `Embarques: ${shipmentsForPdf.length}`, "-", "-",
-            fmt(totalFreteEmpresa),
-            fmt(totalFreteMotorista),
-            totalPesoCarregado.toFixed(2) + ' t',
-            totalPesoDestino > 0 ? totalPesoDestino.toFixed(2) + ' t' : '-',
-            "-", "-"
-        ]);
+        if (isEmbarcador) {
+            tableRows.push([
+                "TOTAIS", "-", "-", "-", "-", `Embarques: ${shipmentsForPdf.length}`, "-", "-",
+                fmt(totalFreteMotorista),
+                totalPesoCarregado.toFixed(2) + ' t',
+                totalPesoDestino > 0 ? totalPesoDestino.toFixed(2) + ' t' : '-',
+                "-", "-"
+            ]);
+        } else {
+            tableRows.push([
+                "TOTAIS", "-", "-", "-", "-", `Embarques: ${shipmentsForPdf.length}`, "-", "-",
+                fmt(totalFreteEmpresa),
+                fmt(totalFreteMotorista),
+                totalPesoCarregado.toFixed(2) + ' t',
+                totalPesoDestino > 0 ? totalPesoDestino.toFixed(2) + ' t' : '-',
+                "-", "-"
+            ]);
 
-        tableRows.push([
-            "LÍQUIDO", "-", "-", "-", "-", "-", "-", "-",
-            fmt(totalFreteEmpresa - totalFreteMotorista),
-            "-", "-", "-", "-", "-"
-        ]);
+            tableRows.push([
+                "LÍQUIDO", "-", "-", "-", "-", "-", "-", "-",
+                fmt(totalFreteEmpresa - totalFreteMotorista),
+                "-", "-", "-", "-", "-"
+            ]);
+        }
 
         autoTable(doc, {
             head: [tableColumn],
@@ -301,7 +332,10 @@ const ShipperReport: React.FC<ShipperReportProps> = ({ shipments, cargos, client
         doc.setFontSize(10);
         doc.text(`Gerado em: ${new Date().toLocaleString('pt-BR')}`, 14, 22);
 
-        const tableColumn = ["ID", "Início", "Fim", "Cliente", "Motorista", "Placa", "Origem", "Destino", "Frete Emp/Ton", "Frete Mot/Ton", "Peso Carregado", "Peso Destino", "Quebra"];
+        const isEmbarcador = currentUser?.profile === UserProfile.Embarcador;
+        const tableColumn = isEmbarcador
+            ? ["ID", "Início", "Fim", "Cliente", "Motorista", "Placa", "Origem", "Destino", "Frete/Ton", "Peso Carregado", "Peso Destino", "Quebra"]
+            : ["ID", "Início", "Fim", "Cliente", "Motorista", "Placa", "Origem", "Destino", "Frete Emp/Ton", "Frete Mot/Ton", "Peso Carregado", "Peso Destino", "Quebra"];
         const tableRows: any[] = [];
 
         let totalFreteEmpresa = 0;
@@ -339,40 +373,66 @@ const ShipperReport: React.FC<ShipperReportProps> = ({ shipments, cargos, client
 
             const formatCurrency = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 
-            const rowData = [
-                shipment.id,
-                dataInicio,
-                dataFim,
-                cliente,
-                shipment.driverName,
-                shipment.horsePlate || '-',
-                origem,
-                destino,
-                formatCurrency(freteEmpresa),
-                formatCurrency(freteMotorista),
-                pesoOrigem.toFixed(2) + ' t',
-                pesoDestino !== undefined ? pesoDestino.toFixed(2) + ' t' : '-',
-                quebra
-            ];
-            tableRows.push(rowData);
+            if (isEmbarcador) {
+                tableRows.push([
+                    shipment.id,
+                    dataInicio,
+                    dataFim,
+                    cliente,
+                    shipment.driverName,
+                    shipment.horsePlate || '-',
+                    origem,
+                    destino,
+                    formatCurrency(freteMotorista),
+                    pesoOrigem.toFixed(2) + ' t',
+                    pesoDestino !== undefined ? pesoDestino.toFixed(2) + ' t' : '-',
+                    quebra
+                ]);
+            } else {
+                tableRows.push([
+                    shipment.id,
+                    dataInicio,
+                    dataFim,
+                    cliente,
+                    shipment.driverName,
+                    shipment.horsePlate || '-',
+                    origem,
+                    destino,
+                    formatCurrency(freteEmpresa),
+                    formatCurrency(freteMotorista),
+                    pesoOrigem.toFixed(2) + ' t',
+                    pesoDestino !== undefined ? pesoDestino.toFixed(2) + ' t' : '-',
+                    quebra
+                ]);
+            }
         });
 
         const formatCurrency = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 
-        tableRows.push([
-            "TOTAIS", "-", "-", "-", "-", `Embarques: ${targetShipments.length}`, "-", "-",
-            formatCurrency(totalFreteEmpresa),
-            formatCurrency(totalFreteMotorista),
-            totalPesoCarregado.toFixed(2) + ' t',
-            totalPesoDestino > 0 ? totalPesoDestino.toFixed(2) + ' t' : '-',
-            "-"
-        ]);
+        if (isEmbarcador) {
+            tableRows.push([
+                "TOTAIS", "-", "-", "-", "-", `Embarques: ${targetShipments.length}`, "-", "-",
+                formatCurrency(totalFreteMotorista),
+                totalPesoCarregado.toFixed(2) + ' t',
+                totalPesoDestino > 0 ? totalPesoDestino.toFixed(2) + ' t' : '-',
+                "-"
+            ]);
+        } else {
+            tableRows.push([
+                "TOTAIS", "-", "-", "-", "-", `Embarques: ${targetShipments.length}`, "-", "-",
+                formatCurrency(totalFreteEmpresa),
+                formatCurrency(totalFreteMotorista),
+                totalPesoCarregado.toFixed(2) + ' t',
+                totalPesoDestino > 0 ? totalPesoDestino.toFixed(2) + ' t' : '-',
+                "-"
+            ]);
 
-        tableRows.push([
-            "LÍQUIDO", "-", "-", "-", "-", "-", "-", "-",
-            formatCurrency(totalFreteEmpresa - totalFreteMotorista),
-            "-", "-", "-", "-"
-        ]);
+            tableRows.push([
+                "LÍQUIDO", "-", "-", "-", "-", "-", "-", "-",
+                formatCurrency(totalFreteEmpresa - totalFreteMotorista),
+                "-", "-", "-", "-"
+            ]);
+        }
 
         autoTable(doc, {
             head: [tableColumn],
@@ -536,7 +596,7 @@ const ShipperReport: React.FC<ShipperReportProps> = ({ shipments, cargos, client
                                         <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Placa</th>
                                         <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Cliente</th>
                                         <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Rota (Origem → Destino)</th>
-                                        <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Valores (/Ton)</th>
+                                        <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{currentUser?.profile === UserProfile.Embarcador ? 'Frete (/Ton)' : 'Valores (/Ton)'}</th>
                                         <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Pesos (Orig. / Dest.)</th>
                                         <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
                                     </tr>
@@ -559,7 +619,7 @@ const ShipperReport: React.FC<ShipperReportProps> = ({ shipments, cargos, client
                                         const pesoDestino = shipment.unloadedTonnage;
                                         let quebra = null;
                                         if (pesoDestino !== undefined && pesoDestino < pesoOrigem) {
-                                            quebra = (pesoOrigem - pesoDestino).toFixed(2);
+                                             quebra = (pesoOrigem - pesoDestino).toFixed(2);
                                         }
 
                                         return (
@@ -597,12 +657,14 @@ const ShipperReport: React.FC<ShipperReportProps> = ({ shipments, cargos, client
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm">
                                                     <div className="flex flex-col gap-1">
+                                                        {currentUser?.profile !== UserProfile.Embarcador && (
+                                                            <div className="flex items-center justify-between">
+                                                                <span className="text-xs text-gray-500 font-medium">Empresa:</span>
+                                                                <span className="font-bold text-primary dark:text-blue-400">{formatCurrency(freteEmpresa)}</span>
+                                                            </div>
+                                                        )}
                                                         <div className="flex items-center justify-between">
-                                                            <span className="text-xs text-gray-500 font-medium">Empresa:</span>
-                                                            <span className="font-bold text-primary dark:text-blue-400">{formatCurrency(freteEmpresa)}</span>
-                                                        </div>
-                                                        <div className="flex items-center justify-between">
-                                                            <span className="text-xs text-gray-500 font-medium">Motorista:</span>
+                                                            {currentUser?.profile !== UserProfile.Embarcador && <span className="text-xs text-gray-500 font-medium">Motorista:</span>}
                                                             <span className="font-semibold text-gray-900 dark:text-white">{formatCurrency(freteMotorista)}</span>
                                                         </div>
                                                     </div>

@@ -48,6 +48,7 @@ const LoadTable: React.FC<LoadTableProps> = ({ loads, clients, products, shipmen
   const [filterProduct, setFilterProduct] = useState<string[]>([]);
   const [filterOrigin, setFilterOrigin] = useState<string[]>([]);
   const [filterDest, setFilterDest] = useState<string[]>([]);
+  const [filterScheduleType, setFilterScheduleType] = useState<string[]>([]);
   const [sortKey, setSortKey] = useState<string>('default');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
@@ -60,6 +61,7 @@ const LoadTable: React.FC<LoadTableProps> = ({ loads, clients, products, shipmen
   const productOptions = Array.from(new Set(loads.map(l => getProductName(l.productId)))).filter(Boolean).sort();
   const originOptions = Array.from(new Set(loads.map(l => l.origin))).filter(Boolean).sort();
   const destOptions = Array.from(new Set(loads.map(l => l.destination))).filter(Boolean).sort();
+  const scheduleTypeOptions = Object.values(DailyScheduleType);
 
   const filteredLoads = useMemo(() => {
     const filtered = loads.filter(load => {
@@ -68,6 +70,10 @@ const LoadTable: React.FC<LoadTableProps> = ({ loads, clients, products, shipmen
       if (filterProduct.length > 0 && !filterProduct.includes(getProductName(load.productId))) return false;
       if (filterOrigin.length > 0 && !filterOrigin.includes(load.origin)) return false;
       if (filterDest.length > 0 && !filterDest.includes(load.destination)) return false;
+      if (filterScheduleType.length > 0) {
+        const dailyScheduleInfo = load.dailySchedule?.find(ds => ds.date === dailyBalanceDate);
+        if (!dailyScheduleInfo || !filterScheduleType.includes(dailyScheduleInfo.type)) return false;
+      }
       return true;
     });
 
@@ -85,13 +91,13 @@ const LoadTable: React.FC<LoadTableProps> = ({ loads, clients, products, shipmen
       const cmp = valA.localeCompare(valB, 'pt-BR', { numeric: true });
       return sortDir === 'asc' ? cmp : -cmp;
     });
-  }, [loads, filterId, filterClient, filterProduct, filterOrigin, filterDest, clients, products, sortKey, sortDir]);
+  }, [loads, filterId, filterClient, filterProduct, filterOrigin, filterDest, filterScheduleType, dailyBalanceDate, clients, products, sortKey, sortDir]);
 
   useEffect(() => {
     onFilteredLoadsChange?.(filteredLoads);
   }, [filteredLoads, onFilteredLoadsChange]);
 
-  const activeFiltersCount = (filterId.length > 0 ? 1 : 0) + (filterClient.length > 0 ? 1 : 0) + (filterProduct.length > 0 ? 1 : 0) + (filterOrigin.length > 0 ? 1 : 0) + (filterDest.length > 0 ? 1 : 0);
+  const activeFiltersCount = (filterId.length > 0 ? 1 : 0) + (filterClient.length > 0 ? 1 : 0) + (filterProduct.length > 0 ? 1 : 0) + (filterOrigin.length > 0 ? 1 : 0) + (filterDest.length > 0 ? 1 : 0) + (filterScheduleType.length > 0 ? 1 : 0);
 
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 50;
@@ -110,6 +116,7 @@ const LoadTable: React.FC<LoadTableProps> = ({ loads, clients, products, shipmen
       setFilterProduct([]);
       setFilterOrigin([]);
       setFilterDest([]);
+      setFilterScheduleType([]);
       setSortKey('default');
       setSortDir('asc');
   };
@@ -169,12 +176,13 @@ const LoadTable: React.FC<LoadTableProps> = ({ loads, clients, products, shipmen
         {/* Expandable Filters Section */}
         {showFilters && (
             <div className="p-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
                     <MultiSelectDropdown label="ID da Carga" options={idOptions} selectedValues={filterId} onChange={setFilterId} placeholder="Todos os IDs..." />
                     <MultiSelectDropdown label="Nome do Cliente" options={clientOptions} selectedValues={filterClient} onChange={setFilterClient} placeholder="Todos os Clientes..." />
                     <MultiSelectDropdown label="Nome do Produto" options={productOptions} selectedValues={filterProduct} onChange={setFilterProduct} placeholder="Todos os Produtos..." />
                     <MultiSelectDropdown label="Cidade de Origem" options={originOptions} selectedValues={filterOrigin} onChange={setFilterOrigin} placeholder="Todas as Origens..." />
                     <MultiSelectDropdown label="Cidade de Destino" options={destOptions} selectedValues={filterDest} onChange={setFilterDest} placeholder="Todos os Destinos..." />
+                    <MultiSelectDropdown label="Tipo de Programação" options={scheduleTypeOptions} selectedValues={filterScheduleType} onChange={setFilterScheduleType} placeholder="Todos os Tipos..." />
                 </div>
                 {/* Ordenação */}
                 <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-600 flex flex-wrap items-end gap-4">
@@ -447,7 +455,7 @@ const LoadTable: React.FC<LoadTableProps> = ({ loads, clients, products, shipmen
                       <div className="text-sm font-bold text-primary dark:text-blue-400">
                         {currentUser.profile === UserProfile.Cliente ? formatCurrency(load.companyFreightValuePerTon) : formatCurrency(load.driverFreightValuePerTon)}
                       </div>
-                      {currentUser.profile !== UserProfile.Cliente && currentUser.profile !== UserProfile.Motorista && (
+                      {currentUser.profile !== UserProfile.Cliente && currentUser.profile !== UserProfile.Motorista && currentUser.profile !== UserProfile.Embarcador && (
                           <div className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${marginColorClass}`} title="Margem de Lucro">
                             {netMarginPercentage}
                           </div>

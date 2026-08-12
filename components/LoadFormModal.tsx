@@ -9,7 +9,7 @@ import { UserPlusIcon } from './icons/UserPlusIcon';
 import { BRAZILIAN_CITIES } from '../brazilianCities';
 import { geocodeCity } from '../utils/geocoding';
 import { useToast } from '../hooks/useToast';
-import { autoFormatInput } from '../utils/formatters';
+import { autoFormatInput, parseLocation } from '../utils/formatters';
 
 interface LoadFormModalProps {
   isOpen: boolean;
@@ -38,16 +38,19 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
     const newSequenceId = loads.length > 0 ? Math.max(...loads.map(c => c.sequenceId)) + 1 : 101;
     
     if (offerToConvert) {
+      const parsedOrigin = parseLocation(offerToConvert.originLocation);
+      const parsedDest = parseLocation(offerToConvert.destinationLocation);
+
       return {
         sequenceId: newSequenceId,
         clientId: offerToConvert.clientId,
         productId: offerToConvert.productId,
         origin: offerToConvert.origin,
-        originLocation: offerToConvert.originLocation || '',
-        originMapLink: '',
+        originLocation: parsedOrigin.prefixText || (!parsedOrigin.isUrl ? offerToConvert.originLocation || '' : ''),
+        originMapLink: parsedOrigin.isUrl ? (parsedOrigin.cleanShortUrl || parsedOrigin.href || '') : '',
         destination: offerToConvert.destination,
-        destinationLocation: offerToConvert.destinationLocation || '',
-        destinationMapLink: '',
+        destinationLocation: parsedDest.prefixText || (!parsedDest.isUrl ? offerToConvert.destinationLocation || '' : ''),
+        destinationMapLink: parsedDest.isUrl ? (parsedDest.cleanShortUrl || parsedDest.href || '') : '',
         totalVolume: offerToConvert.totalTonnage,
         scheduledVolume: 0,
         loadedVolume: 0,

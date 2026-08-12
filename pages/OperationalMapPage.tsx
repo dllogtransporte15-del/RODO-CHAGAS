@@ -9,6 +9,7 @@ import { supabase } from '../supabase';
 
 import { BRAZILIAN_CITIES } from '../brazilianCities';
 import { geocodeCity, getCoordsSync } from '../utils/geocoding';
+import { cleanOrShortenLocationInput } from '../utils/locationUtils';
 import { upsertManyCargos } from '../lib/db';
 
 // Declare Leaflet globally since it's loaded via script tag in index.html
@@ -409,10 +410,12 @@ const OperationalMapPage: React.FC<OperationalMapPageProps> = ({ cargos, shipmen
       let text = `📍 ${origin} x ${destination} \n🌾 ${product} - 💲 R$ ${price}\t\n🚛 ${bodyTypes} 🚛`;
       
       if (load.originLocation) text += `\n🏢 Coleta: ${load.originLocation}`;
-      if (load.originMapLink) text += `\n📍Mapa Coleta: ${load.originMapLink}`;
+      const cleanOriginMap = cleanOrShortenLocationInput(load.originMapLink);
+      if (cleanOriginMap) text += `\n📍Mapa Coleta: ${cleanOriginMap}`;
       
       if (load.destinationLocation) text += `\n🏢 Entrega: ${load.destinationLocation}`;
-      if (load.destinationMapLink) text += `\n📍Mapa Entrega: ${load.destinationMapLink}`;
+      const cleanDestMap = cleanOrShortenLocationInput(load.destinationMapLink);
+      if (cleanDestMap) text += `\n📍Mapa Entrega: ${cleanDestMap}`;
       
       return text;
     }).join('\n\n');

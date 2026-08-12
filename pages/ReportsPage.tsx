@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import Header from '../components/Header';
 import type { Shipment, User, Cargo, Client, Branch } from '../types';
-import { UserProfile, ShipmentStatus } from '../types';
+import { UserProfile, ShipmentStatus, DailyScheduleType } from '../types';
 import { BriefcaseIcon } from '../components/icons/BriefcaseIcon';
 import { ShipIcon } from '../components/icons/ShipIcon';
 import { UsersIcon } from '../components/icons/UsersIcon';
@@ -52,6 +52,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, carg
   const [filterOrigin, setFilterOrigin] = useState<string[]>([]);
   const [filterDest, setFilterDest] = useState<string[]>([]);
   const [filterBranch, setFilterBranch] = useState<string[]>([]);
+  const [filterScheduleType, setFilterScheduleType] = useState<string[]>([]);
   const [showFilters, setShowFilters] = useState(false);
 
   const cargoMap = useMemo(() => new Map(cargos.map(c => [c.id, c])), [cargos]);
@@ -61,6 +62,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, carg
   const originOptions = Array.from(new Set(cargos.map(c => c.origin))).filter(Boolean).sort();
   const destOptions = Array.from(new Set(cargos.map(c => c.destination))).filter(Boolean).sort();
   const branchOptions = branches.map(b => b.name).sort();
+  const scheduleTypeOptions = Object.values(DailyScheduleType);
 
   const getEffectiveDate = (s: Shipment) => {
     // Find when it reached Aguardando Nota (effective volume)
@@ -96,9 +98,14 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, carg
          if (!filterBranch.includes(branchName)) return false;
        }
 
+       if (filterScheduleType.length > 0) {
+         const scheduleEntry = cargo.dailySchedule?.find(e => e.date === effDate || e.date === s.scheduledDate);
+         if (!scheduleEntry || !filterScheduleType.includes(scheduleEntry.type)) return false;
+       }
+
        return true;
     });
-  }, [shipments, startDate, endDate, filterStatus, filterClient, filterOrigin, filterDest, filterBranch, cargoMap, clients, branches]);
+  }, [shipments, startDate, endDate, filterStatus, filterClient, filterOrigin, filterDest, filterBranch, filterScheduleType, cargoMap, clients, branches]);
 
   const filteredStays = useMemo(() => {
     return stays.filter(s => {
@@ -237,7 +244,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, carg
         }
         return <StayFinancialReport stays={filteredStays} />;
       case 'previsao-demandas':
-        return <DemandForecastReport cargos={cargos} clients={clients} shipments={shipments} companyLogo={companyLogo} />;
+        return <DemandForecastReport cargos={cargos} clients={clients} shipments={shipments} companyLogo={companyLogo} filterScheduleTypeExternal={filterScheduleType} />;
       default:
         return null;
     }
@@ -251,10 +258,10 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, carg
       ...(!isEmbarcador ? [
         { id: 'clientes', label: 'Clientes', icon: UsersIcon },
         { id: 'vendedores', label: 'Vendedores', icon: UsersIcon },
+        { id: 'filiais', label: 'Filiais', icon: Building2 },
+        { id: 'estadias', label: 'Financeiro Estadias', icon: DollarSign },
       ] : []),
       { id: 'tempo-operacao', label: 'Tempo de Operação', icon: ClockIcon },
-      { id: 'filiais', label: 'Filiais', icon: Building2 },
-      { id: 'estadias', label: 'Financeiro Estadias', icon: DollarSign },
       { id: 'previsao-demandas', label: 'Previsão de Demandas', icon: TrendingUp },
   ];
 
@@ -265,7 +272,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, carg
     }
   });
 
-  const activeFiltersCount = (filterStatus.length > 0 ? 1 : 0) + (filterClient.length > 0 ? 1 : 0) + (filterOrigin.length > 0 ? 1 : 0) + (filterDest.length > 0 ? 1 : 0) + (filterBranch.length > 0 ? 1 : 0);
+  const activeFiltersCount = (filterStatus.length > 0 ? 1 : 0) + (filterClient.length > 0 ? 1 : 0) + (filterOrigin.length > 0 ? 1 : 0) + (filterDest.length > 0 ? 1 : 0) + (filterBranch.length > 0 ? 1 : 0) + (filterScheduleType.length > 0 ? 1 : 0);
 
   const clearFilters = () => {
       setFilterStatus([]);
@@ -273,6 +280,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, carg
       setFilterOrigin([]);
       setFilterDest([]);
       setFilterBranch([]);
+      setFilterScheduleType([]);
   };
 
   const formatCurrency = (val: number) => val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -303,12 +311,13 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, carg
 
         {showFilters && (
             <div className="p-5 border-t border-gray-200/30 dark:border-gray-700/30 bg-gray-50/30 dark:bg-gray-900/20 rounded-b-2xl animate-fade-in">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-5">
                     <MultiSelectDropdown label="Status do Embarque" options={statusOptions} selectedValues={filterStatus} onChange={setFilterStatus} placeholder="Todos..." />
                     <MultiSelectDropdown label="Cliente" options={clientOptions} selectedValues={filterClient} onChange={setFilterClient} placeholder="Todos..." />
                     <MultiSelectDropdown label="Origem" options={originOptions} selectedValues={filterOrigin} onChange={setFilterOrigin} placeholder="Todas..." />
                     <MultiSelectDropdown label="Destino" options={destOptions} selectedValues={filterDest} onChange={setFilterDest} placeholder="Todos..." />
                     <MultiSelectDropdown label="Filial" options={branchOptions} selectedValues={filterBranch} onChange={setFilterBranch} placeholder="Todas..." />
+                    <MultiSelectDropdown label="Tipo de Programação" options={scheduleTypeOptions} selectedValues={filterScheduleType} onChange={setFilterScheduleType} placeholder="Todos..." />
                 </div>
                 {activeFiltersCount > 0 && (
                     <div className="mt-5 flex justify-end">
@@ -322,7 +331,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, carg
       </div>
 
       {/* GLOBAL KPIs SECTION */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3 mb-6">
+      <div className={`grid grid-cols-2 sm:grid-cols-3 ${isEmbarcador ? 'lg:grid-cols-3' : 'lg:grid-cols-4 xl:grid-cols-7'} gap-3 mb-6`}>
          <div className="p-3.5 glass-panel rounded-xl flex items-center gap-3 hover:scale-[1.02] transition-transform duration-300 shadow-sm">
              <div className="w-9 h-9 rounded-lg bg-blue-50/80 dark:bg-blue-900/40 flex flex-shrink-0 items-center justify-center text-blue-600 dark:text-blue-400 shadow-inner"><ShipIcon className="w-5 h-5" /></div>
              <div className="min-w-0 flex-1">
@@ -344,45 +353,49 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, carg
                 <p className="text-lg font-black text-gray-800 dark:text-gray-100 tracking-tight truncate">{Math.round(filteredStats.totalEfetivado).toLocaleString('pt-BR')} <span className="text-[10px] font-medium text-gray-400">ton</span></p>
              </div>
          </div>
-         <div className="p-3.5 glass-panel rounded-xl flex items-center gap-3 hover:scale-[1.02] transition-transform duration-300 shadow-sm">
-             <div className="w-9 h-9 rounded-lg bg-green-50/80 dark:bg-green-900/40 flex flex-shrink-0 items-center justify-center text-green-600 dark:text-green-400 shadow-inner"><DollarSign className="w-5 h-5" /></div>
-             <div className="min-w-0 flex-1">
-                <p className="text-[9px] text-gray-500 dark:text-gray-400 uppercase font-bold tracking-wider truncate mb-0.5" title="Faturamento Bruto">Fat. Bruto</p>
-                <p className="text-lg font-black text-gray-800 dark:text-gray-100 tracking-tight truncate" title={formatCurrency(kpis.grossBilled)}>
-                   R$ {(kpis.grossBilled / 1000).toFixed(1)}k
-                </p>
+         {!isEmbarcador && (
+           <>
+             <div className="p-3.5 glass-panel rounded-xl flex items-center gap-3 hover:scale-[1.02] transition-transform duration-300 shadow-sm">
+                 <div className="w-9 h-9 rounded-lg bg-green-50/80 dark:bg-green-900/40 flex flex-shrink-0 items-center justify-center text-green-600 dark:text-green-400 shadow-inner"><DollarSign className="w-5 h-5" /></div>
+                 <div className="min-w-0 flex-1">
+                    <p className="text-[9px] text-gray-500 dark:text-gray-400 uppercase font-bold tracking-wider truncate mb-0.5" title="Faturamento Bruto">Fat. Bruto</p>
+                    <p className="text-lg font-black text-gray-800 dark:text-gray-100 tracking-tight truncate" title={formatCurrency(kpis.grossBilled)}>
+                       R$ {(kpis.grossBilled / 1000).toFixed(1)}k
+                    </p>
+                 </div>
              </div>
-         </div>
 
-         <div className="p-3.5 glass-panel rounded-xl flex items-center gap-3 hover:scale-[1.02] transition-transform duration-300 shadow-sm">
-             <div className="w-9 h-9 rounded-lg bg-teal-50/80 dark:bg-teal-900/40 flex flex-shrink-0 items-center justify-center text-teal-600 dark:text-teal-400 shadow-inner"><DollarSign className="w-5 h-5" /></div>
-             <div className="min-w-0 flex-1">
-                <p className="text-[9px] text-gray-500 dark:text-gray-400 uppercase font-bold tracking-wider truncate mb-0.5" title="Lucro Estimado">Lucro Est.</p>
-                <p className="text-lg font-black text-gray-800 dark:text-gray-100 tracking-tight truncate" title={formatCurrency(kpis.profitMargin)}>
-                   R$ {(kpis.profitMargin / 1000).toFixed(1)}k
-                </p>
+             <div className="p-3.5 glass-panel rounded-xl flex items-center gap-3 hover:scale-[1.02] transition-transform duration-300 shadow-sm">
+                 <div className="w-9 h-9 rounded-lg bg-teal-50/80 dark:bg-teal-900/40 flex flex-shrink-0 items-center justify-center text-teal-600 dark:text-teal-400 shadow-inner"><DollarSign className="w-5 h-5" /></div>
+                 <div className="min-w-0 flex-1">
+                    <p className="text-[9px] text-gray-500 dark:text-gray-400 uppercase font-bold tracking-wider truncate mb-0.5" title="Lucro Estimado">Lucro Est.</p>
+                    <p className="text-lg font-black text-gray-800 dark:text-gray-100 tracking-tight truncate" title={formatCurrency(kpis.profitMargin)}>
+                       R$ {(kpis.profitMargin / 1000).toFixed(1)}k
+                    </p>
+                 </div>
              </div>
-         </div>
 
-         <div className="p-3.5 glass-panel rounded-xl flex items-center gap-3 hover:scale-[1.02] transition-transform duration-300 shadow-sm">
-             <div className="w-9 h-9 rounded-lg bg-indigo-50/80 dark:bg-indigo-900/40 flex flex-shrink-0 items-center justify-center text-indigo-600 dark:text-indigo-400 shadow-inner"><DollarSign className="w-5 h-5" /></div>
-             <div className="min-w-0 flex-1">
-                <p className="text-[9px] text-gray-500 dark:text-gray-400 uppercase font-bold tracking-wider truncate mb-0.5" title="Lucro Efetivado">Lucro Efe.</p>
-                <p className="text-lg font-black text-gray-800 dark:text-gray-100 tracking-tight truncate" title={formatCurrency(kpis.totalProfitMargin)}>
-                   R$ {(kpis.totalProfitMargin / 1000).toFixed(1)}k
-                </p>
+             <div className="p-3.5 glass-panel rounded-xl flex items-center gap-3 hover:scale-[1.02] transition-transform duration-300 shadow-sm">
+                 <div className="w-9 h-9 rounded-lg bg-indigo-50/80 dark:bg-indigo-900/40 flex flex-shrink-0 items-center justify-center text-indigo-600 dark:text-indigo-400 shadow-inner"><DollarSign className="w-5 h-5" /></div>
+                 <div className="min-w-0 flex-1">
+                    <p className="text-[9px] text-gray-500 dark:text-gray-400 uppercase font-bold tracking-wider truncate mb-0.5" title="Lucro Efetivado">Lucro Efe.</p>
+                    <p className="text-lg font-black text-gray-800 dark:text-gray-100 tracking-tight truncate" title={formatCurrency(kpis.totalProfitMargin)}>
+                       R$ {(kpis.totalProfitMargin / 1000).toFixed(1)}k
+                    </p>
+                 </div>
              </div>
-         </div>
 
-         <div className="p-3.5 glass-panel rounded-xl flex items-center gap-3 hover:scale-[1.02] transition-transform duration-300 shadow-sm">
-             <div className="w-9 h-9 rounded-lg bg-purple-50/80 dark:bg-purple-900/40 flex flex-shrink-0 items-center justify-center text-purple-600 dark:text-purple-400 shadow-inner"><TrendingUp className="w-5 h-5" /></div>
-             <div className="min-w-0 flex-1">
-                <p className="text-[9px] text-gray-500 dark:text-gray-400 uppercase font-bold tracking-wider truncate mb-0.5" title="Margem de Lucro Total">Margem</p>
-                <p className="text-lg font-black text-gray-800 dark:text-gray-100 tracking-tight truncate" title={`${kpis.percentageMargin.toFixed(2)}% (Efetivado: ${kpis.effectivePercentageMargin.toFixed(2)}%)`}>
-                   {kpis.percentageMargin.toFixed(1)}%
-                </p>
+             <div className="p-3.5 glass-panel rounded-xl flex items-center gap-3 hover:scale-[1.02] transition-transform duration-300 shadow-sm">
+                 <div className="w-9 h-9 rounded-lg bg-purple-50/80 dark:bg-purple-900/40 flex flex-shrink-0 items-center justify-center text-purple-600 dark:text-purple-400 shadow-inner"><TrendingUp className="w-5 h-5" /></div>
+                 <div className="min-w-0 flex-1">
+                    <p className="text-[9px] text-gray-500 dark:text-gray-400 uppercase font-bold tracking-wider truncate mb-0.5" title="Margem de Lucro Total">Margem</p>
+                    <p className="text-lg font-black text-gray-800 dark:text-gray-100 tracking-tight truncate" title={`${kpis.percentageMargin.toFixed(2)}% (Efetivado: ${kpis.effectivePercentageMargin.toFixed(2)}%)`}>
+                       {kpis.percentageMargin.toFixed(1)}%
+                    </p>
+                 </div>
              </div>
-         </div>
+           </>
+         )}
       </div>
 
       <div className="flex flex-col md:flex-row gap-8">

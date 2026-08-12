@@ -16,7 +16,7 @@ import { CopyIcon } from '../components/icons/CopyIcon';
 import { CargoStatus, UserProfile, ShipmentStatus } from '../types';
 import ShipmentTable from '../components/ShipmentTable';
 import { StayRecord } from '../utils/toolStorage';
-import { formatFretebrasVehicleTypes } from '../utils/formatters';
+import { formatFretebrasVehicleTypes, cleanOrShortenLocationInput } from '../utils/formatters';
 import type { Ticket } from '../types';
 
 interface OperationalLoadsPageProps {
@@ -221,11 +221,13 @@ const OperationalLoadsPage: React.FC<OperationalLoadsPageProps> = ({
 
       let text = `📍 ${origin} x ${destination} \n🌾 ${product} - 💲 R$ ${price}\t\n🚛 ${bodyTypes} 🚛`;
       
-      if (load.originMapLink) {
-        text += `\n📍Coleta - ${load.originMapLink}`;
+      const cleanOriginLink = cleanOrShortenLocationInput(load.originMapLink);
+      if (cleanOriginLink) {
+        text += `\n📍Coleta - ${cleanOriginLink}`;
       }
-      if (load.destinationMapLink) {
-        text += `\n📍Entrega - ${load.destinationMapLink}`;
+      const cleanDestLink = cleanOrShortenLocationInput(load.destinationMapLink);
+      if (cleanDestLink) {
+        text += `\n📍Entrega - ${cleanDestLink}`;
       }
       return text;
     }).join('\n\n');
