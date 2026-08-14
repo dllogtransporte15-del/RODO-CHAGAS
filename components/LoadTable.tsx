@@ -97,6 +97,19 @@ const LoadTable: React.FC<LoadTableProps> = ({ loads, clients, products, shipmen
     onFilteredLoadsChange?.(filteredLoads);
   }, [filteredLoads, onFilteredLoadsChange]);
 
+  const driverCargoIdsWithShipment = useMemo(() => {
+    if (currentUser.profile !== UserProfile.Motorista) return new Set<string>();
+    const driverCpfClean = (currentUser.email || '').replace(/\D/g, '');
+    return new Set(
+      shipments
+        .filter(s => 
+          (s.driverCpf || '').replace(/\D/g, '') === driverCpfClean &&
+          s.status !== ShipmentStatus.Cancelado
+        )
+        .map(s => s.cargoId)
+    );
+  }, [currentUser, shipments]);
+
   const activeFiltersCount = (filterId.length > 0 ? 1 : 0) + (filterClient.length > 0 ? 1 : 0) + (filterProduct.length > 0 ? 1 : 0) + (filterOrigin.length > 0 ? 1 : 0) + (filterDest.length > 0 ? 1 : 0) + (filterScheduleType.length > 0 ? 1 : 0);
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -158,15 +171,17 @@ const LoadTable: React.FC<LoadTableProps> = ({ loads, clients, products, shipmen
 
           {/* Existing Controls */}
           <div className="flex items-center gap-4 w-full md:w-auto justify-end">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Balanço Diário para:</span>
-              <input
-                type="date"
-                value={dailyBalanceDate}
-                onChange={(e) => onDailyBalanceDateChange(e.target.value)}
-                className="p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm focus:ring-2 focus:ring-primary outline-none"
-              />
-            </div>
+            {currentUser.profile !== UserProfile.Motorista && (
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Balanço Diário para:</span>
+                <input
+                  type="date"
+                  value={dailyBalanceDate}
+                  onChange={(e) => onDailyBalanceDateChange(e.target.value)}
+                  className="p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm focus:ring-2 focus:ring-primary outline-none"
+                />
+              </div>
+            )}
             <div className="text-xs text-gray-500 dark:text-gray-400 font-medium whitespace-nowrap hidden sm:block">
               {filteredLoads.length !== loads.length ? `${filteredLoads.length} de ` : ''}{loads.length} cargas cadastradas
             </div>
@@ -176,13 +191,19 @@ const LoadTable: React.FC<LoadTableProps> = ({ loads, clients, products, shipmen
         {/* Expandable Filters Section */}
         {showFilters && (
             <div className="p-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-                    <MultiSelectDropdown label="ID da Carga" options={idOptions} selectedValues={filterId} onChange={setFilterId} placeholder="Todos os IDs..." />
-                    <MultiSelectDropdown label="Nome do Cliente" options={clientOptions} selectedValues={filterClient} onChange={setFilterClient} placeholder="Todos os Clientes..." />
-                    <MultiSelectDropdown label="Nome do Produto" options={productOptions} selectedValues={filterProduct} onChange={setFilterProduct} placeholder="Todos os Produtos..." />
+                <div className={`grid grid-cols-1 sm:grid-cols-2 ${currentUser.profile === UserProfile.Motorista ? 'lg:grid-cols-2' : 'lg:grid-cols-3 xl:grid-cols-6'} gap-4`}>
+                    {currentUser.profile !== UserProfile.Motorista && (
+                      <>
+                        <MultiSelectDropdown label="ID da Carga" options={idOptions} selectedValues={filterId} onChange={setFilterId} placeholder="Todos os IDs..." />
+                        <MultiSelectDropdown label="Nome do Cliente" options={clientOptions} selectedValues={filterClient} onChange={setFilterClient} placeholder="Todos os Clientes..." />
+                        <MultiSelectDropdown label="Nome do Produto" options={productOptions} selectedValues={filterProduct} onChange={setFilterProduct} placeholder="Todos os Produtos..." />
+                      </>
+                    )}
                     <MultiSelectDropdown label="Cidade de Origem" options={originOptions} selectedValues={filterOrigin} onChange={setFilterOrigin} placeholder="Todas as Origens..." />
                     <MultiSelectDropdown label="Cidade de Destino" options={destOptions} selectedValues={filterDest} onChange={setFilterDest} placeholder="Todos os Destinos..." />
-                    <MultiSelectDropdown label="Tipo de Programação" options={scheduleTypeOptions} selectedValues={filterScheduleType} onChange={setFilterScheduleType} placeholder="Todos os Tipos..." />
+                    {currentUser.profile !== UserProfile.Motorista && (
+                      <MultiSelectDropdown label="Tipo de Programação" options={scheduleTypeOptions} selectedValues={filterScheduleType} onChange={setFilterScheduleType} placeholder="Todos os Tipos..." />
+                    )}
                 </div>
                 {/* Ordenação */}
                 <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-600 flex flex-wrap items-end gap-4">
@@ -197,9 +218,9 @@ const LoadTable: React.FC<LoadTableProps> = ({ loads, clients, products, shipmen
                             className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-primary outline-none"
                         >
                             <option value="default">Padrão (sem ordenação)</option>
-                            <option value="id">ID da Carga</option>
-                            <option value="client">Nome do Cliente</option>
-                            <option value="product">Nome do Produto</option>
+                            {currentUser.profile !== UserProfile.Motorista && <option value="id">ID da Carga</option>}
+                            {currentUser.profile !== UserProfile.Motorista && <option value="client">Nome do Cliente</option>}
+                            {currentUser.profile !== UserProfile.Motorista && <option value="product">Nome do Produto</option>}
                             <option value="origin">Cidade de Origem</option>
                             <option value="destination">Cidade de Destino</option>
                             <option value="createdAt">Data de Criação</option>
@@ -279,25 +300,31 @@ const LoadTable: React.FC<LoadTableProps> = ({ loads, clients, products, shipmen
             else marginColorClass = 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/30';
           }
 
+          const canViewCargoDetailsAndId = currentUser.profile !== UserProfile.Motorista || driverCargoIdsWithShipment.has(load.id);
+
           return (
             <div key={load.id} className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 hover:border-primary/30 transition-colors">
               <div className="flex flex-col lg:flex-row lg:items-center p-4 gap-4">
                 {/* ID and Status */}
-                <div className="flex items-center gap-3 min-w-[120px]">
-                  <div className="flex flex-col">
-                    <button 
-                      onClick={() => onShowDetails?.(load)}
-                      className="text-sm font-bold text-primary dark:text-blue-400 hover:underline text-left"
-                    >
-                      #{load.sequenceId}
-                    </button>
-                    {tickets.some(t => t.cargoId === load.id && t.status !== TicketStatus.Fechado && t.status !== TicketStatus.Resolvido) && (
-                      <span className="text-red-500 ml-1 inline-flex items-center" title="Chamado(s) Aberto(s)">
-                        <AlertCircle className="w-4 h-4" />
-                      </span>
-                    )}
-                    <span className="text-[10px] text-gray-400 font-mono truncate w-20" title={load.id}>{load.id.substring(0, 8)}...</span>
-                  </div>
+                <div className={`flex items-center gap-3 ${canViewCargoDetailsAndId ? 'min-w-[120px]' : ''}`}>
+                  {canViewCargoDetailsAndId && (
+                    <div className="flex flex-col">
+                      <button 
+                        onClick={() => onShowDetails?.(load)}
+                        className="text-sm font-bold text-primary dark:text-blue-400 hover:underline text-left"
+                      >
+                        #{load.sequenceId}
+                      </button>
+                      {tickets.some(t => t.cargoId === load.id && t.status !== TicketStatus.Fechado && t.status !== TicketStatus.Resolvido) && (
+                        <span className="text-red-500 ml-1 inline-flex items-center" title="Chamado(s) Aberto(s)">
+                          <AlertCircle className="w-4 h-4" />
+                        </span>
+                      )}
+                      {currentUser.profile !== UserProfile.Motorista && (
+                        <span className="text-[10px] text-gray-400 font-mono truncate w-20" title={load.id}>{load.id.substring(0, 8)}...</span>
+                      )}
+                    </div>
+                  )}
                   <span 
                     className={`inline-flex items-center justify-center h-6 w-6 text-[11px] font-bold rounded-full shadow-sm transition-colors ${
                       load.status === CargoStatus.Suspensa ? 'bg-yellow-100 text-yellow-800' :
@@ -412,40 +439,44 @@ const LoadTable: React.FC<LoadTableProps> = ({ loads, clients, products, shipmen
 
 
                 {/* Balanço Geral */}
-                <div className="min-w-[180px] space-y-1">
-                  <div className="flex justify-between items-start text-[10px] font-bold text-gray-500 uppercase">
-                    <span>Geral</span>
-                    <div className="text-right">
-                      <div className="text-gray-700 dark:text-gray-300">{formatNumber(load.loadedVolume)} / {formatNumber(load.totalVolume)}</div>
-                      <div className="text-emerald-600 dark:text-emerald-400 font-bold mt-0.5">Disp: {formatNumber(Math.max(0, load.totalVolume - load.scheduledVolume))} ton</div>
+                {currentUser.profile !== UserProfile.Motorista && (
+                  <div className="min-w-[180px] space-y-1">
+                    <div className="flex justify-between items-start text-[10px] font-bold text-gray-500 uppercase">
+                      <span>Geral</span>
+                      <div className="text-right">
+                        <div className="text-gray-700 dark:text-gray-300">{formatNumber(load.loadedVolume)} / {formatNumber(load.totalVolume)}</div>
+                        <div className="text-emerald-600 dark:text-emerald-400 font-bold mt-0.5">Disp: {formatNumber(Math.max(0, load.totalVolume - load.scheduledVolume))} ton</div>
+                      </div>
                     </div>
+                    <VolumeBar
+                      loaded={load.loadedVolume}
+                      scheduled={scheduledButNotLoaded}
+                      total={load.totalVolume}
+                      onClick={onShowShipments ? () => onShowShipments(load) : undefined}
+                    />
                   </div>
-                  <VolumeBar
-                    loaded={load.loadedVolume}
-                    scheduled={scheduledButNotLoaded}
-                    total={load.totalVolume}
-                    onClick={onShowShipments ? () => onShowShipments(load) : undefined}
-                  />
-                </div>
+                )}
 
                 {/* Balanço Diário */}
-                <div className="min-w-[180px] space-y-1 bg-gray-50 dark:bg-gray-700/30 p-2 rounded-md border border-gray-100 dark:border-gray-600">
-                  <div className="flex justify-between text-[10px] font-bold text-gray-500 uppercase">
-                    <span>Diário {dailyScheduleInfo?.type ? `(${dailyScheduleInfo.type})` : ''}</span>
-                    <span className="text-blue-600 dark:text-blue-400">
-                      {dailyScheduleInfo?.tonnage 
-                        ? `${formatNumber(dailyScheduledTonnage)} / ${formatNumber(dailyScheduleInfo.tonnage)} ton`
-                        : `${formatNumber(dailyScheduledTonnage)} ton`}
-                    </span>
+                {currentUser.profile !== UserProfile.Motorista && (
+                  <div className="min-w-[180px] space-y-1 bg-gray-50 dark:bg-gray-700/30 p-2 rounded-md border border-gray-100 dark:border-gray-600">
+                    <div className="flex justify-between text-[10px] font-bold text-gray-500 uppercase">
+                      <span>Diário {dailyScheduleInfo?.type ? `(${dailyScheduleInfo.type})` : ''}</span>
+                      <span className="text-blue-600 dark:text-blue-400">
+                        {dailyScheduleInfo?.tonnage 
+                          ? `${formatNumber(dailyScheduledTonnage)} / ${formatNumber(dailyScheduleInfo.tonnage)} ton`
+                          : `${formatNumber(dailyScheduledTonnage)} ton`}
+                      </span>
+                    </div>
+                    <VolumeBar
+                      loaded={dailyScheduledTonnage}
+                      total={dailyScheduleInfo?.tonnage ? dailyScheduleInfo.tonnage : (dailyScheduledTonnage > 0 ? dailyScheduledTonnage : 1)}
+                      scheduled={0}
+                      loadedColor="bg-blue-500"
+                      onClick={onShowShipments ? () => onShowShipments(load) : undefined}
+                    />
                   </div>
-                  <VolumeBar
-                    loaded={dailyScheduledTonnage}
-                    total={dailyScheduleInfo?.tonnage ? dailyScheduleInfo.tonnage : (dailyScheduledTonnage > 0 ? dailyScheduledTonnage : 1)}
-                    scheduled={0}
-                    loadedColor="bg-blue-500"
-                    onClick={onShowShipments ? () => onShowShipments(load) : undefined}
-                  />
-                </div>
+                )}
 
                 {/* Freight and Actions */}
                 <div className="flex items-center justify-between lg:justify-end gap-4 min-w-[150px]">

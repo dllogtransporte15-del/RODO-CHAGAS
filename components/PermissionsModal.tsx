@@ -25,7 +25,7 @@ const PAGE_NAMES: Record<Page, string> = {
   'load-history': 'Histórico de Cargas',
   'financial': 'Financeiro',
   'reports': 'Relatórios',
-  'operational-loads': 'Cargas (Operacional)',
+  'operational-loads': 'Oportunidades de Carga',
   'operational-map': 'Mapa Operacional',
   'users-register': 'Gerenciar Usuários',
   'commissions': 'Comissões',

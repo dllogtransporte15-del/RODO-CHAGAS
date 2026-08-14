@@ -44,7 +44,7 @@ const navItems: NavItem[] = [
     children: [
       { id: 'shipments', label: 'Embarques', icon: PackageIcon },
       { id: 'shipment-history', label: 'Histórico', icon: HistoryIcon },
-      { id: 'operational-loads', label: 'Cargas', icon: ChartIcon },
+      { id: 'operational-loads', label: 'Oportunidades de Carga', icon: ChartIcon },
       { id: 'operational-map', label: 'Mapa Operacional', icon: MapIcon },
     ],
   },

@@ -54,7 +54,7 @@ const navItems: NavItem[] = [
       { id: 'shipments', label: 'Embarques', icon: PackageIcon },
       { id: 'shipment-history', label: 'Histórico Embarques', icon: HistoryIcon },
       { id: 'load-history', label: 'Histórico Cargas', icon: ArchiveIcon },
-      { id: 'operational-loads', label: 'Cargas em Andamento', icon: ChartIcon },
+      { id: 'operational-loads', label: 'Oportunidades de Carga', icon: ChartIcon },
       { id: 'operational-map', label: 'Mapa Operacional', icon: MapIcon },
     ],
   },
@@ -115,7 +115,7 @@ const TopNavBar: React.FC<TopNavBarProps> = ({ user, onLogout, currentPage, setC
       return items.reduce((acc: NavItem[], item) => {
         if (user.profile === UserProfile.Motorista) {
           if (item.id === 'operational') {
-            const allowedChildren = item.children?.filter(c => c.id === 'operational-loads' || c.id === 'shipment-history') || [];
+            const allowedChildren = item.children?.filter(c => c.id === 'operational-loads' || c.id === 'operational-map' || c.id === 'shipment-history') || [];
             if (allowedChildren.length > 0) {
               acc.push({ ...item, children: allowedChildren });
             }
@@ -183,7 +183,7 @@ const TopNavBar: React.FC<TopNavBarProps> = ({ user, onLogout, currentPage, setC
         <div className="flex items-center justify-between h-16">
           {/* Logo e Nome da Empresa */}
           <div className="flex items-center flex-shrink-0 mr-4">
-            <a href="#" onClick={(e) => { e.preventDefault(); handlePageSelect('dashboard')}} className="flex items-center">
+            <a href="#" onClick={(e) => { e.preventDefault(); handlePageSelect(user.profile === UserProfile.Motorista ? 'operational-loads' : 'dashboard'); }} className="flex items-center">
                 {companyLogo ? (
                     <img src={companyLogo} alt="Logo" className="h-8 md:h-9 w-auto object-contain max-w-[150px] md:max-w-none" />
                 ) : (

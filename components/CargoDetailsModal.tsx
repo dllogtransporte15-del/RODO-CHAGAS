@@ -161,28 +161,30 @@ const CargoDetailsModal: React.FC<CargoDetailsModalProps> = ({ isOpen, onClose, 
                 )}
             </div>
 
-            <div className="border-t dark:border-gray-700 pt-4">
-                 <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2">Balanço de Volume (ton)</h3>
-                 <VolumeBar
-                    loaded={cargo.loadedVolume}
-                    scheduled={scheduledButNotLoaded}
-                    total={cargo.totalVolume}
-                />
-                <div className="grid grid-cols-3 gap-2 mt-2 text-center">
-                    <div className="p-2 bg-green-100/50 dark:bg-green-900/20 rounded">
-                        <p className="text-xs text-green-700 dark:text-green-300">Carregado</p>
-                        <p className="font-bold text-green-800 dark:text-green-200">{cargo.loadedVolume.toLocaleString('pt-BR')}</p>
-                    </div>
-                     <div className="p-2 bg-orange-100/50 dark:bg-orange-900/20 rounded">
-                        <p className="text-xs text-orange-700 dark:text-orange-300">Agendado</p>
-                        <p className="font-bold text-orange-800 dark:text-orange-200">{scheduledButNotLoaded.toLocaleString('pt-BR')}</p>
-                    </div>
-                     <div className="p-2 bg-gray-100 dark:bg-gray-700 rounded">
-                        <p className="text-xs text-gray-500">Total</p>
-                        <p className="font-bold text-gray-800 dark:text-gray-200">{cargo.totalVolume.toLocaleString('pt-BR')}</p>
-                    </div>
-                </div>
-            </div>
+            {!isMotorista && (
+              <div className="border-t dark:border-gray-700 pt-4">
+                   <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2">Balanço de Volume (ton)</h3>
+                   <VolumeBar
+                      loaded={cargo.loadedVolume}
+                      scheduled={scheduledButNotLoaded}
+                      total={cargo.totalVolume}
+                  />
+                  <div className="grid grid-cols-3 gap-2 mt-2 text-center">
+                      <div className="p-2 bg-green-100/50 dark:bg-green-900/20 rounded">
+                          <p className="text-xs text-green-700 dark:text-green-300">Carregado</p>
+                          <p className="font-bold text-green-800 dark:text-green-200">{cargo.loadedVolume.toLocaleString('pt-BR')}</p>
+                      </div>
+                       <div className="p-2 bg-orange-100/50 dark:bg-orange-900/20 rounded">
+                          <p className="text-xs text-orange-700 dark:text-orange-300">Agendado</p>
+                          <p className="font-bold text-orange-800 dark:text-orange-200">{scheduledButNotLoaded.toLocaleString('pt-BR')}</p>
+                      </div>
+                       <div className="p-2 bg-gray-100 dark:bg-gray-700 rounded">
+                          <p className="text-xs text-gray-500">Total</p>
+                          <p className="font-bold text-gray-800 dark:text-gray-200">{cargo.totalVolume.toLocaleString('pt-BR')}</p>
+                      </div>
+                  </div>
+              </div>
+            )}
 
             <div className="border-t dark:border-gray-700 pt-4">
                 <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2">Valores de Frete (por Tonelada)</h3>

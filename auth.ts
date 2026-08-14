@@ -27,7 +27,7 @@ export const INITIAL_PERMISSIONS: ProfilePermissions = {
   [UserProfile.Cliente]: createPermissions(['dashboard', 'loads', 'shipments', 'shipment-history', 'load-history', 'operational-loads', 'freight-offers-history'], true),
   [UserProfile.Supervisor]: createPermissions(supervisorAndDiretorPages),
   [UserProfile.Diretor]: createPermissions(supervisorAndDiretorPages, true),
-  [UserProfile.Motorista]: createPermissions(['operational-loads', 'shipment-history'], true),
+  [UserProfile.Motorista]: createPermissions(['operational-loads', 'operational-map', 'shipment-history'], true),
 };
 
 if (INITIAL_PERMISSIONS[UserProfile.Fiscal] && INITIAL_PERMISSIONS[UserProfile.Fiscal]!['shipments']) {

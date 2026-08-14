@@ -3,9 +3,10 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import Header from '../components/Header';
 import NewShipmentModal from '../components/NewShipmentModal';
 import type { Cargo, Shipment, Client, Product, User, Driver, Vehicle, VehicleSetType, VehicleBodyType, DriverLocation } from '../types';
-import { CargoStatus } from '../types';
+import { CargoStatus, UserProfile, ShipmentStatus } from '../types';
 import { CopyIcon } from '../components/icons/CopyIcon';
 import { supabase } from '../supabase';
+import { useNavigate } from 'react-router-dom';
 
 import { BRAZILIAN_CITIES } from '../brazilianCities';
 import { geocodeCity, getCoordsSync } from '../utils/geocoding';
@@ -315,15 +316,26 @@ const OperationalMapPage: React.FC<OperationalMapPageProps> = ({ cargos, shipmen
       if (load.originCoords) {
         const client = clients.find(cl => cl.id === load.clientId);
         const product = products.find(p => p.id === load.productId);
+        const isMotorista = currentUser?.profile === UserProfile.Motorista;
+        const driverCpfClean = (currentUser?.email || '').replace(/\D/g, '');
+        const hasApprovedShipment = shipments.some(s =>
+          (s.driverCpf || '').replace(/\D/g, '') === driverCpfClean &&
+          s.cargoId === load.id &&
+          s.status !== ShipmentStatus.Cancelado
+        );
+        const canViewId = !isMotorista || hasApprovedShipment;
+        const titleText = canViewId ? `Carga ${load.sequenceId}` : 'Oportunidade de Carga';
         const remainingVolume = load.totalVolume - load.loadedVolume;
+        const volumeLine = !isMotorista ? `<p class="text-sm"><b>Volume Disp.:</b> ${remainingVolume.toFixed(1)} ton</p>` : '';
+        const createBtn = !isMotorista ? `<button id="create-shipment-btn-${load.id}" class="w-full mt-3 py-1.5 bg-primary text-white text-sm font-semibold rounded hover:bg-primary-dark">Criar Embarque</button>` : '';
         const popupContent = `
             <div class="p-1" style="min-width: 220px;">
-                <h4 class="font-bold text-md text-primary">Carga ${load.sequenceId}</h4>
+                <h4 class="font-bold text-md text-primary">${titleText}</h4>
                 <p class="text-xs text-gray-500 mb-2">${client?.nomeFantasia || 'N/A'} - ${product?.name || 'N/A'}</p>
                 <p class="text-sm"><b>Rota:</b> ${load.origin} &rarr; ${load.destination}</p>
                 <p class="text-sm"><b>Valor:</b> R$ ${load.driverFreightValuePerTon.toFixed(2)}/ton</p>
-                <p class="text-sm"><b>Volume Disp.:</b> ${remainingVolume.toFixed(1)} ton</p>
-                <button id="create-shipment-btn-${load.id}" class="w-full mt-3 py-1.5 bg-primary text-white text-sm font-semibold rounded hover:bg-primary-dark">Criar Embarque</button>
+                ${volumeLine}
+                ${createBtn}
             </div>
         `;
         const marker = L.marker([load.originCoords.lat, load.originCoords.lng]);
@@ -439,9 +451,21 @@ const OperationalMapPage: React.FC<OperationalMapPageProps> = ({ cargos, shipmen
     }
   };
 
+  const navigate = useNavigate();
+
   return (
     <div className="flex flex-col h-full space-y-4 max-w-[1500px] mx-auto w-full">
-      <Header title="Mapa Operacional Logístico" />
+      <div className="flex items-center justify-between">
+        <Header title="Mapa Operacional Logístico" />
+        {currentUser?.profile === UserProfile.Motorista && (
+          <button
+            onClick={() => navigate('/operational-loads')}
+            className="flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-cyan-400 font-bold text-xs rounded-xl border border-slate-700 shadow-md transition-all cursor-pointer"
+          >
+            ← Voltar para Oportunidades
+          </button>
+        )}
+      </div>
       
       <div className="flex-1 flex flex-col lg:flex-row gap-4 overflow-hidden min-h-0">
         {/* Coluna da Esquerda: Mapa com Destaque Máximo */}
@@ -537,20 +561,22 @@ const OperationalMapPage: React.FC<OperationalMapPageProps> = ({ cargos, shipmen
             </form>
             {error && <p className="text-red-500 text-[10px] mt-3 font-bold bg-red-50 dark:bg-red-900/20 p-2 rounded-lg text-center">{error}</p>}
             
-            <button 
-                onClick={handleSyncAllCargos}
-                disabled={syncingAll}
-                className="w-full mt-4 py-2 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl text-[10px] items-center justify-center font-bold text-gray-400 hover:text-blue-500 hover:border-blue-500 transition-all flex gap-2"
-            >
-                {syncingAll ? (
-                    <>
-                        <div className="w-3 h-3 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin"></div>
-                        <span>Sincronizando Coordenadas...</span>
-                    </>
-                ) : (
-                    <span>Sincronizar Todas as Cargas (Old)</span>
-                )}
-            </button>
+            {currentUser?.profile !== UserProfile.Motorista && currentUser?.profile !== UserProfile.Cliente && (
+              <button 
+                  onClick={handleSyncAllCargos}
+                  disabled={syncingAll}
+                  className="w-full mt-4 py-2 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl text-[10px] items-center justify-center font-bold text-gray-400 hover:text-blue-500 hover:border-blue-500 transition-all flex gap-2"
+              >
+                  {syncingAll ? (
+                      <>
+                          <div className="w-3 h-3 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin"></div>
+                          <span>Sincronizando Coordenadas...</span>
+                      </>
+                  ) : (
+                      <span>Sincronizar Todas as Cargas (Old)</span>
+                  )}
+              </button>
+            )}
           </div>
 
           {/* Card 2: Resultados - Centralizado agora na direita */}
@@ -564,7 +590,7 @@ const OperationalMapPage: React.FC<OperationalMapPageProps> = ({ cargos, shipmen
 
             <div className="flex justify-between items-center mb-4 border-b pb-2 dark:border-gray-700">
               <h4 className="text-sm font-bold text-gray-700 dark:text-gray-200 italic">Resultados <span className="text-blue-600 ml-1">{filteredLoads.length}</span></h4>
-              {filteredLoads.length > 0 && (
+              {filteredLoads.length > 0 && currentUser?.profile !== UserProfile.Motorista && currentUser?.profile !== UserProfile.Cliente && (
                 <button onClick={handleShareFilteredLoads} className="flex items-center gap-1.5 text-[10px] px-2.5 py-1.5 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-all font-bold shadow-sm">
                   <CopyIcon className="w-3 h-3" /> {copyButtonText}
                 </button>
@@ -585,7 +611,9 @@ const OperationalMapPage: React.FC<OperationalMapPageProps> = ({ cargos, shipmen
                       <div className="absolute top-0 left-0 w-1 h-full bg-blue-500"></div>
                       <div className="flex justify-between items-start mb-1">
                         <p className="text-[11px] font-bold text-blue-600 dark:text-blue-400 truncate max-w-[150px] uppercase">{client?.nomeFantasia || 'Cliente'}</p>
-                        <span className="text-[9px] font-black text-gray-400">#{load.sequenceId}</span>
+                        {(currentUser?.profile !== UserProfile.Motorista || shipments.some(s => (s.driverCpf || '').replace(/\D/g, '') === (currentUser?.email || '').replace(/\D/g, '') && s.cargoId === load.id && s.status !== ShipmentStatus.Cancelado)) && (
+                          <span className="text-[9px] font-black text-gray-400">#{load.sequenceId}</span>
+                        )}
                       </div>
                       <p className="text-[9px] text-gray-500 dark:text-gray-400 mb-3">{product?.name}</p>
                       
@@ -602,7 +630,9 @@ const OperationalMapPage: React.FC<OperationalMapPageProps> = ({ cargos, shipmen
 
                       <div className="flex justify-between mt-4 pt-3 border-t border-dashed border-gray-200 dark:border-gray-600">
                         <span className="text-[11px] font-black text-green-600 dark:text-green-400">R$ {load.driverFreightValuePerTon.toFixed(2)}</span>
-                        <span className="text-[11px] font-black text-gray-700 dark:text-gray-200">{(load.totalVolume - load.loadedVolume).toFixed(1)} <span className="text-[9px] text-gray-400 font-normal">ton</span></span>
+                        {currentUser?.profile !== UserProfile.Motorista && (
+                          <span className="text-[11px] font-black text-gray-700 dark:text-gray-200">{(load.totalVolume - load.loadedVolume).toFixed(1)} <span className="text-[9px] text-gray-400 font-normal">ton</span></span>
+                        )}
                       </div>
                     </div>
                   );

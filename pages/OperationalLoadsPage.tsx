@@ -18,6 +18,8 @@ import ShipmentTable from '../components/ShipmentTable';
 import { StayRecord } from '../utils/toolStorage';
 import { formatFretebrasVehicleTypes, cleanOrShortenLocationInput } from '../utils/formatters';
 import type { Ticket } from '../types';
+import { DriverAppView } from '../components/DriverAppView';
+import { useNavigate } from 'react-router-dom';
 
 interface OperationalLoadsPageProps {
   loads: Cargo[];
@@ -155,6 +157,15 @@ const OperationalLoadsPage: React.FC<OperationalLoadsPageProps> = ({
   }, [isShipmentModalOpen, isLoadFormModalOpen, isHistoryModalOpen, detailsModalCargo, isShipmentsPanelOpen, isRecommendedDriversModalOpen, isAttachmentModalOpen, onModalStateChange]);
 
   const handleShowCargoDetails = (cargo: Cargo) => {
+    if (currentUser.profile === UserProfile.Motorista) {
+      const driverCpfClean = (currentUser.email || '').replace(/\D/g, '');
+      const hasApprovedShipment = allShipments.some(s =>
+        (s.driverCpf || '').replace(/\D/g, '') === driverCpfClean &&
+        s.cargoId === cargo.id &&
+        s.status !== ShipmentStatus.Cancelado
+      );
+      if (!hasApprovedShipment) return;
+    }
     setDetailsModalCargo(cargo);
   };
 
@@ -297,10 +308,61 @@ const OperationalLoadsPage: React.FC<OperationalLoadsPageProps> = ({
       })()
     : [];
 
+  const navigate = useNavigate();
+
+  if (currentUser.profile === UserProfile.Motorista) {
+    return (
+      <div className="-mx-6 -my-8">
+        <DriverAppView
+          loads={loads}
+          shipments={allShipments}
+          clients={clients}
+          products={products}
+          drivers={drivers}
+          vehicles={vehicles}
+          currentUser={currentUser}
+          onRequestLoadOrder={onRequestLoadOrder}
+          onShowCargoDetails={handleShowCargoDetails}
+          onAttach={handleOpenAttachmentModal}
+          onNavigateToMap={() => navigate('/operational-map')}
+          onLogout={() => {
+            localStorage.removeItem('rodo_user_email');
+            window.location.reload();
+          }}
+          stays={stays}
+        />
+
+        {detailsModalCargo && (
+          <CargoDetailsModal
+            isOpen={!!detailsModalCargo}
+            onClose={() => setDetailsModalCargo(null)}
+            cargo={detailsModalCargo}
+            client={clients.find(c => c.id === detailsModalCargo.clientId)}
+            product={products.find(p => p.id === detailsModalCargo.productId)}
+            commercialUser={users.find(u => u.id === detailsModalCargo.createdById)}
+            currentUser={currentUser}
+          />
+        )}
+
+        {isAttachmentModalOpen && selectedShipment && (
+          <AttachmentModal
+            isOpen={isAttachmentModalOpen}
+            onClose={handleCloseAttachmentModal}
+            shipment={selectedShipment}
+            onSave={handleSaveAttachment}
+            documentName={REQUIRED_DOCUMENT_MAP[selectedShipment.status] || 'Comprovante'}
+            currentUser={currentUser}
+            cargo={loads.find(l => l.id === selectedShipment.cargoId)}
+          />
+        )}
+      </div>
+    );
+  }
+
   return (
     <>
-      <Header title="Cargas em Operação">
-        {currentUser.profile !== UserProfile.Cliente && currentUser.profile !== UserProfile.Motorista && (
+      <Header title="Oportunidades de Carga">
+        {currentUser.profile !== UserProfile.Cliente && (
           <div className="flex items-center gap-2">
             <button
               onClick={handleShareLoads}
@@ -319,28 +381,7 @@ const OperationalLoadsPage: React.FC<OperationalLoadsPageProps> = ({
           </div>
         )}
       </Header>
-      
-      {currentUser.profile === UserProfile.Motorista && driverActiveShipments.length > 0 && (
-        <div className="mb-8">
-          <h2 className="text-2xl font-semibold text-primary dark:text-blue-400 mb-4 border-b-2 border-primary pb-2">Meu Embarque em Andamento</h2>
-          <ShipmentTable
-            shipments={driverActiveShipments}
-            cargos={loads}
-            drivers={drivers}
-            clients={clients}
-            users={users}
-            vehicles={vehicles}
-            products={products}
-            currentUser={currentUser}
-            onShowCargoDetails={handleShowCargoDetails}
-            onAttach={handleOpenAttachmentModal}
-            stays={stays}
-            activeStatus="all"
-          />
-        </div>
-      )}
 
-      <h2 className="text-2xl font-semibold text-gray-800 dark:text-white mb-4">Oportunidades de Carga</h2>
       <LoadTable 
         loads={loads} 
         clients={clients} 
@@ -350,8 +391,8 @@ const OperationalLoadsPage: React.FC<OperationalLoadsPageProps> = ({
         onDailyBalanceDateChange={setDailyBalanceDate}
         onCreateShipment={canCreateShipment ? handleOpenNewShipmentModal : undefined} 
         onShowHistory={handleShowHistory}
-        onReactivate={(currentUser.profile !== UserProfile.Embarcador && currentUser.profile !== UserProfile.Motorista) ? onReactivateLoad : undefined}
-        onSuspend={(currentUser.profile !== UserProfile.Embarcador && currentUser.profile !== UserProfile.Motorista) ? onSuspendLoad : undefined}
+        onReactivate={currentUser.profile !== UserProfile.Embarcador ? onReactivateLoad : undefined}
+        onSuspend={currentUser.profile !== UserProfile.Embarcador ? onSuspendLoad : undefined}
         onShowDetails={handleShowCargoDetails}
         onShowShipments={handleShowShipments}
         onDelete={onDeleteLoad}
