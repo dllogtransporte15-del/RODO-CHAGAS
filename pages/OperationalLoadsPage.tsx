@@ -58,6 +58,7 @@ interface OperationalLoadsPageProps {
     route?: string 
   }) => Promise<void>;
   onAddAttachments?: (shipmentId: string, files: File[]) => Promise<void>;
+  onLogout?: () => void;
 }
 
 const formatAllowedVehicleTypes = (allowed?: { setType: VehicleSetType; bodyTypes: VehicleBodyType[] }[]): string => {
@@ -99,6 +100,7 @@ const OperationalLoadsPage: React.FC<OperationalLoadsPageProps> = ({
   onRequestLoadOrder,
   onUpdateAttachment,
   onAddAttachments,
+  onLogout,
 }) => {
   const [isShipmentModalOpen, setIsShipmentModalOpen] = useState(false);
   const [selectedCargo, setSelectedCargo] = useState<Cargo | null>(null);
@@ -327,7 +329,12 @@ const OperationalLoadsPage: React.FC<OperationalLoadsPageProps> = ({
           onNavigateToMap={() => navigate('/operational-map')}
           onLogout={() => {
             localStorage.removeItem('rodo_user_email');
-            window.location.reload();
+            localStorage.removeItem('rodochagas_currentUser');
+            if (onLogout) {
+              onLogout();
+            } else {
+              window.location.href = '/';
+            }
           }}
           stays={stays}
         />
