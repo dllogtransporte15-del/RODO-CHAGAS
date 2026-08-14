@@ -6,12 +6,13 @@ import VolumeBar from './VolumeBar';
 import { Trash2 } from 'lucide-react';
 import { PlusIcon } from './icons/PlusIcon';
 import { HistoryIcon } from './icons/HistoryIcon';
-import { Search, Filter, X, ChevronLeft, ChevronRight, ArrowUpDown } from 'lucide-react';
+import { Search, Filter, X, ChevronLeft, ChevronRight, ArrowUpDown, MapPin, Navigation, Compass } from 'lucide-react';
 import MultiSelectDropdown from './MultiSelectDropdown';
 import { StayRecord } from '../utils/toolStorage';
 import type { Ticket } from '../types';
 import { TicketStatus } from '../types';
 import { AlertCircle } from 'lucide-react';
+import { getCoordsSync, calculateDistanceKm } from '../utils/geocoding';
 
 interface LoadTableProps {
   loads: Cargo[];
@@ -63,8 +64,29 @@ const LoadTable: React.FC<LoadTableProps> = ({ loads, clients, products, shipmen
   const destOptions = Array.from(new Set(loads.map(l => l.destination))).filter(Boolean).sort();
   const scheduleTypeOptions = Object.values(DailyScheduleType);
 
+  const isMotorista = currentUser.profile === UserProfile.Motorista || String(currentUser.profile).toLowerCase() === 'motorista';
+  const [searchTerm, setSearchTerm] = useState('');
+  const [driverCoords, setDriverCoords] = useState<{ lat: number; lng: number } | null>(null);
+
+  useEffect(() => {
+    if (isMotorista && 'geolocation' in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        pos => setDriverCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        () => {},
+        { timeout: 8000 }
+      );
+    }
+  }, [isMotorista]);
+
   const filteredLoads = useMemo(() => {
     const filtered = loads.filter(load => {
+      if (isMotorista && searchTerm.trim()) {
+        const term = searchTerm.toLowerCase();
+        const matchesOrigin = load.origin.toLowerCase().includes(term);
+        const matchesDest = load.destination.toLowerCase().includes(term);
+        const matchesProd = getProductName(load.productId).toLowerCase().includes(term);
+        if (!matchesOrigin && !matchesDest && !matchesProd) return false;
+      }
       if (filterId.length > 0 && !filterId.includes(load.sequenceId?.toString() || '')) return false;
       if (filterClient.length > 0 && !filterClient.includes(getClientName(load.clientId))) return false;
       if (filterProduct.length > 0 && !filterProduct.includes(getProductName(load.productId))) return false;
@@ -77,7 +99,18 @@ const LoadTable: React.FC<LoadTableProps> = ({ loads, clients, products, shipmen
       return true;
     });
 
-    if (sortKey === 'default') return filtered;
+    if (sortKey === 'default') {
+      if (isMotorista && driverCoords) {
+        return [...filtered].sort((a, b) => {
+          const coordA = a.originCoords || getCoordsSync(a.origin);
+          const coordB = b.originCoords || getCoordsSync(b.origin);
+          const distA = (coordA && calculateDistanceKm(driverCoords, coordA)) ?? 99999;
+          const distB = (coordB && calculateDistanceKm(driverCoords, coordB)) ?? 99999;
+          return distA - distB;
+        });
+      }
+      return filtered;
+    }
 
     return [...filtered].sort((a, b) => {
       let valA = '';
@@ -91,14 +124,14 @@ const LoadTable: React.FC<LoadTableProps> = ({ loads, clients, products, shipmen
       const cmp = valA.localeCompare(valB, 'pt-BR', { numeric: true });
       return sortDir === 'asc' ? cmp : -cmp;
     });
-  }, [loads, filterId, filterClient, filterProduct, filterOrigin, filterDest, filterScheduleType, dailyBalanceDate, clients, products, sortKey, sortDir]);
+  }, [loads, filterId, filterClient, filterProduct, filterOrigin, filterDest, filterScheduleType, dailyBalanceDate, clients, products, sortKey, sortDir, isMotorista, searchTerm, driverCoords]);
 
   useEffect(() => {
     onFilteredLoadsChange?.(filteredLoads);
   }, [filteredLoads, onFilteredLoadsChange]);
 
   const driverCargoIdsWithShipment = useMemo(() => {
-    if (currentUser.profile !== UserProfile.Motorista) return new Set<string>();
+    if (!isMotorista) return new Set<string>();
     const driverCpfClean = (currentUser.email || '').replace(/\D/g, '');
     return new Set(
       shipments
@@ -156,6 +189,27 @@ const LoadTable: React.FC<LoadTableProps> = ({ loads, clients, products, shipmen
 
   return (
     <div className="space-y-4">
+      {isMotorista && (
+        <div className="relative flex items-center">
+          <Search className="absolute left-4 w-5 h-5 text-cyan-500 pointer-events-none" />
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Pesquisar Carga (Origem, Destino, Produto...)"
+            className="w-full bg-white dark:bg-slate-900 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-slate-400 pl-11 pr-10 py-3.5 rounded-2xl border border-gray-200 dark:border-slate-800 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 outline-none text-sm transition-all shadow-sm"
+          />
+          {searchTerm && (
+            <button
+              onClick={() => setSearchTerm('')}
+              className="absolute right-3.5 p-1 rounded-full text-gray-400 hover:text-gray-600 dark:hover:text-white bg-gray-100 dark:bg-slate-800"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+      )}
+
       <div className="flex flex-col bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700">
         <div className="flex flex-col md:flex-row items-center justify-between p-4 gap-4">
           {/* Toggle Filters Button */}
@@ -171,7 +225,7 @@ const LoadTable: React.FC<LoadTableProps> = ({ loads, clients, products, shipmen
 
           {/* Existing Controls */}
           <div className="flex items-center gap-4 w-full md:w-auto justify-end">
-            {currentUser.profile !== UserProfile.Motorista && (
+            {!isMotorista && (
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Balanço Diário para:</span>
                 <input
@@ -191,8 +245,8 @@ const LoadTable: React.FC<LoadTableProps> = ({ loads, clients, products, shipmen
         {/* Expandable Filters Section */}
         {showFilters && (
             <div className="p-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50">
-                <div className={`grid grid-cols-1 sm:grid-cols-2 ${currentUser.profile === UserProfile.Motorista ? 'lg:grid-cols-2' : 'lg:grid-cols-3 xl:grid-cols-6'} gap-4`}>
-                    {currentUser.profile !== UserProfile.Motorista && (
+                <div className={`grid grid-cols-1 sm:grid-cols-2 ${isMotorista ? 'lg:grid-cols-2' : 'lg:grid-cols-3 xl:grid-cols-6'} gap-4`}>
+                    {!isMotorista && (
                       <>
                         <MultiSelectDropdown label="ID da Carga" options={idOptions} selectedValues={filterId} onChange={setFilterId} placeholder="Todos os IDs..." />
                         <MultiSelectDropdown label="Nome do Cliente" options={clientOptions} selectedValues={filterClient} onChange={setFilterClient} placeholder="Todos os Clientes..." />
@@ -201,7 +255,7 @@ const LoadTable: React.FC<LoadTableProps> = ({ loads, clients, products, shipmen
                     )}
                     <MultiSelectDropdown label="Cidade de Origem" options={originOptions} selectedValues={filterOrigin} onChange={setFilterOrigin} placeholder="Todas as Origens..." />
                     <MultiSelectDropdown label="Cidade de Destino" options={destOptions} selectedValues={filterDest} onChange={setFilterDest} placeholder="Todos os Destinos..." />
-                    {currentUser.profile !== UserProfile.Motorista && (
+                    {!isMotorista && (
                       <MultiSelectDropdown label="Tipo de Programação" options={scheduleTypeOptions} selectedValues={filterScheduleType} onChange={setFilterScheduleType} placeholder="Todos os Tipos..." />
                     )}
                 </div>
@@ -300,7 +354,75 @@ const LoadTable: React.FC<LoadTableProps> = ({ loads, clients, products, shipmen
             else marginColorClass = 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/30';
           }
 
-          const canViewCargoDetailsAndId = currentUser.profile !== UserProfile.Motorista || driverCargoIdsWithShipment.has(load.id);
+          const canViewCargoDetailsAndId = !isMotorista || driverCargoIdsWithShipment.has(load.id);
+
+          if (isMotorista) {
+            const prodName = getProductName(load.productId);
+            const origCoords = load.originCoords || getCoordsSync(load.origin);
+            const destCoords = load.destinationCoords || getCoordsSync(load.destination);
+            const routeKm = (origCoords && destCoords) ? calculateDistanceKm(origCoords, destCoords) : null;
+            const distFromDriver = (driverCoords && origCoords) ? calculateDistanceKm(driverCoords, origCoords) : null;
+
+            return (
+              <div key={load.id} className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-800 p-4 transition-all duration-200 hover:shadow-md hover:border-cyan-500/30">
+                <div className="flex items-start justify-between gap-2 mb-3">
+                  <div className="flex-1 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-full bg-red-500/10 flex items-center justify-center text-red-500 flex-shrink-0">
+                        <MapPin className="w-3.5 h-3.5" />
+                      </div>
+                      <span className="text-sm font-bold text-gray-900 dark:text-white">{load.origin}</span>
+                    </div>
+                    <div className="ml-3 pl-3 border-l-2 border-dashed border-gray-300 dark:border-slate-700 py-0.5">
+                      <div className="flex items-center gap-2 -ml-3 pl-3">
+                        <div className="w-6 h-6 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500 flex-shrink-0">
+                          <MapPin className="w-3.5 h-3.5" />
+                        </div>
+                        <span className="text-sm font-bold text-gray-900 dark:text-white">{load.destination}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col items-end gap-1">
+                    <span className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-gray-300">
+                      {prodName}
+                    </span>
+                    {canViewCargoDetailsAndId && load.sequenceId && (
+                      <span className="text-[10px] font-bold text-cyan-500">#{load.sequenceId}</span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between pt-2 border-t border-gray-100 dark:border-slate-800 text-xs">
+                  <div className="space-y-0.5 text-gray-500 dark:text-gray-400">
+                    <p className="font-medium">
+                      Rota: <span className="font-bold text-gray-800 dark:text-cyan-400">{routeKm ? `${routeKm} km` : 'Calculando...'}</span>
+                    </p>
+                    <p className="text-[11px]">
+                      {distFromDriver !== null ? (
+                        <>Está a <span className="font-bold text-emerald-600 dark:text-emerald-400">{distFromDriver} km</span> de você</>
+                      ) : (
+                        'Distância calculada'
+                      )}
+                    </p>
+                  </div>
+
+                  <div className="flex flex-col items-end gap-1">
+                    <span className="text-sm font-black text-emerald-600 dark:text-emerald-400">
+                      R$ {load.driverFreightValuePerTon?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / ton
+                    </span>
+                    <button
+                      onClick={() => onRequestLoadOrder?.(load)}
+                      className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-md shadow-blue-500/20 transition-all cursor-pointer"
+                    >
+                      <span>Solicitar Embarque</span>
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          }
 
           return (
             <div key={load.id} className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 hover:border-primary/30 transition-colors">
