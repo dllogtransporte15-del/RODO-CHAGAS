@@ -2259,10 +2259,22 @@ const App: React.FC = () => {
     }
 
 
+    const isMotorista = currentUser.profile === UserProfile.Motorista || String(currentUser.profile).toLowerCase() === 'motorista';
+
+    if (isMotorista) {
+      return (
+        <Routes>
+          <Route path="/operational-loads" element={<OperationalLoadsPage loads={inProgressLoads} clients={clients} products={products} drivers={drivers} vehicles={vehicles} onCreateShipment={handleCreateShipment} onSaveLoad={handleSaveLoad} onReactivateLoad={handleReactivateLoad} onSuspendLoad={handleSuspendLoad} currentUser={currentUser} profilePermissions={profilePermissions} shipments={visibleShipments} allShipments={shipments} users={users} onDeleteLoad={handleDeleteCargo} onUpdatePrice={handleUpdateShipmentPrice} onRequestLoadOrder={handleRequestLoadOrder} onModalStateChange={setIsAnyModalOpen} onDeleteAttachment={handleDeleteShipmentAttachment} branches={branches} stays={stays} tickets={tickets} onUpdateAttachment={handleUpdateShipmentAttachment} onAddAttachments={handleAddShipmentAttachments} onLogout={handleLogout} />} />
+          <Route path="/operational-map" element={<OperationalMapPage cargos={cargos} shipments={shipments} clients={clients} products={products} drivers={drivers} vehicles={vehicles} onCreateShipment={handleCreateShipment} currentUser={currentUser} users={users} onModalStateChange={setIsAnyModalOpen} onDeleteAttachment={handleDeleteShipmentAttachment} />} />
+          <Route path="*" element={<Navigate to="/operational-loads" replace />} />
+        </Routes>
+      );
+    }
+
     return (
       <Routes>
-        <Route path="/" element={currentUser.profile === UserProfile.Motorista ? <Navigate to="/operational-loads" replace /> : <DashboardPage cargos={visibleLoads} shipments={visibleShipments} users={users} currentUser={currentUser} clients={clients} products={products} companyLogo={companyLogo} vehicles={vehicles} drivers={drivers} onDeleteAttachment={handleDeleteShipmentAttachment} onUpdatePrice={handleUpdateShipmentPrice} onUpdateAttachment={handleUpdateShipmentAttachment} onUpdateShipmentData={handleUpdateShipmentData} onAddAttachments={handleAddShipmentAttachments} freightOffers={freightOffers} onSaveFreightOffer={handleSaveFreightOffer} onAcceptFreightOffer={handleAcceptFreightOffer} onConvertToCargo={(offer) => { setOfferToConvert(offer); setCurrentPage('loads'); }} onCreateShipment={handleCreateShipment} allShipments={shipments} />} />
-        <Route path="/dashboard" element={currentUser.profile === UserProfile.Motorista ? <Navigate to="/operational-loads" replace /> : <Navigate to="/" replace />} />
+        <Route path="/" element={<DashboardPage cargos={visibleLoads} shipments={visibleShipments} users={users} currentUser={currentUser} clients={clients} products={products} companyLogo={companyLogo} vehicles={vehicles} drivers={drivers} onDeleteAttachment={handleDeleteShipmentAttachment} onUpdatePrice={handleUpdateShipmentPrice} onUpdateAttachment={handleUpdateShipmentAttachment} onUpdateShipmentData={handleUpdateShipmentData} onAddAttachments={handleAddShipmentAttachments} freightOffers={freightOffers} onSaveFreightOffer={handleSaveFreightOffer} onAcceptFreightOffer={handleAcceptFreightOffer} onConvertToCargo={(offer) => { setOfferToConvert(offer); setCurrentPage('loads'); }} onCreateShipment={handleCreateShipment} allShipments={shipments} />} />
+        <Route path="/dashboard" element={<Navigate to="/" replace />} />
         <Route path="/clients" element={<ClientsPage clients={clients} setClients={setClients} onSaveClient={handleSaveClient} currentUser={currentUser} profilePermissions={profilePermissions} />} />
         <Route path="/owners" element={<OwnersPage owners={owners} setOwners={setOwners} onSaveOwner={handleSaveOwner} currentUser={currentUser} profilePermissions={profilePermissions} />} />
         <Route path="/drivers" element={<DriversPage drivers={drivers} setDrivers={setDrivers} onSaveDriver={handleSaveDriver} owners={owners} currentUser={currentUser} profilePermissions={profilePermissions} shipments={visibleShipments} cargos={cargos} />} />
@@ -2284,7 +2296,7 @@ const App: React.FC = () => {
         <Route path="/tools-history" element={<ToolsHistoryPage currentUser={currentUser} shipments={shipments} cargos={cargos} clients={clients} />} />
         <Route path="/branches" element={<BranchesPage branches={branches} onSaveBranch={handleSaveBranch} onDeleteBranch={handleDeleteBranch} currentUser={currentUser} profilePermissions={profilePermissions} />} />
         <Route path="/freight-offers-history" element={!can('read', currentUser, 'freight-offers-history', profilePermissions) ? <Navigate to="/" replace /> : <FreightOffersHistoryPage currentUser={currentUser} freightOffers={freightOffers} clients={clients} products={products} cargos={cargos} onSaveFreightOffer={handleSaveFreightOffer} onDeleteFreightOffer={handleDeleteFreightOffer} onConvertToCargo={(offer) => { setOfferToConvert(offer); setCurrentPage('loads'); }} />} />
-        <Route path="*" element={currentUser.profile === UserProfile.Motorista ? <Navigate to="/operational-loads" replace /> : <DashboardPage cargos={activeLoads} shipments={visibleShipments} users={users} currentUser={currentUser} clients={clients} products={products} companyLogo={companyLogo} vehicles={vehicles} drivers={drivers} onDeleteAttachment={handleDeleteShipmentAttachment} onUpdatePrice={handleUpdateShipmentPrice} onUpdateAttachment={handleUpdateShipmentAttachment} onUpdateShipmentData={handleUpdateShipmentData} onAddAttachments={handleAddShipmentAttachments} freightOffers={freightOffers} onSaveFreightOffer={handleSaveFreightOffer} onAcceptFreightOffer={handleAcceptFreightOffer} onDeleteFreightOffer={handleDeleteFreightOffer} onCreateShipment={handleCreateShipment} />} />
+        <Route path="*" element={<DashboardPage cargos={activeLoads} shipments={visibleShipments} users={users} currentUser={currentUser} clients={clients} products={products} companyLogo={companyLogo} vehicles={vehicles} drivers={drivers} onDeleteAttachment={handleDeleteShipmentAttachment} onUpdatePrice={handleUpdateShipmentPrice} onUpdateAttachment={handleUpdateShipmentAttachment} onUpdateShipmentData={handleUpdateShipmentData} onAddAttachments={handleAddShipmentAttachments} freightOffers={freightOffers} onSaveFreightOffer={handleSaveFreightOffer} onAcceptFreightOffer={handleAcceptFreightOffer} onDeleteFreightOffer={handleDeleteFreightOffer} onCreateShipment={handleCreateShipment} />} />
       </Routes>
     );
   };
@@ -2308,6 +2320,7 @@ const App: React.FC = () => {
     return <LoginPage onLogin={handleLogin} users={users} companyLogo={companyLogo} profilePermissions={profilePermissions} />;
   }
 
+  const isDriverUser = currentUser.profile === UserProfile.Motorista || String(currentUser.profile).toLowerCase() === 'motorista';
   const operationalPages: Page[] = ['loads', 'shipments', 'shipment-history', 'load-history', 'operational-loads', 'operational-map'];
   const isOperationalPage = operationalPages.includes(currentPage);
 
@@ -2316,7 +2329,7 @@ const App: React.FC = () => {
       className="flex flex-col h-screen bg-light-bg dark:bg-dark-bg text-gray-800 dark:text-gray-200 portal-theme-bg"
       style={{ '--theme-bg': themeImage ? `url(${themeImage})` : 'none' } as React.CSSProperties}
     >
-      {currentUser.profile !== UserProfile.Motorista && (
+      {!isDriverUser && (
         <TopNavBar
           user={currentUser}
           onLogout={handleLogout}
@@ -2328,8 +2341,8 @@ const App: React.FC = () => {
           tickets={tickets}
         />
       )}
-      <main className="flex-1 overflow-y-auto" style={{ zoom: currentUser.profile === UserProfile.Motorista ? 1 : 0.8 }}>
-        <div className={currentUser.profile === UserProfile.Motorista ? "w-full" : (isOperationalPage ? "px-6 py-8" : "container mx-auto px-6 py-8")}>
+      <main className="flex-1 overflow-y-auto" style={{ zoom: isDriverUser ? 1 : 0.8 }}>
+        <div className={isDriverUser ? "w-full" : (isOperationalPage ? "px-6 py-8" : "container mx-auto px-6 py-8")}>
             {renderPage()}
         </div>
       </main>

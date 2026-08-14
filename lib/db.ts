@@ -1,5 +1,6 @@
 import { supabase } from '../supabase';
 import { cleanOrShortenLocationInput } from '../utils/locationUtils';
+import { UserProfile } from '../types';
 import type {
   Client, Owner, Driver, Vehicle, Product, Cargo, Shipment, User, Ticket, ProfilePermissions, ShipmentLock, Branch, FreightOffer
 } from '../types';
@@ -404,21 +405,37 @@ const fromShipment = (s: Shipment) => ({
   vehicle_body_type: s.vehicleBodyType,
 });
 
-export const toUser = (row: any): User => ({
-  id: row.id,
-  name: row.name,
-  email: row.email,
-  profile: row.profile,
-  active: row.active,
-  phone: row.phone,
-  password: row.password,
-  clientId: row.client_id,
-  requirePasswordChange: row.require_password_change,
-  authId: row.auth_id,
-  passwordUpdatedAt: row.password_updated_at,
-  branchId: row.branch_id,
-  customPermissions: row.permissions,
-});
+export const toUser = (row: any): User => {
+  let profile = row.profile;
+  if (typeof profile === 'string') {
+    const p = profile.trim().toLowerCase();
+    if (p === 'motorista') profile = UserProfile.Motorista;
+    else if (p === 'admin') profile = UserProfile.Admin;
+    else if (p === 'embarcador') profile = UserProfile.Embarcador;
+    else if (p === 'cliente') profile = UserProfile.Cliente;
+    else if (p === 'supervisor') profile = UserProfile.Supervisor;
+    else if (p === 'comercial') profile = UserProfile.Comercial;
+    else if (p === 'financeiro') profile = UserProfile.Financeiro;
+    else if (p === 'fiscal') profile = UserProfile.Fiscal;
+    else if (p === 'diretor') profile = UserProfile.Diretor;
+  }
+
+  return {
+    id: row.id,
+    name: row.name,
+    email: row.email,
+    profile: profile,
+    active: row.active,
+    phone: row.phone,
+    password: row.password,
+    clientId: row.client_id,
+    requirePasswordChange: row.require_password_change,
+    authId: row.auth_id,
+    passwordUpdatedAt: row.password_updated_at,
+    branchId: row.branch_id,
+    customPermissions: row.permissions,
+  };
+};
 
 export const fromUser = (u: User | Omit<User, 'id'>) => ({
   id: (u as User).id,
