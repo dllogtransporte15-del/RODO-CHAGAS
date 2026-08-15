@@ -262,7 +262,7 @@ export const DriverAppView: React.FC<DriverAppViewProps> = ({
         <div className="max-w-xl mx-auto flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             {companyLogo ? (
-              <img src={companyLogo} alt="Logo" className="h-8 w-auto object-contain max-w-[130px]" />
+              <img src={companyLogo} alt="Logo" className="h-9 w-auto object-contain max-w-[140px]" />
             ) : (
               <div className="flex items-center gap-1.5 font-black text-lg tracking-wider">
                 <span className="text-white">RODO</span>
