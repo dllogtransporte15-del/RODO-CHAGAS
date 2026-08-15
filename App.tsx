@@ -2369,7 +2369,7 @@ const App: React.FC = () => {
           tickets={tickets}
         />
       )}
-      <main className="flex-1 overflow-y-auto" style={{ zoom: isDriverUser ? 0.9 : 0.8 }}>
+      <main className="flex-1 overflow-y-auto" style={{ zoom: isDriverUser ? 0.8 : 0.8 }}>
         <div className={isDriverUser ? "w-full" : (isOperationalPage ? "px-6 py-8" : "container mx-auto px-6 py-8")}>
             {renderPage()}
         </div>

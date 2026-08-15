@@ -488,47 +488,8 @@ export const DriverAppView: React.FC<DriverAppViewProps> = ({
                 )}
               </div>
 
-              {/* Quick Filter Tags / Pills */}
-              <div className="flex items-center gap-2 overflow-x-auto py-2 no-scrollbar text-xs">
-                <button
-                  onClick={() => { setSelectedProductFilter('all'); setSelectedUfFilter('all'); }}
-                  className={`px-3 py-1.5 rounded-xl font-medium whitespace-nowrap transition-all ${
-                    selectedProductFilter === 'all' && selectedUfFilter === 'all'
-                      ? 'bg-cyan-500 text-slate-950 font-bold shadow-md shadow-cyan-500/20'
-                      : 'bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800'
-                  }`}
-                >
-                  Todas ({processedLoads.length})
-                </button>
 
-                {availableUfs.slice(0, 5).map(uf => (
-                  <button
-                    key={uf}
-                    onClick={() => setSelectedUfFilter(selectedUfFilter === uf ? 'all' : uf)}
-                    className={`px-3 py-1.5 rounded-xl font-medium whitespace-nowrap transition-all ${
-                      selectedUfFilter === uf
-                        ? 'bg-blue-600 text-white font-bold shadow-md shadow-blue-600/20'
-                        : 'bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800'
-                    }`}
-                  >
-                    {uf}
-                  </button>
-                ))}
 
-                {products.slice(0, 4).map(prod => (
-                  <button
-                    key={prod.id}
-                    onClick={() => setSelectedProductFilter(selectedProductFilter === prod.id ? 'all' : prod.id)}
-                    className={`px-3 py-1.5 rounded-xl font-medium whitespace-nowrap transition-all ${
-                      selectedProductFilter === prod.id
-                        ? 'bg-emerald-600 text-white font-bold shadow-md shadow-emerald-600/20'
-                        : 'bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800'
-                    }`}
-                  >
-                    {prod.name}
-                  </button>
-                ))}
-              </div>
             </div>
 
             {/* GPS Proximity Status Note */}
