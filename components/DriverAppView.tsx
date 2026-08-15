@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import type { Cargo, Shipment, Client, Product, Driver, Vehicle, User } from '../types';
 import { CargoStatus, ShipmentStatus } from '../types';
+import { supabase } from '../supabase';
 import { getCoordsSync, calculateDistanceKm } from '../utils/geocoding';
 import { Search, MapPin, Navigation, Truck, Package, FileText, User as UserIcon, LogOut, Phone, ShieldCheck, Upload, ChevronRight, ChevronDown, Compass, X, ExternalLink } from 'lucide-react';
 import { REQUIRED_DOCUMENT_MAP } from '../types';
@@ -226,6 +227,45 @@ export const DriverAppView: React.FC<DriverAppViewProps> = ({
       );
     }
   }, []);
+
+  // Broadcast location to presence channel whenever driverCoords changes
+  useEffect(() => {
+    if (!driverCoords || !currentUser) return;
+
+    const channel = supabase.channel('driver_locations_monitor', {
+      config: { presence: { key: currentUser.id } },
+    });
+
+    const now = new Date().toISOString();
+    const payload = {
+      driverId: currentUser.id,
+      driverName: currentUser.name,
+      driverCpf: currentUser.email,
+      lat: driverCoords.lat,
+      lng: driverCoords.lng,
+      timestamp: now,
+      isAppActive: true,
+      location: {
+        driverId: currentUser.id,
+        driverName: currentUser.name,
+        driverCpf: currentUser.email,
+        lat: driverCoords.lat,
+        lng: driverCoords.lng,
+        timestamp: now,
+      }
+    };
+
+    channel.subscribe(async (status) => {
+      if (status === 'SUBSCRIBED') {
+        await channel.track(payload);
+      }
+    });
+
+    return () => {
+      channel.untrack();
+      supabase.removeChannel(channel);
+    };
+  }, [driverCoords, currentUser, driverCpfClean]);
 
   const handleRefreshGps = () => {
     if (!('geolocation' in navigator)) return;
