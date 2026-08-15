@@ -135,3 +135,33 @@ export function calculateDistanceKm(
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return Math.round(R * c * 10) / 10;
 }
+
+export async function reverseGeocode(lat: number, lng: number): Promise<string | null> {
+  try {
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=10&addressdetails=1`,
+      {
+        headers: {
+          'Accept-Language': 'pt-BR',
+          'User-Agent': 'Rodochagas-Control/1.0'
+        }
+      }
+    );
+    if (!response.ok) return null;
+    const data = await response.json();
+    if (data && data.address) {
+      const city = data.address.city || data.address.town || data.address.municipality || data.address.village || data.address.county;
+      const state = data.address.state_code || data.address.state;
+      if (city && state) {
+        return `${city}, ${state.toUpperCase()}`;
+      } else if (city) {
+        return city;
+      }
+    }
+    return null;
+  } catch (error) {
+    console.error('Error in reverseGeocode:', error);
+    return null;
+  }
+}
+

@@ -1,15 +1,14 @@
-
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import Header from '../components/Header';
 import NewShipmentModal from '../components/NewShipmentModal';
-import type { Cargo, Shipment, Client, Product, User, Driver, Vehicle, VehicleSetType, VehicleBodyType, DriverLocation } from '../types';
+import type { Cargo, Shipment, Client, Product, User, Driver, Vehicle, VehicleSetType, VehicleBodyType } from '../types';
 import { CargoStatus, UserProfile, ShipmentStatus } from '../types';
 import { CopyIcon } from '../components/icons/CopyIcon';
-import { supabase } from '../supabase';
 import { useNavigate } from 'react-router-dom';
+import { Compass, MapPin, Navigation, ArrowRight, Package, Search } from 'lucide-react';
 
 import { BRAZILIAN_CITIES } from '../brazilianCities';
-import { geocodeCity, getCoordsSync } from '../utils/geocoding';
+import { geocodeCity, getCoordsSync, reverseGeocode, calculateDistanceKm } from '../utils/geocoding';
 import { cleanOrShortenLocationInput } from '../utils/locationUtils';
 import { upsertManyCargos } from '../lib/db';
 
@@ -28,6 +27,7 @@ interface OperationalMapPageProps {
   users: User[];
   onModalStateChange: (isOpen: boolean) => void;
   onDeleteAttachment?: (shipmentId: string, url: string) => Promise<void>;
+  companyLogo?: string | null;
 }
 
 const P180 = Math.PI / 180;
@@ -45,11 +45,6 @@ const getDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => 
   return R * c; 
 };
 
-// Haversine formula (alias, same as getDistance)
-const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
-  return getDistance(lat1, lon1, lat2, lon2);
-};
-
 // Quick filter by bounding box (lighter than full Haversine for pre-selection)
 const isInBoundingBox = (lat: number, lon: number, centerLat: number, centerLon: number, radiusKm: number): boolean => {
   const latDegree = radiusKm / 111.32;
@@ -57,7 +52,22 @@ const isInBoundingBox = (lat: number, lon: number, centerLat: number, centerLon:
   return Math.abs(lat - centerLat) <= latDegree && Math.abs(lon - centerLon) <= lonDegree;
 };
 
-const OperationalMapPage: React.FC<OperationalMapPageProps> = ({ cargos, shipments, clients, products, drivers, vehicles, onCreateShipment, currentUser, users, onModalStateChange, onDeleteAttachment }) => {
+const OperationalMapPage: React.FC<OperationalMapPageProps> = ({
+  cargos,
+  shipments,
+  clients,
+  products,
+  drivers,
+  vehicles,
+  onCreateShipment,
+  currentUser,
+  users,
+  onModalStateChange,
+  companyLogo,
+}) => {
+  const navigate = useNavigate();
+  const isMotorista = currentUser?.profile === UserProfile.Motorista || String(currentUser?.profile).toLowerCase() === 'motorista';
+
   const [originQuery, setOriginQuery] = useState('Catalão');
   const [originRadius, setOriginRadius] = useState(200);
   const [originCoords, setOriginCoords] = useState<{ lat: number; lng: number } | null>(null);
@@ -65,6 +75,9 @@ const OperationalMapPage: React.FC<OperationalMapPageProps> = ({ cargos, shipmen
   const [destinationQuery, setDestinationQuery] = useState('');
   const [destinationRadius, setDestinationRadius] = useState(200);
   const [destinationCoords, setDestinationCoords] = useState<{ lat: number; lng: number } | null>(null);
+
+  const [driverCoords, setDriverCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [isGpsLocating, setIsGpsLocating] = useState(false);
 
   const [filteredLoads, setFilteredLoads] = useState<Cargo[]>([]);
   const [loading, setLoading] = useState(false);
@@ -116,14 +129,13 @@ const OperationalMapPage: React.FC<OperationalMapPageProps> = ({ cargos, shipmen
         return c.dailySchedule?.some(ds => ds.date >= today);
       })
       .map(c => {
-        // Use coordinates stored in DB, otherwise try synchronous fallback (for old loads), or skip
-        const originCoords = c.originCoords || getCoordsSync(c.origin);
-        const destinationCoords = c.destinationCoords || getCoordsSync(c.destination);
+        const oCoords = c.originCoords || getCoordsSync(c.origin);
+        const dCoords = c.destinationCoords || getCoordsSync(c.destination);
 
         return { 
             ...c, 
-            originCoords: originCoords || undefined,
-            destinationCoords: destinationCoords || undefined
+            originCoords: oCoords || undefined,
+            destinationCoords: dCoords || undefined
         };
       });
   }, [cargos]);
@@ -132,14 +144,53 @@ const OperationalMapPage: React.FC<OperationalMapPageProps> = ({ cargos, shipmen
     loadsWithCoordsRef.current = loadsWithCoords;
   }, [loadsWithCoords]);
 
+  // Handle Geolocation on mount (especially for drivers)
+  const handleGetDriverLocation = () => {
+    if (!('geolocation' in navigator)) return;
+
+    setIsGpsLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const coords = {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude
+        };
+        setDriverCoords(coords);
+        setIsGpsLocating(false);
+
+        // Reverse geocode to get city name for search input
+        const detectedCity = await reverseGeocode(coords.lat, coords.lng);
+        if (detectedCity) {
+          setOriginQuery(detectedCity);
+        }
+        setOriginCoords(coords);
+      },
+      (err) => {
+        console.warn('Geolocation unavailable or denied:', err);
+        setIsGpsLocating(false);
+        // Fallback default search if not already set
+        if (!originCoords) {
+          handleSearch(null);
+        }
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
+  useEffect(() => {
+    if (isMotorista) {
+      handleGetDriverLocation();
+    } else {
+      handleSearch(null);
+    }
+  }, [isMotorista]);
 
   const memoizedFilteredLoads = useMemo(() => {
     if (!originCoords && !destinationCoords) return [];
 
-    const allLoads = loadsWithCoords; // Use the pre-processed loads
+    const allLoads = loadsWithCoords;
 
     if (!originCoords || !destinationCoords) {
-      // If only one is set, fall back to previous logic or handle specifically
       const uniqueLoads = new Map<string, Cargo>();
       allLoads.forEach(load => {
         let originMatch = false;
@@ -158,13 +209,23 @@ const OperationalMapPage: React.FC<OperationalMapPageProps> = ({ cargos, shipmen
           uniqueLoads.set(load.id, load);
         }
       });
-      return Array.from(uniqueLoads.values());
+
+      const list = Array.from(uniqueLoads.values());
+      // Sort by proximity to driver / origin if available
+      const refCoords = driverCoords || originCoords;
+      if (refCoords) {
+        list.sort((a, b) => {
+          const distA = a.originCoords ? getDistance(refCoords.lat, refCoords.lng, a.originCoords.lat, a.originCoords.lng) : 999999;
+          const distB = b.originCoords ? getDistance(refCoords.lat, refCoords.lng, b.originCoords.lat, b.originCoords.lng) : 999999;
+          return distA - distB;
+        });
+      }
+      return list;
     }
 
     const oCoords = [originCoords.lat, originCoords.lng];
     const dCoords = [destinationCoords.lat, destinationCoords.lng];
 
-    // Filtragem Otimizada: Bounding Box primeiro (rápido), Haversine depois (preciso)
     const loadsInRange = allLoads.filter(load => {
         const lat = load.originCoords?.lat;
         const lon = load.originCoords?.lng;
@@ -173,31 +234,30 @@ const OperationalMapPage: React.FC<OperationalMapPageProps> = ({ cargos, shipmen
 
         if (lat === undefined || lon === undefined || destLat === undefined || destLon === undefined) return false;
 
-        // Passo 1: Bounding Box na Origem
         if (!isInBoundingBox(lat, lon, oCoords[0], oCoords[1], originRadius)) return false;
-
-        // Passo 2: Bounding Box no Destino
         if (!isInBoundingBox(destLat, destLon, dCoords[0], dCoords[1], destinationRadius)) return false;
 
-        // Passo 3: Cálculo Haversine preciso apenas para o que passou nas "caixas"
-        const distO = calculateDistance(oCoords[0], oCoords[1], lat, lon);
-        const distD = calculateDistance(dCoords[0], dCoords[1], destLat, destLon);
+        const distO = getDistance(oCoords[0], oCoords[1], lat, lon);
+        const distD = getDistance(dCoords[0], dCoords[1], destLat, destLon);
 
         return distO <= originRadius && distD <= destinationRadius;
     });
+
+    const refCoords = driverCoords || originCoords;
+    if (refCoords) {
+      loadsInRange.sort((a, b) => {
+        const distA = a.originCoords ? getDistance(refCoords.lat, refCoords.lng, a.originCoords.lat, a.originCoords.lng) : 999999;
+        const distB = b.originCoords ? getDistance(refCoords.lat, refCoords.lng, b.originCoords.lat, b.originCoords.lng) : 999999;
+        return distA - distB;
+      });
+    }
+
     return loadsInRange;
-  }, [loadsWithCoords, originCoords, originRadius, destinationCoords, destinationRadius]);
+  }, [loadsWithCoords, originCoords, originRadius, destinationCoords, destinationRadius, driverCoords]);
 
   useEffect(() => {
     setFilteredLoads(memoizedFilteredLoads);
   }, [memoizedFilteredLoads]);
-
-  // Initial search on mount if default query exists
-  useEffect(() => {
-    if (originQuery && !originCoords && !loading) {
-       handleSearch(null);
-    }
-  }, []);
 
   const handleSyncAllCargos = async () => {
     if (!window.confirm('Deseja atualizar as coordenadas de TODAS as cargas cadastradas? Isso pode levar algum tempo.')) return;
@@ -224,8 +284,6 @@ const OperationalMapPage: React.FC<OperationalMapPageProps> = ({ cargos, shipmen
                     updatedCount++;
                 }
                 
-                // Pequeno delay para não sobrecarregar a API Nominatim (rate limit 1s)
-                // Usamos 1.1s se for uma requisição real para o servidor externo
                 if (updatedCount % 2 === 0) {
                      await new Promise(resolve => setTimeout(resolve, 1100));
                 }
@@ -272,28 +330,47 @@ const OperationalMapPage: React.FC<OperationalMapPageProps> = ({ cargos, shipmen
         }
     });
     
-    // Forçar re-cálculo do tamanho após o mount para evitar partes cinzas em layouts dinâmicos
     setTimeout(() => {
         if (mapInstanceRef.current) mapInstanceRef.current.invalidateSize();
     }, 400);
   };
 
   const updateMapLayers = () => {
-    if (!mapInstanceRef.current || !markersLayerRef.current || !circleLayerRef.current) return;
+    if (!mapInstanceRef.current || !markersLayerRef.current || !circleLayerRef.current || !driverLayerRef.current) return;
     
-    // Garantir que o mapa reconheça o tamanho atual do container de 500px
     mapInstanceRef.current.invalidateSize();
 
     markersRef.current.clear();
     markersLayerRef.current.clearLayers();
     circleLayerRef.current.clearLayers();
+    driverLayerRef.current.clearLayers();
 
     const bounds = L.latLngBounds();
 
+    // Driver location marker
+    if (driverCoords) {
+      const driverIcon = L.divIcon({
+        className: 'driver-pulse-marker',
+        html: `
+          <div style="position:relative; width:24px; height:24px; display:flex; align-items:center; justify-content:center;">
+            <div style="position:absolute; width:36px; height:36px; background:#06b6d4; opacity:0.3; border-radius:50%; animation:ping 1.5s cubic-bezier(0,0,0.2,1) infinite;"></div>
+            <div style="width:18px; height:18px; background:#06b6d4; border:3px solid #ffffff; border-radius:50%; box-shadow:0 0 12px #06b6d4; z-index:2;"></div>
+          </div>
+        `,
+        iconSize: [24, 24],
+        iconAnchor: [12, 12]
+      });
+
+      const driverMarker = L.marker([driverCoords.lat, driverCoords.lng], { icon: driverIcon });
+      driverMarker.bindPopup('<div class="p-1 text-center font-bold text-xs text-cyan-600">Sua Localização GPS</div>');
+      driverMarker.addTo(driverLayerRef.current);
+      bounds.extend([driverCoords.lat, driverCoords.lng]);
+    }
+
     if (originCoords) {
       const circle = L.circle([originCoords.lat, originCoords.lng], {
-        color: '#1E40AF',
-        fillColor: '#1E40AF',
+        color: '#06b6d4',
+        fillColor: '#06b6d4',
         fillOpacity: 0.1,
         radius: originRadius * 1000
       });
@@ -316,7 +393,6 @@ const OperationalMapPage: React.FC<OperationalMapPageProps> = ({ cargos, shipmen
       if (load.originCoords) {
         const client = clients.find(cl => cl.id === load.clientId);
         const product = products.find(p => p.id === load.productId);
-        const isMotorista = currentUser?.profile === UserProfile.Motorista;
         const driverCpfClean = (currentUser?.email || '').replace(/\D/g, '');
         const hasApprovedShipment = shipments.some(s =>
           (s.driverCpf || '').replace(/\D/g, '') === driverCpfClean &&
@@ -328,12 +404,13 @@ const OperationalMapPage: React.FC<OperationalMapPageProps> = ({ cargos, shipmen
         const remainingVolume = load.totalVolume - load.loadedVolume;
         const volumeLine = !isMotorista ? `<p class="text-sm"><b>Volume Disp.:</b> ${remainingVolume.toFixed(1)} ton</p>` : '';
         const createBtn = !isMotorista ? `<button id="create-shipment-btn-${load.id}" class="w-full mt-3 py-1.5 bg-primary text-white text-sm font-semibold rounded hover:bg-primary-dark">Criar Embarque</button>` : '';
+        
         const popupContent = `
-            <div class="p-1" style="min-width: 220px;">
-                <h4 class="font-bold text-md text-primary">${titleText}</h4>
-                <p class="text-xs text-gray-500 mb-2">${client?.nomeFantasia || 'N/A'} - ${product?.name || 'N/A'}</p>
+            <div class="p-1" style="min-width: 220px; font-family:sans-serif;">
+                <h4 class="font-bold text-md text-blue-600">${titleText}</h4>
+                <p class="text-xs text-gray-500 mb-2">${product?.name || 'Carga'}</p>
                 <p class="text-sm"><b>Rota:</b> ${load.origin} &rarr; ${load.destination}</p>
-                <p class="text-sm"><b>Valor:</b> R$ ${load.driverFreightValuePerTon.toFixed(2)}/ton</p>
+                <p class="text-sm font-bold text-emerald-600"><b>Frete:</b> R$ ${load.driverFreightValuePerTon.toFixed(2)}/ton</p>
                 ${volumeLine}
                 ${createBtn}
             </div>
@@ -352,7 +429,6 @@ const OperationalMapPage: React.FC<OperationalMapPageProps> = ({ cargos, shipmen
 
   useEffect(() => {
     initMap();
-    handleSearch(null);
 
     return () => {
       if (mapInstanceRef.current) {
@@ -364,9 +440,7 @@ const OperationalMapPage: React.FC<OperationalMapPageProps> = ({ cargos, shipmen
 
   useEffect(() => {
     updateMapLayers();
-  }, [filteredLoads, originCoords, destinationCoords]); // Dependencies ensure map updates correctly
-
-
+  }, [filteredLoads, originCoords, destinationCoords, driverCoords]);
 
   const handleSearch = async (e: React.FormEvent | null) => {
     if (e) e.preventDefault();
@@ -443,7 +517,7 @@ const OperationalMapPage: React.FC<OperationalMapPageProps> = ({ cargos, shipmen
   const handleSidebarItemClick = (load: Cargo) => {
     const marker = markersRef.current.get(load.id);
     if (marker && mapInstanceRef.current) {
-        mapInstanceRef.current.flyTo(marker.getLatLng(), 12, {
+        mapInstanceRef.current.flyTo(marker.getLatLng(), 11, {
             animate: true,
             duration: 1
         });
@@ -451,26 +525,278 @@ const OperationalMapPage: React.FC<OperationalMapPageProps> = ({ cargos, shipmen
     }
   };
 
-  const navigate = useNavigate();
+  // ─────────────────────────────────────────────────────────────────────────
+  // DRIVER-OPTIMIZED VIEW (Tech / Dark Mode matching DriverAppView)
+  // ─────────────────────────────────────────────────────────────────────────
+  if (isMotorista) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-slate-100 pb-20 font-sans antialiased">
+        {/* Top Header */}
+        <header className="sticky top-0 z-30 bg-slate-900/90 backdrop-blur-xl border-b border-slate-800/80 px-4 py-3 shadow-lg shadow-black/20">
+          <div className="max-w-6xl mx-auto flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              {companyLogo ? (
+                <img src={companyLogo} alt="Logo" className="h-9 w-auto object-contain max-w-[140px]" />
+              ) : (
+                <div className="flex items-center gap-1.5 font-black text-lg tracking-wider">
+                  <span className="text-white">RODO</span>
+                  <span className="text-cyan-400">CHAGAS</span>
+                </div>
+              )}
+              <div className="h-4 w-px bg-slate-700 mx-1 hidden sm:block" />
+              <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[11px] font-medium">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                <span>Motorista Online</span>
+              </div>
+            </div>
 
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleGetDriverLocation}
+                title={driverCoords ? 'GPS Ativo' : 'Ativar GPS'}
+                className={`p-2 rounded-xl border transition-all flex items-center gap-1.5 text-xs font-semibold ${
+                  driverCoords
+                    ? 'bg-cyan-500/15 border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/25'
+                    : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white'
+                }`}
+              >
+                <Compass className={`w-4 h-4 ${isGpsLocating ? 'animate-spin text-cyan-400' : ''}`} />
+                <span className="hidden sm:inline">{driverCoords ? 'GPS ON' : 'GPS'}</span>
+              </button>
+
+              <button
+                onClick={() => navigate('/operational-loads')}
+                className="flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white font-bold text-xs rounded-xl shadow-md shadow-cyan-950/30 transition-all cursor-pointer active:scale-95"
+              >
+                <span>← Oportunidades</span>
+              </button>
+            </div>
+          </div>
+        </header>
+
+        {/* Main Content Area */}
+        <main className="max-w-6xl mx-auto px-4 pt-4 space-y-4">
+          {/* Breadcrumb / Title */}
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-lg font-black text-white flex items-center gap-2">
+                <Navigation className="w-5 h-5 text-cyan-400" />
+                <span>Mapa Operacional de Cargas</span>
+              </h1>
+              <p className="text-xs text-slate-400 mt-0.5">Explore cargas pelo raio de proximidade no mapa</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+            {/* Map Frame (Left/Top) */}
+            <div className="lg:col-span-7 flex flex-col gap-3">
+              <div className="relative bg-slate-900 rounded-2xl border border-slate-800 shadow-xl overflow-hidden h-[380px] sm:h-[480px]">
+                <div ref={mapContainerRef} className="w-full h-full z-0" />
+                
+                {/* Minimalist Tech Legend */}
+                <div className="absolute top-3 right-3 z-[400] bg-slate-900/90 backdrop-blur-md px-3 py-2 rounded-xl shadow-lg border border-slate-800 text-[10px] space-y-1">
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-cyan-400 inline-block shadow-[0_0_8px_#06b6d4]"></span><span className="text-slate-300 font-bold">Você</span></div>
+                    <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-blue-500 inline-block"></span><span className="text-slate-300 font-bold">Carga</span></div>
+                    <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full border border-cyan-400 inline-block"></span><span className="text-slate-300 font-bold">Origem</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Locator & Results Panel (Right/Bottom) */}
+            <div className="lg:col-span-5 flex flex-col gap-4">
+              {/* Card: Search Parameters */}
+              <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 shadow-xl space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
+                  <h3 className="text-xs font-black uppercase tracking-wider text-cyan-400 flex items-center gap-1.5">
+                    <Search className="w-4 h-4" />
+                    <span>Localizador de Fretes</span>
+                  </h3>
+                  {driverCoords && (
+                    <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                      GPS Ativo
+                    </span>
+                  )}
+                </div>
+
+                <form onSubmit={handleSearch} className="space-y-4">
+                  {/* Origin */}
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center text-xs">
+                      <div className="flex items-center gap-1.5 font-bold text-slate-200">
+                        <MapPin className="w-3.5 h-3.5 text-cyan-400" />
+                        <span>Sua Localização / Cidade de Origem</span>
+                      </div>
+                      <span className="font-bold text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded-md border border-cyan-500/20 text-[11px]">{originRadius} km</span>
+                    </div>
+                    <input 
+                      type="text" 
+                      list="city-suggestions-driver"
+                      value={originQuery} 
+                      onChange={(e) => setOriginQuery(e.target.value)} 
+                      placeholder="Ex: Catalão, GO ou sua cidade" 
+                      className="w-full p-3 bg-slate-950 text-white border border-slate-800 rounded-xl text-sm focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 outline-none transition-all" 
+                    />
+                    <input 
+                      type="range" 
+                      min="50" 
+                      max="1000" 
+                      step="50" 
+                      value={originRadius} 
+                      onChange={(e) => setOriginRadius(parseInt(e.target.value))} 
+                      className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500" 
+                    />
+                  </div>
+
+                  {/* Destination (Optional) */}
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center text-xs">
+                      <div className="flex items-center gap-1.5 font-bold text-slate-200">
+                        <MapPin className="w-3.5 h-3.5 text-red-400" />
+                        <span>Cidade de Destino (Opcional)</span>
+                      </div>
+                      <span className="font-bold text-red-400 bg-red-500/10 px-2 py-0.5 rounded-md border border-red-500/20 text-[11px]">{destinationRadius} km</span>
+                    </div>
+                    <input 
+                      type="text" 
+                      list="city-suggestions-driver"
+                      value={destinationQuery} 
+                      onChange={(e) => setDestinationQuery(e.target.value)} 
+                      placeholder="Ex: Santos, SP (deixe vazio para todas)" 
+                      className="w-full p-3 bg-slate-950 text-white border border-slate-800 rounded-xl text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all" 
+                    />
+                    <input 
+                      type="range" 
+                      min="50" 
+                      max="1000" 
+                      step="50" 
+                      value={destinationRadius} 
+                      onChange={(e) => setDestinationRadius(parseInt(e.target.value))} 
+                      className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-red-500" 
+                    />
+                  </div>
+
+                  <datalist id="city-suggestions-driver">
+                    {BRAZILIAN_CITIES.map((city, idx) => (
+                      <option key={idx} value={city} />
+                    ))}
+                  </datalist>
+
+                  <button 
+                    type="submit" 
+                    disabled={loading} 
+                    className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white rounded-xl transition-all font-bold text-sm flex items-center justify-center gap-2 disabled:opacity-50 shadow-lg shadow-cyan-950/40 active:scale-95 cursor-pointer"
+                  >
+                    {loading ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                        <span>Buscando Fretes...</span>
+                      </>
+                    ) : (
+                      <span>Buscar Oportunidades no Raio</span>
+                    )}
+                  </button>
+                </form>
+                {error && <p className="text-red-400 text-xs font-semibold bg-red-950/40 border border-red-500/20 p-2 rounded-xl text-center">{error}</p>}
+              </div>
+
+              {/* Card: Results matching DriverAppView Cards */}
+              <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 shadow-xl space-y-3">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                  <h4 className="text-xs font-black uppercase tracking-wider text-slate-300">
+                    Oportunidades Encontradas <span className="text-cyan-400 ml-1">({filteredLoads.length})</span>
+                  </h4>
+                </div>
+
+                <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1 custom-scrollbar">
+                  {filteredLoads.length > 0 ? (
+                    filteredLoads.map(load => {
+                      const product = products.find(p => p.id === load.productId);
+                      const distToDriver = calculateDistanceKm(driverCoords || originCoords, load.originCoords);
+                      const routeDistance = calculateDistanceKm(load.originCoords, load.destinationCoords);
+
+                      return (
+                        <div 
+                          key={load.id} 
+                          onClick={() => handleSidebarItemClick(load)}
+                          className="p-3.5 rounded-2xl bg-slate-950/70 border border-slate-800 hover:border-cyan-500/40 hover:bg-slate-950 transition-all cursor-pointer space-y-2.5 group"
+                        >
+                          {/* Top row: Origin x Destination and Product */}
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="space-y-1 flex-1">
+                              <div className="flex items-center gap-1.5 text-xs font-bold text-white">
+                                <span className="w-2 h-2 rounded-full bg-cyan-400 shrink-0"></span>
+                                <span className="truncate">{load.origin}</span>
+                              </div>
+                              <div className="flex items-center gap-1.5 text-xs font-bold text-slate-300 pl-0.5">
+                                <ArrowRight className="w-3 h-3 text-slate-500 shrink-0" />
+                                <span className="truncate">{load.destination}</span>
+                              </div>
+                            </div>
+                            {product?.name && (
+                              <span className="shrink-0 px-2 py-0.5 rounded-lg bg-slate-800 text-slate-300 border border-slate-700 text-[10px] font-bold">
+                                {product.name}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Distance & Proximity Row */}
+                          <div className="flex items-center justify-between text-[11px] pt-1 border-t border-slate-800/80">
+                            <div className="text-slate-400">
+                              {distToDriver !== null ? (
+                                <span>Está a <b className="text-cyan-400">{distToDriver} km</b> de você</span>
+                              ) : (
+                                routeDistance !== null ? <span>Rota: {routeDistance} km</span> : null
+                              )}
+                            </div>
+                            <div className="text-right">
+                              <span className="text-xs font-black text-emerald-400">
+                                R$ {load.driverFreightValuePerTon.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </span>
+                              <span className="text-[10px] text-slate-500"> / ton</span>
+                            </div>
+                          </div>
+
+                          {/* Action Button */}
+                          <button
+                            type="button"
+                            className="w-full py-1.5 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/20 text-[11px] font-bold transition-all flex items-center justify-center gap-1"
+                          >
+                            <span>Ver no Mapa</span>
+                            <span>→</span>
+                          </button>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="text-center py-10 px-4 rounded-xl bg-slate-950/40 border border-slate-800/60">
+                      <Package className="w-8 h-8 text-slate-600 mx-auto mb-2" />
+                      <p className="text-xs font-semibold text-slate-400">Nenhuma carga no raio selecionado</p>
+                      <p className="text-[11px] text-slate-500 mt-0.5">Aumente o raio em km ou altere a cidade de busca.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // ADMINISTRATIVE / STAFF VIEW (Standard Light/Dark Desktop Layout)
+  // ─────────────────────────────────────────────────────────────────────────
   return (
     <div className="flex flex-col h-full space-y-4 max-w-[1500px] mx-auto w-full">
       <div className="flex items-center justify-between">
         <Header title="Mapa Operacional Logístico" />
-        {currentUser?.profile === UserProfile.Motorista && (
-          <button
-            onClick={() => navigate('/operational-loads')}
-            className="flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-cyan-400 font-bold text-xs rounded-xl border border-slate-700 shadow-md transition-all cursor-pointer"
-          >
-            ← Voltar para Oportunidades
-          </button>
-        )}
       </div>
       
       <div className="flex-1 flex flex-col lg:flex-row gap-4 overflow-hidden min-h-0">
-        {/* Coluna da Esquerda: Mapa com Destaque Máximo */}
+        {/* Coluna da Esquerda: Mapa */}
         <div className="flex-1 flex flex-col gap-4 overflow-hidden">
-          {/* Mapa Ampliado - Altura de 500px (+50% em relação aos 330px anteriores) */}
           <div className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-lg border-2 border-blue-50 dark:border-gray-700 overflow-hidden h-[500px] flex-shrink-0">
             <div ref={mapContainerRef} className="w-full h-full z-0" />
             
@@ -561,7 +887,7 @@ const OperationalMapPage: React.FC<OperationalMapPageProps> = ({ cargos, shipmen
             </form>
             {error && <p className="text-red-500 text-[10px] mt-3 font-bold bg-red-50 dark:bg-red-900/20 p-2 rounded-lg text-center">{error}</p>}
             
-            {currentUser?.profile !== UserProfile.Motorista && currentUser?.profile !== UserProfile.Cliente && (
+            {currentUser?.profile !== UserProfile.Cliente && (
               <button 
                   onClick={handleSyncAllCargos}
                   disabled={syncingAll}
@@ -579,7 +905,7 @@ const OperationalMapPage: React.FC<OperationalMapPageProps> = ({ cargos, shipmen
             )}
           </div>
 
-          {/* Card 2: Resultados - Centralizado agora na direita */}
+          {/* Card 2: Resultados */}
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-5 flex flex-col min-h-[500px]">
             <div className="mb-4 p-2.5 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-100 dark:border-yellow-800 rounded-xl flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse"></div>
@@ -590,7 +916,7 @@ const OperationalMapPage: React.FC<OperationalMapPageProps> = ({ cargos, shipmen
 
             <div className="flex justify-between items-center mb-4 border-b pb-2 dark:border-gray-700">
               <h4 className="text-sm font-bold text-gray-700 dark:text-gray-200 italic">Resultados <span className="text-blue-600 ml-1">{filteredLoads.length}</span></h4>
-              {filteredLoads.length > 0 && currentUser?.profile !== UserProfile.Motorista && currentUser?.profile !== UserProfile.Cliente && (
+              {filteredLoads.length > 0 && currentUser?.profile !== UserProfile.Cliente && (
                 <button onClick={handleShareFilteredLoads} className="flex items-center gap-1.5 text-[10px] px-2.5 py-1.5 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-all font-bold shadow-sm">
                   <CopyIcon className="w-3 h-3" /> {copyButtonText}
                 </button>
@@ -611,9 +937,7 @@ const OperationalMapPage: React.FC<OperationalMapPageProps> = ({ cargos, shipmen
                       <div className="absolute top-0 left-0 w-1 h-full bg-blue-500"></div>
                       <div className="flex justify-between items-start mb-1">
                         <p className="text-[11px] font-bold text-blue-600 dark:text-blue-400 truncate max-w-[150px] uppercase">{client?.nomeFantasia || 'Cliente'}</p>
-                        {(currentUser?.profile !== UserProfile.Motorista || shipments.some(s => (s.driverCpf || '').replace(/\D/g, '') === (currentUser?.email || '').replace(/\D/g, '') && s.cargoId === load.id && s.status !== ShipmentStatus.Cancelado)) && (
-                          <span className="text-[9px] font-black text-gray-400">#{load.sequenceId}</span>
-                        )}
+                        <span className="text-[9px] font-black text-gray-400">#{load.sequenceId}</span>
                       </div>
                       <p className="text-[9px] text-gray-500 dark:text-gray-400 mb-3">{product?.name}</p>
                       
@@ -630,9 +954,7 @@ const OperationalMapPage: React.FC<OperationalMapPageProps> = ({ cargos, shipmen
 
                       <div className="flex justify-between mt-4 pt-3 border-t border-dashed border-gray-200 dark:border-gray-600">
                         <span className="text-[11px] font-black text-green-600 dark:text-green-400">R$ {load.driverFreightValuePerTon.toFixed(2)}</span>
-                        {currentUser?.profile !== UserProfile.Motorista && (
-                          <span className="text-[11px] font-black text-gray-700 dark:text-gray-200">{(load.totalVolume - load.loadedVolume).toFixed(1)} <span className="text-[9px] text-gray-400 font-normal">ton</span></span>
-                        )}
+                        <span className="text-[11px] font-black text-gray-700 dark:text-gray-200">{(load.totalVolume - load.loadedVolume).toFixed(1)} <span className="text-[9px] text-gray-400 font-normal">ton</span></span>
                       </div>
                     </div>
                   );
@@ -664,7 +986,7 @@ const OperationalMapPage: React.FC<OperationalMapPageProps> = ({ cargos, shipmen
   );
 };
 
-// Custom styles for the scrollbar to keep the UI clean
+// Custom styles for scrollbar and pulse animation
 const style = document.createElement('style');
 style.innerHTML = `
   .custom-scrollbar::-webkit-scrollbar {
@@ -674,14 +996,17 @@ style.innerHTML = `
     background: transparent;
   }
   .custom-scrollbar::-webkit-scrollbar-thumb {
-    background: #e5e7eb;
+    background: #1e293b;
     border-radius: 10px;
   }
-  .dark .custom-scrollbar::-webkit-scrollbar-thumb {
-    background: #374151;
-  }
   .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background: #d1d5db;
+    background: #334155;
+  }
+  @keyframes ping {
+    75%, 100% {
+      transform: scale(2);
+      opacity: 0;
+    }
   }
 `;
 document.head.appendChild(style);
