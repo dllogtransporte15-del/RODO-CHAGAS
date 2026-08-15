@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import type { Cargo, Shipment, Client, Product, Driver, Vehicle, User } from '../types';
 import { CargoStatus, ShipmentStatus } from '../types';
 import { getCoordsSync, calculateDistanceKm } from '../utils/geocoding';
-import { Search, MapPin, Navigation, Truck, Package, FileText, User as UserIcon, LogOut, Phone, ShieldCheck, Upload, ChevronRight, Compass, X } from 'lucide-react';
+import { Search, MapPin, Navigation, Truck, Package, FileText, User as UserIcon, LogOut, Phone, ShieldCheck, Upload, ChevronRight, ChevronDown, Compass, X, ExternalLink } from 'lucide-react';
 import { REQUIRED_DOCUMENT_MAP } from '../types';
 import type { StayRecord } from '../utils/toolStorage';
 
@@ -22,6 +22,121 @@ interface DriverAppViewProps {
   companyLogo?: string | null;
   stays?: StayRecord[];
 }
+
+// ─── History Shipment Card ────────────────────────────────────────────────────
+interface HistoryShipmentCardProps {
+  shipment: Shipment;
+  cargo: Cargo | undefined;
+  ratePerTon: number | null;
+  docUrls: { label: string; url: string }[];
+}
+
+const HistoryShipmentCard: React.FC<HistoryShipmentCardProps> = ({ shipment: s, cargo, ratePerTon, docUrls }) => {
+  const [expanded, setExpanded] = useState(false);
+
+  const formatCurrencyLocal = (v: number) =>
+    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
+
+  const docCategories = [
+    { label: 'CT-e', keys: ['cte', 'ct-e', 'conhecimento'] },
+    { label: 'Nota Fiscal', keys: ['nota', 'nf', 'fiscal'] },
+    { label: 'MDF-e', keys: ['mdfe', 'mdf'] },
+    { label: 'Carta Frete', keys: ['carta', 'contrato', 'frete'] },
+    { label: 'Comp. Adiantamento', keys: ['adiantamento', 'advance'] },
+    { label: 'Comp. Saldo', keys: ['saldo', 'balance'] },
+  ];
+
+  const getDocsForCategory = (keys: string[]): string[] => {
+    const result: string[] = [];
+    Object.entries(s.documents || {}).forEach(([k, urls]) => {
+      const kl = k.toLowerCase();
+      if (keys.some(key => kl.includes(key))) {
+        result.push(...(urls || []));
+      }
+    });
+    return result;
+  };
+
+  return (
+    <div className="bg-slate-900/60 border border-slate-800/80 rounded-2xl overflow-hidden text-xs transition-all">
+      {/* Header row */}
+      <div className="p-3.5 space-y-2">
+        <div className="flex items-center justify-between gap-2">
+          <span className="font-bold text-slate-200 truncate">{cargo?.origin || 'Origem'} → {cargo?.destination || 'Destino'}</span>
+          <span className="shrink-0 px-2 py-0.5 rounded bg-emerald-950/40 text-emerald-400 border border-emerald-500/20 text-[10px] font-bold">Concluído</span>
+        </div>
+
+        <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px]">
+          <div className="text-slate-400">
+            Valor total: <span className="text-emerald-400 font-bold">{formatCurrencyLocal(s.driverFreightValue)}</span>
+          </div>
+          {ratePerTon !== null && (
+            <div className="text-slate-400">
+              Frete/ton: <span className="text-cyan-400 font-bold">R$ {ratePerTon.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+            </div>
+          )}
+          {s.shipmentTonnage > 0 && (
+            <div className="text-slate-400">
+              Tonelagem: <span className="text-slate-200 font-semibold">{s.shipmentTonnage.toLocaleString('pt-BR')} ton</span>
+            </div>
+          )}
+          <div className="text-slate-500 text-[10px] self-end">#{s.orderId || s.id.substring(0, 8)}</div>
+        </div>
+
+        {/* Expand/collapse button */}
+        <button
+          onClick={() => setExpanded(prev => !prev)}
+          className="w-full mt-1 flex items-center justify-between px-3 py-2 rounded-xl bg-slate-800/60 hover:bg-slate-800 border border-slate-700/60 text-slate-300 hover:text-white transition-all"
+        >
+          <div className="flex items-center gap-2 font-semibold">
+            <FileText className="w-3.5 h-3.5 text-cyan-400" />
+            <span>Documentos do Embarque</span>
+          </div>
+          <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`} />
+        </button>
+      </div>
+
+      {/* Documents panel */}
+      {expanded && (
+        <div className="border-t border-slate-800 bg-slate-950/60 px-3.5 py-3 space-y-2.5">
+          {docCategories.map(cat => {
+            const urls = getDocsForCategory(cat.keys);
+            return (
+              <div key={cat.label} className="space-y-1">
+                <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-slate-500">
+                  <span>{cat.label}</span>
+                  {urls.length > 0 && (
+                    <span className="px-1.5 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">{urls.length}</span>
+                  )}
+                </div>
+                {urls.length === 0 ? (
+                  <p className="text-[11px] text-slate-600 italic pl-1">Nenhum arquivo anexado</p>
+                ) : (
+                  <div className="space-y-1 pl-1">
+                    {urls.map((url, i) => (
+                      <a
+                        key={i}
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-900 border border-slate-700/60 hover:border-cyan-500/40 hover:bg-slate-800 transition-all text-cyan-300 hover:text-cyan-200"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5 shrink-0" />
+                        <span className="text-[11px] font-medium truncate">{cat.label}{urls.length > 1 ? ` ${i + 1}` : ''}</span>
+                        <span className="ml-auto text-[10px] text-slate-500">Abrir →</span>
+                      </a>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
+// ─────────────────────────────────────────────────────────────────────────────
 
 export const DriverAppView: React.FC<DriverAppViewProps> = ({
   loads,
@@ -632,19 +747,15 @@ export const DriverAppView: React.FC<DriverAppViewProps> = ({
                 <h3 className="text-xs font-black uppercase tracking-wider text-slate-400">Histórico de Concluídos</h3>
                 {historyShipments.map(s => {
                   const cargo = loads.find(l => l.id === s.cargoId);
+                  const ratePerTon = s.driverFreightRateSnapshot ?? (s.shipmentTonnage > 0 ? s.driverFreightValue / s.shipmentTonnage : null);
                   return (
-                    <div key={s.id} className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-3.5 text-xs space-y-1">
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-slate-300">{cargo?.origin || 'Origem'} → {cargo?.destination || 'Destino'}</span>
-                        <span className="px-2 py-0.5 rounded bg-emerald-950/40 text-emerald-400 border border-emerald-500/20 text-[10px] font-bold">
-                          Concluído
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between text-slate-400 text-[11px] pt-1">
-                        <span>Valor: {formatCurrency(s.driverFreightValue)}</span>
-                        <span>#{s.id}</span>
-                      </div>
-                    </div>
+                    <HistoryShipmentCard
+                      key={s.id}
+                      shipment={s}
+                      cargo={cargo}
+                      ratePerTon={ratePerTon}
+                      docUrls={[]}
+                    />
                   );
                 })}
               </div>
