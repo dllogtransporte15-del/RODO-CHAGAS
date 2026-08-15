@@ -157,6 +157,19 @@ const App: React.FC = () => {
     isAnyModalActiveRef.current = isAnyModalActive;
   }, [isAnyModalActive, isAnyModalActiveRef]);
 
+  // Auto-atualização do PWA: quando o service worker detecta nova versão, recarrega automaticamente
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) return;
+
+    const handleControllerChange = () => {
+      // Um novo SW assumiu o controle: recarrega para carregar a versão nova
+      window.location.reload();
+    };
+
+    navigator.serviceWorker.addEventListener('controllerchange', handleControllerChange);
+    return () => navigator.serviceWorker.removeEventListener('controllerchange', handleControllerChange);
+  }, []);
+
 
   // Track app activity for motoristas
   useEffect(() => {
