@@ -464,6 +464,18 @@ const App: React.FC = () => {
     verifySession();
   }, [verifySession]);
 
+  // Guard: Se o usuario atual é motorista e está em uma rota errada, redireciona imediatamente
+  useEffect(() => {
+    if (!currentUser || isAuthChecking) return;
+    const isMotoristaUser = currentUser.profile === UserProfile.Motorista || String(currentUser.profile).toLowerCase() === 'motorista';
+    if (isMotoristaUser) {
+      const allowedPaths = ['/operational-loads', '/operational-map'];
+      if (!allowedPaths.includes(location.pathname)) {
+        navigate('/operational-loads', { replace: true });
+      }
+    }
+  }, [currentUser, isAuthChecking, location.pathname, navigate]);
+
   const nextStatusMap: Partial<Record<ShipmentStatus, ShipmentStatus>> = {
     [ShipmentStatus.AguardandoSeguradora]: ShipmentStatus.PreCadastro,
     [ShipmentStatus.PreCadastro]: ShipmentStatus.AguardandoCarregamento,
@@ -492,10 +504,11 @@ const App: React.FC = () => {
   const handleLogin = (user: User) => {
     localStorage.setItem('rodo_user_email', user.email);
     setCurrentUser(user);
-    if (user.profile === UserProfile.Motorista) {
-      setCurrentPage('operational-loads');
+    const isMotoristaUser = user.profile === UserProfile.Motorista || String(user.profile).toLowerCase() === 'motorista';
+    if (isMotoristaUser) {
+      navigate('/operational-loads', { replace: true });
     } else {
-      setCurrentPage('dashboard');
+      navigate('/dashboard', { replace: true });
     }
   };
 
@@ -2264,6 +2277,8 @@ const App: React.FC = () => {
     if (isMotorista) {
       return (
         <Routes>
+          <Route path="/" element={<Navigate to="/operational-loads" replace />} />
+          <Route path="/dashboard" element={<Navigate to="/operational-loads" replace />} />
           <Route path="/operational-loads" element={<OperationalLoadsPage loads={inProgressLoads} clients={clients} products={products} drivers={drivers} vehicles={vehicles} onCreateShipment={handleCreateShipment} onSaveLoad={handleSaveLoad} onReactivateLoad={handleReactivateLoad} onSuspendLoad={handleSuspendLoad} currentUser={currentUser} profilePermissions={profilePermissions} shipments={visibleShipments} allShipments={shipments} users={users} onDeleteLoad={handleDeleteCargo} onUpdatePrice={handleUpdateShipmentPrice} onRequestLoadOrder={handleRequestLoadOrder} onModalStateChange={setIsAnyModalOpen} onDeleteAttachment={handleDeleteShipmentAttachment} branches={branches} stays={stays} tickets={tickets} onUpdateAttachment={handleUpdateShipmentAttachment} onAddAttachments={handleAddShipmentAttachments} onLogout={handleLogout} />} />
           <Route path="/operational-map" element={<OperationalMapPage cargos={cargos} shipments={shipments} clients={clients} products={products} drivers={drivers} vehicles={vehicles} onCreateShipment={handleCreateShipment} currentUser={currentUser} users={users} onModalStateChange={setIsAnyModalOpen} onDeleteAttachment={handleDeleteShipmentAttachment} />} />
           <Route path="*" element={<Navigate to="/operational-loads" replace />} />
