@@ -39,6 +39,7 @@ import DownloadAppPage from './pages/DownloadAppPage';
 import TopNavBar from './components/TopNavBar';
 import TicketModal from './components/TicketModal';
 import PasswordChangeModal from './components/PasswordChangeModal';
+import SelectEmbarcadorModal from './components/SelectEmbarcadorModal';
 
 import {
   upsertClient, upsertOwner, upsertDriver, upsertVehicle, upsertCargo, insertCargo,
@@ -102,12 +103,19 @@ interface NewShipmentRequestData extends Omit<Shipment, 'id' | 'orderId' | 'stat
   filesToAttach?: File[];
 }
 
-import SelectEmbarcadorModal from './components/SelectEmbarcadorModal';
-
 const App: React.FC = () => {
-  const [currentUser, setCurrentUser] = useState<User | null>(() => {
-    const saved = localStorage.getItem('rodochagas_currentUser');
+  // Limpa sessões legadas do localStorage para garantir expiração ao fechar a janela
+  useEffect(() => {
     try {
+      localStorage.removeItem('rodochagas_currentUser');
+      localStorage.removeItem('rodo_user_email');
+      localStorage.removeItem('dllog_logged_in_user');
+    } catch {}
+  }, []);
+
+  const [currentUser, setCurrentUser] = useState<User | null>(() => {
+    try {
+      const saved = sessionStorage.getItem('rodochagas_currentUser');
       return saved ? JSON.parse(saved) : null;
     } catch {
       return null;
@@ -323,15 +331,20 @@ const App: React.FC = () => {
     return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
   }, [profilePermissions?.system_settings?.pwa_enabled]);
 
-  // Persistência local do usuário logado
+  // Persistência de sessão por janela/aba (expira ao fechar)
   useEffect(() => {
     if (currentUser) {
-      localStorage.setItem('rodochagas_currentUser', JSON.stringify(currentUser));
-      localStorage.setItem('rodo_user_email', currentUser.email);
+      sessionStorage.setItem('rodochagas_currentUser', JSON.stringify(currentUser));
+      sessionStorage.setItem('rodo_user_email', currentUser.email);
     } else {
+      sessionStorage.removeItem('rodochagas_currentUser');
+      sessionStorage.removeItem('rodo_user_email');
+    }
+    // Garante que o localStorage nunca mantenha a credencial após fechar o navegador
+    try {
       localStorage.removeItem('rodochagas_currentUser');
       localStorage.removeItem('rodo_user_email');
-    }
+    } catch {}
   }, [currentUser]);
 
   // Removido persistência local da rota, agora controlada pela URL
@@ -481,17 +494,14 @@ const App: React.FC = () => {
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      const savedUserEmail = localStorage.getItem('rodo_user_email') || session?.user?.email;
+      const savedUserEmail = sessionStorage.getItem('rodo_user_email') || session?.user?.email;
 
       if (savedUserEmail) {
-        if (localStorage.getItem('rodo_user_email') && session?.user?.email && localStorage.getItem('rodo_user_email') !== session?.user?.email) {
-          console.warn('[Auth] Mismatch detected between localStorage and Supabase session.');
-        }
         console.log('[Auth] Recuperando perfil para:', savedUserEmail);
 
-        // Verifica se o usuário salvo no localStorage já é um motorista
+        // Verifica se o usuário salvo na sessão já é um motorista
         let savedUser: User | null = null;
-        try { savedUser = JSON.parse(localStorage.getItem('rodochagas_currentUser') || 'null'); } catch { savedUser = null; }
+        try { savedUser = JSON.parse(sessionStorage.getItem('rodochagas_currentUser') || 'null'); } catch { savedUser = null; }
         const isMotoristaSession = savedUser?.profile === UserProfile.Motorista;
 
         if (isMotoristaSession) {
@@ -613,7 +623,8 @@ const App: React.FC = () => {
 
   // --- AUTH HANDLERS ---
   const handleLogin = (user: User) => {
-    localStorage.setItem('rodo_user_email', user.email);
+    sessionStorage.setItem('rodo_user_email', user.email);
+    sessionStorage.setItem('rodochagas_currentUser', JSON.stringify(user));
     setCurrentUser(user);
     const isMotoristaUser = user.profile === UserProfile.Motorista || String(user.profile).toLowerCase() === 'motorista';
     if (isMotoristaUser) {
@@ -624,8 +635,14 @@ const App: React.FC = () => {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('rodo_user_email');
-    localStorage.removeItem('rodochagas_currentUser');
+    sessionStorage.removeItem('rodo_user_email');
+    sessionStorage.removeItem('rodochagas_currentUser');
+    try {
+      localStorage.removeItem('rodo_user_email');
+      localStorage.removeItem('rodochagas_currentUser');
+      localStorage.removeItem('dllog_logged_in_user');
+      supabase.auth.signOut();
+    } catch {}
     setCurrentUser(null);
     setCurrentPage('dashboard');
   };

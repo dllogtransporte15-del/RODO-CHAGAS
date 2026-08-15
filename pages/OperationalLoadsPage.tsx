@@ -331,8 +331,12 @@ const OperationalLoadsPage: React.FC<OperationalLoadsPageProps> = ({
           onNavigateToMap={() => navigate('/operational-map')}
           companyLogo={companyLogo}
           onLogout={() => {
-            localStorage.removeItem('rodo_user_email');
-            localStorage.removeItem('rodochagas_currentUser');
+            sessionStorage.removeItem('rodo_user_email');
+            sessionStorage.removeItem('rodochagas_currentUser');
+            try {
+              localStorage.removeItem('rodo_user_email');
+              localStorage.removeItem('rodochagas_currentUser');
+            } catch {}
             if (onLogout) {
               onLogout();
             } else {

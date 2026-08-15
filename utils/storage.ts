@@ -85,7 +85,7 @@ export const saveUser = (user: Omit<User, 'id'>): User => {
 
 export const getLoggedInUser = (): User | null => {
   try {
-    const userStr = localStorage.getItem('dllog_logged_in_user');
+    const userStr = sessionStorage.getItem('dllog_logged_in_user');
     return userStr ? JSON.parse(userStr) : null;
   } catch {
     return null;
@@ -95,9 +95,9 @@ export const getLoggedInUser = (): User | null => {
 export const setLoggedInUser = (user: User | null) => {
   try {
     if (user) {
-      localStorage.setItem('dllog_logged_in_user', JSON.stringify(user));
+      sessionStorage.setItem('dllog_logged_in_user', JSON.stringify(user));
     } else {
-      localStorage.removeItem('dllog_logged_in_user');
+      sessionStorage.removeItem('dllog_logged_in_user');
     }
   } catch (e) {
     console.error('Error setting logged in user:', e);
