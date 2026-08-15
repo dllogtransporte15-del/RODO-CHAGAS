@@ -171,29 +171,96 @@ const App: React.FC = () => {
   }, []);
 
 
-  // Track app activity for motoristas
+  // Track app activity and GPS location in real-time for motoristas
   useEffect(() => {
-    if (currentUser?.profile === UserProfile.Motorista) {
-      
-      // Update persistent status in database, silently catch error if column missing
-      supabase.from('drivers').update({ has_app: true }).eq('id', currentUser.id).then(({error}) => {
-         if (error) console.log("has_app column might not exist yet", error);
-      });
+    const isMotoristaUser = currentUser?.profile === UserProfile.Motorista || String(currentUser?.profile).toLowerCase() === 'motorista';
+    if (!currentUser || !isMotoristaUser) return;
 
-      const channel = supabase.channel('driver_tracking', {
-        config: { presence: { key: currentUser.id } },
-      });
-      channel.on('presence', { event: 'sync' }, () => {});
-      channel.subscribe(async (status) => {
-        if (status === 'SUBSCRIBED') {
-          await channel.track({ driverName: currentUser.name, isAppActive: true });
+    // Update persistent status in database
+    supabase.from('drivers').update({ has_app: true }).eq('id', currentUser.id).then(({ error }) => {
+      if (error) console.log("has_app column might not exist yet", error);
+    });
+
+    const channel = supabase.channel('driver_locations_monitor', {
+      config: { presence: { key: currentUser.id } },
+    });
+
+    let watchId: number | null = null;
+
+    const broadcastPosition = async (lat: number, lng: number, speed: number | null = null, heading: number | null = null) => {
+      const now = new Date().toISOString();
+      const locationPayload = {
+        driverId: currentUser.id,
+        driverName: currentUser.name,
+        driverCpf: currentUser.email,
+        lat,
+        lng,
+        speed,
+        heading,
+        timestamp: now,
+        isAppActive: true,
+        location: {
+          driverId: currentUser.id,
+          driverName: currentUser.name,
+          driverCpf: currentUser.email,
+          lat,
+          lng,
+          speed,
+          heading,
+          timestamp: now,
         }
-      });
-      return () => {
-        channel.untrack();
-        supabase.removeChannel(channel);
       };
-    }
+
+      try {
+        await channel.track(locationPayload);
+      } catch (err) {
+        console.warn('Error broadcasting driver GPS presence:', err);
+      }
+    };
+
+    channel.subscribe(async (status) => {
+      if (status === 'SUBSCRIBED') {
+        // Initial online ping
+        await broadcastPosition(0, 0);
+
+        // Start GPS tracking
+        if ('geolocation' in navigator) {
+          navigator.geolocation.getCurrentPosition(
+            (pos) => {
+              broadcastPosition(
+                pos.coords.latitude,
+                pos.coords.longitude,
+                pos.coords.speed,
+                pos.coords.heading
+              );
+            },
+            (err) => console.warn('Initial GPS error:', err),
+            { enableHighAccuracy: true, timeout: 10000 }
+          );
+
+          watchId = navigator.geolocation.watchPosition(
+            (pos) => {
+              broadcastPosition(
+                pos.coords.latitude,
+                pos.coords.longitude,
+                pos.coords.speed,
+                pos.coords.heading
+              );
+            },
+            (err) => console.warn('Watch GPS error:', err),
+            { enableHighAccuracy: true, maximumAge: 15000, timeout: 20000 }
+          );
+        }
+      }
+    });
+
+    return () => {
+      if (watchId !== null && 'geolocation' in navigator) {
+        navigator.geolocation.clearWatch(watchId);
+      }
+      channel.untrack();
+      supabase.removeChannel(channel);
+    };
   }, [currentUser]);
 
   // Controle de PWA (Instalação)

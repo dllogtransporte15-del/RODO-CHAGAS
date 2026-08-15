@@ -20,20 +20,34 @@ export function useDriverLocations() {
         Object.keys(state).forEach((key) => {
           const presences = state[key] as any[];
           if (presences && presences.length > 0) {
-            // Pegar a presença mais recente
             const latest = presences[presences.length - 1];
+            const loc = latest.location || latest;
+            const lat = typeof loc?.lat === 'number' ? loc.lat : (typeof latest?.lat === 'number' ? latest.lat : 0);
+            const lng = typeof loc?.lng === 'number' ? loc.lng : (typeof latest?.lng === 'number' ? latest.lng : 0);
 
-            // Só adicionar ao mapa se tiver localização GPS real (lat/lng != 0)
-            if (
-              latest.location &&
-              typeof latest.location.lat === 'number' &&
-              typeof latest.location.lng === 'number' &&
-              (latest.location.lat !== 0 || latest.location.lng !== 0)
-            ) {
-              console.log(`[useDriverLocations] Motorista ${key} localizado em:`, latest.location.lat, latest.location.lng);
-              locations.set(key, latest.location as DriverLocation);
-            } else {
-              console.log(`[useDriverLocations] Motorista ${key} online mas sem GPS ainda.`);
+            const driverName = loc?.driverName || latest?.driverName || '';
+            const driverCpf = loc?.driverCpf || latest?.driverCpf || '';
+            const driverId = loc?.driverId || latest?.driverId || key;
+
+            const driverLocationObj: DriverLocation & { isAppActive?: boolean; driverCpf?: string } = {
+              driverId,
+              driverName,
+              driverCpf,
+              lat,
+              lng,
+              speed: loc?.speed ?? latest?.speed ?? null,
+              heading: loc?.heading ?? latest?.heading ?? null,
+              timestamp: loc?.timestamp || latest?.timestamp || new Date().toISOString(),
+              isAppActive: true
+            };
+
+            locations.set(key, driverLocationObj as DriverLocation);
+            if (driverName) {
+              locations.set(driverName.toLowerCase().trim(), driverLocationObj as DriverLocation);
+            }
+            if (driverCpf) {
+              const cleanCpf = driverCpf.replace(/\D/g, '');
+              if (cleanCpf) locations.set(cleanCpf, driverLocationObj as DriverLocation);
             }
           }
         });
