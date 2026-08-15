@@ -176,6 +176,8 @@ const App: React.FC = () => {
     const isMotoristaUser = currentUser?.profile === UserProfile.Motorista || String(currentUser?.profile).toLowerCase() === 'motorista';
     if (!currentUser || !isMotoristaUser) return;
 
+    const cleanCpf = (currentUser.email || '').replace(/\D/g, '');
+
     // Update persistent status in database
     supabase.from('drivers').update({ has_app: true }).eq('id', currentUser.id).then(({ error }) => {
       if (error) console.log("has_app column might not exist yet", error);
@@ -216,7 +218,46 @@ const App: React.FC = () => {
       } catch (err) {
         console.warn('Error broadcasting driver GPS presence:', err);
       }
+
+      // Persist to database if real coordinates
+      if (lat !== 0 && lng !== 0) {
+        const updateData: any = {
+          has_app: true,
+          last_lat: lat,
+          last_lng: lng,
+          last_location_time: now
+        };
+        if (cleanCpf) {
+          supabase.from('drivers').update(updateData).eq('cpf', cleanCpf).then(() => {});
+        }
+        supabase.from('drivers').update(updateData).eq('id', currentUser.id).then(() => {});
+      }
     };
+
+    const requestSinglePosition = () => {
+      if ('geolocation' in navigator) {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            broadcastPosition(
+              pos.coords.latitude,
+              pos.coords.longitude,
+              pos.coords.speed,
+              pos.coords.heading
+            );
+          },
+          (err) => console.warn('Single GPS error:', err),
+          { enableHighAccuracy: true, timeout: 10000 }
+        );
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        requestSinglePosition();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     channel.subscribe(async (status) => {
       if (status === 'SUBSCRIBED') {
@@ -225,18 +266,7 @@ const App: React.FC = () => {
 
         // Start GPS tracking
         if ('geolocation' in navigator) {
-          navigator.geolocation.getCurrentPosition(
-            (pos) => {
-              broadcastPosition(
-                pos.coords.latitude,
-                pos.coords.longitude,
-                pos.coords.speed,
-                pos.coords.heading
-              );
-            },
-            (err) => console.warn('Initial GPS error:', err),
-            { enableHighAccuracy: true, timeout: 10000 }
-          );
+          requestSinglePosition();
 
           watchId = navigator.geolocation.watchPosition(
             (pos) => {
@@ -255,6 +285,7 @@ const App: React.FC = () => {
     });
 
     return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       if (watchId !== null && 'geolocation' in navigator) {
         navigator.geolocation.clearWatch(watchId);
       }

@@ -93,6 +93,9 @@ export interface Driver {
   active: boolean;
   restrictionReason?: string;
   has_app?: boolean;
+  last_lat?: number;
+  last_lng?: number;
+  last_location_time?: string;
 }
 
 export interface DriverLocation {

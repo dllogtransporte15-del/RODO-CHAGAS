@@ -64,6 +64,8 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, drivers, cargo
     driverName: string;
     lat: number;
     lng: number;
+    isRealTime?: boolean;
+    timestamp?: string;
   } | null>(null);
   const actionMenuRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
@@ -404,41 +406,55 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, drivers, cargo
                             (driver ? driverLocations.get(driver.id) : null) ||
                             Array.from(driverLocations.values()).find(loc => (loc.driverName && loc.driverName.toLowerCase().trim() === (shipment.driverName || '').toLowerCase().trim())) as any;
 
-                          if (locationInfo) {
-                              if (locationInfo.isAppActive && locationInfo.lat === 0 && locationInfo.lng === 0) {
-                                return (
-                                  <span title="Motorista ativo no aplicativo, buscando GPS..." className="text-blue-500 cursor-help">
-                                      <Smartphone className="w-4 h-4 animate-pulse" />
-                                  </span>
-                                );
-                              }
-                              return (
-                                  <button
-                                      type="button"
-                                      onClick={() => setActiveDriverMap({
-                                        driverName: shipment.driverName,
-                                        lat: locationInfo.lat,
-                                        lng: locationInfo.lng
-                                      })}
-                                      title="App conectado. Ver localização em tempo real."
-                                      className="text-blue-500 hover:text-blue-600 transition-colors focus:outline-none"
-                                  >
-                                      <Smartphone className="w-4 h-4 animate-pulse" />
-                                  </button>
-                              );
+                          if (locationInfo && locationInfo.lat !== 0 && locationInfo.lng !== 0) {
+                            return (
+                              <button
+                                type="button"
+                                onClick={() => setActiveDriverMap({
+                                  driverName: shipment.driverName,
+                                  lat: locationInfo.lat,
+                                  lng: locationInfo.lng,
+                                  isRealTime: true,
+                                  timestamp: locationInfo.timestamp
+                                })}
+                                title="Motorista conectado. Ver localização em tempo real."
+                                className="text-emerald-500 hover:text-emerald-600 transition-colors focus:outline-none cursor-pointer"
+                              >
+                                <Smartphone className="w-4 h-4 animate-pulse text-emerald-500" />
+                              </button>
+                            );
+                          }
+
+                          if (driver?.last_lat && driver?.last_lng) {
+                            return (
+                              <button
+                                type="button"
+                                onClick={() => setActiveDriverMap({
+                                  driverName: shipment.driverName,
+                                  lat: driver.last_lat!,
+                                  lng: driver.last_lng!,
+                                  isRealTime: false,
+                                  timestamp: driver.last_location_time
+                                })}
+                                title="Ver última localização registrada do motorista"
+                                className="text-blue-500 hover:text-blue-600 transition-colors focus:outline-none cursor-pointer"
+                              >
+                                <Smartphone className="w-4 h-4 text-blue-500" />
+                              </button>
+                            );
                           }
 
                           if (driver?.has_app) {
-                              return (
-                                <button
-                                    type="button"
-                                    onClick={() => alert('Motorista possui o aplicativo, mas a localização não está sendo transmitida no momento.')}
-                                    title="Motorista possui o aplicativo (Localização inativa)"
-                                    className="text-gray-400 hover:text-blue-500 transition-colors focus:outline-none"
-                                >
-                                    <Smartphone className="w-4 h-4" />
-                                </button>
-                              );
+                            return (
+                              <button
+                                type="button"
+                                onClick={() => alert('O motorista possui o aplicativo instalado. A localização estará disponível assim que o GPS transmitir.')}
+                                title="Motorista possui o aplicativo (Aguardando sinal GPS)"
+                                className="text-gray-400 hover:text-blue-500 transition-colors focus:outline-none cursor-pointer"
+                              >
+                                <Smartphone className="w-4 h-4" />
+                              </button>
+                            );
                           }
 
                           return null;
@@ -637,43 +653,57 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, drivers, cargo
                               (driver ? driverLocations.get(driver.id) : null) ||
                               Array.from(driverLocations.values()).find(loc => (loc.driverName && loc.driverName.toLowerCase().trim() === (shipment.driverName || '').toLowerCase().trim())) as any;
 
-                            if (locationInfo) {
-                                if (locationInfo.isAppActive && locationInfo.lat === 0 && locationInfo.lng === 0) {
-                                  return (
-                                    <span title="Motorista ativo no aplicativo, buscando GPS..." className="text-blue-500 cursor-help">
-                                        <Smartphone className="w-4 h-4 animate-pulse" />
-                                    </span>
-                                  );
-                                }
-                                return (
-                                    <button
-                                        type="button"
-                                        onClick={() => setActiveDriverMap({
-                                          driverName: shipment.driverName,
-                                          lat: locationInfo.lat,
-                                          lng: locationInfo.lng
-                                        })}
-                                        title="App conectado. Ver localização em tempo real."
-                                        className="text-blue-500 hover:text-blue-600 transition-colors focus:outline-none"
-                                    >
-                                        <Smartphone className="w-4 h-4 animate-pulse" />
-                                    </button>
-                                );
+                            if (locationInfo && locationInfo.lat !== 0 && locationInfo.lng !== 0) {
+                              return (
+                                <button
+                                  type="button"
+                                  onClick={() => setActiveDriverMap({
+                                    driverName: shipment.driverName,
+                                    lat: locationInfo.lat,
+                                    lng: locationInfo.lng,
+                                    isRealTime: true,
+                                    timestamp: locationInfo.timestamp
+                                  })}
+                                  title="Motorista conectado. Ver localização em tempo real."
+                                  className="text-emerald-500 hover:text-emerald-600 transition-colors focus:outline-none cursor-pointer"
+                                >
+                                  <Smartphone className="w-4 h-4 animate-pulse text-emerald-500" />
+                                </button>
+                              );
+                            }
+
+                            if (driver?.last_lat && driver?.last_lng) {
+                              return (
+                                <button
+                                  type="button"
+                                  onClick={() => setActiveDriverMap({
+                                    driverName: shipment.driverName,
+                                    lat: driver.last_lat!,
+                                    lng: driver.last_lng!,
+                                    isRealTime: false,
+                                    timestamp: driver.last_location_time
+                                  })}
+                                  title="Ver última localização registrada do motorista"
+                                  className="text-blue-500 hover:text-blue-600 transition-colors focus:outline-none cursor-pointer"
+                                >
+                                  <Smartphone className="w-4 h-4 text-blue-500" />
+                                </button>
+                              );
                             }
 
                             if (driver?.has_app) {
-                                return (
-                                  <button
-                                      type="button"
-                                      onClick={() => alert('Motorista possui o aplicativo, mas a localização não está sendo transmitida no momento.')}
-                                      title="Motorista possui o aplicativo (Localização inativa)"
-                                      className="text-gray-400 hover:text-blue-500 transition-colors focus:outline-none"
-                                  >
-                                      <Smartphone className="w-4 h-4" />
-                                  </button>
-                                );
+                              return (
+                                <button
+                                  type="button"
+                                  onClick={() => alert('O motorista possui o aplicativo instalado. A localização estará disponível assim que o GPS transmitir.')}
+                                  title="Motorista possui o aplicativo (Aguardando sinal GPS)"
+                                  className="text-gray-400 hover:text-blue-500 transition-colors focus:outline-none cursor-pointer"
+                                >
+                                  <Smartphone className="w-4 h-4" />
+                                </button>
+                              );
                             }
-                            
+
                             return null;
                         })()}
                       </div>
@@ -1009,22 +1039,36 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, drivers, cargo
     />
 
     {activeDriverMap && (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full flex flex-col p-6 relative">
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-[60] p-4">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-2xl w-full flex flex-col p-6 relative border border-gray-100 dark:border-gray-700">
           <button 
             onClick={() => setActiveDriverMap(null)}
-            className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+            className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 cursor-pointer"
             title="Fechar"
           >
             <X className="w-6 h-6" />
           </button>
-          <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">
-            Localização do Motorista: {activeDriverMap.driverName}
-          </h3>
+          
+          <div className="flex items-center gap-2 mb-1">
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+              Localização: {activeDriverMap.driverName}
+            </h3>
+            {activeDriverMap.isRealTime ? (
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 animate-pulse">
+                Ao Vivo
+              </span>
+            ) : (
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/10 text-blue-500 border border-blue-500/20">
+                Último Registro {activeDriverMap.timestamp ? `(${new Date(activeDriverMap.timestamp).toLocaleString('pt-BR')})` : ''}
+              </span>
+            )}
+          </div>
+
           <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
             Coordenadas: {activeDriverMap.lat.toFixed(6)}, {activeDriverMap.lng.toFixed(6)}
           </p>
-          <div className="w-full h-[400px] rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-100">
+
+          <div className="w-full h-[400px] rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-900 shadow-inner">
             <iframe
               title={`Mapa contendo localização de ${activeDriverMap.driverName}`}
               src={`https://maps.google.com/maps?q=${activeDriverMap.lat},${activeDriverMap.lng}&z=15&output=embed`}
@@ -1033,18 +1077,19 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, drivers, cargo
               loading="lazy"
             ></iframe>
           </div>
+
           <div className="mt-4 flex justify-between items-center">
             <a 
               href={`https://www.google.com/maps/search/?api=1&query=${activeDriverMap.lat},${activeDriverMap.lng}`}
               target="_blank" 
               rel="noopener noreferrer"
-              className="text-xs text-primary hover:underline dark:text-blue-400"
+              className="text-xs text-blue-600 dark:text-blue-400 font-bold hover:underline"
             >
-              Abrir no Google Maps externo
+              Abrir no Google Maps ↗
             </a>
             <button 
               onClick={() => setActiveDriverMap(null)}
-              className="px-4 py-2 bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors text-sm font-semibold"
+              className="px-4 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-xl transition-colors text-sm font-bold cursor-pointer"
             >
               Fechar
             </button>
