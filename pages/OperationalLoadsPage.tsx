@@ -316,7 +316,7 @@ const OperationalLoadsPage: React.FC<OperationalLoadsPageProps> = ({
 
   if (currentUser.profile === UserProfile.Motorista) {
     return (
-      <div className="-mx-6 -my-8">
+      <div className="w-full">
         <DriverAppView
           loads={loads}
           shipments={allShipments}
