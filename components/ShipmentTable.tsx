@@ -448,11 +448,23 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, drivers, cargo
                             return (
                               <button
                                 type="button"
-                                onClick={() => alert('O motorista possui o aplicativo instalado. A localização estará disponível assim que o GPS transmitir.')}
-                                title="Motorista possui o aplicativo (Aguardando sinal GPS)"
-                                className="text-gray-400 hover:text-blue-500 transition-colors focus:outline-none cursor-pointer"
+                                onClick={() => {
+                                  if (driver?.last_lat && driver?.last_lng) {
+                                    setActiveDriverMap({
+                                      driverName: shipment.driverName,
+                                      lat: driver.last_lat,
+                                      lng: driver.last_lng,
+                                      isRealTime: false,
+                                      timestamp: driver.last_location_time
+                                    });
+                                  } else {
+                                    alert('O motorista possui o aplicativo instalado. A localização estará disponível assim que o GPS transmitir.');
+                                  }
+                                }}
+                                title={driver?.last_lat && driver?.last_lng ? "Ver última localização registrada do motorista (App offline)" : "Motorista possui o aplicativo (Aguardando sinal GPS)"}
+                                className={driver?.last_lat && driver?.last_lng ? "text-blue-500 hover:text-blue-600 transition-colors focus:outline-none cursor-pointer" : "text-gray-400 hover:text-blue-500 transition-colors focus:outline-none cursor-pointer"}
                               >
-                                <Smartphone className="w-4 h-4" />
+                                <Smartphone className={`w-4 h-4 ${driver?.last_lat && driver?.last_lng ? 'text-blue-500' : ''}`} />
                               </button>
                             );
                           }
@@ -695,11 +707,23 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, drivers, cargo
                               return (
                                 <button
                                   type="button"
-                                  onClick={() => alert('O motorista possui o aplicativo instalado. A localização estará disponível assim que o GPS transmitir.')}
-                                  title="Motorista possui o aplicativo (Aguardando sinal GPS)"
-                                  className="text-gray-400 hover:text-blue-500 transition-colors focus:outline-none cursor-pointer"
+                                  onClick={() => {
+                                    if (driver?.last_lat && driver?.last_lng) {
+                                      setActiveDriverMap({
+                                        driverName: shipment.driverName,
+                                        lat: driver.last_lat,
+                                        lng: driver.last_lng,
+                                        isRealTime: false,
+                                        timestamp: driver.last_location_time
+                                      });
+                                    } else {
+                                      alert('O motorista possui o aplicativo instalado. A localização estará disponível assim que o GPS transmitir.');
+                                    }
+                                  }}
+                                  title={driver?.last_lat && driver?.last_lng ? "Ver última localização registrada do motorista (App offline)" : "Motorista possui o aplicativo (Aguardando sinal GPS)"}
+                                  className={driver?.last_lat && driver?.last_lng ? "text-blue-500 hover:text-blue-600 transition-colors focus:outline-none cursor-pointer" : "text-gray-400 hover:text-blue-500 transition-colors focus:outline-none cursor-pointer"}
                                 >
-                                  <Smartphone className="w-4 h-4" />
+                                  <Smartphone className={`w-4 h-4 ${driver?.last_lat && driver?.last_lng ? 'text-blue-500' : ''}`} />
                                 </button>
                               );
                             }

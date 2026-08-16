@@ -203,6 +203,9 @@ const toDriver = (row: any): Driver => ({
   active: row.active ?? true,
   restrictionReason: row.restriction_reason,
   has_app: row.has_app ?? false,
+  last_lat: row.last_lat ? Number(row.last_lat) : undefined,
+  last_lng: row.last_lng ? Number(row.last_lng) : undefined,
+  last_location_time: row.last_location_time || undefined,
 });
 
 const fromDriver = (d: Driver | Omit<Driver, 'id'>) => ({
@@ -215,6 +218,10 @@ const fromDriver = (d: Driver | Omit<Driver, 'id'>) => ({
   owner_id: d.ownerId || null,
   active: d.active !== undefined ? d.active : true,
   restriction_reason: d.restrictionReason,
+  has_app: d.has_app ?? false,
+  last_lat: d.last_lat ?? null,
+  last_lng: d.last_lng ?? null,
+  last_location_time: d.last_location_time ?? null,
 });
 
 const toVehicle = (row: any): Vehicle => ({
