@@ -250,7 +250,21 @@ export function useDatabase(currentUser: User | null) {
           }
           case 'shipments': {
             const dbShipments = await fetchShipments();
-            setShipments(dbShipments);
+            // Mesclagem inteligente: se o estado local de um embarque for mais recente
+            // (mais entradas no histórico) do que o dado do banco, preservamos o local.
+            // Isso evita que o evento realtime sobrescreva uma atualização otimista
+            // que ainda não foi replicada no Postgres.
+            setShipments(prev => {
+              const prevMap = new Map(prev.map(s => [s.id, s]));
+              return dbShipments.map(dbS => {
+                const localS = prevMap.get(dbS.id);
+                if (localS && localS.history.length > dbS.history.length) {
+                  // Estado local é mais recente, mantemos
+                  return localS;
+                }
+                return dbS;
+              });
+            });
             setNextIds((prev: any) => ({ ...prev, shipment: getMaxId(dbShipments, 100) }));
             break;
           }

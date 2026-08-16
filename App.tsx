@@ -1588,7 +1588,21 @@ const App: React.FC = () => {
         };
     }
 
-    // 4. Persist to Supabase
+    // 4. Optimistic update: atualiza estado local ANTES de persistir,
+    //    para evitar que o evento realtime sobrescreva com dado antigo
+    //    durante a janela do await.
+    setShipments((prev: Shipment[]) => prev.map(s => s.id === shipmentId ? updatedShipment : s));
+    if (updatedCargo) {
+      const cargoToUpdate = updatedCargo;
+      setCargos(prev => prev.map(c => c.id === cargoToUpdate.id ? cargoToUpdate : c));
+    }
+    if (createdTicket) {
+      const ticketToUpdate = createdTicket;
+      setTickets((prev: Ticket[]) => [ticketToUpdate, ...prev]);
+      setNextIds((prev: any) => ({ ...prev, ticket: prev.ticket + 1 }));
+    }
+
+    // 5. Persist to Supabase
     try {
       await upsertShipment(updatedShipment);
       if (updatedCargo) {
@@ -1598,24 +1612,24 @@ const App: React.FC = () => {
         await upsertTicket(createdTicket);
       }
       
-      // 5. Update local state on SUCCESS
-      setShipments((prev: Shipment[]) => prev.map(s => s.id === shipmentId ? updatedShipment : s));
-      if (updatedCargo) {
-        const cargoToUpdate = updatedCargo; // capture for closure
-        setCargos(prev => prev.map(c => c.id === cargoToUpdate.id ? cargoToUpdate : c));
-      }
-      if (createdTicket) {
-        const ticketToUpdate = createdTicket;
-        setTickets((prev: Ticket[]) => [ticketToUpdate, ...prev]);
-        setNextIds((prev: any) => ({ ...prev, ticket: prev.ticket + 1 }));
-      }
-      
       const successMsg = (currentUser.profile === UserProfile.Motorista && originalShipment.status === ShipmentStatus.AguardandoDescarga)
         ? 'Comprovante enviado! Aguardando confirmação do peso pelo embarcador.'
         : 'Embarque atualizado com sucesso!';
       showToast(successMsg, 'success');
     } catch(err: any) { 
       console.error('Erro ao salvar no Supabase:', err);
+      // Rollback do estado local para o original em caso de falha na persistência
+      setShipments((prev: Shipment[]) => prev.map(s => s.id === shipmentId ? originalShipment : s));
+      if (updatedCargo) {
+        const originalCargo = cargos.find(c => c.id === updatedCargo!.id);
+        if (originalCargo) {
+          setCargos(prev => prev.map(c => c.id === originalCargo.id ? originalCargo : c));
+        }
+      }
+      if (createdTicket) {
+        setTickets((prev: Ticket[]) => prev.filter(t => t.id !== createdTicket!.id));
+        setNextIds((prev: any) => ({ ...prev, ticket: prev.ticket - 1 }));
+      }
       const errorMessage = err?.message || 'Erro desconhecido ao salvar no banco de dados.';
       showToast(`[ERRO CRÍTICO] Falha ao persistir dados: ${errorMessage}`, 'error');
       throw err;
@@ -2334,6 +2348,7 @@ const App: React.FC = () => {
         history: [...shipment.history, createHistoryLog(`Status revertido de "${currentStatus}" para "${previousStatus}" por ${currentUser.name}. Anexos do último passo removidos.`)]
     };
 
+    // Optimistic update antes de persistir
     setShipments((prev: Shipment[]) => prev.map(s => s.id === shipmentId ? updatedShipment : s));
     if (updatedCargo) {
         setCargos(prev => prev.map(c => c.id === updatedShipment.cargoId ? updatedCargo! : c));
@@ -2342,9 +2357,18 @@ const App: React.FC = () => {
     try {
         await upsertShipment(updatedShipment);
         if (updatedCargo) await upsertCargo(updatedCargo);
+        showToast('Status do embarque revertido com sucesso!', 'success');
     } catch (err) {
         console.error('Erro ao salvar reversão:', err);
-        showToast("Erro ao salvar a reversão no banco de dados.", 'error');
+        // Rollback: restaura estado original em caso de falha
+        setShipments((prev: Shipment[]) => prev.map(s => s.id === shipmentId ? shipment : s));
+        if (updatedCargo) {
+            const originalCargo = cargos.find(c => c.id === shipment.cargoId);
+            if (originalCargo) {
+                setCargos(prev => prev.map(c => c.id === originalCargo.id ? originalCargo : c));
+            }
+        }
+        showToast("Erro ao salvar a reversão no banco de dados. Status restaurado.", 'error');
     }
   };
 
