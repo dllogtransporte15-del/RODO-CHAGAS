@@ -231,9 +231,6 @@ const App: React.FC = () => {
       if (lat !== 0 && lng !== 0) {
         const updateData: any = {
           has_app: true,
-          last_lat: lat,
-          last_lng: lng,
-          last_location_time: now
         };
         if (cleanCpf) {
           supabase.from('drivers').update(updateData).eq('cpf', cleanCpf).then(() => {});

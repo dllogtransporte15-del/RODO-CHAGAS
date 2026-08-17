@@ -265,9 +265,6 @@ export const DriverAppView: React.FC<DriverAppViewProps> = ({
     if (driverCoords.lat !== 0 && driverCoords.lng !== 0) {
       const updateData: any = {
         has_app: true,
-        last_lat: driverCoords.lat,
-        last_lng: driverCoords.lng,
-        last_location_time: now
       };
       if (driverCpfClean) {
         supabase.from('drivers').update(updateData).eq('cpf', driverCpfClean).then(() => {});

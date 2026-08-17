@@ -219,9 +219,6 @@ const fromDriver = (d: Driver | Omit<Driver, 'id'>) => ({
   active: d.active !== undefined ? d.active : true,
   restriction_reason: d.restrictionReason,
   has_app: d.has_app ?? false,
-  last_lat: d.last_lat ?? null,
-  last_lng: d.last_lng ?? null,
-  last_location_time: d.last_location_time ?? null,
 });
 
 const toVehicle = (row: any): Vehicle => ({
