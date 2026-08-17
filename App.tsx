@@ -1218,15 +1218,7 @@ const App: React.FC = () => {
     currentNextIds.shipment++;
     currentNextIds.history = historyId;
     
-    // Batch state updates (optimistic)
-    setDrivers(newDrivers);
-    setVehicles(newVehicles);
-    setShipments(newShipments);
-    setCargos(newCargos);
-    if (addedOwner) setOwners(newOwners);
-    setNextIds(currentNextIds);
-
-    // Persist to Supabase
+    // Persist to Supabase FIRST — only update local state after confirming success
     try {
       const updatedCargo = newCargos.find(c => c.id === data.cargoId);
       if (addedOwner) await upsertOwner(addedOwner);
@@ -1234,14 +1226,22 @@ const App: React.FC = () => {
       await upsertManyVehicles(addedVehicles);
       await insertShipment(newShipment);
       if (updatedCargo) await upsertCargo(updatedCargo);
+
+      // Only update local state and navigate after successful persistence
+      setDrivers(newDrivers);
+      setVehicles(newVehicles);
+      setShipments(newShipments);
+      setCargos(newCargos);
+      if (addedOwner) setOwners(newOwners);
+      setNextIds(currentNextIds);
+
+      setCurrentPage('shipments');
+      showToast(`Novo embarque ${newShipmentId} criado com sucesso! Motoristas/Veículos não cadastrados foram adicionados automaticamente.`, 'success');
     } catch (err: any) {
       console.error('Erro ao salvar embarque no Supabase:', err);
       const errorMessage = err?.message || 'Erro desconhecido ao salvar no banco de dados.';
-      showToast(`[ERRO CRÍTICO] O embarque não pôde ser salvo no banco de dados: ${errorMessage}. Verifique sua conexão ou contate o suporte.`, 'error');
+      showToast(`[ERRO CRÍTICO] O embarque não pôde ser salvo: ${errorMessage}. Nenhuma alteração foi aplicada. Verifique sua conexão ou contate o suporte.`, 'error');
     }
-
-    setCurrentPage('shipments');
-    showToast(`Novo embarque ${newShipmentId} criado com sucesso! Motoristas/Veículos não cadastrados foram adicionados automaticamente.`, 'success');
   };
 
   const handleMarkArrival = async (shipmentId: string) => {

@@ -137,11 +137,11 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
       setEmbarcadorId(
           currentUser?.profile === UserProfile.Embarcador
               ? currentUser.id
-              : ''
+              : (embarcadores.length === 1 ? embarcadores[0].id : '')
       );
     }
     prevIsOpen.current = isOpen;
-  }, [isOpen, currentUser]);
+  }, [isOpen, currentUser, embarcadores]);
 
     // Driver selection & Autofill logic
   const [lastAlertedDriverId, setLastAlertedDriverId] = useState<string>('');
