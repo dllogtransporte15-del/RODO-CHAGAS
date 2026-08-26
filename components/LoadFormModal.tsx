@@ -35,7 +35,7 @@ const DEFAULT_ALLOWED_VEHICLE_TYPES = Object.values(VehicleSetType).map(setType 
 
 const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, loadToEdit, clients, products, currentUser, users, loads, branches, initialStep = 1, offerToConvert }) => {
   const getInitialState = (): Omit<Cargo, 'id' | 'history' | 'createdAt' | 'createdById'> => {
-    const newSequenceId = loads.length > 0 ? Math.max(...loads.map(c => c.sequenceId)) + 1 : 101;
+    const newSequenceId = loads.length > 0 ? Math.max(...loads.map(c => Number(c.sequenceId) || 0)) + 1 : 101;
     
     if (offerToConvert) {
       const parsedOrigin = parseLocation(offerToConvert.originLocation);

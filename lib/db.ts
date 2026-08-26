@@ -753,23 +753,43 @@ export async function upsertVehicle(vehicle: Vehicle): Promise<void> {
   if (error) throw error;
 }
 
-export async function upsertCargo(cargo: Cargo): Promise<void> {
-  const payload = fromCargo(cargo);
-  console.log('[upsertCargo] Saving cargo:', cargo.id, payload);
-  let error;
-  if (cargo.id) {
-    // Existing record: use update to guarantee the row is written
-    const result = await supabase.from('cargos').update(payload).eq('id', cargo.id);
-    error = result.error;
-  } else {
-    const result = await supabase.from('cargos').insert(payload).select().single();
-    error = result.error;
-    if (!error && result.data) {
-      // Update the input object with the generated ID if possible
-      // (though this function returns void, so the caller might not see it)
-      (cargo as any).id = result.data.id;
+export async function getNextCargoIdentifiers(): Promise<{ nextId: string; nextSeq: number; nextNum: number }> {
+  const [seqRes, idRes] = await Promise.all([
+    supabase.from('cargos').select('sequence_id').order('sequence_id', { ascending: false }).limit(1).maybeSingle(),
+    supabase.from('cargos').select('id')
+  ]);
+
+  const maxSeq = seqRes.data?.sequence_id ? Number(seqRes.data.sequence_id) : 0;
+  const nextSeq = Math.max(maxSeq + 1, 101);
+
+  let maxNum = 0;
+  if (idRes.data) {
+    for (const row of idRes.data) {
+      if (row.id) {
+        const m = row.id.match(/^CRG-(\d+)$/);
+        if (m) {
+          const num = parseInt(m[1], 10);
+          if (num > maxNum) maxNum = num;
+        }
+      }
     }
   }
+  const nextNum = Math.max(maxNum + 1, 100);
+  const nextId = `CRG-${String(nextNum).padStart(3, '0')}`;
+
+  return { nextId, nextSeq, nextNum };
+}
+
+export async function upsertCargo(cargo: Cargo): Promise<void> {
+  if (!cargo.id || cargo.id.startsWith('TEMP-')) {
+    const created = await insertCargo(cargo);
+    cargo.id = created.id;
+    cargo.sequenceId = created.sequenceId;
+    return;
+  }
+  const payload = fromCargo(cargo);
+  console.log('[upsertCargo] Saving cargo:', cargo.id, payload);
+  const { error } = await supabase.from('cargos').update(payload).eq('id', cargo.id);
   if (error) {
     console.error('[upsertCargo] Error:', error);
     throw error;
@@ -821,17 +841,47 @@ export async function deleteTicket(id: string): Promise<void> {
 }
 
 export async function insertCargo(cargo: Cargo | Omit<Cargo, 'id'>): Promise<Cargo> {
-  const payload = fromCargo(cargo);
-  // Remove o id temporário (TEMP-xxx) para que a trigger do banco gere o ID real
-  const { id: _tempId, ...payloadWithoutId } = payload as any;
-  console.log('[insertCargo] Inserting new cargo (temp id removed):', (cargo as Cargo).id || 'NEW');
-  const { data, error } = await supabase.from('cargos').insert(payloadWithoutId).select().single();
-  if (error) {
-    console.error('[insertCargo] Error:', error);
-    throw error;
+  const rawPayload = fromCargo(cargo);
+  console.log('[insertCargo] Inserting new cargo:', (cargo as Cargo).id || 'NEW');
+
+  let { nextId, nextSeq, nextNum } = await getNextCargoIdentifiers();
+  
+  const rawId = (cargo as Cargo).id;
+  let finalId = rawId && !rawId.startsWith('TEMP-') ? rawId : nextId;
+  let finalSeq = cargo.sequenceId || nextSeq;
+
+  let attempts = 0;
+  let lastError: any = null;
+
+  while (attempts < 5) {
+    const insertPayload = {
+      ...rawPayload,
+      id: finalId,
+      sequence_id: finalSeq,
+    };
+
+    const { data, error } = await supabase.from('cargos').insert(insertPayload).select().single();
+    if (!error && data) {
+      console.log('[insertCargo] Success for cargo:', data.id);
+      return toCargo(data);
+    }
+
+    lastError = error;
+    if (error && (error.code === '23505' || error.message?.includes('unique constraint') || error.message?.includes('duplicate key'))) {
+      console.warn(`[insertCargo] Conflict on ID ${finalId} or seq ${finalSeq}. Retrying with next increment...`);
+      nextNum++;
+      nextSeq++;
+      finalId = `CRG-${String(nextNum).padStart(3, '0')}`;
+      finalSeq = nextSeq;
+      attempts++;
+    } else {
+      console.error('[insertCargo] Error:', error);
+      throw error;
+    }
   }
-  console.log('[insertCargo] Success for cargo:', data.id);
-  return toCargo(data);
+
+  console.error('[insertCargo] Error after retries:', lastError);
+  throw lastError;
 }
 
 export async function insertShipment(shipment: Shipment): Promise<void> {

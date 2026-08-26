@@ -2220,8 +2220,13 @@ const App: React.FC = () => {
         }
         
         // Sincroniza o contador local de IDs para evitar saltos desnecessários (opcional)
-        const newNum = parseInt(savedCargo.id.split('-')[1], 10);
-        setNextIds((prev: any) => ({ ...prev, cargo: Math.max(prev.cargo, newNum + 1) }));
+        const match = savedCargo.id.match(/-(\d+)$/);
+        if (match) {
+          const newNum = parseInt(match[1], 10);
+          if (!isNaN(newNum)) {
+            setNextIds((prev: any) => ({ ...prev, cargo: Math.max(prev.cargo || 0, newNum + 1) }));
+          }
+        }
         
       } catch (err: any) {
         console.error('Erro ao salvar carga no Supabase:', err);
