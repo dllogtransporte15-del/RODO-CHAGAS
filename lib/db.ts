@@ -822,8 +822,10 @@ export async function deleteTicket(id: string): Promise<void> {
 
 export async function insertCargo(cargo: Cargo | Omit<Cargo, 'id'>): Promise<Cargo> {
   const payload = fromCargo(cargo);
-  console.log('[insertCargo] Inserting new cargo:', (cargo as Cargo).id || 'NEW');
-  const { data, error } = await supabase.from('cargos').insert(payload).select().single();
+  // Remove o id temporário (ex: TEMP-...) para que o banco gere o ID real via trigger
+  const { id: _tempId, ...insertPayload } = payload as any;
+  console.log('[insertCargo] Inserting new cargo (id stripped for DB auto-generation)');
+  const { data, error } = await supabase.from('cargos').insert(insertPayload).select().single();
   if (error) {
     console.error('[insertCargo] Error:', error);
     throw error;
