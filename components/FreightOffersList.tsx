@@ -1,11 +1,12 @@
 import React, { useState, useRef } from 'react';
 import type { FreightOffer, Client, Product, Cargo, User } from '../types';
 import { FreightOfferStatus, CargoStatus, UserProfile } from '../types';
-import { PackageIcon, CheckIcon, XIcon, MessageCircleIcon, HistoryIcon, TrashIcon, MapPinIcon, EyeIcon, PaperclipIcon, DownloadIcon, UserIcon, Clock, Edit, ExternalLink } from 'lucide-react';
+import { PackageIcon, CheckIcon, XIcon, MessageCircleIcon, HistoryIcon, TrashIcon, MapPinIcon, EyeIcon, PaperclipIcon, DownloadIcon, UserIcon, Clock, Edit, ExternalLink, UploadCloud, Plus, Loader2 } from 'lucide-react';
 import VolumeBar from './VolumeBar';
 import { supabase } from '../supabase';
 import { getMatchedCargo } from '../utils';
 import { parseLocation } from '../utils/locationUtils';
+import { upsertFreightOffer } from '../lib/db';
 
 interface FreightOffersListProps {
   offers: FreightOffer[];
@@ -22,10 +23,11 @@ interface FreightOffersListProps {
   onShowDriverHistory?: (driverId: string) => void;
   title?: string;
   onUpdateStatus?: (offer: FreightOffer, status: FreightOfferStatus) => void;
+  onSaveOffer?: (offer: FreightOffer) => Promise<void> | void;
 }
 
 const FreightOffersList: React.FC<FreightOffersListProps> = ({
-  offers, clients, products, cargos, isClientProfile, currentUser, onAccept, onRefuse, onCounterOffer, onDelete, onConvertToCargo, onShowDriverHistory, title, onUpdateStatus
+  offers, clients, products, cargos, isClientProfile, currentUser, onAccept, onRefuse, onCounterOffer, onDelete, onConvertToCargo, onShowDriverHistory, title, onUpdateStatus, onSaveOffer
 }) => {
   const [counterOfferModal, setCounterOfferModal] = useState<FreightOffer | null>(null);
   const [counterValue, setCounterValue] = useState<string>('');
@@ -36,6 +38,10 @@ const FreightOffersList: React.FC<FreightOffersListProps> = ({
   const [acceptAttachments, setAcceptAttachments] = useState<File[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const acceptFileInputRef = useRef<HTMLInputElement>(null);
+
+  const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
+  const [targetAttachmentIndex, setTargetAttachmentIndex] = useState<number | null>(null);
+  const detailFileInputRef = useRef<HTMLInputElement>(null);
 
   if (offers.length === 0) {
     return (
@@ -549,9 +555,107 @@ const FreightOffersList: React.FC<FreightOffersListProps> = ({
                  </div>
                )}
 
-               {detailsModal.attachments && detailsModal.attachments.length > 0 && (
-                 <div>
-                    <span className="font-semibold block text-gray-500 dark:text-gray-400 mb-1">Anexos:</span>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-gray-700 dark:text-gray-300">Anexos:</span>
+                    <button
+                      type="button"
+                      disabled={isUploadingAttachment}
+                      onClick={() => {
+                        setTargetAttachmentIndex(null);
+                        if (detailFileInputRef.current) {
+                          detailFileInputRef.current.value = '';
+                          detailFileInputRef.current.click();
+                        }
+                      }}
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/70 rounded-lg transition-colors border border-indigo-200 dark:border-indigo-800 cursor-pointer disabled:opacity-50"
+                      title="Adicionar novos arquivos a esta oferta"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      Adicionar Anexo
+                    </button>
+                  </div>
+
+                  <input
+                    type="file"
+                    ref={detailFileInputRef}
+                    className="hidden"
+                    multiple={targetAttachmentIndex === null}
+                    onChange={async (e) => {
+                      const files = e.target.files;
+                      if (!files || files.length === 0 || !detailsModal) return;
+
+                      setIsUploadingAttachment(true);
+                      try {
+                        const uploadedUrls: string[] = [];
+                        for (let idx = 0; idx < files.length; idx++) {
+                          const file = files[idx];
+                          const fileExt = file.name.split('.').pop();
+                          const fileName = `freight_offer_${Date.now()}_${Math.random().toString(36).substring(2)}.${fileExt}`;
+                          const filePath = `freight_offers/${fileName}`;
+
+                          const { error: uploadError } = await supabase.storage
+                            .from('shipment_attachments')
+                            .upload(filePath, file);
+
+                          if (uploadError) {
+                            throw new Error(`Falha ao enviar ${file.name}: ${uploadError.message}`);
+                          }
+
+                          const { data } = supabase.storage
+                            .from('shipment_attachments')
+                            .getPublicUrl(filePath);
+
+                          uploadedUrls.push(`${data.publicUrl}?name=${encodeURIComponent(file.name)}`);
+                        }
+
+                        const currentAttachments = [...(detailsModal.attachments || [])];
+                        let newAttachments: string[];
+
+                        if (targetAttachmentIndex !== null && targetAttachmentIndex >= 0 && targetAttachmentIndex < currentAttachments.length) {
+                          currentAttachments[targetAttachmentIndex] = uploadedUrls[0];
+                          if (uploadedUrls.length > 1) {
+                            currentAttachments.push(...uploadedUrls.slice(1));
+                          }
+                          newAttachments = currentAttachments;
+                        } else {
+                          newAttachments = [...currentAttachments, ...uploadedUrls];
+                        }
+
+                        const updatedOffer: FreightOffer = {
+                          ...detailsModal,
+                          attachments: newAttachments,
+                        };
+
+                        if (onSaveOffer) {
+                          await onSaveOffer(updatedOffer);
+                        } else {
+                          await upsertFreightOffer(updatedOffer);
+                        }
+
+                        setDetailsModal(updatedOffer);
+                      } catch (error: any) {
+                        console.error('Erro ao enviar anexo:', error);
+                        alert(`Erro ao fazer upload do anexo: ${error?.message || 'Erro desconhecido'}`);
+                      } finally {
+                        setIsUploadingAttachment(false);
+                        setTargetAttachmentIndex(null);
+                      }
+                    }}
+                  />
+
+                  {isUploadingAttachment && (
+                    <div className="flex items-center gap-2 p-3 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 rounded-lg text-xs font-medium text-indigo-700 dark:text-indigo-300">
+                      <Loader2 className="w-4 h-4 animate-spin shrink-0 text-indigo-600" />
+                      <span>Fazendo upload e salvando arquivo no servidor...</span>
+                    </div>
+                  )}
+
+                  {(!detailsModal.attachments || detailsModal.attachments.length === 0) ? (
+                    <div className="text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg border border-gray-100 dark:border-gray-600 text-center">
+                      Nenhum arquivo anexado a esta oferta. Clique no botão acima para adicionar.
+                    </div>
+                  ) : (
                     <ul className="space-y-2">
                       {detailsModal.attachments.map((fileUrlOrName, i) => {
                         const isUrl = typeof fileUrlOrName === 'string' && fileUrlOrName.startsWith('http');
@@ -562,51 +666,113 @@ const FreightOffersList: React.FC<FreightOffersListProps> = ({
                         if (isUrl) {
                           const targetUrl = fileUrlOrName.replace(/[?&]download(=[^&]*)?/g, '').replace(/\?$/, '').replace(/&$/, '');
                           return (
-                          <li key={i}>
-                            <a 
-                              href={targetUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex items-center justify-between bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg border border-gray-100 dark:border-gray-600 text-sm font-medium text-gray-900 dark:text-gray-100 hover:bg-indigo-50/60 dark:hover:bg-indigo-900/30 hover:border-indigo-200 transition-colors group cursor-pointer"
-                              title="Clique para visualizar o arquivo em nova janela"
-                            >
-                              <div className="flex items-center gap-2 overflow-hidden flex-1">
+                            <li key={i} className="flex items-center justify-between bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg border border-gray-100 dark:border-gray-600 text-sm font-medium text-gray-900 dark:text-gray-100 group">
+                              <div className="flex items-center gap-2 overflow-hidden flex-1 mr-2">
                                 <PaperclipIcon className="w-4 h-4 text-indigo-500 shrink-0" />
-                                <span className="truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400">{displayName}</span>
+                                <span className="truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400 font-medium">{displayName}</span>
                               </div>
-                              <span className="flex items-center gap-1 text-xs font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/50 px-2.5 py-1 rounded-md ml-2 shrink-0 group-hover:bg-indigo-100 dark:group-hover:bg-indigo-900/80">
-                                <ExternalLink className="w-3.5 h-3.5" />
-                                Visualizar
-                              </span>
-                            </a>
-                          </li>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <a 
+                                  href={targetUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex items-center gap-1 text-xs font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/50 hover:bg-indigo-100 dark:hover:bg-indigo-900/80 px-2.5 py-1.5 rounded-md transition-colors"
+                                  title="Clique para visualizar o arquivo em nova janela"
+                                >
+                                  <ExternalLink className="w-3.5 h-3.5" />
+                                  Visualizar
+                                </a>
+                                <button
+                                  type="button"
+                                  disabled={isUploadingAttachment}
+                                  onClick={async () => {
+                                    if (!window.confirm(`Deseja remover o anexo "${displayName}"?`)) return;
+                                    setIsUploadingAttachment(true);
+                                    try {
+                                      const newAttachments = (detailsModal.attachments || []).filter((_, idx) => idx !== i);
+                                      const updatedOffer = { ...detailsModal, attachments: newAttachments };
+                                      if (onSaveOffer) {
+                                        await onSaveOffer(updatedOffer);
+                                      } else {
+                                        await upsertFreightOffer(updatedOffer);
+                                      }
+                                      setDetailsModal(updatedOffer);
+                                    } catch (err: any) {
+                                      alert(`Erro ao remover anexo: ${err.message}`);
+                                    } finally {
+                                      setIsUploadingAttachment(false);
+                                    }
+                                  }}
+                                  className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-md transition-colors"
+                                  title="Excluir anexo"
+                                >
+                                  <TrashIcon className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </li>
                           );
                         } else {
                           return (
-                          <li key={i}>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                alert(`O anexo "${displayName}" é de uma oferta antiga/mock e o arquivo físico não foi enviado para o servidor.`);
-                              }}
-                              className="w-full flex items-center justify-between bg-amber-50/50 dark:bg-amber-900/20 p-3 rounded-lg border border-amber-200 dark:border-amber-800/50 text-sm font-medium text-amber-900 dark:text-amber-200 hover:bg-amber-100/60 dark:hover:bg-amber-900/40 transition-colors group cursor-pointer text-left"
-                              title="Anexo antigo sem arquivo físico no servidor"
-                            >
-                              <div className="flex items-center gap-2 overflow-hidden flex-1">
+                            <li key={i} className="flex items-center justify-between bg-amber-50/70 dark:bg-amber-950/30 p-3 rounded-lg border border-amber-200 dark:border-amber-800/60 text-sm font-medium">
+                              <div className="flex items-center gap-2 overflow-hidden flex-1 mr-2">
                                 <PaperclipIcon className="w-4 h-4 text-amber-500 shrink-0" />
-                                <span className="truncate">{displayName}</span>
+                                <span className="truncate text-amber-900 dark:text-amber-200 font-medium">{displayName}</span>
+                                <span className="hidden sm:inline-block text-[11px] font-semibold text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/60 px-2 py-0.5 rounded">
+                                  Sem arquivo no servidor
+                                </span>
                               </div>
-                              <span className="flex items-center gap-1 text-xs font-semibold text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/60 px-2.5 py-1 rounded-md ml-2 shrink-0">
-                                Sem arquivo no servidor
-                              </span>
-                            </button>
-                          </li>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <button
+                                  type="button"
+                                  disabled={isUploadingAttachment}
+                                  onClick={() => {
+                                    setTargetAttachmentIndex(i);
+                                    if (detailFileInputRef.current) {
+                                      detailFileInputRef.current.value = '';
+                                      detailFileInputRef.current.click();
+                                    }
+                                  }}
+                                  className="flex items-center gap-1 text-xs font-semibold text-indigo-700 dark:text-indigo-300 bg-indigo-100 hover:bg-indigo-200 dark:bg-indigo-900/60 dark:hover:bg-indigo-900/90 px-2.5 py-1.5 rounded-md transition-colors cursor-pointer"
+                                  title="Fazer upload do arquivo correspondente"
+                                >
+                                  <UploadCloud className="w-3.5 h-3.5" />
+                                  Fazer Upload
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={isUploadingAttachment}
+                                  onClick={async () => {
+                                    if (!window.confirm(`Deseja remover este item pendente "${displayName}"?`)) return;
+                                    setIsUploadingAttachment(true);
+                                    try {
+                                      const newAttachments = (detailsModal.attachments || []).filter((_, idx) => idx !== i);
+                                      const updatedOffer = { ...detailsModal, attachments: newAttachments };
+                                      if (onSaveOffer) {
+                                        await onSaveOffer(updatedOffer);
+                                      } else {
+                                        await upsertFreightOffer(updatedOffer);
+                                      }
+                                      setDetailsModal(updatedOffer);
+                                    } catch (err: any) {
+                                      alert(`Erro ao remover anexo: ${err.message}`);
+                                    } finally {
+                                      setIsUploadingAttachment(false);
+                                    }
+                                  }}
+                                  className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-md transition-colors"
+                                  title="Excluir este item"
+                                >
+                                  <TrashIcon className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </li>
                           );
                         }
                       })}
                     </ul>
-                 </div>
-               )}
+                  )}
+                </div>
+
             </div>
             <div className="p-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 flex justify-end">
               <button onClick={() => setDetailsModal(null)} className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors">

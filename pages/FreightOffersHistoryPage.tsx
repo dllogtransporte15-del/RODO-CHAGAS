@@ -159,6 +159,7 @@ const FreightOffersHistoryPage: React.FC<FreightOffersHistoryPageProps> = ({
           cargos={cargos}
           isClientProfile={currentUser?.profile === UserProfile.Cliente}
           currentUser={currentUser || undefined}
+          onSaveOffer={onSaveFreightOffer}
           onAccept={async () => {}} // Disabled actions for history
           onRefuse={async () => {}} // Disabled actions for history
           onCounterOffer={async () => {}} // Disabled actions for history

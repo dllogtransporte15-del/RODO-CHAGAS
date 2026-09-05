@@ -439,6 +439,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({
             products={products}
             cargos={cargos}
             isClientProfile={false}
+            onSaveOffer={onSaveFreightOffer}
             onAccept={async (offer) => {
               // Mark offer as accepted in the DB, then open the shipment modal
               if (onSaveFreightOffer) {
@@ -551,6 +552,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({
               products={products}
               cargos={cargos}
               isClientProfile={false}
+              onSaveOffer={onSaveFreightOffer}
               onAccept={async (offer) => {
                 if (onAcceptFreightOffer) {
                   onAcceptFreightOffer(offer);
@@ -963,6 +965,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({
             products={products}
             cargos={cargos}
             isClientProfile={true}
+            onSaveOffer={onSaveFreightOffer}
             onAccept={async (offer) => {
               if (onSaveFreightOffer) {
                 const history = addOfferHistory(offer, `Preço/Oferta aceita pelo Cliente.`);
@@ -1036,6 +1039,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({
             products={products}
             cargos={cargos}
             isClientProfile={true}
+            onSaveOffer={onSaveFreightOffer}
             onAccept={async () => {}} 
             onRefuse={async () => {}}
             onCounterOffer={async () => {}}
@@ -1052,6 +1056,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({
             products={products}
             cargos={cargos}
             isClientProfile={false}
+            onSaveOffer={onSaveFreightOffer}
             onAccept={async (offer) => {
               if (onAcceptFreightOffer) {
                 onAcceptFreightOffer(offer);
