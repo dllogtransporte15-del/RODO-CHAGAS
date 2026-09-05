@@ -9,7 +9,7 @@ import type {
 // HELPERS: Map DB rows (snake_case) ↔ App types (camelCase)
 // ─────────────────────────────────────────────
 
-const toFreightOffer = (row: any): FreightOffer => {
+export const toFreightOffer = (row: any): FreightOffer => {
   const rawHistory = row.history || [];
   const metaLog = rawHistory.find((h: any) => h.id === 'meta_dest_obs');
   let additionalDestinations = undefined;
@@ -142,7 +142,7 @@ export const upsertFreightOffer = async (offer: FreightOffer | Omit<FreightOffer
   if (error) throw error;
 };
 
-const toClient = (row: any): Client => ({
+export const toClient = (row: any): Client => ({
   id: row.id,
   razaoSocial: row.razao_social,
   nomeFantasia: row.nome_fantasia,
@@ -174,7 +174,7 @@ const fromClient = (c: Client | Omit<Client, 'id'>) => ({
   requires_scheduling: c.requiresScheduling,
 });
 
-const toOwner = (row: any): Owner => ({
+export const toOwner = (row: any): Owner => ({
   id: row.id,
   name: row.name,
   cpfCnpj: row.cpf_cnpj,
@@ -192,7 +192,7 @@ const fromOwner = (o: Owner | Omit<Owner, 'id'>) => ({
   bank_details: o.bankDetails,
 });
 
-const toDriver = (row: any): Driver => ({
+export const toDriver = (row: any): Driver => ({
   id: row.id,
   name: row.name,
   cpf: row.cpf,
@@ -221,7 +221,7 @@ const fromDriver = (d: Driver | Omit<Driver, 'id'>) => ({
   has_app: d.has_app ?? false,
 });
 
-const toVehicle = (row: any): Vehicle => ({
+export const toVehicle = (row: any): Vehicle => ({
   id: row.id,
   plate: row.plate,
   setType: row.set_type,
@@ -241,13 +241,13 @@ const fromVehicle = (v: Vehicle | Omit<Vehicle, 'id'>) => ({
   owner_id: v.ownerId || null,
 });
 
-const toProduct = (row: any): Product => ({
+export const toProduct = (row: any): Product => ({
   id: row.id,
   name: row.name,
   unit: row.unit,
 });
 
-const toCargo = (row: any): Cargo => ({
+export const toCargo = (row: any): Cargo => ({
   id: row.id,
   sequenceId: row.sequence_id,
   clientId: row.client_id,
@@ -321,7 +321,7 @@ const fromCargo = (c: Cargo | Omit<Cargo, 'id'>) => ({
   branch_id: c.branchId || null,
 });
 
-const toShipment = (row: any): Shipment => ({
+export const toShipment = (row: any): Shipment => ({
   id: row.id,
   orderId: row.order_id,
   cargoId: row.cargo_id,
@@ -457,7 +457,7 @@ export const fromUser = (u: User | Omit<User, 'id'>) => ({
   permissions: (u as User).customPermissions,
 });
 
-const toTicket = (row: any): Ticket => {
+export const toTicket = (row: any): Ticket => {
   let cleanDesc = row.description || '';
   const cargoMatch = cleanDesc.match(/\[CARGO_ID:\s*(.*?)\]/);
   const shipmentMatch = cleanDesc.match(/\[SHIPMENT_ID:\s*(.*?)\]/);
@@ -503,7 +503,7 @@ const fromTicket = (t: Ticket | Omit<Ticket, 'id' | 'history' | 'createdAt' | 'c
   };
 };
 
-const toBranch = (row: any): Branch => ({
+export const toBranch = (row: any): Branch => ({
   id: row.id,
   name: row.name,
   city: row.city,

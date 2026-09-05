@@ -9,7 +9,9 @@ import { INITIAL_PERMISSIONS } from '../auth';
 import { 
   fetchClients, fetchOwners, fetchDrivers, fetchVehicles, fetchProducts,
   fetchCargos, fetchShipments, fetchUsers, fetchTickets, fetchProfilePermissions,
-  fetchAppSettings, fetchShipmentLocks, fetchBranches, fetchFreightOffers
+  fetchAppSettings, fetchShipmentLocks, fetchBranches, fetchFreightOffers,
+  toClient, toOwner, toDriver, toVehicle, toProduct, toCargo, toShipment,
+  toUser, toTicket, toBranch, toFreightOffer
 } from '../lib/db';
 import { getAllToolStays, StayRecord } from '../utils/toolStorage';
 
@@ -17,7 +19,6 @@ import { getAllToolStays, StayRecord } from '../utils/toolStorage';
 
 function getMaxId(items: any[], startOffset: number): number {
   if (!items || items.length === 0) {
-    console.log(`[getMaxId] No items found, returning startOffset: ${startOffset}`);
     return startOffset;
   }
   let maxNum = startOffset - 1;
@@ -30,9 +31,7 @@ function getMaxId(items: any[], startOffset: number): number {
       }
     }
   }
-  const nextId = maxNum + 1;
-  console.log(`[getMaxId] Items count: ${items.length}, Max found: ${maxNum}, Next ID: ${nextId}`);
-  return nextId;
+  return maxNum + 1;
 }
 
 function calculateNextIds(
@@ -40,7 +39,7 @@ function calculateNextIds(
   dbProducts: any[], dbShipments: any[], dbCargos: any[], dbUsers: any[], dbTickets: any[],
   dbBranches: any[], dbOffers: any[] = []
 ) {
-  const result = {
+  return {
     client: getMaxId(dbClients, 100),
     owner: getMaxId(dbOwners, 100),
     driver: getMaxId(dbDrivers, 100),
@@ -54,8 +53,6 @@ function calculateNextIds(
     freightOffer: getMaxId(dbOffers, 1),
     history: 9999,
   };
-  console.log('[DB] Next IDs calculated:', result);
-  return result;
 }
 
 // ─────────────────────────────────────────────
@@ -93,28 +90,20 @@ export function useDatabase(currentUser: User | null) {
     if (!isBackground) setIsLoading(true);
     setLoadError(null);
     
-    // Safety net: if loading takes more than 15 seconds, force it to stop
     const timeoutId = setTimeout(() => {
       console.error('[useDatabase] loadAllData timed out after 15s. Forcing isLoading=false.');
       setIsLoading(false);
     }, 15000);
 
     try {
-      // Note: We now rely on the local session/user state from App.tsx 
-      // instead of checking Supabase Auth every time.
       if (!currentUser) {
-        console.warn('[DB] Tentativa de carga sem usuário logado.');
         setIsLoading(false);
         return;
       }
 
-      console.log('[DB] Carregando dados para:', currentUser.email);
-
       const isMotorista = currentUser.profile === 'Motorista';
 
       if (isMotorista) {
-        // Motorista only needs: cargos, shipments (filtered), settings, products, clients
-        // Skip heavy tables: drivers (914), vehicles (1000), users, locks, branches, etc.
         const [
           dbCargos, dbShipments, dbSettings, dbPermissions,
           dbProducts, dbClients, dbFreightOffers, dbUsers
@@ -179,7 +168,7 @@ export function useDatabase(currentUser: User | null) {
       setLoadError('Erro ao conectar ao banco de dados.');
     } finally {
       clearTimeout(timeoutId);
-      setIsLoading(false); // ALWAYS runs — no more eternal spinner
+      setIsLoading(false);
     }
   }, [currentUser]);
 
@@ -188,7 +177,6 @@ export function useDatabase(currentUser: User | null) {
       loadAllData();
     } else {
       setIsLoading(false);
-      // Even without a user, try to load branding settings for the login page
       fetchAppSettings().then(settings => {
         if (settings) {
           if (settings.company_logo) setCompanyLogo(settings.company_logo);
@@ -198,130 +186,207 @@ export function useDatabase(currentUser: User | null) {
     }
   }, [currentUser, loadAllData]);
 
-  // Real-time integration
+  // Real-time integration com Atualizações Cirúrgicas (Surgical Updates)
   useEffect(() => {
     if (!currentUser) return;
 
     const handlePostgresChange = async (payload: any) => {
-      const { table, eventType } = payload;
-      console.log(`[useDatabase] Change detected in ${table} (${eventType}). Updating...`);
+      const { table, eventType, new: newRow, old: oldRow } = payload;
+      console.log(`[useDatabase] Realtime ${eventType} em ${table}`);
 
-      // Permite atualizações em tempo real mesmo com modais abertos para fluxos principais
-      const alwaysUpdateTables = ['tickets', 'cargos', 'shipments', 'freight_offers'];
+      // Permite atualizações em tempo real mesmo com modais abertos para tabelas principais
+      const alwaysUpdateTables = ['tickets', 'cargos', 'shipments', 'freight_offers', 'drivers'];
       if (isAnyModalActiveRef.current && !alwaysUpdateTables.includes(table)) return;
 
       try {
         switch (table) {
-          case 'clients': {
-            const dbClients = await fetchClients();
-            setClients(dbClients);
-            setNextIds((prev: any) => ({ ...prev, client: getMaxId(dbClients, 100) }));
-            break;
-          }
-          case 'owners': {
-            const dbOwners = await fetchOwners();
-            setOwners(dbOwners);
-            setNextIds((prev: any) => ({ ...prev, owner: getMaxId(dbOwners, 100) }));
-            break;
-          }
-          case 'drivers': {
-            const dbDrivers = await fetchDrivers();
-            setDrivers(dbDrivers);
-            setNextIds((prev: any) => ({ ...prev, driver: getMaxId(dbDrivers, 100) }));
-            break;
-          }
-          case 'vehicles': {
-            const dbVehicles = await fetchVehicles();
-            setVehicles(dbVehicles);
-            setNextIds((prev: any) => ({ ...prev, vehicle: getMaxId(dbVehicles, 100) }));
-            break;
-          }
-          case 'products': {
-            const dbProducts = await fetchProducts();
-            setProducts(dbProducts);
-            setNextIds((prev: any) => ({ ...prev, product: getMaxId(dbProducts, 100) }));
-            break;
-          }
           case 'cargos': {
-            const dbCargos = await fetchCargos();
-            setCargos(dbCargos);
-            setNextIds((prev: any) => ({ ...prev, cargo: getMaxId(dbCargos, 100) }));
+            if (eventType === 'INSERT' && newRow) {
+              const item = toCargo(newRow);
+              setCargos(prev => [item, ...prev.filter(c => c.id !== item.id && c.id !== `TEMP-${item.sequenceId}`)]);
+            } else if (eventType === 'UPDATE' && newRow) {
+              const item = toCargo(newRow);
+              setCargos(prev => prev.map(c => c.id === item.id ? { ...c, ...item } : c));
+            } else if (eventType === 'DELETE' && oldRow?.id) {
+              setCargos(prev => prev.filter(c => c.id !== oldRow.id));
+            }
             break;
           }
+
           case 'shipments': {
-            const dbShipments = await fetchShipments();
-            // Mesclagem inteligente: se o estado local de um embarque for mais recente
-            // (mais entradas no histórico) do que o dado do banco, preservamos o local.
-            // Isso evita que o evento realtime sobrescreva uma atualização otimista
-            // que ainda não foi replicada no Postgres.
-            setShipments(prev => {
-              const prevMap = new Map(prev.map(s => [s.id, s]));
-              return dbShipments.map(dbS => {
-                const localS = prevMap.get(dbS.id);
-                if (localS && localS.history.length > dbS.history.length) {
-                  // Estado local é mais recente, mantemos
-                  return localS;
+            if (eventType === 'INSERT' && newRow) {
+              const item = toShipment(newRow);
+              setShipments(prev => [item, ...prev.filter(s => s.id !== item.id)]);
+            } else if (eventType === 'UPDATE' && newRow) {
+              const item = toShipment(newRow);
+              setShipments(prev => prev.map(s => {
+                if (s.id !== item.id) return s;
+                // Preserva estado local se houver histórico mais recente ainda não replicado
+                if (s.history && item.history && s.history.length > item.history.length) {
+                  return { ...item, history: s.history, documents: s.documents || item.documents };
                 }
-                return dbS;
-              });
-            });
-            setNextIds((prev: any) => ({ ...prev, shipment: getMaxId(dbShipments, 100) }));
+                return item;
+              }));
+            } else if (eventType === 'DELETE' && oldRow?.id) {
+              setShipments(prev => prev.filter(s => s.id !== oldRow.id));
+            }
             break;
           }
-          case 'app_users': {
-            const dbUsers = await fetchUsers();
-            setUsers(dbUsers);
-            setNextIds((prev: any) => ({ ...prev, user: getMaxId(dbUsers, 100) }));
-            break;
-          }
-          case 'tickets': {
-            const dbTickets = await fetchTickets();
-            setTickets(dbTickets);
-            setNextIds((prev: any) => ({ ...prev, ticket: getMaxId(dbTickets, 1) }));
-            break;
-          }
+
           case 'freight_offers': {
-            const dbOffers = await fetchFreightOffers();
-            setFreightOffers(dbOffers);
-            setNextIds((prev: any) => ({ ...prev, freightOffer: getMaxId(dbOffers, 1) }));
+            if (eventType === 'INSERT' && newRow) {
+              const item = toFreightOffer(newRow);
+              setFreightOffers(prev => [item, ...prev.filter(f => f.id !== item.id)]);
+            } else if (eventType === 'UPDATE' && newRow) {
+              const item = toFreightOffer(newRow);
+              setFreightOffers(prev => prev.map(f => f.id === item.id ? item : f));
+            } else if (eventType === 'DELETE' && oldRow?.id) {
+              setFreightOffers(prev => prev.filter(f => f.id !== oldRow.id));
+            }
             break;
           }
+
+          case 'tickets': {
+            if (eventType === 'INSERT' && newRow) {
+              const item = toTicket(newRow);
+              setTickets(prev => [item, ...prev.filter(t => t.id !== item.id)]);
+            } else if (eventType === 'UPDATE' && newRow) {
+              const item = toTicket(newRow);
+              setTickets(prev => prev.map(t => t.id === item.id ? item : t));
+            } else if (eventType === 'DELETE' && oldRow?.id) {
+              setTickets(prev => prev.filter(t => t.id !== oldRow.id));
+            }
+            break;
+          }
+
+          case 'drivers': {
+            if (eventType === 'INSERT' && newRow) {
+              const item = toDriver(newRow);
+              setDrivers(prev => [item, ...prev.filter(d => d.id !== item.id)]);
+            } else if (eventType === 'UPDATE' && newRow) {
+              const item = toDriver(newRow);
+              setDrivers(prev => prev.map(d => d.id === item.id ? item : d));
+            } else if (eventType === 'DELETE' && oldRow?.id) {
+              setDrivers(prev => prev.filter(d => d.id !== oldRow.id));
+            }
+            break;
+          }
+
+          case 'vehicles': {
+            if (eventType === 'INSERT' && newRow) {
+              const item = toVehicle(newRow);
+              setVehicles(prev => [item, ...prev.filter(v => v.id !== item.id)]);
+            } else if (eventType === 'UPDATE' && newRow) {
+              const item = toVehicle(newRow);
+              setVehicles(prev => prev.map(v => v.id === item.id ? item : v));
+            } else if (eventType === 'DELETE' && oldRow?.id) {
+              setVehicles(prev => prev.filter(v => v.id !== oldRow.id));
+            }
+            break;
+          }
+
+          case 'clients': {
+            if (eventType === 'INSERT' && newRow) {
+              const item = toClient(newRow);
+              setClients(prev => [item, ...prev.filter(c => c.id !== item.id)]);
+            } else if (eventType === 'UPDATE' && newRow) {
+              const item = toClient(newRow);
+              setClients(prev => prev.map(c => c.id === item.id ? item : c));
+            } else if (eventType === 'DELETE' && oldRow?.id) {
+              setClients(prev => prev.filter(c => c.id !== oldRow.id));
+            }
+            break;
+          }
+
+          case 'owners': {
+            if (eventType === 'INSERT' && newRow) {
+              const item = toOwner(newRow);
+              setOwners(prev => [item, ...prev.filter(o => o.id !== item.id)]);
+            } else if (eventType === 'UPDATE' && newRow) {
+              const item = toOwner(newRow);
+              setOwners(prev => prev.map(o => o.id === item.id ? item : o));
+            } else if (eventType === 'DELETE' && oldRow?.id) {
+              setOwners(prev => prev.filter(o => o.id !== oldRow.id));
+            }
+            break;
+          }
+
+          case 'products': {
+            if (eventType === 'INSERT' && newRow) {
+              const item = toProduct(newRow);
+              setProducts(prev => [item, ...prev.filter(p => p.id !== item.id)]);
+            } else if (eventType === 'UPDATE' && newRow) {
+              const item = toProduct(newRow);
+              setProducts(prev => prev.map(p => p.id === item.id ? item : p));
+            } else if (eventType === 'DELETE' && oldRow?.id) {
+              setProducts(prev => prev.filter(p => p.id !== oldRow.id));
+            }
+            break;
+          }
+
           case 'branches': {
-            const dbBranches = await fetchBranches();
-            setBranches(dbBranches);
-            setNextIds((prev: any) => ({ ...prev, branch: getMaxId(dbBranches, 10) }));
+            if (eventType === 'INSERT' && newRow) {
+              const item = toBranch(newRow);
+              setBranches(prev => [item, ...prev.filter(b => b.id !== item.id)]);
+            } else if (eventType === 'UPDATE' && newRow) {
+              const item = toBranch(newRow);
+              setBranches(prev => prev.map(b => b.id === item.id ? item : b));
+            } else if (eventType === 'DELETE' && oldRow?.id) {
+              setBranches(prev => prev.filter(b => b.id !== oldRow.id));
+            }
             break;
           }
-          case 'tool_stays': {
-            const dbStays = await getAllToolStays();
-            setStays(dbStays);
+
+          case 'app_users': {
+            if (eventType === 'INSERT' && newRow) {
+              const item = toUser(newRow);
+              setUsers(prev => [item, ...prev.filter(u => u.id !== item.id)]);
+            } else if (eventType === 'UPDATE' && newRow) {
+              const item = toUser(newRow);
+              setUsers(prev => prev.map(u => u.id === item.id ? item : u));
+            } else if (eventType === 'DELETE' && oldRow?.id) {
+              setUsers(prev => prev.filter(u => u.id !== oldRow.id));
+            }
             break;
           }
+
           case 'shipment_locks': {
             const dbLocks = await fetchShipmentLocks();
             setActiveLocks(dbLocks);
             break;
           }
+
           case 'profile_permissions': {
-            const dbPermissions = await fetchProfilePermissions();
-            if (dbPermissions) setProfilePermissions(dbPermissions);
-            break;
-          }
-          case 'app_settings': {
-            const dbSettings = await fetchAppSettings();
-            if (dbSettings) {
-              if (dbSettings.company_logo) setCompanyLogo(dbSettings.company_logo);
-              if (dbSettings.theme_image) setThemeImage(dbSettings.theme_image);
+            if (newRow?.permissions) {
+              setProfilePermissions(newRow.permissions);
+            } else {
+              const dbPermissions = await fetchProfilePermissions();
+              if (dbPermissions) setProfilePermissions(dbPermissions);
             }
             break;
           }
+
+          case 'app_settings': {
+            if (newRow) {
+              if (newRow.company_logo !== undefined) setCompanyLogo(newRow.company_logo);
+              if (newRow.theme_image !== undefined) setThemeImage(newRow.theme_image);
+            }
+            break;
+          }
+
+          case 'tool_stays': {
+            const dbStays = await getAllToolStays();
+            setStays(dbStays);
+            break;
+          }
+
           default:
-            // If unknown table, fallback to background reload
+            // Tabela desconhecida: recarga em background
             loadAllData(true);
         }
       } catch (err) {
-        console.error(`[useDatabase] Error during surgical update for ${table}:`, err);
-        loadAllData(true); // Fallback to full reload
+        console.error(`[useDatabase] Erro ao processar evento realtime de ${table}:`, err);
+        loadAllData(true);
       }
     };
 

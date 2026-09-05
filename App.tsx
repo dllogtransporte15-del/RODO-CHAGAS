@@ -103,25 +103,18 @@ interface NewShipmentRequestData extends Omit<Shipment, 'id' | 'orderId' | 'stat
   filesToAttach?: File[];
 }
 
-const App: React.FC = () => {
-  // Limpa sessões legadas do localStorage para garantir expiração ao fechar a janela
-  useEffect(() => {
-    try {
-      localStorage.removeItem('rodochagas_currentUser');
-      localStorage.removeItem('rodo_user_email');
-      localStorage.removeItem('dllog_logged_in_user');
-    } catch {}
-  }, []);
+import { useAuthSession } from './hooks/useAuthSession';
+import { useDriverTracking } from './hooks/useDriverTracking';
 
-  const [currentUser, setCurrentUser] = useState<User | null>(() => {
-    try {
-      const saved = sessionStorage.getItem('rodochagas_currentUser');
-      return saved ? JSON.parse(saved) : null;
-    } catch {
-      return null;
-    }
-  });
-  const [isAuthChecking, setIsAuthChecking] = useState(true);
+const App: React.FC = () => {
+  const {
+    currentUser,
+    setCurrentUser,
+    isAuthChecking,
+    handleLogin,
+    handleLogout
+  } = useAuthSession();
+
   const location = useLocation();
   const navigate = useNavigate();
   const currentPage = (location.pathname === '/' ? (currentUser?.profile === UserProfile.Motorista ? 'operational-loads' : 'dashboard') : location.pathname.substring(1)) as Page;
@@ -158,7 +151,7 @@ const App: React.FC = () => {
 
   const { showToast } = useToast();
 
-  const isAnyModalActive = isAnyModalOpen; // isTicketModalOpen is intentionally excluded so ticket realtime always works
+  const isAnyModalActive = isAnyModalOpen;
   
   // Sincronização de modais para supressão de real-time
   useEffect(() => {
@@ -170,7 +163,6 @@ const App: React.FC = () => {
     if (!('serviceWorker' in navigator)) return;
 
     const handleControllerChange = () => {
-      // Um novo SW assumiu o controle: recarrega para carregar a versão nova
       window.location.reload();
     };
 
@@ -178,126 +170,8 @@ const App: React.FC = () => {
     return () => navigator.serviceWorker.removeEventListener('controllerchange', handleControllerChange);
   }, []);
 
-
-  // Track app activity and GPS location in real-time for motoristas
-  useEffect(() => {
-    const isMotoristaUser = currentUser?.profile === UserProfile.Motorista || String(currentUser?.profile).toLowerCase() === 'motorista';
-    if (!currentUser || !isMotoristaUser) return;
-
-    const cleanCpf = (currentUser.email || '').replace(/\D/g, '');
-
-    // Update persistent status in database
-    supabase.from('drivers').update({ has_app: true }).eq('id', currentUser.id).then(({ error }) => {
-      if (error) console.log("has_app column might not exist yet", error);
-    });
-
-    const channel = supabase.channel('driver_locations_monitor', {
-      config: { presence: { key: currentUser.id } },
-    });
-
-    let watchId: number | null = null;
-
-    const broadcastPosition = async (lat: number, lng: number, speed: number | null = null, heading: number | null = null) => {
-      const now = new Date().toISOString();
-      const locationPayload = {
-        driverId: currentUser.id,
-        driverName: currentUser.name,
-        driverCpf: currentUser.email,
-        lat,
-        lng,
-        speed,
-        heading,
-        timestamp: now,
-        isAppActive: true,
-        location: {
-          driverId: currentUser.id,
-          driverName: currentUser.name,
-          driverCpf: currentUser.email,
-          lat,
-          lng,
-          speed,
-          heading,
-          timestamp: now,
-        }
-      };
-
-      try {
-        await channel.track(locationPayload);
-      } catch (err) {
-        console.warn('Error broadcasting driver GPS presence:', err);
-      }
-
-      // Persist to database if real coordinates
-      if (lat !== 0 && lng !== 0) {
-        const updateData: any = {
-          has_app: true,
-        };
-        if (cleanCpf) {
-          supabase.from('drivers').update(updateData).eq('cpf', cleanCpf).then(() => {});
-        }
-        supabase.from('drivers').update(updateData).eq('id', currentUser.id).then(() => {});
-      }
-    };
-
-    const requestSinglePosition = () => {
-      if ('geolocation' in navigator) {
-        navigator.geolocation.getCurrentPosition(
-          (pos) => {
-            broadcastPosition(
-              pos.coords.latitude,
-              pos.coords.longitude,
-              pos.coords.speed,
-              pos.coords.heading
-            );
-          },
-          (err) => console.warn('Single GPS error:', err),
-          { enableHighAccuracy: true, timeout: 10000 }
-        );
-      }
-    };
-
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        requestSinglePosition();
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-
-    channel.subscribe(async (status) => {
-      if (status === 'SUBSCRIBED') {
-        // Initial online ping
-        await broadcastPosition(0, 0);
-
-        // Start GPS tracking
-        if ('geolocation' in navigator) {
-          requestSinglePosition();
-
-          watchId = navigator.geolocation.watchPosition(
-            (pos) => {
-              broadcastPosition(
-                pos.coords.latitude,
-                pos.coords.longitude,
-                pos.coords.speed,
-                pos.coords.heading
-              );
-            },
-            (err) => console.warn('Watch GPS error:', err),
-            { enableHighAccuracy: true, maximumAge: 15000, timeout: 20000 }
-          );
-        }
-      }
-    });
-
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      if (watchId !== null && 'geolocation' in navigator) {
-        navigator.geolocation.clearWatch(watchId);
-      }
-      channel.untrack();
-      supabase.removeChannel(channel);
-    };
-  }, [currentUser]);
+  // Hook isolado para rastreamento GPS e presença do motorista em tempo real
+  useDriverTracking(currentUser);
 
   // Controle de PWA (Instalação)
   useEffect(() => {
@@ -485,115 +359,6 @@ const App: React.FC = () => {
     }
   }, [themeImage]);
 
-  const verifySession = useCallback(async () => {
-    setIsAuthChecking(true);
-    console.log('[Auth] Iniciando verificação de sessão...');
-
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const savedUserEmail = sessionStorage.getItem('rodo_user_email') || session?.user?.email;
-
-      if (savedUserEmail) {
-        console.log('[Auth] Recuperando perfil para:', savedUserEmail);
-
-        // Verifica se o usuário salvo na sessão já é um motorista
-        let savedUser: User | null = null;
-        try { savedUser = JSON.parse(sessionStorage.getItem('rodochagas_currentUser') || 'null'); } catch { savedUser = null; }
-        const isMotoristaSession = savedUser?.profile === UserProfile.Motorista;
-
-        if (isMotoristaSession) {
-          // Motorista: valida diretamente na tabela drivers via CPF (não existe em app_users)
-          const cleanCpf = savedUserEmail.replace(/\D/g, "");
-          const formattedCpf = cleanCpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
-
-          let { data: dbDriver } = await supabase
-            .from('drivers')
-            .select('*')
-            .eq("cpf", formattedCpf)
-            .maybeSingle();
-
-          if (!dbDriver) {
-            const { data: dbDriverClean } = await supabase
-              .from('drivers')
-              .select('*')
-              .eq("cpf", cleanCpf)
-              .maybeSingle();
-            dbDriver = dbDriverClean;
-          }
-
-          if (dbDriver && dbDriver.active) {
-            const driverProfile: User = {
-              id: dbDriver.id,
-              name: dbDriver.name,
-              email: dbDriver.cpf,
-              profile: UserProfile.Motorista,
-              active: dbDriver.active,
-            };
-            setCurrentUser(driverProfile);
-            console.log('[Auth] Sessão de motorista restaurada:', driverProfile.name);
-          } else {
-            console.warn('[Auth] Motorista não encontrado ou inativo.');
-            setCurrentUser(null);
-          }
-          return;
-        }
-
-        // Usuário interno: busca em app_users
-        const { data: dbUser, error: dbError } = await supabase
-          .from('app_users')
-          .select('*')
-          .eq("email", savedUserEmail)
-          .maybeSingle();
-
-        if (!dbError && dbUser) {
-          const userProfile = toUser(dbUser);
-
-          if (userProfile.active) {
-            if (userProfile.passwordUpdatedAt) {
-              const lastUpdate = new Date(userProfile.passwordUpdatedAt).getTime();
-              const now = new Date().getTime();
-              const daysSinceUpdate = (now - lastUpdate) / (1000 * 3600 * 24);
-              if (daysSinceUpdate >= 30) {
-                userProfile.requirePasswordChange = true;
-              }
-            }
-            setCurrentUser(userProfile);
-            console.log('[Auth] Sessão restaurada com sucesso:', userProfile.name);
-          } else {
-            console.warn('[Auth] Usuário inativo no banco.');
-            setCurrentUser(null);
-          }
-        } else {
-          if (dbError) console.error('[Auth] Erro ao recuperar perfil:', dbError.message);
-          setCurrentUser(null);
-        }
-      } else {
-        console.log('[Auth] Nenhuma sessão encontrada.');
-        setCurrentUser(null);
-      }
-    } catch (err) {
-      console.error('[Auth] Erro crítico na verificação:', err);
-    } finally {
-      setIsAuthChecking(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    verifySession();
-  }, [verifySession]);
-
-  // Guard: Se o usuario atual é motorista e está em uma rota errada, redireciona imediatamente
-  useEffect(() => {
-    if (!currentUser || isAuthChecking) return;
-    const isMotoristaUser = currentUser.profile === UserProfile.Motorista || String(currentUser.profile).toLowerCase() === 'motorista';
-    if (isMotoristaUser) {
-      const allowedPaths = ['/operational-loads', '/operational-map'];
-      if (!allowedPaths.includes(location.pathname)) {
-        navigate('/operational-loads', { replace: true });
-      }
-    }
-  }, [currentUser, isAuthChecking, location.pathname, navigate]);
-
   const nextStatusMap: Partial<Record<ShipmentStatus, ShipmentStatus>> = {
     [ShipmentStatus.AguardandoSeguradora]: ShipmentStatus.PreCadastro,
     [ShipmentStatus.PreCadastro]: ShipmentStatus.AguardandoCarregamento,
@@ -616,32 +381,6 @@ const App: React.FC = () => {
     };
     setNextIds((prev: any) => ({...prev, history: prev.history + 1}));
     return newLog;
-  }
-
-  // --- AUTH HANDLERS ---
-  const handleLogin = (user: User) => {
-    sessionStorage.setItem('rodo_user_email', user.email);
-    sessionStorage.setItem('rodochagas_currentUser', JSON.stringify(user));
-    setCurrentUser(user);
-    const isMotoristaUser = user.profile === UserProfile.Motorista || String(user.profile).toLowerCase() === 'motorista';
-    if (isMotoristaUser) {
-      navigate('/operational-loads', { replace: true });
-    } else {
-      navigate('/dashboard', { replace: true });
-    }
-  };
-
-  const handleLogout = () => {
-    sessionStorage.removeItem('rodo_user_email');
-    sessionStorage.removeItem('rodochagas_currentUser');
-    try {
-      localStorage.removeItem('rodo_user_email');
-      localStorage.removeItem('rodochagas_currentUser');
-      localStorage.removeItem('dllog_logged_in_user');
-      supabase.auth.signOut();
-    } catch {}
-    setCurrentUser(null);
-    setCurrentPage('dashboard');
   };
 
   const handlePasswordChange = async (newPassword: string, currentPassword: string) => {
