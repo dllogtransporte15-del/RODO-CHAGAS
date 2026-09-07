@@ -4,7 +4,7 @@ import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-
 import { supabase } from './supabase';
 import { useDatabase } from './hooks/useDatabase';
 import type { Client, Owner, Driver, Vehicle, Product, Cargo, Shipment, User, Page, ProfilePermissions, HistoryLog, Ticket, TicketHistory, ShipmentLock, Branch, FreightOffer } from './types';
-import { CargoStatus, ShipmentStatus, UserProfile, TicketStatus, TicketPriority, DriverClassification, VehicleSetType, VehicleBodyType, REQUIRED_DOCUMENT_MAP, OwnerType, FreightOfferStatus } from './types';
+import { CargoStatus, ShipmentStatus, UserProfile, TicketStatus, TicketPriority, DriverClassification, VehicleSetType, VehicleBodyType, REQUIRED_DOCUMENT_MAP, OwnerType, FreightOfferStatus, FreightPricingType } from './types';
 import { formatId } from './utils';
 import { INITIAL_PERMISSIONS, can } from './auth';
 import { useToast } from './hooks/useToast';
@@ -1205,10 +1205,16 @@ const App: React.FC = () => {
     
     if (loadedTonnage !== undefined && loadedTonnage > 0) {
         updatedTonnage = loadedTonnage;
-        const rateToUse = originalShipment.driverFreightRateSnapshot || cargos.find(c => c.id === originalShipment.cargoId)?.driverFreightValuePerTon || 0;
-        updatedDriverFreight = rateToUse * loadedTonnage;
-        const formattedVal = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(updatedDriverFreight);
-        historyLogs.push(`Tonelagem ajustada para ${loadedTonnage.toLocaleString('pt-BR')} ton. Frete atualizado para ${formattedVal}.`);
+        const relatedCargo = cargos.find(c => c.id === originalShipment.cargoId);
+        if (relatedCargo?.freightPricingType === FreightPricingType.FreteFechado) {
+            updatedDriverFreight = relatedCargo.fixedDriverFreight || originalShipment.driverFreightValue;
+            historyLogs.push(`Tonelagem ajustada para ${loadedTonnage.toLocaleString('pt-BR')} ton (Frete Fechado fixo mantido em ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(updatedDriverFreight)}).`);
+        } else {
+            const rateToUse = originalShipment.driverFreightRateSnapshot || relatedCargo?.driverFreightValuePerTon || 0;
+            updatedDriverFreight = rateToUse * loadedTonnage;
+            const formattedVal = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(updatedDriverFreight);
+            historyLogs.push(`Tonelagem ajustada para ${loadedTonnage.toLocaleString('pt-BR')} ton. Frete atualizado para ${formattedVal}.`);
+        }
     }
     
     let calculatedAdvanceValue = originalShipment.advanceValue;
@@ -1422,10 +1428,14 @@ const App: React.FC = () => {
 
     if (data.shipmentTonnage !== undefined && data.shipmentTonnage !== shipmentToUpdate.shipmentTonnage) {
         const diff = data.shipmentTonnage - shipmentToUpdate.shipmentTonnage;
-        const rateToUse = shipmentToUpdate.driverFreightRateSnapshot || cargos.find(c => c.id === shipmentToUpdate.cargoId)?.driverFreightValuePerTon || 0;
-        updatedDriverFreight = rateToUse * data.shipmentTonnage;
-        
         const cargo = cargos.find(c => c.id === shipmentToUpdate.cargoId);
+        if (cargo?.freightPricingType === FreightPricingType.FreteFechado) {
+            updatedDriverFreight = cargo.fixedDriverFreight || shipmentToUpdate.driverFreightValue;
+        } else {
+            const rateToUse = shipmentToUpdate.driverFreightRateSnapshot || cargo?.driverFreightValuePerTon || 0;
+            updatedDriverFreight = rateToUse * data.shipmentTonnage;
+        }
+        
         if (cargo) {
             const isLoaded = Object.values(ShipmentStatus).indexOf(shipmentToUpdate.status) >= Object.values(ShipmentStatus).indexOf(ShipmentStatus.AguardandoDescarga);
             updatedCargo = {

@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import type { Cargo, Driver, Shipment, Client, Vehicle, User } from '../types';
-import { UserProfile, DailyScheduleType, VehicleSetType, VehicleBodyType } from '../types';
+import { UserProfile, DailyScheduleType, VehicleSetType, VehicleBodyType, FreightPricingType } from '../types';
 import { supabase } from '../supabase';
 import { useToast } from '../hooks/useToast';
 
@@ -235,7 +235,11 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
 
 
   const calculatedFreight = useMemo(() => {
-    if (!cargo || shipmentTonnage <= 0) return 0;
+    if (!cargo) return 0;
+    if (cargo.freightPricingType === FreightPricingType.FreteFechado) {
+      return cargo.fixedDriverFreight || cargo.driverFreightValuePerTon || 0;
+    }
+    if (shipmentTonnage <= 0) return 0;
     return (cargo?.driverFreightValuePerTon || 0) * shipmentTonnage;
   }, [cargo, shipmentTonnage]);
 
@@ -547,9 +551,27 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
               <div className="p-4 bg-gray-100 dark:bg-gray-900/50 rounded-lg text-center">
                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Valor do Frete (Motorista)</p>
                 <div className="flex flex-col items-center">
-                    <p className="text-2xl font-bold text-gray-800 dark:text-white">
-                        {formatCurrency(cargo?.driverFreightValuePerTon || 0)} <span className="text-sm font-normal text-gray-500">/ TON</span>
-                    </p>
+                    {cargo?.freightPricingType === FreightPricingType.FreteFechado ? (
+                      <>
+                        <p className="text-2xl font-bold text-gray-800 dark:text-white">
+                            {formatCurrency(cargo.fixedDriverFreight || cargo.driverFreightValuePerTon || 0)}
+                        </p>
+                        <span className="text-xs font-semibold px-2 py-0.5 mt-1 rounded bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300">
+                          🔒 Frete Fechado (Fixo por Viagem)
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-2xl font-bold text-gray-800 dark:text-white">
+                            {formatCurrency(cargo?.driverFreightValuePerTon || 0)} <span className="text-sm font-normal text-gray-500">/ TON</span>
+                        </p>
+                        {shipmentTonnage > 0 && (
+                          <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            Total Estimado: {formatCurrency(calculatedFreight)}
+                          </span>
+                        )}
+                      </>
+                    )}
                 </div>
               </div>
               <div>

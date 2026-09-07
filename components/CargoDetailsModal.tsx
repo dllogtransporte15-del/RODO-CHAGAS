@@ -1,7 +1,7 @@
 
 import React, { useMemo } from 'react';
 import type { Cargo, Client, Product, User, FreightLeg, Shipment } from '../types';
-import { UserProfile, ShipmentStatus } from '../types';
+import { UserProfile, ShipmentStatus, FreightPricingType } from '../types';
 import VolumeBar from './VolumeBar';
 import { PaperclipIcon } from './icons/PaperclipIcon';
 import { StayRecord } from '../utils/toolStorage';
@@ -76,8 +76,39 @@ const CargoDetailsModal: React.FC<CargoDetailsModalProps> = ({ isOpen, onClose, 
       }];
       
   const { totalCompanyFreight, totalDriverFreight, netMarginPercentage } = useMemo(() => {
+    const pricingType = cargo.freightPricingType || freightLegsToDisplay[0]?.pricingType || FreightPricingType.PorTonelada;
     const activeLegs = freightLegsToDisplay;
+    const totalCommission = cargo.salespersonCommissionPerTon || 0;
 
+    if (pricingType === FreightPricingType.FreteFechado) {
+      const compFixed = Number(cargo.fixedCompanyFreight) || Number(cargo.companyFreightValuePerTon) || 0;
+      const drivFixed = Number(cargo.fixedDriverFreight) || Number(cargo.driverFreightValuePerTon) || 0;
+      const icmsPct = cargo.hasIcms ? (Number(cargo.icmsPercentage) || 0) / 100 : 0;
+      const netCompany = compFixed * (1 - icmsPct);
+      const netProfit = netCompany - drivFixed;
+      const margin = netCompany > 0 ? (netProfit / netCompany) * 100 : 0;
+
+      const netMarginPercentage = isNaN(margin) || !isFinite(margin)
+        ? '0,00%'
+        : `${margin.toFixed(2).replace('.', ',')}%`;
+
+      return { totalCompanyFreight: compFixed, totalDriverFreight: drivFixed, netMarginPercentage };
+    }
+
+    if (pricingType === FreightPricingType.VlrTonIcms) {
+      const baseCompanyPerTon = activeLegs[0]?.companyFreightValuePerTon || 0;
+      const driverPerTon = activeLegs[0]?.driverFreightValuePerTon || 0;
+      const netProfit = baseCompanyPerTon - driverPerTon - totalCommission;
+      const margin = baseCompanyPerTon > 0 ? (netProfit / baseCompanyPerTon) * 100 : 0;
+
+      const netMarginPercentage = isNaN(margin) || !isFinite(margin)
+        ? '0,00%'
+        : `${margin.toFixed(2).replace('.', ',')}%`;
+
+      return { totalCompanyFreight: baseCompanyPerTon, totalDriverFreight: driverPerTon, netMarginPercentage };
+    }
+
+    // Default: Por Tonelada
     const totalCompanyFreight = activeLegs.reduce((sum, leg) => sum + leg.companyFreightValuePerTon, 0);
     const totalDriverFreight = activeLegs.reduce((sum, leg) => sum + leg.driverFreightValuePerTon, 0);
     
@@ -86,8 +117,6 @@ const CargoDetailsModal: React.FC<CargoDetailsModalProps> = ({ isOpen, onClose, 
         const netValue = leg.companyFreightValuePerTon * (1 - icmsRate);
         return sum + netValue;
     }, 0);
-
-    const totalCommission = cargo.salespersonCommissionPerTon || 0;
     
     // Average demurrage
     const loadShipments = shipments.filter(s => s.cargoId === cargo.id && s.status !== ShipmentStatus.Cancelado);
@@ -113,7 +142,7 @@ const CargoDetailsModal: React.FC<CargoDetailsModalProps> = ({ isOpen, onClose, 
         : `${margin.toFixed(2).replace('.', ',')}%`;
 
     return { totalCompanyFreight, totalDriverFreight, netMarginPercentage };
-  }, [freightLegsToDisplay, cargo.salespersonCommissionPerTon, stays, shipments, cargo.id]);
+  }, [freightLegsToDisplay, cargo.freightPricingType, cargo.fixedCompanyFreight, cargo.fixedDriverFreight, cargo.hasIcms, cargo.icmsPercentage, cargo.salespersonCommissionPerTon, stays, shipments, cargo.id]);
 
 
   return (
@@ -187,38 +216,107 @@ const CargoDetailsModal: React.FC<CargoDetailsModalProps> = ({ isOpen, onClose, 
             )}
 
             <div className="border-t dark:border-gray-700 pt-4">
-                <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2">Valores de Frete (por Tonelada)</h3>
-                <div className="space-y-3">
-                    {freightLegsToDisplay.map((leg, index) => (
-                        <FreightLegDetail 
-                            key={index} 
-                            leg={leg} 
-                            index={index} 
-                            hideSensitiveData={isClient} 
-                            hideCompanyFreight={isMotorista || isEmbarcador}
-                            isMotorista={isMotorista || isEmbarcador} 
-                        />
-                    ))}
+                <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300">Valores de Frete</h3>
+                    {cargo.freightPricingType === FreightPricingType.FreteFechado && (
+                        <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
+                            🔒 Frete Fechado (Fixo R$)
+                        </span>
+                    )}
+                    {cargo.freightPricingType === FreightPricingType.VlrTonIcms && (
+                        <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300">
+                            ⚡ VLR P/ton + ICMS
+                        </span>
+                    )}
+                    {(!cargo.freightPricingType || cargo.freightPricingType === FreightPricingType.PorTonelada) && (
+                        <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300">
+                            📦 Por Tonelada
+                        </span>
+                    )}
                 </div>
+
+                {cargo.freightPricingType === FreightPricingType.FreteFechado ? (
+                    <div className="p-4 border rounded-md dark:border-gray-700 bg-amber-50/50 dark:bg-gray-900/50 space-y-3">
+                        <div className="grid grid-cols-2 gap-4 text-sm">
+                            {!isMotorista && !isEmbarcador && (
+                                <div>
+                                    <p className="text-xs text-gray-500">Frete Empresa (Fixo Viagem)</p>
+                                    <p className="text-base font-bold text-gray-800 dark:text-gray-200">{formatCurrency(cargo.fixedCompanyFreight || cargo.companyFreightValuePerTon)}</p>
+                                </div>
+                            )}
+                            {!isClient && (
+                                <div>
+                                    <p className="text-xs text-gray-500">{isMotorista ? 'Valor do Frete (Fixo Viagem)' : 'Frete Motorista (Fixo Viagem)'}</p>
+                                    <p className="text-base font-bold text-gray-800 dark:text-gray-200">{formatCurrency(cargo.fixedDriverFreight || cargo.driverFreightValuePerTon)}</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                ) : cargo.freightPricingType === FreightPricingType.VlrTonIcms ? (
+                    <div className="p-4 border rounded-md dark:border-gray-700 bg-blue-50/50 dark:bg-gray-900/50 space-y-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+                            {!isMotorista && !isEmbarcador && (
+                                <div>
+                                    <p className="text-xs text-gray-500">Frete Empresa Base</p>
+                                    <p className="font-bold text-gray-800 dark:text-gray-200">{formatCurrency(freightLegsToDisplay[0]?.companyFreightValuePerTon || 0)} / ton</p>
+                                </div>
+                            )}
+                            {!isMotorista && !isEmbarcador && (
+                                <div>
+                                    <p className="text-xs text-gray-500">ICMS Adicionado</p>
+                                    <p className="font-bold text-amber-700 dark:text-amber-400">
+                                        +{cargo.icmsPercentage || 0}%
+                                    </p>
+                                </div>
+                            )}
+                            {!isClient && (
+                                <div>
+                                    <p className="text-xs text-gray-500">{isMotorista ? 'Valor do Frete' : 'Frete Motorista'}</p>
+                                    <p className="font-bold text-gray-800 dark:text-gray-200">{formatCurrency(freightLegsToDisplay[0]?.driverFreightValuePerTon || 0)} / ton</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                ) : (
+                    <div className="space-y-3">
+                        {freightLegsToDisplay.map((leg, index) => (
+                            <FreightLegDetail 
+                                key={index} 
+                                leg={leg} 
+                                index={index} 
+                                hideSensitiveData={isClient} 
+                                hideCompanyFreight={isMotorista || isEmbarcador}
+                                isMotorista={isMotorista || isEmbarcador} 
+                            />
+                        ))}
+                    </div>
+                )}
+
                  <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
                     {isMotorista || isEmbarcador ? (
                         <div className="p-3 bg-gray-100 dark:bg-gray-700 rounded-md col-span-1 md:col-span-3">
                             <label className="text-xs font-medium text-gray-500 dark:text-gray-400">
                                 {isEmbarcador ? 'Frete Motorista (Final)' : 'Valor do Frete (Final)'}
                             </label>
-                            <p className="text-lg font-bold text-gray-800 dark:text-gray-200">{formatCurrency(totalDriverFreight)}</p>
+                            <p className="text-lg font-bold text-gray-800 dark:text-gray-200">
+                                {formatCurrency(totalDriverFreight)} {cargo.freightPricingType === FreightPricingType.FreteFechado ? '(Fixo)' : '/ ton'}
+                            </p>
                         </div>
                     ) : (
                         <>
                             <div className="p-3 bg-gray-100 dark:bg-gray-700 rounded-md">
                                 <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Frete Empresa (Final)</label>
-                                <p className="text-lg font-bold text-gray-800 dark:text-gray-200">{formatCurrency(totalCompanyFreight)}</p>
+                                <p className="text-lg font-bold text-gray-800 dark:text-gray-200">
+                                    {formatCurrency(totalCompanyFreight)} {cargo.freightPricingType === FreightPricingType.FreteFechado ? '(Fixo)' : (cargo.freightPricingType === FreightPricingType.VlrTonIcms ? '/ ton + ICMS' : '/ ton')}
+                                </p>
                             </div>
                             {!isClient && (
                                 <>
                                     <div className="p-3 bg-gray-100 dark:bg-gray-700 rounded-md">
                                         <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Frete Motorista (Final)</label>
-                                        <p className="text-lg font-bold text-gray-800 dark:text-gray-200">{formatCurrency(totalDriverFreight)}</p>
+                                        <p className="text-lg font-bold text-gray-800 dark:text-gray-200">
+                                            {formatCurrency(totalDriverFreight)} {cargo.freightPricingType === FreightPricingType.FreteFechado ? '(Fixo)' : '/ ton'}
+                                        </p>
                                     </div>
                                     <div className="p-3 bg-blue-50 dark:bg-blue-900/50 rounded-md border border-blue-200 dark:border-blue-800">
                                         <label className="text-xs font-medium text-blue-500 dark:text-blue-400">Margem Líquida (%)</label>

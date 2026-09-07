@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import type { Cargo, Client, Product, Shipment, User } from '../types';
-import { DailyScheduleType, CargoStatus, UserProfile, ShipmentStatus } from '../types';
+import { DailyScheduleType, CargoStatus, UserProfile, ShipmentStatus, FreightPricingType } from '../types';
 import VolumeBar from './VolumeBar';
 import { Trash2 } from 'lucide-react';
 import { PlusIcon } from './icons/PlusIcon';
@@ -340,10 +340,27 @@ const LoadTable: React.FC<LoadTableProps> = ({ loads, clients, products, shipmen
           const demurrageProfitPerTon = loadedTonnage > 0 ? (totalDemurrageProfit / loadedTonnage) : 0;
           const demurrageRevenuePerTon = loadedTonnage > 0 ? (totalDemurrageRevenue / loadedTonnage) : 0;
           
-          const netProfit = totalNetCompanyValue - totalDriverFreight - totalCommission + demurrageProfitPerTon;
-          const totalCompanyFreightWithEstadias = totalNetCompanyValue + demurrageRevenuePerTon;
+          let margin = 0;
+          let netProfit = 0;
 
-          const margin = (totalCompanyFreightWithEstadias > 0) ? (netProfit / totalCompanyFreightWithEstadias) * 100 : 0;
+          if (load.freightPricingType === FreightPricingType.FreteFechado) {
+            const compFixed = Number(load.fixedCompanyFreight) || Number(load.companyFreightValuePerTon) || 0;
+            const drivFixed = Number(load.fixedDriverFreight) || Number(load.driverFreightValuePerTon) || 0;
+            const icmsPct = load.hasIcms ? (Number(load.icmsPercentage) || 0) / 100 : 0;
+            const netComp = compFixed * (1 - icmsPct);
+            netProfit = netComp - drivFixed;
+            margin = netComp > 0 ? (netProfit / netComp) * 100 : 0;
+          } else if (load.freightPricingType === FreightPricingType.VlrTonIcms) {
+            const baseComp = load.companyFreightValuePerTon || 0;
+            const drivRate = load.driverFreightValuePerTon || 0;
+            netProfit = baseComp - drivRate - totalCommission;
+            margin = baseComp > 0 ? (netProfit / baseComp) * 100 : 0;
+          } else {
+            netProfit = totalNetCompanyValue - totalDriverFreight - totalCommission + demurrageProfitPerTon;
+            const totalCompanyFreightWithEstadias = totalNetCompanyValue + demurrageRevenuePerTon;
+            margin = (totalCompanyFreightWithEstadias > 0) ? (netProfit / totalCompanyFreightWithEstadias) * 100 : 0;
+          }
+
           const netMarginPercentage = isNaN(margin) || !isFinite(margin) ? '0,00%' : `${margin.toFixed(2).replace('.', ',')}%`;
 
           let marginColorClass = 'text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800';
@@ -409,7 +426,11 @@ const LoadTable: React.FC<LoadTableProps> = ({ loads, clients, products, shipmen
 
                   <div className="flex flex-col items-end gap-1">
                     <span className="text-sm font-black text-emerald-600 dark:text-emerald-400">
-                      R$ {load.driverFreightValuePerTon?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / ton
+                      {load.freightPricingType === FreightPricingType.FreteFechado ? (
+                        <>R$ {(load.fixedDriverFreight || load.driverFreightValuePerTon)?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} <span className="text-[10px] uppercase font-bold text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/40 px-1.5 py-0.5 rounded ml-1">Fixo</span></>
+                      ) : (
+                        <>R$ {load.driverFreightValuePerTon?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / ton</>
+                      )}
                     </span>
                     <button
                       onClick={() => onRequestLoadOrder?.(load)}
@@ -603,10 +624,26 @@ const LoadTable: React.FC<LoadTableProps> = ({ loads, clients, products, shipmen
                 {/* Freight and Actions */}
                 <div className="flex items-center justify-between lg:justify-end gap-4 min-w-[150px]">
                   <div className="text-right flex flex-col items-end">
-                    <div className="text-[9px] text-gray-400 uppercase font-bold">Frete</div>
+                    <div className="flex items-center gap-1.5">
+                      <div className="text-[9px] text-gray-400 uppercase font-bold">Frete</div>
+                      {load.freightPricingType === FreightPricingType.FreteFechado && (
+                        <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">Fixo</span>
+                      )}
+                      {load.freightPricingType === FreightPricingType.VlrTonIcms && (
+                        <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300">+ICMS</span>
+                      )}
+                    </div>
                     <div className="flex items-center gap-2">
                       <div className="text-sm font-bold text-primary dark:text-blue-400">
-                        {currentUser.profile === UserProfile.Cliente ? formatCurrency(load.companyFreightValuePerTon) : formatCurrency(load.driverFreightValuePerTon)}
+                        {currentUser.profile === UserProfile.Cliente ? (
+                          load.freightPricingType === FreightPricingType.FreteFechado
+                            ? `${formatCurrency(load.fixedCompanyFreight || load.companyFreightValuePerTon)}`
+                            : (load.freightPricingType === FreightPricingType.VlrTonIcms ? `${formatCurrency(load.companyFreightValuePerTon)}/t + ICMS` : `${formatCurrency(load.companyFreightValuePerTon)}/t`)
+                        ) : (
+                          load.freightPricingType === FreightPricingType.FreteFechado
+                            ? `${formatCurrency(load.fixedDriverFreight || load.driverFreightValuePerTon)}`
+                            : `${formatCurrency(load.driverFreightValuePerTon)}/t`
+                        )}
                       </div>
                       {currentUser.profile !== UserProfile.Cliente && currentUser.profile !== UserProfile.Motorista && currentUser.profile !== UserProfile.Embarcador && (
                           <div className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${marginColorClass}`} title="Margem de Lucro">

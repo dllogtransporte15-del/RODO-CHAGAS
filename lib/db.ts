@@ -1,6 +1,6 @@
 import { supabase } from '../supabase';
 import { cleanOrShortenLocationInput } from '../utils/locationUtils';
-import { UserProfile } from '../types';
+import { UserProfile, FreightPricingType } from '../types';
 import type {
   Client, Owner, Driver, Vehicle, Product, Cargo, Shipment, User, Ticket, ProfilePermissions, ShipmentLock, Branch, FreightOffer
 } from '../types';
@@ -247,79 +247,124 @@ export const toProduct = (row: any): Product => ({
   unit: row.unit,
 });
 
-export const toCargo = (row: any): Cargo => ({
-  id: row.id,
-  sequenceId: row.sequence_id,
-  clientId: row.client_id,
-  productId: row.product_id,
-  origin: row.origin,
-  originLocation: row.origin_location,
-  originMapLink: row.origin_map_link,
-  destination: row.destination,
-  destinationLocation: row.destination_location,
-  destinationMapLink: row.destination_map_link,
-  totalVolume: Number(row.total_volume),
-  scheduledVolume: Number(row.scheduled_volume),
-  loadedVolume: Number(row.loaded_volume),
-  companyFreightValuePerTon: Number(row.company_freight_value_per_ton),
-  driverFreightValuePerTon: Number(row.driver_freight_value_per_ton),
-  hasIcms: row.has_icms,
-  icmsPercentage: Number(row.icms_percentage),
-  requiresScheduling: row.requires_scheduling,
-  type: row.type,
-  status: row.status,
-  createdAt: row.created_at,
-  createdById: row.created_by_id,
-  history: row.history || [],
-  loadingDeadline: row.loading_deadline,
-  allowedVehicleTypes: row.allowed_vehicle_types,
-  freightLegs: row.freight_legs,
-  dailySchedule: row.daily_schedule,
-  observations: row.observations,
-  attachments: row.attachments || [],
-  originCoords: row.origin_coords,
-  destinationCoords: row.destination_coords,
-  salespersonName: row.salesperson_name,
-  salespersonCommissionPerTon: Number(row.salesperson_commission_per_ton),
-  branchId: row.branch_id,
-});
+export const toCargo = (row: any): Cargo => {
+  const freightLegs = row.freight_legs || [];
+  const firstLeg = freightLegs[0] || {};
+  const pricingType: FreightPricingType = row.freight_pricing_type || firstLeg.pricingType || FreightPricingType.PorTonelada;
+  const fixedCompany = row.fixed_company_freight !== undefined && row.fixed_company_freight !== null 
+    ? Number(row.fixed_company_freight) 
+    : (firstLeg.fixedCompanyFreight !== undefined ? Number(firstLeg.fixedCompanyFreight) : undefined);
+  const fixedDriver = row.fixed_driver_freight !== undefined && row.fixed_driver_freight !== null 
+    ? Number(row.fixed_driver_freight) 
+    : (firstLeg.fixedDriverFreight !== undefined ? Number(firstLeg.fixedDriverFreight) : undefined);
+  const icmsCalcType = row.icms_calculation_type || firstLeg.icmsCalculationType || 'percentage';
+  const icmsVal = row.icms_value !== undefined && row.icms_value !== null 
+    ? Number(row.icms_value) 
+    : (firstLeg.icmsValue !== undefined ? Number(firstLeg.icmsValue) : undefined);
 
-const fromCargo = (c: Cargo | Omit<Cargo, 'id'>) => ({
-  id: (c as Cargo).id,
-  sequence_id: c.sequenceId,
-  client_id: c.clientId,
-  product_id: c.productId,
-  origin: c.origin,
-  origin_location: cleanOrShortenLocationInput(c.originLocation),
-  origin_map_link: cleanOrShortenLocationInput(c.originMapLink),
-  destination: c.destination,
-  destination_location: cleanOrShortenLocationInput(c.destinationLocation),
-  destination_map_link: cleanOrShortenLocationInput(c.destinationMapLink),
-  total_volume: c.totalVolume,
-  scheduled_volume: c.scheduledVolume,
-  loaded_volume: c.loadedVolume,
-  company_freight_value_per_ton: c.companyFreightValuePerTon,
-  driver_freight_value_per_ton: c.driverFreightValuePerTon,
-  has_icms: c.hasIcms,
-  icms_percentage: c.icmsPercentage,
-  requires_scheduling: c.requiresScheduling,
-  type: c.type,
-  status: c.status,
-  created_at: c.createdAt,
-  created_by_id: c.createdById,
-  history: c.history,
-  loading_deadline: c.loadingDeadline,
-  allowed_vehicle_types: c.allowedVehicleTypes,
-  freight_legs: c.freightLegs,
-  daily_schedule: c.dailySchedule,
-  observations: c.observations,
-  attachments: c.attachments || [],
-  origin_coords: c.originCoords,
-  destination_coords: c.destinationCoords,
-  salesperson_name: c.salespersonName,
-  salesperson_commission_per_ton: c.salespersonCommissionPerTon,
-  branch_id: c.branchId || null,
-});
+  return {
+    id: row.id,
+    sequenceId: row.sequence_id,
+    clientId: row.client_id,
+    productId: row.product_id,
+    origin: row.origin,
+    originLocation: row.origin_location,
+    originMapLink: row.origin_map_link,
+    destination: row.destination,
+    destinationLocation: row.destination_location,
+    destinationMapLink: row.destination_map_link,
+    totalVolume: Number(row.total_volume),
+    scheduledVolume: Number(row.scheduled_volume),
+    loadedVolume: Number(row.loaded_volume),
+    companyFreightValuePerTon: Number(row.company_freight_value_per_ton),
+    driverFreightValuePerTon: Number(row.driver_freight_value_per_ton),
+    hasIcms: row.has_icms,
+    icmsPercentage: Number(row.icms_percentage),
+    requiresScheduling: row.requires_scheduling,
+    type: row.type,
+    status: row.status,
+    createdAt: row.created_at,
+    createdById: row.created_by_id,
+    history: row.history || [],
+    loadingDeadline: row.loading_deadline,
+    allowedVehicleTypes: row.allowed_vehicle_types,
+    freightLegs: row.freight_legs,
+    freightPricingType: pricingType,
+    fixedCompanyFreight: fixedCompany,
+    fixedDriverFreight: fixedDriver,
+    icmsCalculationType: icmsCalcType,
+    icmsValue: icmsVal,
+    dailySchedule: row.daily_schedule,
+    observations: row.observations,
+    attachments: row.attachments || [],
+    originCoords: row.origin_coords,
+    destinationCoords: row.destination_coords,
+    salespersonName: row.salesperson_name,
+    salespersonCommissionPerTon: Number(row.salesperson_commission_per_ton),
+    branchId: row.branch_id,
+  };
+};
+
+const fromCargo = (c: Cargo | Omit<Cargo, 'id'>) => {
+  const pricingType = c.freightPricingType || FreightPricingType.PorTonelada;
+  const legs = (c.freightLegs && c.freightLegs.length > 0)
+    ? c.freightLegs.map(leg => ({
+        ...leg,
+        pricingType: leg.pricingType || pricingType,
+        fixedCompanyFreight: leg.fixedCompanyFreight ?? c.fixedCompanyFreight,
+        fixedDriverFreight: leg.fixedDriverFreight ?? c.fixedDriverFreight,
+        icmsCalculationType: leg.icmsCalculationType ?? c.icmsCalculationType,
+        icmsValue: leg.icmsValue ?? c.icmsValue,
+      }))
+    : [{
+        companyFreightValuePerTon: c.companyFreightValuePerTon,
+        driverFreightValuePerTon: c.driverFreightValuePerTon,
+        hasIcms: c.hasIcms,
+        icmsPercentage: c.icmsPercentage,
+        pricingType: pricingType,
+        fixedCompanyFreight: c.fixedCompanyFreight,
+        fixedDriverFreight: c.fixedDriverFreight,
+        icmsCalculationType: c.icmsCalculationType,
+        icmsValue: c.icmsValue,
+      }];
+
+  return {
+    id: (c as Cargo).id,
+    sequence_id: c.sequenceId,
+    client_id: c.clientId,
+    product_id: c.productId,
+    origin: c.origin,
+    origin_location: cleanOrShortenLocationInput(c.originLocation),
+    origin_map_link: cleanOrShortenLocationInput(c.originMapLink),
+    destination: c.destination,
+    destination_location: cleanOrShortenLocationInput(c.destinationLocation),
+    destination_map_link: cleanOrShortenLocationInput(c.destinationMapLink),
+    total_volume: c.totalVolume,
+    scheduled_volume: c.scheduledVolume,
+    loaded_volume: c.loadedVolume,
+    company_freight_value_per_ton: c.companyFreightValuePerTon,
+    driver_freight_value_per_ton: c.driverFreightValuePerTon,
+    has_icms: c.hasIcms,
+    icms_percentage: c.icmsPercentage,
+    requires_scheduling: c.requiresScheduling,
+    type: c.type,
+    status: c.status,
+    created_at: c.createdAt,
+    created_by_id: c.createdById,
+    history: c.history,
+    loading_deadline: c.loadingDeadline,
+    allowed_vehicle_types: c.allowedVehicleTypes,
+    freight_legs: legs,
+    daily_schedule: c.dailySchedule,
+    observations: c.observations,
+    attachments: c.attachments || [],
+    origin_coords: c.originCoords,
+    destination_coords: c.destinationCoords,
+    salesperson_name: c.salespersonName,
+    salesperson_commission_per_ton: c.salespersonCommissionPerTon,
+    branch_id: c.branchId || null,
+  };
+};
 
 export const toShipment = (row: any): Shipment => ({
   id: row.id,

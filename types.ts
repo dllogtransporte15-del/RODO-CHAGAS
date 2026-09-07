@@ -167,11 +167,22 @@ export interface HistoryLog {
     description: string;
 }
 
+export enum FreightPricingType {
+  PorTonelada = "Por Tonelada",
+  FreteFechado = "Frete Fechado",
+  VlrTonIcms = "VLR P/ton + ICMS",
+}
+
 export interface FreightLeg {
   companyFreightValuePerTon: number;
   driverFreightValuePerTon: number;
   hasIcms: boolean;
   icmsPercentage: number;
+  pricingType?: FreightPricingType;
+  fixedCompanyFreight?: number;
+  fixedDriverFreight?: number;
+  icmsCalculationType?: 'percentage' | 'fixed';
+  icmsValue?: number;
 }
 
 export enum DailyScheduleType {
@@ -213,6 +224,11 @@ export interface Cargo {
   loadingDeadline?: string;
   allowedVehicleTypes?: { setType: VehicleSetType; bodyTypes: VehicleBodyType[] }[];
   freightLegs?: FreightLeg[];
+  freightPricingType?: FreightPricingType;
+  fixedCompanyFreight?: number;
+  fixedDriverFreight?: number;
+  icmsCalculationType?: 'percentage' | 'fixed';
+  icmsValue?: number;
   dailySchedule?: DailyScheduleEntry[];
   observations?: string;
   attachments?: string[];

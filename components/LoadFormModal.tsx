@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import type { Cargo, Client, Product, User, FreightLeg, DailyScheduleEntry, Branch, FreightOffer } from '../types';
-import { CargoStatus, CargoType, UserProfile, VehicleSetType, VehicleBodyType, DailyScheduleType } from '../types';
+import { CargoStatus, CargoType, UserProfile, VehicleSetType, VehicleBodyType, DailyScheduleType, FreightPricingType } from '../types';
 import { PlusIcon } from './icons/PlusIcon';
 import { XIcon } from './icons/XIcon';
 import { PaperclipIcon } from './icons/PaperclipIcon';
@@ -58,14 +58,19 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
         driverFreightValuePerTon: 0,
         hasIcms: false,
         icmsPercentage: 0,
+        freightPricingType: FreightPricingType.PorTonelada,
+        fixedCompanyFreight: 0,
+        fixedDriverFreight: 0,
+        icmsCalculationType: 'percentage',
+        icmsValue: 0,
         requiresScheduling: false,
         type: CargoType.Spot,
         status: CargoStatus.EmAndamento,
         loadingDeadline: '',
         allowedVehicleTypes: DEFAULT_ALLOWED_VEHICLE_TYPES,
         freightLegs: [
-          { companyFreightValuePerTon: offerToConvert.counterOfferValue || offerToConvert.freightValuePerTon || 0, driverFreightValuePerTon: 0, hasIcms: false, icmsPercentage: 0 },
-          { companyFreightValuePerTon: 0, driverFreightValuePerTon: 0, hasIcms: false, icmsPercentage: 0 }
+          { companyFreightValuePerTon: offerToConvert.counterOfferValue || offerToConvert.freightValuePerTon || 0, driverFreightValuePerTon: 0, hasIcms: false, icmsPercentage: 0, pricingType: FreightPricingType.PorTonelada },
+          { companyFreightValuePerTon: 0, driverFreightValuePerTon: 0, hasIcms: false, icmsPercentage: 0, pricingType: FreightPricingType.PorTonelada }
         ],
         dailySchedule: [],
         observations: offerToConvert.dailySchedule ? `Cadência sugerida pelo cliente: ${offerToConvert.dailySchedule}` : '',
@@ -92,14 +97,19 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
     driverFreightValuePerTon: 0,
     hasIcms: false,
     icmsPercentage: 0,
+    freightPricingType: FreightPricingType.PorTonelada,
+    fixedCompanyFreight: 0,
+    fixedDriverFreight: 0,
+    icmsCalculationType: 'percentage',
+    icmsValue: 0,
     requiresScheduling: false,
     type: CargoType.Spot,
     status: CargoStatus.EmAndamento,
     loadingDeadline: '',
     allowedVehicleTypes: DEFAULT_ALLOWED_VEHICLE_TYPES,
     freightLegs: [
-      { companyFreightValuePerTon: 0, driverFreightValuePerTon: 0, hasIcms: false, icmsPercentage: 0 },
-      { companyFreightValuePerTon: 0, driverFreightValuePerTon: 0, hasIcms: false, icmsPercentage: 0 }
+      { companyFreightValuePerTon: 0, driverFreightValuePerTon: 0, hasIcms: false, icmsPercentage: 0, pricingType: FreightPricingType.PorTonelada },
+      { companyFreightValuePerTon: 0, driverFreightValuePerTon: 0, hasIcms: false, icmsPercentage: 0, pricingType: FreightPricingType.PorTonelada }
     ],
     dailySchedule: [],
     observations: '',
@@ -135,16 +145,53 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
         setStep(initialStep);
         if (loadToEdit) {
             const { history, createdAt, id, scheduledVolume, loadedVolume, ...editableLoad } = loadToEdit;
+            const pricingType = editableLoad.freightPricingType || editableLoad.freightLegs?.[0]?.pricingType || FreightPricingType.PorTonelada;
+            const fixedComp = editableLoad.fixedCompanyFreight !== undefined 
+              ? editableLoad.fixedCompanyFreight 
+              : (editableLoad.freightLegs?.[0]?.fixedCompanyFreight ?? (pricingType === FreightPricingType.FreteFechado ? editableLoad.companyFreightValuePerTon : 0));
+            const fixedDriv = editableLoad.fixedDriverFreight !== undefined 
+              ? editableLoad.fixedDriverFreight 
+              : (editableLoad.freightLegs?.[0]?.fixedDriverFreight ?? (pricingType === FreightPricingType.FreteFechado ? editableLoad.driverFreightValuePerTon : 0));
+            const icmsCalcType = editableLoad.icmsCalculationType || editableLoad.freightLegs?.[0]?.icmsCalculationType || 'percentage';
+            const icmsVal = editableLoad.icmsValue !== undefined 
+              ? editableLoad.icmsValue 
+              : (editableLoad.freightLegs?.[0]?.icmsValue ?? 0);
+
             const legs = editableLoad.freightLegs && editableLoad.freightLegs.length > 0
                 ? [...editableLoad.freightLegs]
-                : [{ companyFreightValuePerTon: editableLoad.companyFreightValuePerTon, driverFreightValuePerTon: editableLoad.driverFreightValuePerTon, hasIcms: editableLoad.hasIcms, icmsPercentage: editableLoad.icmsPercentage }];
+                : [{ 
+                    companyFreightValuePerTon: editableLoad.companyFreightValuePerTon, 
+                    driverFreightValuePerTon: editableLoad.driverFreightValuePerTon, 
+                    hasIcms: editableLoad.hasIcms, 
+                    icmsPercentage: editableLoad.icmsPercentage,
+                    pricingType: pricingType,
+                    fixedCompanyFreight: fixedComp,
+                    fixedDriverFreight: fixedDriv,
+                    icmsCalculationType: icmsCalcType,
+                    icmsValue: icmsVal,
+                  }];
             
             while (legs.length < 2) {
-                legs.push({ companyFreightValuePerTon: 0, driverFreightValuePerTon: 0, hasIcms: false, icmsPercentage: 0 });
+                legs.push({ 
+                  companyFreightValuePerTon: 0, 
+                  driverFreightValuePerTon: 0, 
+                  hasIcms: false, 
+                  icmsPercentage: 0,
+                  pricingType: pricingType,
+                  fixedCompanyFreight: 0,
+                  fixedDriverFreight: 0,
+                  icmsCalculationType: 'percentage',
+                  icmsValue: 0,
+                });
             }
             
             setLoad({ 
                 ...editableLoad, 
+                freightPricingType: pricingType,
+                fixedCompanyFreight: fixedComp,
+                fixedDriverFreight: fixedDriv,
+                icmsCalculationType: icmsCalcType,
+                icmsValue: icmsVal,
                 freightLegs: legs, 
                 dailySchedule: editableLoad.dailySchedule || [],
                 observations: editableLoad.observations || '',
@@ -168,10 +215,71 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
     prevIsOpen.current = isOpen;
   }, [isOpen, initialStep, currentUser]);
   
-  const { totalCompanyFreight, totalDriverFreight, netMarginPercentage } = useMemo(() => {
+  const { totalCompanyFreight, totalDriverFreight, netMarginPercentage, exampleSimulation } = useMemo(() => {
+    const pricingType = load.freightPricingType || FreightPricingType.PorTonelada;
     const legs = load.freightLegs || [];
     const activeLegs = hasMultiLeg ? legs.slice(0, 2) : legs.slice(0, 1);
+    const totalCommission = load.salespersonCommissionPerTon || 0;
 
+    if (pricingType === FreightPricingType.FreteFechado) {
+      const compFixed = Number(load.fixedCompanyFreight) || 0;
+      const drivFixed = Number(load.fixedDriverFreight) || 0;
+      const icmsPct = load.hasIcms ? (Number(load.icmsPercentage) || 0) / 100 : 0;
+      const netCompany = compFixed * (1 - icmsPct);
+      const netProfit = netCompany - drivFixed;
+      const margin = netCompany > 0 ? (netProfit / netCompany) * 100 : 0;
+
+      const netMarginPercentage = isNaN(margin) || !isFinite(margin)
+        ? '0,00%'
+        : `${margin.toFixed(2).replace('.', ',')}%`;
+
+      return { 
+        totalCompanyFreight: compFixed, 
+        totalDriverFreight: drivFixed, 
+        netMarginPercentage, 
+        exampleSimulation: null 
+      };
+    }
+
+    if (pricingType === FreightPricingType.VlrTonIcms) {
+      const baseCompanyPerTon = activeLegs[0]?.companyFreightValuePerTon || 0;
+      const driverPerTon = activeLegs[0]?.driverFreightValuePerTon || 0;
+      const icmsPct = Number(load.icmsPercentage) || 0;
+
+      // Simulated standard 32t load
+      const simWeight = 32;
+      const simBase = baseCompanyPerTon * simWeight;
+      const simIcms = simBase * (icmsPct / 100);
+      const simTotalCompany = simBase + simIcms;
+      const simDriver = driverPerTon * simWeight;
+      const simTotalPerTon = baseCompanyPerTon * (1 + (icmsPct / 100));
+
+      const totalCompanyEffectivePerTon = baseCompanyPerTon * (1 + (icmsPct / 100));
+
+      const netProfit = simBase - simDriver - (totalCommission * simWeight);
+      const margin = simBase > 0 ? (netProfit / simBase) * 100 : 0;
+
+      const netMarginPercentage = isNaN(margin) || !isFinite(margin)
+        ? '0,00%'
+        : `${margin.toFixed(2).replace('.', ',')}%`;
+
+      return {
+        totalCompanyFreight: totalCompanyEffectivePerTon,
+        totalDriverFreight: driverPerTon,
+        netMarginPercentage,
+        exampleSimulation: {
+          weight: simWeight,
+          base: simBase,
+          icms: simIcms,
+          totalCompany: simTotalCompany,
+          driver: simDriver,
+          effectivePerTon: simTotalPerTon,
+          icmsPct: icmsPct,
+        }
+      };
+    }
+
+    // Default: Por Tonelada
     const totalCompanyFreight = activeLegs.reduce((sum, leg) => sum + leg.companyFreightValuePerTon, 0);
     const totalDriverFreight = activeLegs.reduce((sum, leg) => sum + leg.driverFreightValuePerTon, 0);
     
@@ -181,7 +289,6 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
         return sum + netValue;
     }, 0);
 
-    const totalCommission = load.salespersonCommissionPerTon || 0;
     const netProfit = totalNetCompanyValue - totalDriverFreight - totalCommission;
     const margin = (totalNetCompanyValue > 0) ? (netProfit / totalNetCompanyValue) * 100 : 0;
     
@@ -189,8 +296,8 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
         ? '0,00%'
         : `${margin.toFixed(2).replace('.', ',')}%`;
 
-    return { totalCompanyFreight, totalDriverFreight, netMarginPercentage };
-  }, [load.freightLegs, hasMultiLeg, load.salespersonCommissionPerTon]);
+    return { totalCompanyFreight, totalDriverFreight, netMarginPercentage, exampleSimulation: null };
+  }, [load.freightPricingType, load.freightLegs, hasMultiLeg, load.fixedCompanyFreight, load.fixedDriverFreight, load.hasIcms, load.icmsPercentage, load.icmsCalculationType, load.icmsValue, load.salespersonCommissionPerTon]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
@@ -213,7 +320,7 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
         const legToUpdate = { ...newLegs[index] };
         
         let finalValue = value;
-        if (field === 'companyFreightValuePerTon' || field === 'driverFreightValuePerTon' || field === 'icmsPercentage') {
+        if (field === 'companyFreightValuePerTon' || field === 'driverFreightValuePerTon' || field === 'icmsPercentage' || field === 'fixedCompanyFreight' || field === 'fixedDriverFreight' || field === 'icmsValue') {
             finalValue = parseFloat(value as string) || 0;
         }
 
@@ -254,7 +361,35 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const activeLegs = hasMultiLeg ? (load.freightLegs || []).slice(0, 2) : (load.freightLegs || []).slice(0, 1);
+    const pricingType = load.freightPricingType || FreightPricingType.PorTonelada;
+    let activeLegs = hasMultiLeg ? (load.freightLegs || []).slice(0, 2) : (load.freightLegs || []).slice(0, 1);
+
+    if (pricingType === FreightPricingType.FreteFechado) {
+      activeLegs = [{
+        companyFreightValuePerTon: load.fixedCompanyFreight || 0,
+        driverFreightValuePerTon: load.fixedDriverFreight || 0,
+        hasIcms: load.hasIcms || false,
+        icmsPercentage: load.icmsPercentage || 0,
+        pricingType: FreightPricingType.FreteFechado,
+        fixedCompanyFreight: load.fixedCompanyFreight || 0,
+        fixedDriverFreight: load.fixedDriverFreight || 0,
+      }];
+    } else if (pricingType === FreightPricingType.VlrTonIcms) {
+      activeLegs = [{
+        companyFreightValuePerTon: load.freightLegs?.[0]?.companyFreightValuePerTon || 0,
+        driverFreightValuePerTon: load.freightLegs?.[0]?.driverFreightValuePerTon || 0,
+        hasIcms: true,
+        icmsPercentage: load.icmsPercentage || 0,
+        pricingType: FreightPricingType.VlrTonIcms,
+        icmsCalculationType: load.icmsCalculationType || 'percentage',
+        icmsValue: load.icmsValue || 0,
+      }];
+    } else {
+      activeLegs = activeLegs.map(leg => ({
+        ...leg,
+        pricingType: FreightPricingType.PorTonelada,
+      }));
+    }
 
     // Geocode origin and destination
     const [originCoords, destinationCoords] = await Promise.all([
@@ -264,11 +399,20 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
 
     const finalLoadData = {
         ...load,
-        companyFreightValuePerTon: totalCompanyFreight,
-        driverFreightValuePerTon: totalDriverFreight,
+        freightPricingType: pricingType,
+        fixedCompanyFreight: pricingType === FreightPricingType.FreteFechado ? (load.fixedCompanyFreight || 0) : undefined,
+        fixedDriverFreight: pricingType === FreightPricingType.FreteFechado ? (load.fixedDriverFreight || 0) : undefined,
+        icmsCalculationType: pricingType === FreightPricingType.VlrTonIcms ? (load.icmsCalculationType || 'percentage') : undefined,
+        icmsValue: pricingType === FreightPricingType.VlrTonIcms ? (load.icmsValue || 0) : undefined,
+        companyFreightValuePerTon: pricingType === FreightPricingType.FreteFechado 
+          ? (load.fixedCompanyFreight || 0) 
+          : (pricingType === FreightPricingType.VlrTonIcms ? (load.freightLegs?.[0]?.companyFreightValuePerTon || 0) : totalCompanyFreight),
+        driverFreightValuePerTon: pricingType === FreightPricingType.FreteFechado
+          ? (load.fixedDriverFreight || 0)
+          : (pricingType === FreightPricingType.VlrTonIcms ? (load.freightLegs?.[0]?.driverFreightValuePerTon || 0) : totalDriverFreight),
         freightLegs: activeLegs,
-        hasIcms: activeLegs[0]?.hasIcms || false,
-        icmsPercentage: activeLegs[0]?.icmsPercentage || 0,
+        hasIcms: pricingType === FreightPricingType.VlrTonIcms ? true : (activeLegs[0]?.hasIcms || false),
+        icmsPercentage: activeLegs[0]?.icmsPercentage || load.icmsPercentage || 0,
         originCoords: originCoords || undefined,
         destinationCoords: destinationCoords || undefined,
     };
@@ -582,49 +726,322 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
           {step === 3 && (
             <div className="space-y-6">
                 <div className="border-t dark:border-gray-600 pt-4">
-                    <div className="flex justify-between items-center mb-2">
-                        <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300">Valores de Frete (por Tonelada)</h3>
-                        <button type="button" onClick={() => setHasMultiLeg(prev => !prev)} className="flex items-center gap-1 text-sm font-medium text-primary hover:text-primary-dark dark:text-blue-400 dark:hover:text-blue-300">
-                            {hasMultiLeg ? (<><XIcon className="h-4 w-4" /><span>Remover Perna</span></>) : (<><PlusIcon className="h-4 w-4" /><span>Adicionar Perna</span></>)}
+                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
+                        <div>
+                            <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">Modalidade de Cálculo do Frete</h3>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">Escolha como o frete desta carga será cotado e liquidado nos embarques</p>
+                        </div>
+                        {(!load.freightPricingType || load.freightPricingType === FreightPricingType.PorTonelada) && (
+                            <button type="button" onClick={() => setHasMultiLeg(prev => !prev)} className="flex items-center gap-1 text-sm font-medium text-primary hover:text-primary-dark dark:text-blue-400 dark:hover:text-blue-300 self-start sm:self-auto">
+                                {hasMultiLeg ? (<><XIcon className="h-4 w-4" /><span>Remover Perna</span></>) : (<><PlusIcon className="h-4 w-4" /><span>Adicionar Perna</span></>)}
+                            </button>
+                        )}
+                    </div>
+
+                    {/* Freight Pricing Type Selector */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 p-1.5 bg-gray-100 dark:bg-gray-700/60 rounded-xl mb-5">
+                        <button
+                            type="button"
+                            onClick={() => setLoad(prev => ({ ...prev, freightPricingType: FreightPricingType.PorTonelada }))}
+                            className={`py-2 px-3 rounded-lg text-xs md:text-sm font-medium transition-all ${
+                                (!load.freightPricingType || load.freightPricingType === FreightPricingType.PorTonelada)
+                                    ? 'bg-white dark:bg-gray-800 text-primary dark:text-blue-400 shadow-sm font-semibold'
+                                    : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'
+                            }`}
+                        >
+                            📦 Por Tonelada (R$/ton)
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setHasMultiLeg(false);
+                                setLoad(prev => ({ ...prev, freightPricingType: FreightPricingType.FreteFechado }));
+                            }}
+                            className={`py-2 px-3 rounded-lg text-xs md:text-sm font-medium transition-all ${
+                                load.freightPricingType === FreightPricingType.FreteFechado
+                                    ? 'bg-white dark:bg-gray-800 text-primary dark:text-blue-400 shadow-sm font-semibold'
+                                    : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'
+                            }`}
+                        >
+                            🔒 Frete Fechado (Fixo R$)
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setHasMultiLeg(false);
+                                setLoad(prev => ({ ...prev, freightPricingType: FreightPricingType.VlrTonIcms, hasIcms: true }));
+                            }}
+                            className={`py-2 px-3 rounded-lg text-xs md:text-sm font-medium transition-all ${
+                                load.freightPricingType === FreightPricingType.VlrTonIcms
+                                    ? 'bg-white dark:bg-gray-800 text-primary dark:text-blue-400 shadow-sm font-semibold'
+                                    : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'
+                            }`}
+                        >
+                            ⚡ VLR P/ton + ICMS
                         </button>
                     </div>
-                    {/* Leg 1 */}
-                    <div className="p-4 border rounded-md dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
-                        <div className="flex justify-between items-center mb-3">
-                            <h4 className="font-semibold text-gray-600 dark:text-gray-300">Perna 1</h4>
-                            <label className="flex items-center space-x-2 cursor-pointer">
-                                <input type="checkbox" checked={leg1.hasIcms} onChange={(e) => handleLegChange(0, 'hasIcms', e.target.checked)} className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary" />
-                                <span className="text-sm text-gray-700 dark:text-gray-300">Incide ICMS</span>
-                            </label>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <input value={leg1.companyFreightValuePerTon} onChange={(e) => handleLegChange(0, 'companyFreightValuePerTon', e.target.value)} type="number" placeholder="Frete Empresa" className="p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600" step="0.01"/>
-                            {leg1.hasIcms && <input value={leg1.icmsPercentage} onChange={(e) => handleLegChange(0, 'icmsPercentage', e.target.value)} type="number" placeholder="ICMS (%)" className="p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600" step="0.01"/>}
-                            <input value={leg1.driverFreightValuePerTon} onChange={(e) => handleLegChange(0, 'driverFreightValuePerTon', e.target.value)} type="number" placeholder="Frete Motorista" className={`p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600 ${leg1.hasIcms ? '' : 'md:col-start-3'}`} step="0.01"/>
-                        </div>
-                    </div>
-                    {/* Leg 2 */}
-                    {hasMultiLeg && (
-                        <div className="mt-4 p-4 border rounded-md dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
-                            <div className="flex justify-between items-center mb-3"><h4 className="font-semibold text-gray-600 dark:text-gray-300">Perna 2</h4>
-                                <label className="flex items-center space-x-2 cursor-pointer">
-                                    <input type="checkbox" checked={leg2.hasIcms} onChange={(e) => handleLegChange(1, 'hasIcms', e.target.checked)} className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary" />
-                                    <span className="text-sm text-gray-700 dark:text-gray-300">Incide ICMS</span>
-                                </label>
+
+                    {/* MODE 1: POR TONELADA */}
+                    {(!load.freightPricingType || load.freightPricingType === FreightPricingType.PorTonelada) && (
+                        <div>
+                            {/* Leg 1 */}
+                            <div className="p-4 border rounded-lg dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
+                                <div className="flex justify-between items-center mb-3">
+                                    <h4 className="font-semibold text-gray-700 dark:text-gray-200 text-sm">Perna 1</h4>
+                                    <label className="flex items-center space-x-2 cursor-pointer">
+                                        <input type="checkbox" checked={leg1.hasIcms} onChange={(e) => handleLegChange(0, 'hasIcms', e.target.checked)} className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary" />
+                                        <span className="text-sm text-gray-700 dark:text-gray-300">Incide ICMS</span>
+                                    </label>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Frete Empresa (R$/ton)</label>
+                                        <input value={leg1.companyFreightValuePerTon || ''} onChange={(e) => handleLegChange(0, 'companyFreightValuePerTon', e.target.value)} type="number" placeholder="Ex: 120,00" className="p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600 text-sm" step="0.01"/>
+                                    </div>
+                                    {leg1.hasIcms && (
+                                        <div>
+                                            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Alíquota ICMS (%)</label>
+                                            <input value={leg1.icmsPercentage || ''} onChange={(e) => handleLegChange(0, 'icmsPercentage', e.target.value)} type="number" placeholder="Ex: 12,00" className="p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600 text-sm" step="0.01"/>
+                                        </div>
+                                    )}
+                                    <div className={leg1.hasIcms ? '' : 'md:col-start-3'}>
+                                        <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Frete Motorista (R$/ton)</label>
+                                        <input value={leg1.driverFreightValuePerTon || ''} onChange={(e) => handleLegChange(0, 'driverFreightValuePerTon', e.target.value)} type="number" placeholder="Ex: 100,00" className="p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600 text-sm" step="0.01"/>
+                                    </div>
+                                </div>
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <input value={leg2.companyFreightValuePerTon} onChange={(e) => handleLegChange(1, 'companyFreightValuePerTon', e.target.value)} type="number" placeholder="Frete Empresa" className="p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600" step="0.01"/>
-                                {leg2.hasIcms && <input value={leg2.icmsPercentage} onChange={(e) => handleLegChange(1, 'icmsPercentage', e.target.value)} type="number" placeholder="ICMS (%)" className="p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600" step="0.01"/>}
-                                <input value={leg2.driverFreightValuePerTon} onChange={(e) => handleLegChange(1, 'driverFreightValuePerTon', e.target.value)} type="number" placeholder="Frete Motorista" className={`p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600 ${leg2.hasIcms ? '' : 'md:col-start-3'}`} step="0.01"/>
+                            {/* Leg 2 */}
+                            {hasMultiLeg && (
+                                <div className="mt-4 p-4 border rounded-lg dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
+                                    <div className="flex justify-between items-center mb-3">
+                                        <h4 className="font-semibold text-gray-700 dark:text-gray-200 text-sm">Perna 2</h4>
+                                        <label className="flex items-center space-x-2 cursor-pointer">
+                                            <input type="checkbox" checked={leg2.hasIcms} onChange={(e) => handleLegChange(1, 'hasIcms', e.target.checked)} className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary" />
+                                            <span className="text-sm text-gray-700 dark:text-gray-300">Incide ICMS</span>
+                                        </label>
+                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <div>
+                                            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Frete Empresa (R$/ton)</label>
+                                            <input value={leg2.companyFreightValuePerTon || ''} onChange={(e) => handleLegChange(1, 'companyFreightValuePerTon', e.target.value)} type="number" placeholder="Ex: 60,00" className="p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600 text-sm" step="0.01"/>
+                                        </div>
+                                        {leg2.hasIcms && (
+                                            <div>
+                                                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Alíquota ICMS (%)</label>
+                                                <input value={leg2.icmsPercentage || ''} onChange={(e) => handleLegChange(1, 'icmsPercentage', e.target.value)} type="number" placeholder="Ex: 12,00" className="p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600 text-sm" step="0.01"/>
+                                            </div>
+                                        )}
+                                        <div className={leg2.hasIcms ? '' : 'md:col-start-3'}>
+                                            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Frete Motorista (R$/ton)</label>
+                                            <input value={leg2.driverFreightValuePerTon || ''} onChange={(e) => handleLegChange(1, 'driverFreightValuePerTon', e.target.value)} type="number" placeholder="Ex: 50,00" className="p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600 text-sm" step="0.01"/>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                            {/* Totals */}
+                            <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div className="p-3 bg-gray-100 dark:bg-gray-700/70 rounded-lg">
+                                    <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Frete Empresa (Final / Ton)</label>
+                                    <p className="text-lg font-bold text-gray-800 dark:text-gray-200">{totalCompanyFreight.toLocaleString('pt-BR', {style:'currency', currency: 'BRL'})}/ton</p>
+                                </div>
+                                <div className="p-3 bg-gray-100 dark:bg-gray-700/70 rounded-lg">
+                                    <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Frete Motorista (Final / Ton)</label>
+                                    <p className="text-lg font-bold text-gray-800 dark:text-gray-200">{totalDriverFreight.toLocaleString('pt-BR', {style:'currency', currency: 'BRL'})}/ton</p>
+                                </div>
+                                <div className="p-3 bg-blue-50 dark:bg-blue-900/40 rounded-lg border border-blue-200 dark:border-blue-800">
+                                    <label className="text-xs font-medium text-blue-600 dark:text-blue-400">Margem Líquida Estimada</label>
+                                    <p className="text-lg font-bold text-primary dark:text-blue-300">{netMarginPercentage}</p>
+                                </div>
                             </div>
                         </div>
                     )}
-                    {/* Totals */}
-                    <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div className="p-3 bg-gray-100 dark:bg-gray-700 rounded-md"><label className="text-xs font-medium text-gray-500 dark:text-gray-400">Frete Empresa (Final)</label><p className="text-lg font-bold text-gray-800 dark:text-gray-200">{totalCompanyFreight.toLocaleString('pt-BR', {style:'currency', currency: 'BRL'})}</p></div>
-                        <div className="p-3 bg-gray-100 dark:bg-gray-700 rounded-md"><label className="text-xs font-medium text-gray-500 dark:text-gray-400">Frete Motorista (Final)</label><p className="text-lg font-bold text-gray-800 dark:text-gray-200">{totalDriverFreight.toLocaleString('pt-BR', {style:'currency', currency: 'BRL'})}</p></div>
-                        <div className="p-3 bg-blue-50 dark:bg-blue-900/50 rounded-md border border-blue-200 dark:border-blue-800"><label className="text-xs font-medium text-blue-500 dark:text-blue-400">Margem Líquida (%)</label><p className="text-lg font-bold text-primary dark:text-blue-300">{netMarginPercentage}</p></div>
-                    </div>
+
+                    {/* MODE 2: FRETE FECHADO */}
+                    {load.freightPricingType === FreightPricingType.FreteFechado && (
+                        <div className="space-y-4">
+                            <div className="p-3.5 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 rounded-lg text-xs text-amber-800 dark:text-amber-300 flex items-center gap-2">
+                                <span className="text-base">🔒</span>
+                                <span><strong>Frete Fechado:</strong> Os valores de frete da empresa e do motorista são fixos por viagem, independente da tonelagem real carregada no caminhão.</span>
+                            </div>
+
+                            <div className="p-4 border rounded-lg dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                            Frete Empresa Fixo (R$ por viagem) <span className="text-red-500">*</span>
+                                        </label>
+                                        <input
+                                            name="fixedCompanyFreight"
+                                            value={load.fixedCompanyFreight || ''}
+                                            onChange={handleChange}
+                                            type="number"
+                                            placeholder="Ex: 5000,00"
+                                            className="p-2.5 w-full border rounded-lg dark:bg-gray-700 dark:border-gray-600 font-semibold text-gray-800 dark:text-gray-100"
+                                            step="0.01"
+                                            min="0"
+                                        />
+                                        <p className="text-xs text-gray-400 mt-1">Valor integral a faturar da empresa cliente por frete/viagem.</p>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                            Frete Motorista Fixo (R$ por viagem) <span className="text-red-500">*</span>
+                                        </label>
+                                        <input
+                                            name="fixedDriverFreight"
+                                            value={load.fixedDriverFreight || ''}
+                                            onChange={handleChange}
+                                            type="number"
+                                            placeholder="Ex: 4200,00"
+                                            className="p-2.5 w-full border rounded-lg dark:bg-gray-700 dark:border-gray-600 font-semibold text-gray-800 dark:text-gray-100"
+                                            step="0.01"
+                                            min="0"
+                                        />
+                                        <p className="text-xs text-gray-400 mt-1">Valor fixo acordado a pagar ao motorista por viagem realizada.</p>
+                                    </div>
+                                </div>
+
+                                <div className="mt-4 pt-3 border-t dark:border-gray-700/60 flex items-center justify-between">
+                                    <label className="flex items-center space-x-2 cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            name="hasIcms"
+                                            checked={load.hasIcms || false}
+                                            onChange={handleChange}
+                                            className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                                        />
+                                        <span className="text-xs font-medium text-gray-700 dark:text-gray-300">Descontar ICMS do Frete Empresa para Margem</span>
+                                    </label>
+
+                                    {load.hasIcms && (
+                                        <div className="flex items-center gap-2">
+                                            <label className="text-xs text-gray-500 dark:text-gray-400">Alíquota:</label>
+                                            <input
+                                                name="icmsPercentage"
+                                                value={load.icmsPercentage || ''}
+                                                onChange={handleChange}
+                                                type="number"
+                                                placeholder="Ex: 12"
+                                                className="p-1.5 w-24 border rounded dark:bg-gray-700 dark:border-gray-600 text-xs text-right font-medium"
+                                                step="0.01"
+                                            />
+                                            <span className="text-xs text-gray-500 dark:text-gray-400">%</span>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Totals */}
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div className="p-3 bg-gray-100 dark:bg-gray-700/70 rounded-lg">
+                                    <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Total Faturado Empresa</label>
+                                    <p className="text-lg font-bold text-gray-800 dark:text-gray-200">{(load.fixedCompanyFreight || 0).toLocaleString('pt-BR', {style:'currency', currency: 'BRL'})}</p>
+                                </div>
+                                <div className="p-3 bg-gray-100 dark:bg-gray-700/70 rounded-lg">
+                                    <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Total Pago Motorista</label>
+                                    <p className="text-lg font-bold text-gray-800 dark:text-gray-200">{(load.fixedDriverFreight || 0).toLocaleString('pt-BR', {style:'currency', currency: 'BRL'})}</p>
+                                </div>
+                                <div className="p-3 bg-blue-50 dark:bg-blue-900/40 rounded-lg border border-blue-200 dark:border-blue-800">
+                                    <label className="text-xs font-medium text-blue-600 dark:text-blue-400">Margem Líquida Estimada</label>
+                                    <p className="text-lg font-bold text-primary dark:text-blue-300">{netMarginPercentage}</p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* MODE 3: VLR P/TON + ICMS */}
+                    {load.freightPricingType === FreightPricingType.VlrTonIcms && (
+                        <div className="space-y-4">
+                            <div className="p-3.5 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800/50 rounded-lg text-xs text-blue-800 dark:text-blue-300 flex items-center gap-2">
+                                <span className="text-base">⚡</span>
+                                <span><strong>VLR P/ton + ICMS:</strong> O valor faturado da empresa é a soma do Frete Base por tonelada multiplicado pelo peso carregado, <strong>acrescido do ICMS da viagem</strong> (Ex: R$ 100/ton x 32t = R$ 3.200 + R$ 800 ICMS = R$ 4.000,00 total empresa).</span>
+                            </div>
+
+                            <div className="p-4 border rounded-lg dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 space-y-4">
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                            Frete Empresa Base (R$/ton) <span className="text-red-500">*</span>
+                                        </label>
+                                        <input
+                                            value={leg1.companyFreightValuePerTon || ''}
+                                            onChange={(e) => handleLegChange(0, 'companyFreightValuePerTon', e.target.value)}
+                                            type="number"
+                                            placeholder="Ex: 100,00"
+                                            className="p-2.5 w-full border rounded-lg dark:bg-gray-700 dark:border-gray-600 font-semibold text-gray-800 dark:text-gray-100 text-sm"
+                                            step="0.01"
+                                            min="0"
+                                        />
+                                        <p className="text-[11px] text-gray-400 mt-1">Valor base contratado com a empresa por tonelada.</p>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                            Alíquota ICMS (%) <span className="text-red-500">*</span>
+                                        </label>
+                                        <input
+                                            name="icmsPercentage"
+                                            value={load.icmsPercentage || ''}
+                                            onChange={handleChange}
+                                            type="number"
+                                            placeholder="Ex: 12"
+                                            className="p-2.5 w-full border rounded-lg dark:bg-gray-700 dark:border-gray-600 font-semibold text-gray-800 dark:text-gray-100 text-sm"
+                                            step="0.01"
+                                            min="0"
+                                        />
+                                        <p className="text-[11px] text-gray-400 mt-1">Percentual de ICMS somado ao faturamento da empresa.</p>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                            Frete Motorista (R$/ton) <span className="text-red-500">*</span>
+                                        </label>
+                                        <input
+                                            value={leg1.driverFreightValuePerTon || ''}
+                                            onChange={(e) => handleLegChange(0, 'driverFreightValuePerTon', e.target.value)}
+                                            type="number"
+                                            placeholder="Ex: 85,00"
+                                            className="p-2.5 w-full border rounded-lg dark:bg-gray-700 dark:border-gray-600 font-semibold text-gray-800 dark:text-gray-100 text-sm"
+                                            step="0.01"
+                                            min="0"
+                                        />
+                                        <p className="text-[11px] text-gray-400 mt-1">Valor pago ao motorista por tonelada transportada.</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Live Simulation Card */}
+                            {exampleSimulation && (
+                                <div className="p-4 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-blue-950/40 border border-blue-200 dark:border-blue-800 rounded-xl space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-xs font-bold uppercase tracking-wider text-blue-700 dark:text-blue-300 flex items-center gap-1.5">
+                                            <span>📊</span> Simulação com Carreta Padrão ({exampleSimulation.weight} toneladas)
+                                        </span>
+                                        <span className="text-xs font-medium text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/60 px-2 py-0.5 rounded-full">
+                                            Margem Líq: {netMarginPercentage}
+                                        </span>
+                                    </div>
+                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 text-xs">
+                                        <div className="bg-white/80 dark:bg-gray-800/80 p-2 rounded-lg border dark:border-gray-700">
+                                            <p className="text-gray-500 dark:text-gray-400 text-[11px]">Base Empresa</p>
+                                            <p className="font-semibold text-gray-800 dark:text-gray-200">{exampleSimulation.base.toLocaleString('pt-BR', {style:'currency', currency:'BRL'})}</p>
+                                        </div>
+                                        <div className="bg-white/80 dark:bg-gray-800/80 p-2 rounded-lg border dark:border-gray-700">
+                                            <p className="text-gray-500 dark:text-gray-400 text-[11px]">(+) ICMS ({exampleSimulation.icmsPct.toFixed(1)}%)</p>
+                                            <p className="font-semibold text-amber-600 dark:text-amber-400">+{exampleSimulation.icms.toLocaleString('pt-BR', {style:'currency', currency:'BRL'})}</p>
+                                        </div>
+                                        <div className="bg-blue-100/70 dark:bg-blue-900/50 p-2 rounded-lg border border-blue-300 dark:border-blue-700">
+                                            <p className="text-blue-800 dark:text-blue-300 text-[11px] font-bold">(=) Total Empresa</p>
+                                            <p className="font-bold text-blue-900 dark:text-blue-100">{exampleSimulation.totalCompany.toLocaleString('pt-BR', {style:'currency', currency:'BRL'})}</p>
+                                        </div>
+                                        <div className="bg-white/80 dark:bg-gray-800/80 p-2 rounded-lg border dark:border-gray-700">
+                                            <p className="text-gray-500 dark:text-gray-400 text-[11px]">Frete Motorista</p>
+                                            <p className="font-semibold text-gray-800 dark:text-gray-200">{exampleSimulation.driver.toLocaleString('pt-BR', {style:'currency', currency:'BRL'})}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>
 
                 {/* Vendedor Externo Section */}
