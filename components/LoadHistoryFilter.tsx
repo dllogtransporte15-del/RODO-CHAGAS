@@ -2,12 +2,14 @@
 import React from 'react';
 import type { Client, Product } from '../types';
 import { CargoStatus } from '../types';
+import { BRAZILIAN_CITIES } from '../brazilianCities';
 
 export interface LoadFilters {
   startDate: string;
   endDate: string;
   origin: string;
   destination: string;
+  recipientClient: string;
   clientId: string;
   productId: string;
   status: string;
@@ -32,6 +34,7 @@ const LoadHistoryFilter: React.FC<LoadHistoryFilterProps> = ({ clients, products
       endDate: '',
       origin: '',
       destination: '',
+      recipientClient: '',
       clientId: '',
       productId: '',
       status: '',
@@ -53,15 +56,47 @@ const LoadHistoryFilter: React.FC<LoadHistoryFilterProps> = ({ clients, products
         {/* Text Filters */}
         <div>
           <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Origem</label>
-          <input type="text" name="origin" value={filters.origin} onChange={handleInputChange} placeholder="Filtrar por origem..." className="mt-1 p-2 w-full border rounded-md dark:bg-gray-700 dark:border-gray-600" />
+          <input 
+            type="text" 
+            name="origin" 
+            value={filters.origin} 
+            onChange={handleInputChange} 
+            placeholder="Ex: Rio Verde, GO" 
+            list="brazilian-cities-history-filter"
+            className="mt-1 p-2 w-full border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm" 
+          />
         </div>
         <div>
           <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Destino</label>
-          <input type="text" name="destination" value={filters.destination} onChange={handleInputChange} placeholder="Filtrar por destino..." className="mt-1 p-2 w-full border rounded-md dark:bg-gray-700 dark:border-gray-600" />
+          <input 
+            type="text" 
+            name="destination" 
+            value={filters.destination} 
+            onChange={handleInputChange} 
+            placeholder="Ex: Santos, SP" 
+            list="brazilian-cities-history-filter"
+            className="mt-1 p-2 w-full border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm" 
+          />
+        </div>
+        <datalist id="brazilian-cities-history-filter">
+          {BRAZILIAN_CITIES.map((c) => (
+            <option key={c} value={c} />
+          ))}
+        </datalist>
+        <div>
+          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Cliente Destinatário</label>
+          <input 
+            type="text" 
+            name="recipientClient" 
+            value={filters.recipientClient} 
+            onChange={handleInputChange} 
+            placeholder="Filtrar por destinatário..." 
+            className="mt-1 p-2 w-full border rounded-md dark:bg-gray-700 dark:border-gray-600 text-sm" 
+          />
         </div>
         {/* Select Filters */}
         <div>
-          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Cliente</label>
+          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Cliente Tomador</label>
           <select name="clientId" value={filters.clientId} onChange={handleInputChange} className="mt-1 p-2 w-full border rounded-md dark:bg-gray-700 dark:border-gray-600">
             <option value="">Todos</option>
             {clients.map(c => <option key={c.id} value={c.id}>{c.nomeFantasia}</option>)}

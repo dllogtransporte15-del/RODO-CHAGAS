@@ -3,7 +3,7 @@ import Header from '../components/Header';
 import FreightOffersList from '../components/FreightOffersList';
 import type { FreightOffer, Client, Product, Cargo, User } from '../types';
 import { FreightOfferStatus, UserProfile } from '../types';
-import { HistoryIcon, FilterIcon, SearchIcon, RefreshCwIcon, ChevronLeft, ChevronRight } from 'lucide-react';
+import { HistoryIcon, FilterIcon, SearchIcon, RefreshCwIcon, ChevronLeft, ChevronRight, Building2 } from 'lucide-react';
 
 interface FreightOffersHistoryPageProps {
   freightOffers: FreightOffer[];
@@ -30,6 +30,7 @@ const FreightOffersHistoryPage: React.FC<FreightOffersHistoryPageProps> = ({
   const [filterClientId, setFilterClientId] = useState<string>('all');
   const [filterOrigin, setFilterOrigin] = useState<string>('');
   const [filterDestination, setFilterDestination] = useState<string>('');
+  const [filterRecipientClient, setFilterRecipientClient] = useState<string>('');
 
   const filteredOffers = useMemo(() => {
     return freightOffers.filter(offer => {
@@ -40,16 +41,18 @@ const FreightOffersHistoryPage: React.FC<FreightOffersHistoryPageProps> = ({
       if (filterClientId !== 'all' && offer.clientId !== filterClientId) return false;
       if (filterOrigin && !offer.origin.toLowerCase().includes(filterOrigin.toLowerCase())) return false;
       if (filterDestination && !offer.destination.toLowerCase().includes(filterDestination.toLowerCase())) return false;
+      if (filterRecipientClient && (!offer.recipientClient || !offer.recipientClient.toLowerCase().includes(filterRecipientClient.toLowerCase()))) return false;
       if (currentUser?.profile !== UserProfile.Embarcador && currentUser?.profile !== UserProfile.Cliente && offer.driverId) return false;
       return true;
     }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  }, [freightOffers, filterStatus, filterClientId, filterOrigin, filterDestination, currentUser]);
+  }, [freightOffers, filterStatus, filterClientId, filterOrigin, filterDestination, filterRecipientClient, currentUser]);
 
   const clearFilters = () => {
     setFilterStatus('all');
     setFilterClientId('all');
     setFilterOrigin('');
     setFilterDestination('');
+    setFilterRecipientClient('');
   };
 
   const itemsPerPage = 40;
@@ -78,14 +81,14 @@ const FreightOffersHistoryPage: React.FC<FreightOffersHistoryPageProps> = ({
           </div>
         </div>
 
-        <div className={`grid grid-cols-1 md:grid-cols-2 ${currentUser?.profile === UserProfile.Cliente ? 'lg:grid-cols-3' : 'lg:grid-cols-4'} gap-4 mb-6`}>
+        <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mb-6`}>
           {currentUser?.profile !== UserProfile.Cliente && (
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Cliente</label>
               <select
                 value={filterClientId}
                 onChange={(e) => setFilterClientId(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary text-sm"
               >
                 <option value="all">Todos os Clientes</option>
                 {clients.map(client => (
@@ -102,7 +105,7 @@ const FreightOffersHistoryPage: React.FC<FreightOffersHistoryPageProps> = ({
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary text-sm"
             >
               <option value="all">Todos os Status</option>
               {Object.values(FreightOfferStatus).map(status => (
@@ -119,7 +122,7 @@ const FreightOffersHistoryPage: React.FC<FreightOffersHistoryPageProps> = ({
                 value={filterOrigin}
                 onChange={(e) => setFilterOrigin(e.target.value)}
                 placeholder="Buscar por origem..."
-                className="w-full pl-9 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
+                className="w-full pl-9 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary text-sm"
               />
               <SearchIcon className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
             </div>
@@ -133,9 +136,23 @@ const FreightOffersHistoryPage: React.FC<FreightOffersHistoryPageProps> = ({
                 value={filterDestination}
                 onChange={(e) => setFilterDestination(e.target.value)}
                 placeholder="Buscar por destino..."
-                className="w-full pl-9 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
+                className="w-full pl-9 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary text-sm"
               />
               <SearchIcon className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Cliente Destinatário</label>
+            <div className="relative">
+              <input
+                type="text"
+                value={filterRecipientClient}
+                onChange={(e) => setFilterRecipientClient(e.target.value)}
+                placeholder="Buscar por destinatário..."
+                className="w-full pl-9 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary text-sm"
+              />
+              <Building2 className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
             </div>
           </div>
         </div>

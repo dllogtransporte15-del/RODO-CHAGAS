@@ -33,17 +33,9 @@ export const formatName = (value: string): string => {
     .join(' ');
 };
 
-export const formatCityState = (value: string): string => {
-  // Try to parse "Cidade, UF"
-  const commaIndex = value.indexOf(',');
-  if (commaIndex !== -1) {
-    const city = formatName(value.slice(0, commaIndex).trim());
-    const statePart = value.slice(commaIndex + 1).replace(/[^a-zA-Z]/g, '').slice(0, 2).toUpperCase();
-    return statePart ? `${city}, ${statePart}` : `${city}, `;
-  }
-
-  return formatName(value);
-};
+import { formatCityState, validateCityFormat, isValidCity, BRAZILIAN_UFS } from './cityUtils';
+export { formatCityState, validateCityFormat, isValidCity, BRAZILIAN_UFS };
+export type { BrazilianUF, CityValidationResult } from './cityUtils';
 
 export const formatCpfCnpj = (value: string): string => {
   const numeric = value.replace(/\D/g, '').slice(0, 14);

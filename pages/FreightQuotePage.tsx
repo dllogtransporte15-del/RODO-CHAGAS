@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { MapContainer, TileLayer, Marker, Polyline, useMap, ZoomControl } from 'react-leaflet';
 import L from 'leaflet';
@@ -17,6 +16,8 @@ import Header from '../components/Header';
 import { saveToolQuote, getToolClients, saveToolClient, ToolClient } from '../utils/toolStorage';
 import type { User as AppUser } from '../types';
 import { autoFormatInput } from '../utils/formatters';
+import { validateCityFormat, formatCityState } from '../utils/cityUtils';
+import { BRAZILIAN_CITIES } from '../brazilianCities';
 
 // Fix Leaflet icon issue by using CDN directly to prevent webpack/vite breaking the image paths
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -138,6 +139,16 @@ export default function FreightQuotePage({ currentUser }: FreightQuotePageProps)
     setSaveSuccess(false);
   };
 
+  const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    if (name === 'origin' || name === 'destination') {
+      const formatted = formatCityState(value);
+      if (formatted && formatted !== value) {
+        setFormData(prev => ({ ...prev, [name]: formatted }));
+      }
+    }
+  };
+
   const fetchCoordinates = async (address: string) => {
     try {
       const cleanAddress = address.trim().replace(/\s+-\s+Brasil$/i, '').replace(/,\s*Brasil$/i, '');
@@ -163,16 +174,29 @@ export default function FreightQuotePage({ currentUser }: FreightQuotePageProps)
       return;
     }
 
+    // Validação estrita de Origem e Destino
+    const originValidation = validateCityFormat(formData.origin, 'Origem');
+    if (!originValidation.isValid) {
+      setError(originValidation.errorMessage || 'Cidade de Origem inválida.');
+      return;
+    }
+
+    const destValidation = validateCityFormat(formData.destination, 'Destino');
+    if (!destValidation.isValid) {
+      setError(destValidation.errorMessage || 'Cidade de Destino inválida.');
+      return;
+    }
+
     setLoading(true);
     setError(null);
     setRouteInfo(null);
 
     try {
-      const origin = await fetchCoordinates(formData.origin);
-      const dest = await fetchCoordinates(formData.destination);
+      const origin = await fetchCoordinates(originValidation.formatted);
+      const dest = await fetchCoordinates(destValidation.formatted);
 
       if (!origin || !dest) {
-        setError('Não foi possível localizar um dos endereços.');
+        setError('Não foi possível localizar as coordenadas das cidades informadas.');
         setLoading(false);
         return;
       }
@@ -194,13 +218,14 @@ export default function FreightQuotePage({ currentUser }: FreightQuotePageProps)
         });
 
         // Cálculo Estimado (Mock) dos sites para a distância e número de eixos informados
-        // Em um ambiente de produção sem CORS, deve-se integrar APIs como API Routes, Aptrack, Tarifa de Pedágios.
         const eixos = parseInt(formData.axes) || 6;
         const baseAnttEstimate = distanceKm * eixos * 1.458; // Base aproximada Mínimo ANTT
         const baseTollEstimate = distanceKm * eixos * 0.198; // Base aproximada de pedágio (1/2 centavos por KM/Eixo)
 
         setFormData(prev => ({
           ...prev,
+          origin: originValidation.formatted,
+          destination: destValidation.formatted,
           anttValue: baseAnttEstimate.toFixed(2),
           tollValue: baseTollEstimate.toFixed(2)
         }));
@@ -264,6 +289,19 @@ export default function FreightQuotePage({ currentUser }: FreightQuotePageProps)
   const handleSave = async () => {
     if (!results || !routeInfo || isSaving) return;
 
+    // Validação estrita de Origem e Destino
+    const originValidation = validateCityFormat(formData.origin, 'Origem');
+    if (!originValidation.isValid) {
+      alert(originValidation.errorMessage);
+      return;
+    }
+
+    const destValidation = validateCityFormat(formData.destination, 'Destino');
+    if (!destValidation.isValid) {
+      alert(destValidation.errorMessage);
+      return;
+    }
+
     setIsSaving(true);
     try {
       if (!currentUser) throw new Error('Usuário não autenticado');
@@ -275,8 +313,8 @@ export default function FreightQuotePage({ currentUser }: FreightQuotePageProps)
 
       const saved = await saveToolQuote(currentUser.id, {
         clientName: formData.clientName || 'Não Informado',
-        origin: formData.origin,
-        destination: formData.destination,
+        origin: originValidation.formatted,
+        destination: destValidation.formatted,
         distance: routeInfo.distance,
         axes: parseInt(formData.axes),
         cargoType: formData.cargoType,
@@ -362,14 +400,38 @@ export default function FreightQuotePage({ currentUser }: FreightQuotePageProps)
                   <label className="text-sm font-medium text-slate-700 dark:text-gray-300 flex items-center">
                     <MapPin className="w-4 h-4 mr-1.5 text-emerald-500" /> Origem
                   </label>
-                  <input type="text" name="origin" value={formData.origin} onChange={handleInputChange} className="w-full px-3 py-2 border border-slate-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm" placeholder="Ex: Cuiabá, MT" />
+                  <input 
+                    type="text" 
+                    name="origin" 
+                    value={formData.origin} 
+                    onChange={handleInputChange} 
+                    onBlur={handleBlur}
+                    list="brazilian-cities-quotepage-list"
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm" 
+                    placeholder="Ex: Rio Verde, GO" 
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium text-slate-700 dark:text-gray-300 flex items-center">
                     <MapPin className="w-4 h-4 mr-1.5 text-red-500" /> Destino
                   </label>
-                  <input type="text" name="destination" value={formData.destination} onChange={handleInputChange} className="w-full px-3 py-2 border border-slate-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm" placeholder="Ex: Santos, SP" />
+                  <input 
+                    type="text" 
+                    name="destination" 
+                    value={formData.destination} 
+                    onChange={handleInputChange} 
+                    onBlur={handleBlur}
+                    list="brazilian-cities-quotepage-list"
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm" 
+                    placeholder="Ex: Santos, SP" 
+                  />
                 </div>
+
+                <datalist id="brazilian-cities-quotepage-list">
+                  {BRAZILIAN_CITIES.map(city => (
+                    <option key={city} value={city} />
+                  ))}
+                </datalist>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1.5">

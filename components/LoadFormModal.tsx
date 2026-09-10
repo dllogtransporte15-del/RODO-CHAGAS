@@ -10,6 +10,7 @@ import { BRAZILIAN_CITIES } from '../brazilianCities';
 import { geocodeCity } from '../utils/geocoding';
 import { useToast } from '../hooks/useToast';
 import { autoFormatInput, parseLocation } from '../utils/formatters';
+import { validateCityFormat } from '../utils/cityUtils';
 
 interface LoadFormModalProps {
   isOpen: boolean;
@@ -76,13 +77,15 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
         observations: offerToConvert.dailySchedule ? `Cadência sugerida pelo cliente: ${offerToConvert.dailySchedule}` : '',
         attachments: offerToConvert.attachments || [],
         salespersonCommissionPerTon: 0,
-        branchId: currentUser.branchId
+        branchId: currentUser.branchId,
+        recipientClient: offerToConvert.recipientClient || '',
       };
     }
 
     return ({
     sequenceId: newSequenceId,
     clientId: clients[0]?.id || '',
+    recipientClient: '',
     productId: products[0]?.id || '',
     origin: '',
     originLocation: '',
@@ -201,6 +204,7 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
                 salespersonCommissionPerTon: editableLoad.salespersonCommissionPerTon || 0,
                 originLocation: editableLoad.originLocation || '',
                 destinationLocation: editableLoad.destinationLocation || '',
+                recipientClient: editableLoad.recipientClient || '',
                 branchId: editableLoad.branchId,
             });
             setHasMultiLeg(editableLoad.freightLegs ? editableLoad.freightLegs.length > 1 : false);
@@ -361,6 +365,21 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // Validação estrita de Origem e Destino
+    const originValidation = validateCityFormat(load.origin, 'Origem (Cidade)');
+    if (!originValidation.isValid) {
+      showToast(originValidation.errorMessage || 'Cidade de Origem inválida.', 'warning');
+      setStep(1);
+      return;
+    }
+
+    const destValidation = validateCityFormat(load.destination, 'Destino (Cidade)');
+    if (!destValidation.isValid) {
+      showToast(destValidation.errorMessage || 'Cidade de Destino inválida.', 'warning');
+      setStep(1);
+      return;
+    }
+
     const pricingType = load.freightPricingType || FreightPricingType.PorTonelada;
     let activeLegs = hasMultiLeg ? (load.freightLegs || []).slice(0, 2) : (load.freightLegs || []).slice(0, 1);
 
@@ -393,12 +412,14 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
 
     // Geocode origin and destination
     const [originCoords, destinationCoords] = await Promise.all([
-        geocodeCity(load.origin),
-        geocodeCity(load.destination)
+        geocodeCity(originValidation.formatted),
+        geocodeCity(destValidation.formatted)
     ]);
 
     const finalLoadData = {
         ...load,
+        origin: originValidation.formatted,
+        destination: destValidation.formatted,
         freightPricingType: pricingType,
         fixedCompanyFreight: pricingType === FreightPricingType.FreteFechado ? (load.fixedCompanyFreight || 0) : undefined,
         fixedDriverFreight: pricingType === FreightPricingType.FreteFechado ? (load.fixedDriverFreight || 0) : undefined,
@@ -575,24 +596,35 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
           {step === 1 && (
             <div className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                    <div className="col-span-1 md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Cliente Tomador</label>
-                    <select name="clientId" value={load.clientId} onChange={handleChange} className="mt-1 p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600" required>
-                        {clients.map(c => <option key={c.id} value={c.id}>{c.nomeFantasia}</option>)}
-                    </select>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Cliente Tomador <span className="text-red-500">*</span></label>
+                      <select name="clientId" value={load.clientId} onChange={handleChange} className="mt-1 p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600 text-sm" required>
+                          {clients.map(c => <option key={c.id} value={c.id}>{c.nomeFantasia}</option>)}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Cliente Destinatário <span className="text-xs text-gray-400 font-normal">(Opcional)</span></label>
+                      <input 
+                        name="recipientClient" 
+                        value={load.recipientClient ?? ''} 
+                        onChange={handleChange} 
+                        placeholder="Ex: Bunge Alimentos, Cargill..." 
+                        className="mt-1 p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600 text-sm" 
+                      />
                     </div>
 
                     
                     <div className="space-y-4">
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Origem (Cidade e Local)</label>
-                        <input name="origin" value={load.origin} onChange={handleChange} placeholder="Cidade de Origem" className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 mb-2" required list="cities-list" />
+                        <input name="origin" value={load.origin} onChange={handleChange} placeholder="Cidade de Origem (Ex: Rio Verde, GO)" className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 mb-2" required list="cities-list" />
                         <input name="originLocation" value={load.originLocation ?? ''} onChange={handleChange} placeholder="Nome do Local (Ex: Fazenda...)" className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 mb-2" />
                         <input name="originMapLink" value={load.originMapLink ?? ''} onChange={handleChange} placeholder="Link do Google Maps (Origem)" className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600" />
                     </div>
                     
                     <div className="space-y-4">
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Destino (Cidade e Local)</label>
-                        <input name="destination" value={load.destination} onChange={handleChange} placeholder="Cidade de Destino" className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 mb-2" required list="cities-list" />
+                        <input name="destination" value={load.destination} onChange={handleChange} placeholder="Cidade de Destino (Ex: Santos, SP)" className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 mb-2" required list="cities-list" />
                         <input name="destinationLocation" value={load.destinationLocation ?? ''} onChange={handleChange} placeholder="Nome do Local (Ex: Porto...)" className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 mb-2" />
                         <input name="destinationMapLink" value={load.destinationMapLink ?? ''} onChange={handleChange} placeholder="Link do Google Maps (Destino)" className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600" />
                     </div>

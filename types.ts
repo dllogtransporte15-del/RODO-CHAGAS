@@ -45,6 +45,15 @@ export enum PaymentMethod {
   Prazo = "Prazo",
 }
 
+export interface RecipientClient {
+  id: string;
+  clientId?: string;
+  name: string;
+  cpfCnpj: string;
+  phone?: string;
+  createdAt?: string;
+}
+
 export interface Client {
   id: string;
   razaoSocial: string;
@@ -59,6 +68,7 @@ export interface Client {
   paymentTerm: number; // e.g., 15, 30, 45 days
   requiresExternalOrder: boolean;
   requiresScheduling: boolean;
+  recipientClients?: RecipientClient[];
 }
 
 export enum OwnerType {
@@ -239,6 +249,7 @@ export interface Cargo {
   destinationCoords?: { lat: number; lng: number };
   branchId?: string;
   requiresTracker?: boolean;
+  recipientClient?: string;
 }
 
 
@@ -435,5 +446,6 @@ export interface FreightOffer {
   attachments?: string[];
   requestedEmbarcadorId?: string;
   requestTimestamp?: string;
+  recipientClient?: string;
 }
 

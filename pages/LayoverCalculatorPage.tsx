@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { differenceInMinutes, format, parseISO } from 'date-fns';
 import { jsPDF } from 'jspdf';
@@ -12,6 +11,8 @@ import Header from '../components/Header';
 import { saveToolStay, getToolClients, saveToolClient, ToolClient, getAllToolClients } from '../utils/toolStorage';
 import { User as AppUser, Shipment, Cargo, Client as AppClient, ShipmentStatus, UserProfile } from '../types';
 import { autoFormatInput } from '../utils/formatters';
+import { validateCityFormat, formatCityState } from '../utils/cityUtils';
+import { BRAZILIAN_CITIES } from '../brazilianCities';
 
 interface StayData {
   clientName: string;
@@ -91,6 +92,16 @@ export default function LayoverCalculatorPage({ currentUser, shipments, cargos, 
       [name]: formattedValue
     }));
     setSaveSuccess(false);
+  };
+
+  const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    if (name === 'origin' || name === 'destination') {
+      const formatted = formatCityState(value);
+      if (formatted && formatted !== value) {
+        setFormData(prev => ({ ...prev, [name]: formatted }));
+      }
+    }
   };
 
   const clearFields = () => {
@@ -173,6 +184,19 @@ export default function LayoverCalculatorPage({ currentUser, shipments, cargos, 
       return;
     }
 
+    // Validação estrita de Origem e Destino
+    const originValidation = validateCityFormat(formData.origin, 'Origem');
+    if (!originValidation.isValid) {
+      alert(originValidation.errorMessage);
+      return;
+    }
+
+    const destValidation = validateCityFormat(formData.destination, 'Destino');
+    if (!destValidation.isValid) {
+      alert(destValidation.errorMessage);
+      return;
+    }
+
     setIsSaving(true);
     try {
       if (formData.clientName) {
@@ -185,8 +209,8 @@ export default function LayoverCalculatorPage({ currentUser, shipments, cargos, 
         driver: formData.driver,
         plate: formData.plate,
         invoice: formData.invoice,
-        origin: formData.origin,
-        destination: formData.destination,
+        origin: originValidation.formatted,
+        destination: destValidation.formatted,
         location: formData.location,
         entryDate: formData.entryDate,
         exitDate: formData.exitDate,
@@ -425,15 +449,39 @@ export default function LayoverCalculatorPage({ currentUser, shipments, cargos, 
                 <label className="text-sm font-medium text-slate-700 dark:text-gray-300 flex items-center">
                   <MapPin className="w-4 h-4 mr-1.5 text-slate-400" /> Origem *
                 </label>
-                <input type="text" name="origin" value={formData.origin} onChange={handleInputChange} className="w-full px-3 py-2 border border-slate-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all" />
+                <input 
+                  type="text" 
+                  name="origin" 
+                  value={formData.origin} 
+                  onChange={handleInputChange} 
+                  onBlur={handleBlur}
+                  list="brazilian-cities-layover-list"
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all" 
+                  placeholder="Ex: Rio Verde, GO"
+                />
               </div>
 
               <div className="space-y-1.5">
                 <label className="text-sm font-medium text-slate-700 dark:text-gray-300 flex items-center">
                   <MapPin className="w-4 h-4 mr-1.5 text-slate-400" /> Destino *
                 </label>
-                <input type="text" name="destination" value={formData.destination} onChange={handleInputChange} className="w-full px-3 py-2 border border-slate-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all" />
+                <input 
+                  type="text" 
+                  name="destination" 
+                  value={formData.destination} 
+                  onChange={handleInputChange} 
+                  onBlur={handleBlur}
+                  list="brazilian-cities-layover-list"
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all" 
+                  placeholder="Ex: Santos, SP"
+                />
               </div>
+
+              <datalist id="brazilian-cities-layover-list">
+                {BRAZILIAN_CITIES.map(city => (
+                  <option key={city} value={city} />
+                ))}
+              </datalist>
 
               <div className="space-y-1.5 md:col-span-2">
                 <label className="text-sm font-medium text-slate-700 dark:text-gray-300 flex items-center">

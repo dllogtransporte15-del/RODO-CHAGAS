@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import Header from '../components/Header';
 import LoadTable from '../components/LoadTable';
@@ -19,12 +18,22 @@ interface LoadHistoryPageProps {
   onReactivateLoad?: (cargo: Cargo) => void;
 }
 
-const LoadHistoryPage: React.FC<LoadHistoryPageProps> = ({ loads, clients, products, users, currentUser, shipments, onDeleteLoad, onReactivateLoad }) => {
+const LoadHistoryPage: React.FC<LoadHistoryPageProps> = ({ 
+  loads, 
+  clients, 
+  products, 
+  users, 
+  currentUser, 
+  shipments, 
+  onDeleteLoad, 
+  onReactivateLoad 
+}) => {
   const [filters, setFilters] = useState<LoadFilters>({
     startDate: '',
     endDate: '',
     origin: '',
     destination: '',
+    recipientClient: '',
     clientId: '',
     productId: '',
     status: '',
@@ -34,7 +43,6 @@ const LoadHistoryPage: React.FC<LoadHistoryPageProps> = ({ loads, clients, produ
   const [selectedLoadForHistory, setSelectedLoadForHistory] = useState<Cargo | null>(null);
   const [detailsModalCargo, setDetailsModalCargo] = useState<Cargo | null>(null);
   const [dailyBalanceDate, setDailyBalanceDate] = useState(new Date().toISOString().split('T')[0]);
-
 
   const filteredLoads = useMemo(() => {
     return loads.filter(load => {
@@ -47,6 +55,7 @@ const LoadHistoryPage: React.FC<LoadHistoryPageProps> = ({ loads, clients, produ
       }
       if (filters.origin && !load.origin.toLowerCase().includes(filters.origin.toLowerCase())) return false;
       if (filters.destination && !load.destination.toLowerCase().includes(filters.destination.toLowerCase())) return false;
+      if (filters.recipientClient && (!load.recipientClient || !load.recipientClient.toLowerCase().includes(filters.recipientClient.toLowerCase()))) return false;
       if (filters.clientId && load.clientId !== filters.clientId) return false;
       if (filters.productId && load.productId !== filters.productId) return false;
       if (filters.status && load.status !== filters.status) return false;

@@ -585,6 +585,11 @@ const LoadTable: React.FC<LoadTableProps> = ({ loads, clients, products, shipmen
                   <div className="flex-1">
                     <div className="text-gray-400 text-[9px] uppercase font-bold">Destino</div>
                     <div className="font-medium text-gray-700 dark:text-gray-300 truncate">{load.destination}</div>
+                    {load.recipientClient && (
+                      <div className="text-[10px] text-indigo-600 dark:text-indigo-400 font-semibold truncate" title={`Cliente Destinatário: ${load.recipientClient}`}>
+                        🏢 {load.recipientClient}
+                      </div>
+                    )}
                   </div>
                 </div>
 

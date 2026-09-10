@@ -1,9 +1,13 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import type { Client, Product, FreightOffer } from '../types';
 import { FreightOfferStatus } from '../types';
-import { XIcon, PackageIcon, MapPinIcon, DollarSignIcon, CalendarIcon, ScaleIcon, PaperclipIcon, MapIcon, RouteIcon, FileTextIcon } from 'lucide-react';
+import { XIcon, PackageIcon, MapPinIcon, DollarSignIcon, CalendarIcon, ScaleIcon, PaperclipIcon, MapIcon, RouteIcon, FileTextIcon, Building2, Plus } from 'lucide-react';
 import { supabase } from '../supabase';
 import { cleanOrShortenLocationInput, parseLocation } from '../utils/locationUtils';
+import { validateCityFormat, formatCityState } from '../utils/cityUtils';
+import { formatCpfCnpj, formatPhone } from '../utils/formatters';
+import { fetchRecipientClients, saveRecipientClient, type RecipientClient } from '../utils/recipientClientStorage';
+import { BRAZILIAN_CITIES } from '../brazilianCities';
 import FreightRouteMap, { RouteCalculatedData } from './FreightRouteMap';
 
 interface FreightOfferModalProps {
@@ -23,6 +27,7 @@ const FreightOfferModal: React.FC<FreightOfferModalProps> = ({
     originLocation: '',
     destination: '',
     destinationLocation: '',
+    recipientClient: '',
     totalTonnage: '',
     dailySchedule: '',
     productId: '',
@@ -36,6 +41,22 @@ const FreightOfferModal: React.FC<FreightOfferModalProps> = ({
   const [calculatedRoute, setCalculatedRoute] = useState<RouteCalculatedData | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [recipientList, setRecipientList] = useState<RecipientClient[]>([]);
+  const [isQuickRecipientModalOpen, setIsQuickRecipientModalOpen] = useState(false);
+  const [quickRecipientData, setQuickRecipientData] = useState({
+    name: '',
+    cpfCnpj: '',
+    phone: '',
+  });
+  const [quickRecipientError, setQuickRecipientError] = useState<string | null>(null);
+  const [isSavingRecipient, setIsSavingRecipient] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchRecipientClients(currentClient?.id).then(setRecipientList);
+    }
+  }, [isOpen, currentClient?.id]);
+
   if (!isOpen) return null;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -47,6 +68,16 @@ const FreightOfferModal: React.FC<FreightOfferModalProps> = ({
     setFormData(prev => ({ ...prev, [name]: formattedValue }));
   };
 
+  const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    if (name === 'origin' || name === 'destination') {
+      const formatted = formatCityState(value);
+      if (formatted && formatted !== value) {
+        setFormData(prev => ({ ...prev, [name]: formatted }));
+      }
+    }
+  };
+
   const handleAddDestination = () => {
     setAdditionalDestinations([...additionalDestinations, { city: '', location: '' }]);
   };
@@ -55,6 +86,16 @@ const FreightOfferModal: React.FC<FreightOfferModalProps> = ({
     const newDests = [...additionalDestinations];
     newDests[index][field] = field === 'location' ? cleanOrShortenLocationInput(value) : value;
     setAdditionalDestinations(newDests);
+  };
+
+  const handleAdditionalDestinationBlur = (index: number) => {
+    const newDests = [...additionalDestinations];
+    const currentCity = newDests[index].city;
+    const formatted = formatCityState(currentCity);
+    if (formatted && formatted !== currentCity) {
+      newDests[index].city = formatted;
+      setAdditionalDestinations(newDests);
+    }
   };
 
   const handleRemoveDestination = (index: number) => {
@@ -86,6 +127,37 @@ const FreightOfferModal: React.FC<FreightOfferModalProps> = ({
     e.preventDefault();
     if (!currentClient) return;
 
+    // Validação estrita da Cidade de Origem
+    const originValidation = validateCityFormat(formData.origin, 'Origem (Cidade)');
+    if (!originValidation.isValid) {
+      alert(originValidation.errorMessage);
+      return;
+    }
+
+    // Validação estrita da Cidade de Destino
+    const destValidation = validateCityFormat(formData.destination, 'Destino (Cidade)');
+    if (!destValidation.isValid) {
+      alert(destValidation.errorMessage);
+      return;
+    }
+
+    // Validação estrita de Destinos Adicionais
+    const validatedAdditionalDestinations: { city: string; location: string }[] = [];
+    for (let i = 0; i < additionalDestinations.length; i++) {
+      const item = additionalDestinations[i];
+      if (item.city.trim()) {
+        const addValidation = validateCityFormat(item.city, `Destino Adicional ${i + 1} (Cidade)`);
+        if (!addValidation.isValid) {
+          alert(addValidation.errorMessage);
+          return;
+        }
+        validatedAdditionalDestinations.push({
+          city: addValidation.formatted,
+          location: cleanOrShortenLocationInput(item.location)
+        });
+      }
+    }
+
     setIsSubmitting(true);
     try {
       const uploadedUrls: string[] = [];
@@ -111,18 +183,17 @@ const FreightOfferModal: React.FC<FreightOfferModalProps> = ({
 
       await onSave({
         clientId: currentClient.id,
-        origin: formData.origin,
+        recipientClient: formData.recipientClient?.trim() || undefined,
+        origin: originValidation.formatted,
         originLocation: cleanOrShortenLocationInput(formData.originLocation),
-        destination: formData.destination,
+        destination: destValidation.formatted,
         destinationLocation: cleanOrShortenLocationInput(formData.destinationLocation),
         totalTonnage: Number(formData.totalTonnage),
         dailySchedule: formData.dailySchedule,
         productId: formData.productId,
         status: FreightOfferStatus.AguardandoPreco,
         observations: formData.observations,
-        additionalDestinations: additionalDestinations
-          .filter(d => d.city.trim() !== '')
-          .map(d => ({ ...d, location: cleanOrShortenLocationInput(d.location) })),
+        additionalDestinations: validatedAdditionalDestinations,
         attachments: uploadedUrls,
       });
       onClose();
@@ -226,8 +297,10 @@ const FreightOfferModal: React.FC<FreightOfferModalProps> = ({
                       name="origin"
                       value={formData.origin}
                       onChange={handleChange}
+                      onBlur={handleBlur}
+                      list="brazilian-cities-offer-list"
                       className="pl-10 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-indigo-500"
-                      placeholder="Ex: São Paulo - SP"
+                      placeholder="Ex: Rio Verde, GO"
                     />
                   </div>
                 </div>
@@ -266,8 +339,10 @@ const FreightOfferModal: React.FC<FreightOfferModalProps> = ({
                         name="destination"
                         value={formData.destination}
                         onChange={handleChange}
+                        onBlur={handleBlur}
+                        list="brazilian-cities-offer-list"
                         className="pl-10 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-indigo-500"
-                        placeholder="Ex: Santos - SP"
+                        placeholder="Ex: Santos, SP"
                       />
                     </div>
                     <button
@@ -300,6 +375,12 @@ const FreightOfferModal: React.FC<FreightOfferModalProps> = ({
                   />
                 </div>
 
+                <datalist id="brazilian-cities-offer-list">
+                  {BRAZILIAN_CITIES.map(city => (
+                    <option key={city} value={city} />
+                  ))}
+                </datalist>
+
                 {additionalDestinations.map((dest, idx) => (
                   <React.Fragment key={idx}>
                     <div>
@@ -314,8 +395,10 @@ const FreightOfferModal: React.FC<FreightOfferModalProps> = ({
                             type="text"
                             value={dest.city}
                             onChange={e => handleAdditionalDestinationChange(idx, 'city', e.target.value)}
+                            onBlur={() => handleAdditionalDestinationBlur(idx)}
+                            list="brazilian-cities-offer-list"
                             className="pl-10 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
-                            placeholder="Ex: Campinas - SP"
+                            placeholder="Ex: Campinas, SP"
                           />
                         </div>
                         <button
@@ -349,6 +432,67 @@ const FreightOfferModal: React.FC<FreightOfferModalProps> = ({
                 ))}
 
                 <div>
+                  <div className="flex justify-between items-center mb-1">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Cliente Destinatário <span className="text-xs text-gray-400 font-normal">(Opcional)</span>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setQuickRecipientData({
+                          name: formData.recipientClient || '',
+                          cpfCnpj: '',
+                          phone: '',
+                        });
+                        setQuickRecipientError(null);
+                        setIsQuickRecipientModalOpen(true);
+                      }}
+                      className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors"
+                      title="Cadastrar novo cliente destinatário sem fechar a oferta"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Cadastrar Novo</span>
+                    </button>
+                  </div>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <Building2 className="h-4 w-4 text-gray-400" />
+                    </div>
+                    <input
+                      type="text"
+                      name="recipientClient"
+                      value={formData.recipientClient}
+                      onChange={handleChange}
+                      list="recipient-clients-offer-list"
+                      className="pl-10 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-indigo-500 text-sm"
+                      placeholder="Selecione ou digite o destinatário..."
+                    />
+                    <datalist id="recipient-clients-offer-list">
+                      {recipientList.map(r => (
+                        <option key={r.id} value={r.name}>{r.cpfCnpj ? `${r.name} - ${r.cpfCnpj}` : r.name}</option>
+                      ))}
+                    </datalist>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Cadência Diária</label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <CalendarIcon className="h-4 w-4 text-gray-400" />
+                    </div>
+                    <input
+                      type="text"
+                      name="dailySchedule"
+                      value={formData.dailySchedule}
+                      onChange={handleChange}
+                      className="pl-10 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-indigo-500"
+                      placeholder="Ex: 50 ton/dia, ou Livre"
+                    />
+                  </div>
+                </div>
+
+                <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Volume Total (Ton) <span className="text-red-500">*</span>
                   </label>
@@ -366,23 +510,6 @@ const FreightOfferModal: React.FC<FreightOfferModalProps> = ({
                       onChange={handleChange}
                       className="pl-10 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-indigo-500"
                       placeholder="Ex: 500"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Cadência Diária</label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <CalendarIcon className="h-4 w-4 text-gray-400" />
-                    </div>
-                    <input
-                      type="text"
-                      name="dailySchedule"
-                      value={formData.dailySchedule}
-                      onChange={handleChange}
-                      className="pl-10 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-indigo-500"
-                      placeholder="Ex: 50 ton/dia, ou Livre"
                     />
                   </div>
                 </div>
@@ -501,6 +628,134 @@ const FreightOfferModal: React.FC<FreightOfferModalProps> = ({
         </div>
 
       </div>
+
+      {/* Quick Recipient Client Modal (Inline) */}
+      {isQuickRecipientModalOpen && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-xs flex items-center justify-center z-[100] p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md border border-gray-100 dark:border-gray-700 p-6 space-y-4">
+            <div className="flex justify-between items-center pb-3 border-b border-gray-100 dark:border-gray-700">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-indigo-50 dark:bg-indigo-900/40 rounded-lg text-indigo-600 dark:text-indigo-400">
+                  <Building2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-gray-800 dark:text-white leading-tight">Cadastrar Cliente Destinatário</h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Cadastro rápido sem sair da oferta de frete</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsQuickRecipientModalOpen(false)}
+                className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              >
+                <XIcon className="w-4 h-4" />
+              </button>
+            </div>
+
+            {quickRecipientError && (
+              <div className="p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg text-xs text-red-700 dark:text-red-300 font-medium">
+                {quickRecipientError}
+              </div>
+            )}
+
+            <div className="space-y-3.5">
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                  Nome / Razão Social <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  autoFocus
+                  value={quickRecipientData.name}
+                  onChange={(e) => setQuickRecipientData(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="Ex: Bunge Alimentos S.A."
+                  className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                  CPF ou CNPJ <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={quickRecipientData.cpfCnpj}
+                  onChange={(e) => {
+                    const formatted = formatCpfCnpj(e.target.value);
+                    setQuickRecipientData(prev => ({ ...prev, cpfCnpj: formatted }));
+                  }}
+                  placeholder="Ex: 00.000.000/0001-00 ou 000.000.000-00"
+                  className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-indigo-500 font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                  Telefone <span className="text-xs text-gray-400 font-normal">(Opcional)</span>
+                </label>
+                <input
+                  type="text"
+                  value={quickRecipientData.phone}
+                  onChange={(e) => {
+                    const formatted = formatPhone(e.target.value);
+                    setQuickRecipientData(prev => ({ ...prev, phone: formatted }));
+                  }}
+                  placeholder="Ex: (64) 99999-9999"
+                  className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-gray-100 dark:border-gray-700">
+              <button
+                type="button"
+                onClick={() => setIsQuickRecipientModalOpen(false)}
+                className="px-3.5 py-2 text-xs font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={isSavingRecipient}
+                onClick={async () => {
+                  if (!quickRecipientData.name.trim()) {
+                    setQuickRecipientError('Por favor, informe o Nome ou Razão Social do destinatário.');
+                    return;
+                  }
+                  const cleanCpfCnpj = quickRecipientData.cpfCnpj.replace(/\D/g, '');
+                  if (!cleanCpfCnpj || (cleanCpfCnpj.length !== 11 && cleanCpfCnpj.length !== 14)) {
+                    setQuickRecipientError('Por favor, informe um CPF (11 dígitos) ou CNPJ (14 dígitos) válido.');
+                    return;
+                  }
+
+                  setIsSavingRecipient(true);
+                  setQuickRecipientError(null);
+                  try {
+                    const saved = await saveRecipientClient({
+                      clientId: currentClient?.id,
+                      name: quickRecipientData.name.trim(),
+                      cpfCnpj: quickRecipientData.cpfCnpj.trim(),
+                      phone: quickRecipientData.phone.trim() || undefined,
+                    });
+                    setRecipientList(prev => [saved, ...prev.filter(r => r.id !== saved.id)]);
+                    setFormData(prev => ({ ...prev, recipientClient: saved.name }));
+                    setIsQuickRecipientModalOpen(false);
+                  } catch (err: any) {
+                    setQuickRecipientError(err?.message || 'Erro ao salvar cliente destinatário.');
+                  } finally {
+                    setIsSavingRecipient(false);
+                  }
+                }}
+                className="px-4 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors shadow-sm disabled:opacity-50 flex items-center gap-1.5"
+              >
+                {isSavingRecipient ? 'Salvando...' : 'Cadastrar e Selecionar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

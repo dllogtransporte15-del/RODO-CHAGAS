@@ -6,6 +6,8 @@ import { Calculator, Download, FileText, Truck, Clock, MapPin, FileDigit, User, 
 import { saveStay, getClients, saveClient, Client } from '../utils/storage';
 import { useToast } from '../hooks/useToast';
 import { autoFormatInput } from '../utils/formatters';
+import { validateCityFormat, formatCityState } from '../utils/cityUtils';
+import { BRAZILIAN_CITIES } from '../brazilianCities';
 
 interface StayData {
   clientName: string;
@@ -59,6 +61,16 @@ export default function StayCalculator({ companyId }: StayCalculatorProps) {
     setSaveSuccess(false);
   };
 
+  const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    if (name === 'origin' || name === 'destination') {
+      const formatted = formatCityState(value);
+      if (formatted && formatted !== value) {
+        setFormData(prev => ({ ...prev, [name]: formatted }));
+      }
+    }
+  };
+
   const clearFields = () => {
     setFormData(initialData);
     setSaveSuccess(false);
@@ -92,6 +104,20 @@ export default function StayCalculator({ companyId }: StayCalculatorProps) {
       return;
     }
 
+    // Validação de Origem
+    const originValidation = validateCityFormat(formData.origin, 'Origem');
+    if (!originValidation.isValid) {
+      showToast(originValidation.errorMessage || 'Cidade de Origem inválida.', 'warning');
+      return;
+    }
+
+    // Validação de Destino
+    const destValidation = validateCityFormat(formData.destination, 'Destino');
+    if (!destValidation.isValid) {
+      showToast(destValidation.errorMessage || 'Cidade de Destino inválida.', 'warning');
+      return;
+    }
+
     if (formData.clientName) {
       saveClient(companyId, formData.clientName);
       setClients(getClients(companyId));
@@ -103,8 +129,8 @@ export default function StayCalculator({ companyId }: StayCalculatorProps) {
       driver: formData.driver,
       plate: formData.plate,
       invoice: formData.invoice,
-      origin: formData.origin,
-      destination: formData.destination,
+      origin: originValidation.formatted,
+      destination: destValidation.formatted,
       location: formData.location,
       entryDate: formData.entryDate,
       exitDate: formData.exitDate,
@@ -285,12 +311,35 @@ export default function StayCalculator({ companyId }: StayCalculatorProps) {
             </div>
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-slate-700 flex items-center"><MapPin className="w-4 h-4 mr-1.5 text-slate-400" /> Origem *</label>
-              <input type="text" name="origin" value={formData.origin} onChange={handleInputChange} className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all" placeholder="Cidade - Estado" />
+              <input 
+                type="text" 
+                name="origin" 
+                value={formData.origin} 
+                onChange={handleInputChange} 
+                onBlur={handleBlur}
+                list="brazilian-cities-stay-list"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all" 
+                placeholder="Ex: Rio Verde, GO" 
+              />
             </div>
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-slate-700 flex items-center"><MapPin className="w-4 h-4 mr-1.5 text-slate-400" /> Destino *</label>
-              <input type="text" name="destination" value={formData.destination} onChange={handleInputChange} className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all" placeholder="Cidade - Estado" />
+              <input 
+                type="text" 
+                name="destination" 
+                value={formData.destination} 
+                onChange={handleInputChange} 
+                onBlur={handleBlur}
+                list="brazilian-cities-stay-list"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all" 
+                placeholder="Ex: Santos, SP" 
+              />
             </div>
+            <datalist id="brazilian-cities-stay-list">
+              {BRAZILIAN_CITIES.map(city => (
+                <option key={city} value={city} />
+              ))}
+            </datalist>
             <div className="space-y-1.5 md:col-span-2">
               <label className="text-sm font-medium text-slate-700 flex items-center"><MapPin className="w-4 h-4 mr-1.5 text-slate-400" /> Local do Evento</label>
               <select name="location" value={formData.location} onChange={handleInputChange} className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all bg-white">

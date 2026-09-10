@@ -9,6 +9,8 @@ import { format } from 'date-fns';
 import { saveQuote, getClients, saveClient, Client } from '../utils/storage';
 import { useToast } from '../hooks/useToast';
 import { autoFormatInput } from '../utils/formatters';
+import { validateCityFormat, formatCityState } from '../utils/cityUtils';
+import { BRAZILIAN_CITIES } from '../brazilianCities';
 
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -105,6 +107,22 @@ export default function FreightQuote({ companyId }: FreightQuoteProps) {
       return;
     }
 
+    // Validação estrita de Origem
+    const originValidation = validateCityFormat(formData.origin, 'Origem');
+    if (!originValidation.isValid) {
+      setRouteError(originValidation.errorMessage || 'Cidade de Origem inválida.');
+      showToast(originValidation.errorMessage || 'Cidade de Origem inválida.', 'warning');
+      return;
+    }
+
+    // Validação estrita de Destino
+    const destValidation = validateCityFormat(formData.destination, 'Destino');
+    if (!destValidation.isValid) {
+      setRouteError(destValidation.errorMessage || 'Cidade de Destino inválida.');
+      showToast(destValidation.errorMessage || 'Cidade de Destino inválida.', 'warning');
+      return;
+    }
+
     setIsCalculatingRoute(true);
     setRouteError(null);
 
@@ -120,8 +138,8 @@ export default function FreightQuote({ companyId }: FreightQuoteProps) {
         throw new Error(`Não foi possível encontrar as coordenadas para: ${address}. Tente especificar bairro ou cidade mais precisamente.`);
       };
 
-      const originCoords = await getCoordinates(formData.origin);
-      const destCoords = await getCoordinates(formData.destination);
+      const originCoords = await getCoordinates(originValidation.formatted);
+      const destCoords = await getCoordinates(destValidation.formatted);
 
       const routeResponse = await fetch(`https://router.project-osrm.org/route/v1/driving/${originCoords[1]},${originCoords[0]};${destCoords[1]},${destCoords[0]}?overview=simplified&geometries=geojson`);
       const routeJson = await routeResponse.json();
@@ -158,14 +176,15 @@ export default function FreightQuote({ companyId }: FreightQuoteProps) {
 
       setFormData(prev => ({
         ...prev,
+        origin: originValidation.formatted,
+        destination: destValidation.formatted,
         distance: distanceKm.toFixed(1),
         tollValue: mockToll.toFixed(2),
-        anttMinimum: mockAntt.toFixed(2)
+        anttValue: mockAntt.toFixed(2)
       }));
 
-    } catch (error: any) {
-      setRouteError(error.message || "Erro ao calcular a rota. Verifique os endereços informados.");
-      setRouteData(null);
+    } catch (err: any) {
+      setRouteError(err.message || "Erro ao conectar com serviços de rota/mapa.");
     } finally {
       setIsCalculatingRoute(false);
     }
@@ -178,85 +197,85 @@ export default function FreightQuote({ companyId }: FreightQuoteProps) {
     setSaveSuccess(false);
   };
 
+  const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    if (name === 'origin' || name === 'destination') {
+      const formatted = formatCityState(value);
+      if (formatted && formatted !== value) {
+        setFormData(prev => ({ ...prev, [name]: formatted }));
+      }
+    }
+  };
+
   const clearFields = () => {
     setFormData(initialData);
     setRouteData(null);
-    setRouteError(null);
     setSaveSuccess(false);
+    setRouteError(null);
   };
 
   const result = useMemo(() => {
     const distance = parseFloat(formData.distance) || 0;
-    const isPerKm = formData.inputMode === 'PER_KM';
-    const isTotal = formData.inputMode === 'TOTAL';
-    const isPerTon = formData.inputMode === 'PER_TON';
-    
-    let valuePerKm = parseFloat(formData.valuePerKm) || 0;
-    let driverTotalValue = parseFloat(formData.driverTotalValue) || 0;
-    
     const tollValue = parseFloat(formData.tollValue) || 0;
     const anttValue = parseFloat(formData.anttValue) || 0;
-    const weight = parseFloat(formData.weight) || 1;
-    const margin = parseFloat(formData.margin) || 0;
-    const icms = parseFloat(formData.icms) || 0;
-    
+    const weight = parseFloat(formData.weight) || 0;
+    const marginPercent = parseFloat(formData.margin) || 0;
+    const icmsPercent = parseFloat(formData.icms) || 0;
     const dieselPrice = parseFloat(formData.dieselPrice) || 0;
-    const averageConsumption = parseFloat(formData.averageConsumption) || 1;
+    const averageConsumption = parseFloat(formData.averageConsumption) || 0;
     const driverCommissionPercent = parseFloat(formData.driverCommissionPercent) || 0;
 
-    if (!distance || (!isTotal && !valuePerKm) || (isTotal && !driverTotalValue)) return null;
-
-    if (isTotal) {
-      valuePerKm = driverTotalValue / distance;
-    } else if (isPerTon) {
-      driverTotalValue = valuePerKm * weight;
-      valuePerKm = driverTotalValue / distance;
+    let driverBaseValue = 0;
+    if (formData.inputMode === 'TOTAL') {
+      driverBaseValue = parseFloat(formData.driverTotalValue) || 0;
+    } else if (formData.inputMode === 'PER_TON') {
+      const valPerTon = parseFloat(formData.valuePerKm) || 0;
+      driverBaseValue = valPerTon * weight;
     } else {
-      driverTotalValue = distance * valuePerKm;
+      const valPerKm = parseFloat(formData.valuePerKm) || 0;
+      driverBaseValue = valPerKm * distance;
     }
 
-    const initialTotal = driverTotalValue + tollValue + anttValue;
+    if (!distance && !driverBaseValue) return null;
+
+    // Custos do Motorista
+    const litersNeeded = averageConsumption > 0 ? distance / averageConsumption : 0;
+    const dieselCost = litersNeeded * dieselPrice;
+    const commissionValue = driverBaseValue * (driverCommissionPercent / 100);
+    const driverNetProfit = driverBaseValue - dieselCost - tollValue - commissionValue;
+
+    // Análise da Transportadora (Frete Cobrado do Cliente)
+    const directCosts = driverBaseValue + tollValue + anttValue;
+    const targetMargin = marginPercent / 100;
+    const icmsRate = icmsPercent / 100;
     
-    const marginMultiplier = 1 / (1 - (margin / 100));
-    const valueWithMargin = initialTotal * marginMultiplier;
-    
-    const icmsMultiplier = 1 / (1 - (icms / 100));
-    const finalTotalFreight = valueWithMargin * icmsMultiplier;
+    // Divisor para garantir a margem líquida pós ICMS
+    const effectiveDivisor = (1 - icmsRate) * (1 - targetMargin);
+    const companyTotalFreight = effectiveDivisor > 0 ? directCosts / effectiveDivisor : directCosts;
 
-    const companyTotalFreight = finalTotalFreight;
+    const icmsValue = companyTotalFreight * icmsRate;
+    const netCompanyFreight = companyTotalFreight - icmsValue;
+    const carrierGrossProfit = netCompanyFreight - directCosts;
+    const carrierNetProfit = carrierGrossProfit;
+    const carrierProfitMargin = companyTotalFreight > 0 ? (carrierNetProfit / companyTotalFreight) * 100 : 0;
 
-    const driverFreightPerTon = driverTotalValue / weight;
-    const companyFreightPerTon = companyTotalFreight / weight;
-    
-    const differenceValue = companyTotalFreight - driverTotalValue;
-    const differencePercent = ((companyTotalFreight / driverTotalValue) - 1) * 100;
-
-    const dieselCost = (distance / averageConsumption) * dieselPrice;
-    const commissionValue = driverTotalValue * (driverCommissionPercent / 100);
-    const driverNetProfit = driverTotalValue - dieselCost - commissionValue - tollValue;
-
-    const carrierGrossProfit = companyTotalFreight - driverTotalValue;
-    const icmsValue = companyTotalFreight * (icms / 100);
-    const carrierNetProfit = carrierGrossProfit - icmsValue;
-    const carrierProfitMargin = (carrierNetProfit / companyTotalFreight) * 100;
+    const companyFreightPerTon = weight > 0 ? companyTotalFreight / weight : 0;
+    const driverFreightPerTon = weight > 0 ? driverBaseValue / weight : 0;
 
     return {
-      driverTotalValue,
-      valuePerKm,
+      driverTotalValue: driverBaseValue,
       companyTotalFreight,
-      driverFreightPerTon,
       companyFreightPerTon,
-      differenceValue,
-      differencePercent,
+      driverFreightPerTon,
+      directCosts,
       taxes: {
         icmsValue,
-        icmsPercent: icms
+        icmsPercent
       },
       driverAnalysis: {
         dieselCost,
         commissionValue,
-        netProfit: driverNetProfit,
-        profitMargin: (driverNetProfit / driverTotalValue) * 100
+        netProfit: driverNetProfit
       },
       carrierAnalysis: {
         grossProfit: carrierGrossProfit,
@@ -274,6 +293,19 @@ export default function FreightQuote({ companyId }: FreightQuoteProps) {
       return;
     }
 
+    // Validação estrita de Origem e Destino
+    const originValidation = validateCityFormat(formData.origin, 'Origem');
+    if (!originValidation.isValid) {
+      showToast(originValidation.errorMessage || 'Cidade de Origem inválida.', 'warning');
+      return;
+    }
+
+    const destValidation = validateCityFormat(formData.destination, 'Destino');
+    if (!destValidation.isValid) {
+      showToast(destValidation.errorMessage || 'Cidade de Destino inválida.', 'warning');
+      return;
+    }
+
     if (formData.clientName) {
       saveClient(companyId, formData.clientName);
       setClients(getClients(companyId));
@@ -282,8 +314,8 @@ export default function FreightQuote({ companyId }: FreightQuoteProps) {
     saveQuote({
       companyId,
       clientName: formData.clientName || 'Não Informado',
-      origin: formData.origin,
-      destination: formData.destination,
+      origin: originValidation.formatted,
+      destination: destValidation.formatted,
       distance: parseFloat(formData.distance),
       axes: parseInt(formData.axes, 10),
       cargoType: formData.cargoType,
@@ -321,14 +353,14 @@ export default function FreightQuote({ companyId }: FreightQuoteProps) {
 
   const exportToCSV = () => {
     if (!result) return;
-    
+
     const headers = [
-      'Cliente', 'Origem', 'Destino', 'Distância (km)', 'Eixos', 'Tipo de Carga',
-      'Peso (Ton)', 'Valor Motorista (R$)', 'Pedágio (R$)', 'ANTT (R$)',
-      'Margem (%)', 'ICMS (%)', 'Frete Total Motorista', 'Frete Ton Motorista',
-      'Frete Total Empresa', 'Frete Ton Empresa', 'Lucro Líquido Transportadora'
+      'Cliente', 'Origem', 'Destino', 'Distância (km)', 'Eixos', 'Tipo Carga', 
+      'Peso (Ton)', 'Frete Motorista (Total)', 'Frete Motorista (p/ Ton)', 
+      'Pedágio (R$)', 'ANTT (R$)', 'Margem (%)', 'ICMS (%)', 
+      'Frete Empresa (Total)', 'Frete Empresa (p/ Ton)', 'Lucro Líquido Transportadora'
     ];
-    
+
     const row = [
       formData.clientName || 'Não Informado',
       formData.origin,
@@ -338,18 +370,21 @@ export default function FreightQuote({ companyId }: FreightQuoteProps) {
       formData.cargoType,
       formData.weight,
       result.driverTotalValue.toFixed(2),
+      result.driverFreightPerTon.toFixed(2),
       formData.tollValue,
       formData.anttValue,
       formData.margin,
       formData.icms,
-      result.driverTotalValue.toFixed(2),
-      result.driverFreightPerTon.toFixed(2),
       result.companyTotalFreight.toFixed(2),
       result.companyFreightPerTon.toFixed(2),
       result.carrierAnalysis.netProfit.toFixed(2)
     ];
 
-    const csvContent = [headers.join(','), row.map(v => `"${v}"`).join(',')].join('\n');
+    const csvContent = [
+      headers.join(','),
+      row.map(v => `"${v}"`).join(',')
+    ].join('\n');
+
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -365,58 +400,55 @@ export default function FreightQuote({ companyId }: FreightQuoteProps) {
 
     const doc = new jsPDF();
     doc.setFontSize(18);
-    doc.text('Relatório de Cotação de Frete', 14, 22);
-    
-    doc.setFontSize(11);
+    doc.text('Relatório de Cotação de Frete & Viabilidade', 14, 22);
+    doc.setFontSize(10);
     doc.setTextColor(100);
-    doc.text(`Gerada em: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, 14, 30);
+    doc.text(`Gerado em: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, 14, 28);
 
     autoTable(doc, {
-      startY: 40,
-      head: [['Dados da Rota e Carga', 'Valores']],
+      startY: 35,
+      head: [['Parâmetro', 'Valor']],
       body: [
         ['Cliente', formData.clientName || 'Não Informado'],
-        ['Origem', formData.origin],
-        ['Destino', formData.destination],
-        ['Distância', `${formatNumber(parseFloat(formData.distance))} km`],
-        ['Veículo/Eixos', `${formData.axes} Eixos`],
-        ['Tipo de Carga', formData.cargoType],
-        ['Peso', `${formatNumber(parseFloat(formData.weight))} Ton`],
+        ['Origem / Destino', `${formData.origin} ➔ ${formData.destination}`],
+        ['Distância Estimada', `${formData.distance} km`],
+        ['Configuração do Veículo', `${formData.axes} Eixos (${formData.cargoType})`],
+        ['Peso da Carga', `${formData.weight} Toneladas`],
+        ['Valor Fechado Motorista', formatCurrency(result.driverTotalValue)],
+        ['Pedágio + ANTT Estimados', `${formatCurrency((parseFloat(formData.tollValue)||0) + (parseFloat(formData.anttValue)||0))}`],
+        ['Margem Pretendida', `${formData.margin}%`],
+        ['Alíquota ICMS', `${formData.icms}%`]
       ],
       theme: 'grid',
       headStyles: { fillColor: [79, 70, 229] },
     });
 
-    let finalY = (doc as any).lastAutoTable.finalY || 40;
+    const finalY = (doc as any).lastAutoTable.finalY || 35;
 
     autoTable(doc, {
       startY: finalY + 10,
-      head: [['Análise do Frete Motorista', 'Valores']],
+      head: [['Resumo da Formação de Preço (Transportadora)', 'Valor']],
       body: [
-        ['Valor por Km', formatCurrency(result.valuePerKm)],
-        ['Frete Base (+ Pedágio + ANTT)', formatCurrency(result.driverTotalValue + parseFloat(formData.tollValue || '0') + parseFloat(formData.anttValue || '0'))],
-        ['Frete por Tonelada', formatCurrency(result.driverFreightPerTon)],
-      ],
-      theme: 'grid',
-      headStyles: { fillColor: [59, 130, 246] },
-    });
-
-    finalY = (doc as any).lastAutoTable.finalY || 40;
-
-    autoTable(doc, {
-      startY: finalY + 10,
-      head: [['Valores Finais para o Cliente (Empresa)', 'Valores']],
-      body: [
-        ['Margem Aplicada', `${formData.margin}%`],
-        ['Valor do ICMS', formatCurrency(result.taxes.icmsValue)],
-        ['Frete Total a Cobrar', formatCurrency(result.companyTotalFreight)],
-        ['Valor por Tonelada', formatCurrency(result.companyFreightPerTon)],
-        ['Lucro Líquido Previsto', formatCurrency(result.carrierAnalysis.netProfit)],
+        ['Custo Direto Total (Motorista + Pedágio + ANTT)', formatCurrency(result.directCosts)],
+        ['Imposto ICMS Provisionado', formatCurrency(result.taxes.icmsValue)],
+        ['Preço de Venda do Frete (Empresa Total)', formatCurrency(result.companyTotalFreight)],
+        ['Preço de Venda por Tonelada', `${formatCurrency(result.companyFreightPerTon)} / Ton`],
+        ['Lucro Líquido Previsto (R$)', formatCurrency(result.carrierAnalysis.netProfit)],
+        ['Margem Líquida Real (%)', `${formatNumber(result.carrierAnalysis.profitMargin)}%`]
       ],
       theme: 'grid',
       headStyles: { fillColor: [15, 23, 42] },
+      styles: { fontSize: 11 },
+      columnStyles: {
+        0: { fontStyle: 'bold', cellWidth: 120 },
+        1: { halign: 'right' }
+      },
       didParseCell: function(data) {
         if (data.row.index === 2 && data.section === 'body') {
+          data.cell.styles.fontStyle = 'bold';
+          data.cell.styles.textColor = [79, 70, 229];
+        }
+        if (data.row.index === 4 && data.section === 'body') {
           data.cell.styles.fontStyle = 'bold';
           data.cell.styles.textColor = [5, 150, 105];
         }
@@ -450,7 +482,16 @@ export default function FreightQuote({ companyId }: FreightQuoteProps) {
             <div className="space-y-3 p-4 bg-slate-50 rounded-xl border border-slate-100">
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-slate-700 flex items-center"><MapPin className="w-3.5 h-3.5 mr-1.5 text-emerald-500" /> Origem *</label>
-                <input type="text" name="origin" value={formData.origin} onChange={handleInputChange} className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="Cidade, Estado" />
+                <input 
+                  type="text" 
+                  name="origin" 
+                  value={formData.origin} 
+                  onChange={handleInputChange} 
+                  onBlur={handleBlur}
+                  list="brazilian-cities-quote-list"
+                  className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none" 
+                  placeholder="Ex: Rio Verde, GO" 
+                />
               </div>
 
               <div className="flex items-center justify-center -my-2 relative z-10">
@@ -459,8 +500,23 @@ export default function FreightQuote({ companyId }: FreightQuoteProps) {
 
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-slate-700 flex items-center"><MapPin className="w-3.5 h-3.5 mr-1.5 text-indigo-500" /> Destino *</label>
-                <input type="text" name="destination" value={formData.destination} onChange={handleInputChange} className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="Cidade, Estado" />
+                <input 
+                  type="text" 
+                  name="destination" 
+                  value={formData.destination} 
+                  onChange={handleInputChange} 
+                  onBlur={handleBlur}
+                  list="brazilian-cities-quote-list"
+                  className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none" 
+                  placeholder="Ex: Santos, SP" 
+                />
               </div>
+
+              <datalist id="brazilian-cities-quote-list">
+                {BRAZILIAN_CITIES.map(city => (
+                  <option key={city} value={city} />
+                ))}
+              </datalist>
 
               <button 
                 onClick={calculateRoute}

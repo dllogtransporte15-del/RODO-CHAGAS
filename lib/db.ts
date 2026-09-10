@@ -17,10 +17,13 @@ export const toFreightOffer = (row: any): FreightOffer => {
   let attachments = undefined;
   let displayId = row.display_id || undefined;
 
+  let recipientClient = row.recipient_client || undefined;
+
   if (metaLog) {
     try {
       const parsed = JSON.parse(metaLog.description);
       if (parsed.displayId) displayId = parsed.displayId;
+      if (parsed.recipientClient) recipientClient = parsed.recipientClient;
       additionalDestinations = parsed.additionalDestinations;
       observations = parsed.observations;
       attachments = parsed.attachments;
@@ -37,6 +40,7 @@ export const toFreightOffer = (row: any): FreightOffer => {
     id: row.id,
     displayId,
     clientId: row.client_id,
+    recipientClient,
     origin: row.origin,
     originLocation: row.origin_location,
     destination: row.destination,
@@ -105,13 +109,14 @@ const fromFreightOffer = (o: FreightOffer | Omit<FreightOffer, 'id'>) => {
   const history = [...(o.history || [])].filter(h => h.id !== 'meta_dest_obs');
   const displayId = (o as FreightOffer).displayId;
   
-  if ((o.additionalDestinations && o.additionalDestinations.length > 0) || o.observations || (o.attachments && o.attachments.length > 0) || o.driverId || o.cargoId || o.requestedEmbarcadorId || o.requestTimestamp || displayId) {
+  if ((o.additionalDestinations && o.additionalDestinations.length > 0) || o.observations || (o.attachments && o.attachments.length > 0) || o.driverId || o.cargoId || o.requestedEmbarcadorId || o.requestTimestamp || displayId || o.recipientClient) {
     history.push({
       id: 'meta_dest_obs',
       userId: 'system',
       timestamp: o.createdAt || new Date().toISOString(),
       description: JSON.stringify({
         displayId,
+        recipientClient: o.recipientClient,
         additionalDestinations: o.additionalDestinations,
         observations: o.observations,
         attachments: o.attachments,
@@ -315,6 +320,7 @@ export const toCargo = (row: any): Cargo => {
     salespersonName: row.salesperson_name,
     salespersonCommissionPerTon: Number(row.salesperson_commission_per_ton),
     branchId: row.branch_id,
+    recipientClient: row.recipient_client || row.recipientClient || undefined,
   };
 };
 
@@ -352,6 +358,7 @@ const fromCargo = (c: Cargo | Omit<Cargo, 'id'>) => {
     destination: c.destination,
     destination_location: cleanOrShortenLocationInput(c.destinationLocation),
     destination_map_link: cleanOrShortenLocationInput(c.destinationMapLink),
+    recipient_client: c.recipientClient || null,
     total_volume: c.totalVolume,
     scheduled_volume: c.scheduledVolume,
     loaded_volume: c.loadedVolume,

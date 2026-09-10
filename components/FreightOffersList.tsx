@@ -206,6 +206,11 @@ const FreightOffersList: React.FC<FreightOffersListProps> = ({
                       )}
                     </div>
                     {renderLocationValue(offer.destinationLocation, "block text-xs text-gray-500")}
+                    {offer.recipientClient && (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-900/40 px-1.5 py-0.5 rounded mt-0.5 max-w-full truncate" title={`Cliente Destinatário: ${offer.recipientClient}`}>
+                        🏢 {offer.recipientClient}
+                      </span>
+                    )}
                   </div>
                 </td>
                 <td className="px-4 py-3 text-gray-600 dark:text-gray-300">{getProductName(offer.productId)}</td>
@@ -604,6 +609,16 @@ const FreightOffersList: React.FC<FreightOffersListProps> = ({
                     ))}
                   </div>
                 </div>
+
+                {detailsModal.recipientClient && (
+                  <div>
+                    <span className="font-semibold block text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Cliente Destinatário:</span>
+                    <div className="bg-indigo-50/70 dark:bg-indigo-900/30 p-3 rounded-xl border border-indigo-100 dark:border-indigo-800 flex items-center gap-2 text-indigo-900 dark:text-indigo-200 font-semibold text-sm">
+                      <span className="text-base">🏢</span>
+                      <span>{detailsModal.recipientClient}</span>
+                    </div>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-xl border border-gray-100 dark:border-gray-600">

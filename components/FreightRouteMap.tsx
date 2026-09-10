@@ -569,7 +569,7 @@ export const FreightRouteMap: React.FC<FreightRouteMapProps> = ({
           <button
             type="button"
             onClick={handleManualRecenter}
-            className="absolute bottom-4 right-4 z-[400] px-3 py-1.5 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all flex items-center gap-1.5 text-xs font-semibold cursor-pointer"
+            className="absolute bottom-4 right-4 z-10 px-3 py-1.5 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all flex items-center gap-1.5 text-xs font-semibold cursor-pointer"
             title="Reenquadrar mapa na rota completa"
           >
             <CompassIcon className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
@@ -579,7 +579,7 @@ export const FreightRouteMap: React.FC<FreightRouteMapProps> = ({
 
         {/* Loading Overlay */}
         {isCalculating && (
-          <div className="absolute inset-0 bg-white/70 dark:bg-gray-900/70 backdrop-blur-2xs flex flex-col items-center justify-center z-[400] transition-all">
+          <div className="absolute inset-0 bg-white/70 dark:bg-gray-900/70 backdrop-blur-2xs flex flex-col items-center justify-center z-20 transition-all">
             <div className="p-3 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 flex items-center gap-3">
               <RefreshCwIcon className="w-5 h-5 text-indigo-600 animate-spin" />
               <span className="text-xs font-semibold text-gray-800 dark:text-gray-200">
@@ -591,7 +591,7 @@ export const FreightRouteMap: React.FC<FreightRouteMapProps> = ({
 
         {/* Error Message Overlay */}
         {errorMessage && !isCalculating && (
-          <div className="absolute top-3 left-3 right-3 z-[400]">
+          <div className="absolute top-3 left-3 right-3 z-20">
             <div className="p-2.5 bg-red-50 dark:bg-red-900/60 border border-red-200 dark:border-red-800 rounded-lg text-xs text-red-700 dark:text-red-200 flex items-start gap-2 shadow-sm">
               <AlertCircleIcon className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
               <div className="flex-1">
@@ -603,7 +603,7 @@ export const FreightRouteMap: React.FC<FreightRouteMapProps> = ({
 
         {/* Empty State Overlay */}
         {!origin.trim() && !destination.trim() && !isCalculating && (
-          <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center p-6 text-center z-[300] bg-slate-50/50 dark:bg-gray-900/50 backdrop-blur-[1px]">
+          <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center p-6 text-center z-10 bg-slate-50/50 dark:bg-gray-900/50 backdrop-blur-[1px]">
             <div className="p-3.5 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 max-w-xs">
               <MapPinIcon className="w-8 h-8 text-indigo-500 mx-auto mb-2 opacity-80" />
               <p className="text-xs font-semibold text-gray-700 dark:text-gray-200">

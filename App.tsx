@@ -158,6 +158,38 @@ const App: React.FC = () => {
     isAnyModalActiveRef.current = isAnyModalActive;
   }, [isAnyModalActive, isAnyModalActiveRef]);
 
+  // Gestão de Tema: Fundo Escuro vs Fundo Claro
+  const [themeMode, setThemeMode] = useState<'dark' | 'light'>(() => {
+    try {
+      const saved = localStorage.getItem('rodochagas_theme_mode');
+      return (saved === 'light' || saved === 'dark') ? saved : 'dark';
+    } catch {
+      return 'dark';
+    }
+  });
+
+  const handleSaveThemeMode = useCallback((mode: 'dark' | 'light') => {
+    setThemeMode(mode);
+    try {
+      localStorage.setItem('rodochagas_theme_mode', mode);
+    } catch (e) {}
+    if (mode === 'dark') {
+      document.documentElement.classList.add('dark');
+      document.documentElement.classList.remove('light');
+    } else {
+      document.documentElement.classList.remove('dark');
+      document.documentElement.classList.add('light');
+    }
+  }, []);
+
+  const toggleThemeMode = useCallback(() => {
+    handleSaveThemeMode(themeMode === 'dark' ? 'light' : 'dark');
+  }, [themeMode, handleSaveThemeMode]);
+
+  useEffect(() => {
+    handleSaveThemeMode(themeMode);
+  }, []);
+
   // Auto-atualização do PWA: quando o service worker detecta nova versão, recarrega automaticamente
   useEffect(() => {
     if (!('serviceWorker' in navigator)) return;
@@ -2205,7 +2237,7 @@ const App: React.FC = () => {
         <Route path="/financial" element={<CommissionsPage shipments={visibleShipments} cargos={cargos} users={users} stays={stays} clients={clients} />} />
         <Route path="/reports" element={!can('read', currentUser, 'reports', profilePermissions) ? <Navigate to="/" replace /> : <ReportsPage shipments={visibleShipments} embarcadores={visibleEmbarcadores} cargos={cargos} users={users} currentUser={currentUser} clients={clients} branches={branches} stays={stays} companyLogo={companyLogo} />} />
         <Route path="/users-register" element={<UsersPage users={users} setUsers={setUsers} onSaveUser={handleSaveUser} currentUser={currentUser} profilePermissions={profilePermissions} onSavePermissions={handleSavePermissions} clients={clients} onDeleteUser={handleDeleteUser} branches={branches} />} />
-        <Route path="/appearance" element={<AppearancePage currentLogo={companyLogo} onSaveLogo={handleSaveLogo} currentTheme={themeImage} onSaveTheme={handleSaveThemeImage} />} />
+        <Route path="/appearance" element={<AppearancePage currentLogo={companyLogo} onSaveLogo={handleSaveLogo} currentTheme={themeImage} onSaveTheme={handleSaveThemeImage} themeMode={themeMode} onSaveThemeMode={handleSaveThemeMode} />} />
         <Route path="/system-monitor" element={<SystemMonitorPage currentUser={currentUser} profilePermissions={profilePermissions} onSavePermissions={handleSavePermissions} />} />
         <Route path="/shipment-history" element={<ShipmentHistoryPage shipments={visibleShipments} cargos={cargos} drivers={drivers} users={users} currentUser={currentUser} clients={clients} products={products} vehicles={vehicles} onDeleteShipment={handleDeleteShipment} onRevertStatus={handleRevertShipmentStatus} onDeleteAttachment={handleDeleteShipmentAttachment} onUpdatePrice={handleUpdateShipmentPrice} stays={stays} />} />
         <Route path="/load-history" element={<LoadHistoryPage loads={closedLoads} clients={clients} products={products} users={users} currentUser={currentUser} shipments={shipments} onDeleteLoad={handleDeleteCargo} onReactivateLoad={handleReactivateLoad} />} />
@@ -2244,26 +2276,53 @@ const App: React.FC = () => {
 
   return (
     <div 
-      className="flex flex-col h-screen bg-light-bg dark:bg-dark-bg text-gray-800 dark:text-gray-200 portal-theme-bg"
+      className={`relative min-h-screen w-full flex flex-col font-sans portal-theme-bg transition-colors duration-300 ${
+        themeMode === 'dark' 
+          ? 'bg-[#0A1128] text-white selection:bg-[#F16421] selection:text-white' 
+          : 'bg-[#F8FAFC] text-slate-900 selection:bg-[#1D3B8D] selection:text-white'
+      }`}
       style={{ '--theme-bg': themeImage ? `url(${themeImage})` : 'none' } as React.CSSProperties}
     >
-      {!isDriverUser && (
-        <TopNavBar
-          user={currentUser}
-          onLogout={handleLogout}
-          currentPage={currentPage}
-          setCurrentPage={setCurrentPage}
-          profilePermissions={profilePermissions}
-          companyLogo={companyLogo}
-          onOpenTickets={() => setIsTicketModalOpen(true)}
-          tickets={tickets}
-        />
-      )}
-      <main className="flex-1 overflow-y-auto" style={{ zoom: isDriverUser ? 0.8 : 0.8 }}>
-        <div className={isDriverUser ? "w-full" : (isOperationalPage ? "px-6 py-8" : "container mx-auto px-6 py-8")}>
-            {renderPage()}
-        </div>
-      </main>
+      {/* Dynamic Background Glows & Grid Pattern */}
+      <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none">
+        {themeMode === 'dark' ? (
+          <>
+            <div className="absolute -top-[25%] -left-[10%] w-[650px] h-[650px] rounded-full bg-gradient-to-br from-[#1D3B8D]/30 to-[#0A1128] blur-3xl animate-pulse-glow" />
+            <div className="absolute -bottom-[20%] -right-[10%] w-[600px] h-[600px] rounded-full bg-gradient-to-tr from-[#F16421]/15 to-transparent blur-3xl" />
+            <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[400px] bg-blue-600/10 blur-[140px] rounded-full" />
+            <div className="absolute inset-0 hero-grid-pattern opacity-40" />
+          </>
+        ) : (
+          <>
+            <div className="absolute -top-[25%] -left-[10%] w-[650px] h-[650px] rounded-full bg-gradient-to-br from-blue-200/40 to-transparent blur-3xl" />
+            <div className="absolute -bottom-[20%] -right-[10%] w-[600px] h-[600px] rounded-full bg-gradient-to-tr from-orange-200/30 to-transparent blur-3xl" />
+            <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[400px] bg-indigo-50/60 blur-[140px] rounded-full" />
+            <div className="absolute inset-0 hero-grid-pattern-light opacity-30" />
+          </>
+        )}
+      </div>
+
+      <div className="relative z-10 flex flex-col h-screen">
+        {!isDriverUser && (
+          <TopNavBar
+            user={currentUser}
+            onLogout={handleLogout}
+            currentPage={currentPage}
+            setCurrentPage={setCurrentPage}
+            profilePermissions={profilePermissions}
+            companyLogo={companyLogo}
+            onOpenTickets={() => setIsTicketModalOpen(true)}
+            tickets={tickets}
+            themeMode={themeMode}
+            onToggleTheme={toggleThemeMode}
+          />
+        )}
+        <main className="flex-1 overflow-y-auto" style={{ zoom: isDriverUser ? 0.8 : 0.8 }}>
+          <div className={isDriverUser ? "w-full" : (isOperationalPage ? "px-6 py-8" : "container mx-auto px-6 py-8")}>
+              {renderPage()}
+          </div>
+        </main>
+      </div>
        <SelectEmbarcadorModal
          isOpen={isSelectEmbarcadorModalOpen}
          onClose={() => setIsSelectEmbarcadorModalOpen(false)}
