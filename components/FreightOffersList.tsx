@@ -1,12 +1,13 @@
 import React, { useState, useRef } from 'react';
 import type { FreightOffer, Client, Product, Cargo, User } from '../types';
 import { FreightOfferStatus, CargoStatus, UserProfile } from '../types';
-import { PackageIcon, CheckIcon, XIcon, MessageCircleIcon, HistoryIcon, TrashIcon, MapPinIcon, EyeIcon, PaperclipIcon, DownloadIcon, UserIcon, Clock, Edit, ExternalLink, UploadCloud, Plus, Loader2 } from 'lucide-react';
+import { PackageIcon, CheckIcon, XIcon, MessageCircleIcon, HistoryIcon, TrashIcon, MapPinIcon, EyeIcon, PaperclipIcon, DownloadIcon, UserIcon, Clock, Edit, ExternalLink, UploadCloud, Plus, Loader2, MapIcon, FileText } from 'lucide-react';
 import VolumeBar from './VolumeBar';
 import { supabase } from '../supabase';
 import { getMatchedCargo } from '../utils';
 import { parseLocation } from '../utils/locationUtils';
 import { upsertFreightOffer } from '../lib/db';
+import FreightRouteMap from './FreightRouteMap';
 
 interface FreightOffersListProps {
   offers: FreightOffer[];
@@ -41,6 +42,7 @@ const FreightOffersList: React.FC<FreightOffersListProps> = ({
 
   const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
   const [targetAttachmentIndex, setTargetAttachmentIndex] = useState<number | null>(null);
+  const [detailsTab, setDetailsTab] = useState<'details' | 'map'>('details');
   const detailFileInputRef = useRef<HTMLInputElement>(null);
 
   if (offers.length === 0) {
@@ -490,74 +492,123 @@ const FreightOffersList: React.FC<FreightOffersListProps> = ({
       )}
 
       {detailsModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col">
-            <div className="flex justify-between items-center p-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-              <h3 className="text-lg font-bold text-gray-800 dark:text-white flex items-center gap-2">
-                <PackageIcon className="w-5 h-5 text-indigo-500" />
-                Detalhes da Oferta
-                <span className="text-xs font-semibold px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 rounded-md">
-                  {detailsModal.displayId || detailsModal.id}
-                </span>
-              </h3>
-              <button onClick={() => setDetailsModal(null)} className="p-1 text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full">
-                <XIcon className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="p-4 overflow-y-auto max-h-[70vh] space-y-5 text-sm text-gray-700 dark:text-gray-300">
-               <div>
-                  <span className="font-semibold block text-gray-500 dark:text-gray-400 mb-1">Origem:</span>
-                  <div className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg border border-gray-100 dark:border-gray-600 flex flex-col">
-                    {renderLocationValue(detailsModal.origin, "font-medium text-gray-900 dark:text-gray-100")}
-                    {renderLocationValue(detailsModal.originLocation, "text-xs text-gray-500 mt-1")}
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-2 sm:p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-6xl flex flex-col h-[92vh] max-h-[820px] border border-gray-100 dark:border-gray-700 overflow-hidden">
+            
+            {/* Modal Header */}
+            <div className="flex justify-between items-center px-5 sm:px-6 py-3.5 border-b border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-indigo-50 dark:bg-indigo-900/30 rounded-lg">
+                  <PackageIcon className="w-5 h-5 sm:w-6 sm:h-6 text-indigo-600 dark:text-indigo-400" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base sm:text-lg font-bold text-gray-800 dark:text-white leading-tight">
+                      Detalhes da Oferta
+                    </h3>
+                    <span className="text-xs font-semibold px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 rounded-md">
+                      {detailsModal.displayId || detailsModal.id}
+                    </span>
                   </div>
-               </div>
-               
-               <div>
-                  <span className="font-semibold block text-gray-500 dark:text-gray-400 mb-1">Destinos:</span>
+                  <p className="text-[11px] sm:text-xs text-gray-500 dark:text-gray-400">
+                    Informações completas e mapa do trajeto rodoviário
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {/* Mobile Tab Switcher */}
+                <div className="flex lg:hidden bg-gray-100 dark:bg-gray-700 p-1 rounded-lg">
+                  <button
+                    type="button"
+                    onClick={() => setDetailsTab('details')}
+                    className={`flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-md transition-colors ${
+                      detailsTab === 'details'
+                        ? 'bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 shadow-xs'
+                        : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'
+                    }`}
+                  >
+                    <FileText className="w-3.5 h-3.5" />
+                    <span>Dados</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDetailsTab('map')}
+                    className={`flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-md transition-colors ${
+                      detailsTab === 'map'
+                        ? 'bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 shadow-xs'
+                        : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'
+                    }`}
+                  >
+                    <MapIcon className="w-3.5 h-3.5" />
+                    <span>Mapa</span>
+                  </button>
+                </div>
+
+                <button onClick={() => setDetailsModal(null)} className="p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors">
+                  <XIcon className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body (2 Columns: Left Details, Right Map) */}
+            <div className="flex-1 min-h-0 flex flex-col lg:flex-row overflow-hidden">
+              
+              {/* Left Column: Offer Details */}
+              <div className={`w-full lg:w-7/12 p-5 sm:p-6 overflow-y-auto flex-1 min-h-0 space-y-4 text-sm text-gray-700 dark:text-gray-300 ${detailsTab === 'map' ? 'hidden lg:block' : 'block'}`}>
+                <div>
+                  <span className="font-semibold block text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Origem:</span>
+                  <div className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-xl border border-gray-100 dark:border-gray-600 flex flex-col">
+                    {renderLocationValue(detailsModal.origin, "font-semibold text-gray-900 dark:text-gray-100 text-sm")}
+                    {renderLocationValue(detailsModal.originLocation, "text-xs text-gray-500 dark:text-gray-400 mt-1")}
+                  </div>
+                </div>
+                
+                <div>
+                  <span className="font-semibold block text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Destinos:</span>
                   <div className="flex flex-col gap-2">
-                    <div className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg border border-gray-100 dark:border-gray-600 flex flex-col">
-                      {renderLocationValue(detailsModal.destination, "font-medium text-gray-900 dark:text-gray-100", "1. ")}
-                      {renderLocationValue(detailsModal.destinationLocation, "block text-xs text-gray-500 mt-1")}
+                    <div className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-xl border border-gray-100 dark:border-gray-600 flex flex-col">
+                      {renderLocationValue(detailsModal.destination, "font-semibold text-gray-900 dark:text-gray-100 text-sm", "1. ")}
+                      {renderLocationValue(detailsModal.destinationLocation, "block text-xs text-gray-500 dark:text-gray-400 mt-1")}
                     </div>
                     {detailsModal.additionalDestinations?.map((d, i) => (
-                      <div key={i} className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg border border-gray-100 dark:border-gray-600 flex flex-col">
-                        {renderLocationValue(d.city, "font-medium text-gray-900 dark:text-gray-100", `${i + 2}. `)}
-                        {renderLocationValue(d.location, "block text-xs text-gray-500 mt-1")}
+                      <div key={i} className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-xl border border-gray-100 dark:border-gray-600 flex flex-col">
+                        {renderLocationValue(d.city, "font-semibold text-gray-900 dark:text-gray-100 text-sm", `${i + 2}. `)}
+                        {renderLocationValue(d.location, "block text-xs text-gray-500 dark:text-gray-400 mt-1")}
                       </div>
                     ))}
                   </div>
-               </div>
+                </div>
 
-               <div className="grid grid-cols-2 gap-4">
-                 <div className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg border border-gray-100 dark:border-gray-600">
-                    <span className="font-semibold block text-gray-500 dark:text-gray-400 mb-1">Produto:</span>
-                    <span className="font-medium text-gray-900 dark:text-gray-100">{getProductName(detailsModal.productId)}</span>
-                 </div>
-                 <div className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg border border-gray-100 dark:border-gray-600">
-                    <span className="font-semibold block text-gray-500 dark:text-gray-400 mb-1">Volume Total:</span>
-                    <span className="font-medium text-gray-900 dark:text-gray-100">{detailsModal.totalTonnage} Ton</span>
-                 </div>
-                 <div className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg border border-gray-100 dark:border-gray-600">
-                    <span className="font-semibold block text-gray-500 dark:text-gray-400 mb-1">Valor (R$/Ton):</span>
-                    <span className="font-medium text-gray-900 dark:text-gray-100">{detailsModal.freightValuePerTon ? `R$ ${detailsModal.freightValuePerTon.toFixed(2)}` : 'Aguardando'}</span>
-                 </div>
-                 <div className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg border border-gray-100 dark:border-gray-600">
-                    <span className="font-semibold block text-gray-500 dark:text-gray-400 mb-1">Cadência:</span>
-                    <span className="font-medium text-gray-900 dark:text-gray-100">{detailsModal.dailySchedule || 'Não informada'}</span>
-                 </div>
-               </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-xl border border-gray-100 dark:border-gray-600">
+                    <span className="font-medium block text-xs text-gray-500 dark:text-gray-400 mb-0.5">Produto:</span>
+                    <span className="font-semibold text-gray-900 dark:text-gray-100">{getProductName(detailsModal.productId)}</span>
+                  </div>
+                  <div className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-xl border border-gray-100 dark:border-gray-600">
+                    <span className="font-medium block text-xs text-gray-500 dark:text-gray-400 mb-0.5">Volume Total:</span>
+                    <span className="font-semibold text-gray-900 dark:text-gray-100">{detailsModal.totalTonnage} Ton</span>
+                  </div>
+                  <div className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-xl border border-gray-100 dark:border-gray-600">
+                    <span className="font-medium block text-xs text-gray-500 dark:text-gray-400 mb-0.5">Valor (R$/Ton):</span>
+                    <span className="font-semibold text-emerald-600 dark:text-emerald-400">{detailsModal.freightValuePerTon ? `R$ ${detailsModal.freightValuePerTon.toFixed(2)}` : 'Aguardando'}</span>
+                  </div>
+                  <div className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-xl border border-gray-100 dark:border-gray-600">
+                    <span className="font-medium block text-xs text-gray-500 dark:text-gray-400 mb-0.5">Cadência:</span>
+                    <span className="font-semibold text-gray-900 dark:text-gray-100">{detailsModal.dailySchedule || 'Não informada'}</span>
+                  </div>
+                </div>
 
-               {detailsModal.observations && (
-                 <div>
-                    <span className="font-semibold block text-gray-500 dark:text-gray-400 mb-1">Observações:</span>
-                    <p className="whitespace-pre-wrap bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg border border-gray-100 dark:border-gray-600 text-sm font-medium text-gray-900 dark:text-gray-100">{detailsModal.observations}</p>
-                 </div>
-               )}
+                {detailsModal.observations && (
+                  <div>
+                    <span className="font-semibold block text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Observações:</span>
+                    <p className="whitespace-pre-wrap bg-gray-50 dark:bg-gray-700/50 p-3 rounded-xl border border-gray-100 dark:border-gray-600 text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100">{detailsModal.observations}</p>
+                  </div>
+                )}
 
-                <div className="space-y-2">
+                <div className="space-y-2 pt-1">
                   <div className="flex items-center justify-between">
-                    <span className="font-semibold text-gray-700 dark:text-gray-300">Anexos:</span>
+                    <span className="font-semibold text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider">Anexos:</span>
                     <button
                       type="button"
                       disabled={isUploadingAttachment}
@@ -568,7 +619,7 @@ const FreightOffersList: React.FC<FreightOffersListProps> = ({
                           detailFileInputRef.current.click();
                         }
                       }}
-                      className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/70 rounded-lg transition-colors border border-indigo-200 dark:border-indigo-800 cursor-pointer disabled:opacity-50"
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/70 rounded-lg transition-colors border border-indigo-200 dark:border-indigo-800 cursor-pointer disabled:opacity-50"
                       title="Adicionar novos arquivos a esta oferta"
                     >
                       <Plus className="w-3.5 h-3.5" />
@@ -666,10 +717,10 @@ const FreightOffersList: React.FC<FreightOffersListProps> = ({
                         if (isUrl) {
                           const targetUrl = fileUrlOrName.replace(/[?&]download(=[^&]*)?/g, '').replace(/\?$/, '').replace(/&$/, '');
                           return (
-                            <li key={i} className="flex items-center justify-between bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg border border-gray-100 dark:border-gray-600 text-sm font-medium text-gray-900 dark:text-gray-100 group">
+                            <li key={i} className="flex items-center justify-between bg-gray-50 dark:bg-gray-700/50 p-2.5 sm:p-3 rounded-lg border border-gray-100 dark:border-gray-600 text-sm font-medium text-gray-900 dark:text-gray-100 group">
                               <div className="flex items-center gap-2 overflow-hidden flex-1 mr-2">
                                 <PaperclipIcon className="w-4 h-4 text-indigo-500 shrink-0" />
-                                <span className="truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400 font-medium">{displayName}</span>
+                                <span className="truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400 font-medium text-xs sm:text-sm">{displayName}</span>
                               </div>
                               <div className="flex items-center gap-1.5 shrink-0">
                                 <a 
@@ -680,7 +731,17 @@ const FreightOffersList: React.FC<FreightOffersListProps> = ({
                                   title="Clique para visualizar o arquivo em nova janela"
                                 >
                                   <ExternalLink className="w-3.5 h-3.5" />
-                                  Visualizar
+                                  <span className="hidden sm:inline">Visualizar</span>
+                                </a>
+                                <a 
+                                  href={fileUrlOrName}
+                                  download={displayName}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex items-center gap-1 text-xs font-semibold text-gray-700 dark:text-gray-300 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 px-2 py-1.5 rounded-md transition-colors"
+                                  title="Baixar arquivo"
+                                >
+                                  <DownloadIcon className="w-3.5 h-3.5" />
                                 </a>
                                 <button
                                   type="button"
@@ -713,10 +774,10 @@ const FreightOffersList: React.FC<FreightOffersListProps> = ({
                           );
                         } else {
                           return (
-                            <li key={i} className="flex items-center justify-between bg-amber-50/70 dark:bg-amber-950/30 p-3 rounded-lg border border-amber-200 dark:border-amber-800/60 text-sm font-medium">
+                            <li key={i} className="flex items-center justify-between bg-amber-50/70 dark:bg-amber-950/30 p-2.5 sm:p-3 rounded-lg border border-amber-200 dark:border-amber-800/60 text-sm font-medium">
                               <div className="flex items-center gap-2 overflow-hidden flex-1 mr-2">
                                 <PaperclipIcon className="w-4 h-4 text-amber-500 shrink-0" />
-                                <span className="truncate text-amber-900 dark:text-amber-200 font-medium">{displayName}</span>
+                                <span className="truncate text-amber-900 dark:text-amber-200 font-medium text-xs sm:text-sm">{displayName}</span>
                                 <span className="hidden sm:inline-block text-[11px] font-semibold text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/60 px-2 py-0.5 rounded">
                                   Sem arquivo no servidor
                                 </span>
@@ -772,10 +833,25 @@ const FreightOffersList: React.FC<FreightOffersListProps> = ({
                     </ul>
                   )}
                 </div>
+              </div>
+
+              {/* Right Column: Live Route Map */}
+              <div className={`w-full lg:w-5/12 border-t lg:border-t-0 lg:border-l border-gray-200 dark:border-gray-700 flex flex-col flex-1 min-h-0 bg-slate-50 dark:bg-gray-900 ${detailsTab === 'details' ? 'hidden lg:flex' : 'flex'}`}>
+                <FreightRouteMap
+                  origin={detailsModal.origin}
+                  originLocation={detailsModal.originLocation}
+                  destination={detailsModal.destination}
+                  destinationLocation={detailsModal.destinationLocation}
+                  additionalDestinations={detailsModal.additionalDestinations}
+                  className="flex-1 min-h-0"
+                />
+              </div>
 
             </div>
-            <div className="p-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 flex justify-end">
-              <button onClick={() => setDetailsModal(null)} className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors">
+
+            {/* Modal Footer */}
+            <div className="p-3.5 sm:p-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 flex justify-end shrink-0">
+              <button onClick={() => setDetailsModal(null)} className="px-5 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors cursor-pointer">
                 Fechar
               </button>
             </div>

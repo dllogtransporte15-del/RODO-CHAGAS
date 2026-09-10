@@ -1,9 +1,10 @@
 import React, { useState, useRef } from 'react';
 import type { Client, Product, FreightOffer } from '../types';
 import { FreightOfferStatus } from '../types';
-import { XIcon, PackageIcon, MapPinIcon, DollarSignIcon, CalendarIcon, ScaleIcon, PaperclipIcon } from 'lucide-react';
+import { XIcon, PackageIcon, MapPinIcon, DollarSignIcon, CalendarIcon, ScaleIcon, PaperclipIcon, MapIcon, RouteIcon, FileTextIcon } from 'lucide-react';
 import { supabase } from '../supabase';
 import { cleanOrShortenLocationInput, parseLocation } from '../utils/locationUtils';
+import FreightRouteMap, { RouteCalculatedData } from './FreightRouteMap';
 
 interface FreightOfferModalProps {
   isOpen: boolean;
@@ -31,6 +32,8 @@ const FreightOfferModal: React.FC<FreightOfferModalProps> = ({
   const [additionalDestinations, setAdditionalDestinations] = useState<{city: string, location: string}[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [attachments, setAttachments] = useState<File[]>([]);
+  const [activeTab, setActiveTab] = useState<'form' | 'map'>('form');
+  const [calculatedRoute, setCalculatedRoute] = useState<RouteCalculatedData | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!isOpen) return null;
@@ -132,180 +135,375 @@ const FreightOfferModal: React.FC<FreightOfferModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden flex flex-col">
-        <div className="flex justify-between items-center p-6 border-b border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-2 sm:p-4">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-6xl flex flex-col h-[92vh] max-h-[820px] border border-gray-100 dark:border-gray-700 overflow-hidden">
+        
+        {/* Header */}
+        <div className="flex justify-between items-center px-5 sm:px-6 py-3.5 border-b border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 shrink-0">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-indigo-50 dark:bg-indigo-900/30 rounded-lg">
-              <PackageIcon className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
+              <PackageIcon className="w-5 h-5 sm:w-6 sm:h-6 text-indigo-600 dark:text-indigo-400" />
             </div>
-            <h2 className="text-xl font-bold text-gray-800 dark:text-white">Gerar Oferta de Frete</h2>
+            <div>
+              <h2 className="text-base sm:text-lg font-bold text-gray-800 dark:text-white leading-tight">Gerar Oferta de Frete</h2>
+              <p className="text-[11px] sm:text-xs text-gray-500 dark:text-gray-400">Preencha os dados e acompanhe a rota no mapa</p>
+            </div>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors">
-            <XIcon className="w-5 h-5 text-gray-500" />
-          </button>
-        </div>
 
-        <div className="p-6 overflow-y-auto max-h-[70vh]">
-          <form id="freight-offer-form" onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Origem (Cidade)</label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <MapPinIcon className="h-4 w-4 text-gray-400" />
-                  </div>
-                  <input required type="text" name="origin" value={formData.origin} onChange={handleChange} className="pl-10 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white" placeholder="Ex: São Paulo - SP" />
-                </div>
-              </div>
-              <div>
-                <div className="flex justify-between items-center mb-1">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Local da Origem</label>
-                  {parseLocation(formData.originLocation).isUrl && (
-                    <span className="text-[11px] font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/40 px-1.5 py-0.2 rounded">
-                      📍 GPS/Link detectado
-                    </span>
-                  )}
-                </div>
-                <input type="text" name="originLocation" value={formData.originLocation} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white" placeholder="Ex: Fazenda Boa Esperança ou Link Google Maps" />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Destino (Cidade)</label>
-                <div className="flex items-center gap-2">
-                  <div className="relative flex-1">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <MapPinIcon className="h-4 w-4 text-gray-400" />
-                    </div>
-                    <input required type="text" name="destination" value={formData.destination} onChange={handleChange} className="pl-10 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white" placeholder="Ex: Santos - SP" />
-                  </div>
-                  <button type="button" onClick={handleAddDestination} className="p-2 text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors flex-shrink-0" title="Adicionar outro destino">
-                    +
-                  </button>
-                </div>
-              </div>
-              <div>
-                <div className="flex justify-between items-center mb-1">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Local do Destino</label>
-                  {parseLocation(formData.destinationLocation).isUrl && (
-                    <span className="text-[11px] font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/40 px-1.5 py-0.2 rounded">
-                      📍 GPS/Link detectado
-                    </span>
-                  )}
-                </div>
-                <input type="text" name="destinationLocation" value={formData.destinationLocation} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white" placeholder="Ex: Porto de Santos ou Link Google Maps" />
-              </div>
-              {additionalDestinations.map((dest, idx) => (
-                <React.Fragment key={idx}>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Destino Adicional {idx + 1} (Cidade)</label>
-                    <div className="flex items-center gap-2">
-                      <div className="relative flex-1">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <MapPinIcon className="h-4 w-4 text-gray-400" />
-                        </div>
-                        <input required type="text" value={dest.city} onChange={e => handleAdditionalDestinationChange(idx, 'city', e.target.value)} className="pl-10 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white" placeholder="Ex: Campinas - SP" />
-                      </div>
-                      <button type="button" onClick={() => handleRemoveDestination(idx)} className="p-2 text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors flex-shrink-0" title="Remover destino">
-                        -
-                      </button>
-                    </div>
-                  </div>
-                  <div>
-                    <div className="flex justify-between items-center mb-1">
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Local do Destino Adicional {idx + 1}</label>
-                      {parseLocation(dest.location).isUrl && (
-                        <span className="text-[11px] font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/40 px-1.5 py-0.2 rounded">
-                          📍 GPS/Link detectado
-                        </span>
-                      )}
-                    </div>
-                    <input type="text" value={dest.location} onChange={e => handleAdditionalDestinationChange(idx, 'location', e.target.value)} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white" placeholder="Ex: Galpão Central ou Link Maps" />
-                  </div>
-                </React.Fragment>
-              ))}
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Volume Total (Ton)</label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <ScaleIcon className="h-4 w-4 text-gray-400" />
-                  </div>
-                  <input required type="number" min="0" step="0.01" name="totalTonnage" value={formData.totalTonnage} onChange={handleChange} className="pl-10 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white" placeholder="Ex: 500" />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Cadência Diária</label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <CalendarIcon className="h-4 w-4 text-gray-400" />
-                  </div>
-                  <input type="text" name="dailySchedule" value={formData.dailySchedule} onChange={handleChange} className="pl-10 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white" placeholder="Ex: 50 ton/dia, ou Livre" />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Produto</label>
-                <select required name="productId" value={formData.productId} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
-                  <option value="">Selecione um produto</option>
-                  {products.map(p => (
-                    <option key={p.id} value={p.id}>{p.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Anexos</label>
-                <div className="relative">
-                  <input
-                    type="file"
-                    multiple
-                    ref={fileInputRef}
-                    onChange={handleFileChange}
-                    className="hidden"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleAttachmentClick}
-                    className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600 justify-center transition-colors"
-                  >
-                    <PaperclipIcon className="w-4 h-4" />
-                    Anexar Arquivos
-                  </button>
-                </div>
-                {attachments.length > 0 && (
-                  <ul className="mt-2 space-y-1">
-                    {attachments.map((file, index) => (
-                      <li key={index} className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-900/50 px-2 py-1.5 rounded-md">
-                        <span className="truncate max-w-[85%]">{file.name}</span>
-                        <button type="button" onClick={() => handleRemoveAttachment(file.name)} className="p-1 text-red-500 hover:text-red-700 dark:hover:text-red-400 transition-colors">
-                          <XIcon className="w-4 h-4" />
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
+          <div className="flex items-center gap-2">
+            {/* Mobile Tab Toggle */}
+            <div className="flex lg:hidden bg-gray-100 dark:bg-gray-700 p-1 rounded-lg">
+              <button
+                type="button"
+                onClick={() => setActiveTab('form')}
+                className={`flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-md transition-colors ${
+                  activeTab === 'form'
+                    ? 'bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 shadow-xs'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'
+                }`}
+              >
+                <FileTextIcon className="w-3.5 h-3.5" />
+                <span>Dados</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('map')}
+                className={`flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-md transition-colors ${
+                  activeTab === 'map'
+                    ? 'bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 shadow-xs'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'
+                }`}
+              >
+                <MapIcon className="w-3.5 h-3.5" />
+                <span>Mapa</span>
+                {calculatedRoute && (
+                  <span className="w-2 h-2 rounded-full bg-green-500"></span>
                 )}
-              </div>
-              <div className="col-span-1 md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Observações / Informações Adicionais</label>
-                <textarea name="observations" value={formData.observations} onChange={handleChange} rows={3} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white" placeholder="Ex: Necessário agendamento prévio, veículo sider..." />
-              </div>
+              </button>
             </div>
-          </form>
+
+            <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors">
+              <XIcon className="w-5 h-5 text-gray-500" />
+            </button>
+          </div>
         </div>
 
-        <div className="p-6 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 flex justify-end gap-3">
-          <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
-            Cancelar
-          </button>
-          <button type="submit" form="freight-offer-form" disabled={isSubmitting} className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors disabled:opacity-50">
-            {isSubmitting ? 'Salvando...' : 'Criar Oferta'}
-          </button>
+        {/* Content Body (Flex Layout: Left Form, Right Map) */}
+        <div className="flex-1 min-h-0 flex flex-col lg:flex-row overflow-hidden">
+          
+          {/* Left Side: Form */}
+          <div className={`w-full lg:w-7/12 p-5 sm:p-6 overflow-y-auto flex-1 min-h-0 ${activeTab === 'map' ? 'hidden lg:block' : 'block'}`}>
+            <form id="freight-offer-form" onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
+              
+              {/* Distance Info Banner if calculated */}
+              {calculatedRoute && calculatedRoute.distanceKm > 0 && (
+                <div className="p-2.5 sm:p-3 bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900/50 rounded-xl flex items-center justify-between text-xs animate-fade-in">
+                  <div className="flex items-center gap-2 text-indigo-800 dark:text-indigo-300 font-semibold">
+                    <RouteIcon className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                    <span>Distância estimada:</span>
+                    <span className="text-indigo-900 dark:text-indigo-200 font-bold bg-white dark:bg-gray-800 px-2 py-0.5 rounded border border-indigo-200 dark:border-indigo-800">
+                      {calculatedRoute.distanceKm.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} km
+                    </span>
+                  </div>
+                  <span className="text-[11px] text-indigo-600 dark:text-indigo-400 font-medium hidden sm:inline">
+                    Trajeto mapeado na lateral ➔
+                  </span>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Origem (Cidade) <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <MapPinIcon className="h-4 w-4 text-green-600" />
+                    </div>
+                    <input
+                      required
+                      type="text"
+                      name="origin"
+                      value={formData.origin}
+                      onChange={handleChange}
+                      className="pl-10 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-indigo-500"
+                      placeholder="Ex: São Paulo - SP"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex justify-between items-center mb-1">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Local da Origem</label>
+                    {parseLocation(formData.originLocation).isUrl && (
+                      <span className="text-[11px] font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/40 px-1.5 py-0.2 rounded">
+                        📍 GPS/Link detectado
+                      </span>
+                    )}
+                  </div>
+                  <input
+                    type="text"
+                    name="originLocation"
+                    value={formData.originLocation}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-indigo-500"
+                    placeholder="Ex: Fazenda Boa Esperança ou Link Google Maps"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Destino (Cidade) <span className="text-red-500">*</span>
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <div className="relative flex-1">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <MapPinIcon className="h-4 w-4 text-red-600" />
+                      </div>
+                      <input
+                        required
+                        type="text"
+                        name="destination"
+                        value={formData.destination}
+                        onChange={handleChange}
+                        className="pl-10 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-indigo-500"
+                        placeholder="Ex: Santos - SP"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleAddDestination}
+                      className="p-2 text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors flex-shrink-0"
+                      title="Adicionar outro destino"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex justify-between items-center mb-1">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Local do Destino</label>
+                    {parseLocation(formData.destinationLocation).isUrl && (
+                      <span className="text-[11px] font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/40 px-1.5 py-0.2 rounded">
+                        📍 GPS/Link detectado
+                      </span>
+                    )}
+                  </div>
+                  <input
+                    type="text"
+                    name="destinationLocation"
+                    value={formData.destinationLocation}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-indigo-500"
+                    placeholder="Ex: Porto de Santos ou Link Google Maps"
+                  />
+                </div>
+
+                {additionalDestinations.map((dest, idx) => (
+                  <React.Fragment key={idx}>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Destino Adicional {idx + 1} (Cidade)</label>
+                      <div className="flex items-center gap-2">
+                        <div className="relative flex-1">
+                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <MapPinIcon className="h-4 w-4 text-indigo-500" />
+                          </div>
+                          <input
+                            required
+                            type="text"
+                            value={dest.city}
+                            onChange={e => handleAdditionalDestinationChange(idx, 'city', e.target.value)}
+                            className="pl-10 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
+                            placeholder="Ex: Campinas - SP"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveDestination(idx)}
+                          className="p-2 text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors flex-shrink-0"
+                          title="Remover destino"
+                        >
+                          -
+                        </button>
+                      </div>
+                    </div>
+                    <div>
+                      <div className="flex justify-between items-center mb-1">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Local do Destino Adicional {idx + 1}</label>
+                        {parseLocation(dest.location).isUrl && (
+                          <span className="text-[11px] font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/40 px-1.5 py-0.2 rounded">
+                            📍 GPS/Link detectado
+                          </span>
+                        )}
+                      </div>
+                      <input
+                        type="text"
+                        value={dest.location}
+                        onChange={e => handleAdditionalDestinationChange(idx, 'location', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
+                        placeholder="Ex: Galpão Central ou Link Maps"
+                      />
+                    </div>
+                  </React.Fragment>
+                ))}
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Volume Total (Ton) <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <ScaleIcon className="h-4 w-4 text-gray-400" />
+                    </div>
+                    <input
+                      required
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      name="totalTonnage"
+                      value={formData.totalTonnage}
+                      onChange={handleChange}
+                      className="pl-10 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-indigo-500"
+                      placeholder="Ex: 500"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Cadência Diária</label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <CalendarIcon className="h-4 w-4 text-gray-400" />
+                    </div>
+                    <input
+                      type="text"
+                      name="dailySchedule"
+                      value={formData.dailySchedule}
+                      onChange={handleChange}
+                      className="pl-10 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-indigo-500"
+                      placeholder="Ex: 50 ton/dia, ou Livre"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Produto <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    required
+                    name="productId"
+                    value={formData.productId}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-indigo-500"
+                  >
+                    <option value="">Selecione um produto</option>
+                    {products.map(p => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Anexos</label>
+                  <div className="relative">
+                    <input
+                      type="file"
+                      multiple
+                      ref={fileInputRef}
+                      onChange={handleFileChange}
+                      className="hidden"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAttachmentClick}
+                      className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 bg-white border border-gray-300 rounded-lg shadow-xs hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600 justify-center transition-colors"
+                    >
+                      <PaperclipIcon className="w-4 h-4" />
+                      Anexar Arquivos
+                    </button>
+                  </div>
+                  {attachments.length > 0 && (
+                    <ul className="mt-2 space-y-1">
+                      {attachments.map((file, index) => (
+                        <li key={index} className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-900/50 px-2 py-1.5 rounded-md">
+                          <span className="truncate max-w-[85%]">{file.name}</span>
+                          <button type="button" onClick={() => handleRemoveAttachment(file.name)} className="p-1 text-red-500 hover:text-red-700 dark:hover:text-red-400 transition-colors">
+                            <XIcon className="w-4 h-4" />
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+
+                <div className="col-span-1 md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Observações / Informações Adicionais</label>
+                  <textarea
+                    name="observations"
+                    value={formData.observations}
+                    onChange={handleChange}
+                    rows={2}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-indigo-500"
+                    placeholder="Ex: Necessário agendamento prévio, veículo sider..."
+                  />
+                </div>
+              </div>
+            </form>
+          </div>
+
+          {/* Right Side: Map & Route Preview */}
+          <div className={`w-full lg:w-5/12 border-t lg:border-t-0 lg:border-l border-gray-200 dark:border-gray-700 flex flex-col flex-1 min-h-0 bg-slate-50 dark:bg-gray-900 ${activeTab === 'form' ? 'hidden lg:flex' : 'flex'}`}>
+            <FreightRouteMap
+              origin={formData.origin}
+              originLocation={formData.originLocation}
+              destination={formData.destination}
+              destinationLocation={formData.destinationLocation}
+              additionalDestinations={additionalDestinations}
+              onRouteCalculated={(data) => setCalculatedRoute(data)}
+              className="flex-1 min-h-0"
+            />
+          </div>
+
         </div>
+
+        {/* Footer */}
+        <div className="p-4 sm:p-5 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 flex flex-col sm:flex-row justify-between items-center gap-3">
+          <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-2 w-full sm:w-auto">
+            {calculatedRoute ? (
+              <span className="inline-flex items-center gap-1.5 text-indigo-700 dark:text-indigo-300 font-medium">
+                <MapPinIcon className="w-3.5 h-3.5" />
+                Trajeto validado ({calculatedRoute.distanceKm.toFixed(1)} km)
+              </span>
+            ) : (
+              <span>Os trajetos são calculados automaticamente via mapa rodoviário.</span>
+            )}
+          </div>
+
+          <div className="flex justify-end gap-3 w-full sm:w-auto">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors flex-1 sm:flex-initial"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              form="freight-offer-form"
+              disabled={isSubmitting}
+              className="px-5 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2 flex-1 sm:flex-initial shadow-sm"
+            >
+              {isSubmitting ? 'Salvando...' : 'Criar Oferta'}
+            </button>
+          </div>
+        </div>
+
       </div>
     </div>
   );
 };
 
 export default FreightOfferModal;
+
