@@ -23,8 +23,9 @@ function getMaxId(items: any[], startOffset: number): number {
   }
   let maxNum = startOffset - 1;
   for (const item of items) {
-    if (item?.id && typeof item.id === 'string') {
-      const match = item.id.match(/-(\d+)$/);
+    const idToCheck = item?.displayId || item?.id;
+    if (idToCheck && typeof idToCheck === 'string') {
+      const match = idToCheck.match(/-(\d+)$/);
       if (match) {
         const num = parseInt(match[1], 10);
         if (!isNaN(num) && num > maxNum) maxNum = num;
@@ -50,7 +51,7 @@ function calculateNextIds(
     user: getMaxId(dbUsers, 100),
     ticket: getMaxId(dbTickets, 1),
     branch: getMaxId(dbBranches, 10),
-    freightOffer: getMaxId(dbOffers, 1),
+    freightOffer: getMaxId(dbOffers, 500),
     history: 9999,
   };
 }
@@ -236,10 +237,25 @@ export function useDatabase(currentUser: User | null) {
           case 'freight_offers': {
             if (eventType === 'INSERT' && newRow) {
               const item = toFreightOffer(newRow);
-              setFreightOffers(prev => [item, ...prev.filter(f => f.id !== item.id)]);
+              setFreightOffers(prev => {
+                if (!item.displayId) {
+                  const highest = prev.reduce((max, o) => {
+                    const match = (o.displayId || o.id || '').match(/^OFR-(\d+)$/i);
+                    return match ? Math.max(max, parseInt(match[1], 10)) : max;
+                  }, 500);
+                  item.displayId = `OFR-${highest + 1}`;
+                }
+                return [item, ...prev.filter(f => f.id !== item.id)];
+              });
             } else if (eventType === 'UPDATE' && newRow) {
               const item = toFreightOffer(newRow);
-              setFreightOffers(prev => prev.map(f => f.id === item.id ? item : f));
+              setFreightOffers(prev => prev.map(f => {
+                if (f.id !== item.id) return f;
+                return {
+                  ...item,
+                  displayId: item.displayId || f.displayId
+                };
+              }));
             } else if (eventType === 'DELETE' && oldRow?.id) {
               setFreightOffers(prev => prev.filter(f => f.id !== oldRow.id));
             }

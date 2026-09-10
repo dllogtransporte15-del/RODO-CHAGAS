@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from "react";
 import type { Cargo, Client, Shipment } from "../../types";
-import { ShipmentStatus, DailyScheduleType } from "../../types";
+import { ShipmentStatus, DailyScheduleType, CargoStatus } from "../../types";
 import { Download, FileSpreadsheet, Filter, X } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -57,7 +57,7 @@ const DemandForecastReport: React.FC<DemandForecastReportProps> = ({ cargos, cli
     ? filterScheduleTypeExternal
     : filterScheduleType;
 
-  const scheduleTypeOptions = Object.values(DailyScheduleType);
+  const scheduleTypeOptions = [...Object.values(DailyScheduleType), 'Carga Suspensa'];
 
   const clientMap = useMemo(() => new Map(clients.map((c) => [c.id, c])), [clients]);
 
@@ -100,7 +100,17 @@ const DemandForecastReport: React.FC<DemandForecastReportProps> = ({ cargos, cli
 
       cargo.dailySchedule.forEach((entry) => {
         if (entry.date < startDate || entry.date > endDate) return;
-        if (activeScheduleTypes.length > 0 && !activeScheduleTypes.includes(entry.type)) return;
+        if (activeScheduleTypes.length > 0) {
+          const isSuspended = cargo.status === CargoStatus.Suspensa;
+          if (isSuspended) {
+            const matchesSuspended = activeScheduleTypes.some(t => 
+              t === 'Carga Suspensa' || t === 'Cargas Suspensas' || t === 'Suspensa' || t === 'Demanda Suspensa'
+            );
+            if (!matchesSuspended) return;
+          } else {
+            if (!activeScheduleTypes.includes(entry.type)) return;
+          }
+        }
         // Accept all entries in range, even those without explicit tonnage
         const ton = entry.tonnage ?? 0;
 
@@ -132,8 +142,16 @@ const DemandForecastReport: React.FC<DemandForecastReportProps> = ({ cargos, cli
         dateMap.forEach((ton, date) => {
           if (date >= startDate && date <= endDate) {
             if (activeScheduleTypes.length > 0) {
-              const entryForDate = cargo.dailySchedule?.find(e => e.date === date);
-              if (!entryForDate || !activeScheduleTypes.includes(entryForDate.type)) return;
+              const isSuspended = cargo.status === CargoStatus.Suspensa;
+              if (isSuspended) {
+                const matchesSuspended = activeScheduleTypes.some(t => 
+                  t === 'Carga Suspensa' || t === 'Cargas Suspensas' || t === 'Suspensa' || t === 'Demanda Suspensa'
+                );
+                if (!matchesSuspended) return;
+              } else {
+                const entryForDate = cargo.dailySchedule?.find(e => e.date === date);
+                if (!entryForDate || !activeScheduleTypes.includes(entryForDate.type)) return;
+              }
             }
             atendido += ton;
           }

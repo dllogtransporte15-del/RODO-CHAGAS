@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import Header from '../components/Header';
 import type { Shipment, User, Cargo, Client, Branch } from '../types';
-import { UserProfile, ShipmentStatus, DailyScheduleType } from '../types';
+import { UserProfile, ShipmentStatus, DailyScheduleType, CargoStatus } from '../types';
 import { BriefcaseIcon } from '../components/icons/BriefcaseIcon';
 import { ShipIcon } from '../components/icons/ShipIcon';
 import { UsersIcon } from '../components/icons/UsersIcon';
@@ -62,7 +62,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, carg
   const originOptions = Array.from(new Set(cargos.map(c => c.origin))).filter(Boolean).sort();
   const destOptions = Array.from(new Set(cargos.map(c => c.destination))).filter(Boolean).sort();
   const branchOptions = branches.map(b => b.name).sort();
-  const scheduleTypeOptions = Object.values(DailyScheduleType);
+  const scheduleTypeOptions = [...Object.values(DailyScheduleType), 'Carga Suspensa'];
 
   const getEffectiveDate = (s: Shipment) => {
     // Find when it reached Aguardando Nota (effective volume)
@@ -114,8 +114,16 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, carg
        }
 
        if (filterScheduleType.length > 0) {
-         const scheduleEntry = cargo.dailySchedule?.find(e => e.date === effDate || e.date === s.scheduledDate);
-         if (!scheduleEntry || !filterScheduleType.includes(scheduleEntry.type)) return false;
+         const isSuspended = cargo.status === CargoStatus.Suspensa;
+         if (isSuspended) {
+           const matchesSuspended = filterScheduleType.some(t => 
+             t === 'Carga Suspensa' || t === 'Cargas Suspensas' || t === 'Suspensa' || t === 'Demanda Suspensa'
+           );
+           if (!matchesSuspended) return false;
+         } else {
+           const scheduleEntry = cargo.dailySchedule?.find(e => e.date === effDate || e.date === s.scheduledDate);
+           if (!scheduleEntry || !filterScheduleType.includes(scheduleEntry.type)) return false;
+         }
        }
 
        return true;

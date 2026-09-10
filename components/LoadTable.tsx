@@ -62,7 +62,7 @@ const LoadTable: React.FC<LoadTableProps> = ({ loads, clients, products, shipmen
   const productOptions = Array.from(new Set(loads.map(l => getProductName(l.productId)))).filter(Boolean).sort();
   const originOptions = Array.from(new Set(loads.map(l => l.origin))).filter(Boolean).sort();
   const destOptions = Array.from(new Set(loads.map(l => l.destination))).filter(Boolean).sort();
-  const scheduleTypeOptions = Object.values(DailyScheduleType);
+  const scheduleTypeOptions = [...Object.values(DailyScheduleType), 'Carga Suspensa'];
 
   const isMotorista = currentUser.profile === UserProfile.Motorista || String(currentUser.profile).toLowerCase() === 'motorista';
   const [searchTerm, setSearchTerm] = useState('');
@@ -93,8 +93,16 @@ const LoadTable: React.FC<LoadTableProps> = ({ loads, clients, products, shipmen
       if (filterOrigin.length > 0 && !filterOrigin.includes(load.origin)) return false;
       if (filterDest.length > 0 && !filterDest.includes(load.destination)) return false;
       if (filterScheduleType.length > 0) {
-        const dailyScheduleInfo = load.dailySchedule?.find(ds => ds.date === dailyBalanceDate);
-        if (!dailyScheduleInfo || !filterScheduleType.includes(dailyScheduleInfo.type)) return false;
+        const isSuspended = load.status === CargoStatus.Suspensa;
+        if (isSuspended) {
+          const matchesSuspended = filterScheduleType.some(t => 
+            t === 'Carga Suspensa' || t === 'Cargas Suspensas' || t === 'Suspensa' || t === 'Demanda Suspensa'
+          );
+          if (!matchesSuspended) return false;
+        } else {
+          const dailyScheduleInfo = load.dailySchedule?.find(ds => ds.date === dailyBalanceDate);
+          if (!dailyScheduleInfo || !filterScheduleType.includes(dailyScheduleInfo.type)) return false;
+        }
       }
       return true;
     });

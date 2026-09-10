@@ -15,10 +15,12 @@ export const toFreightOffer = (row: any): FreightOffer => {
   let additionalDestinations = undefined;
   let observations = undefined;
   let attachments = undefined;
+  let displayId = row.display_id || undefined;
 
   if (metaLog) {
     try {
       const parsed = JSON.parse(metaLog.description);
+      if (parsed.displayId) displayId = parsed.displayId;
       additionalDestinations = parsed.additionalDestinations;
       observations = parsed.observations;
       attachments = parsed.attachments;
@@ -33,6 +35,7 @@ export const toFreightOffer = (row: any): FreightOffer => {
 
   return {
     id: row.id,
+    displayId,
     clientId: row.client_id,
     origin: row.origin,
     originLocation: row.origin_location,
@@ -61,22 +64,30 @@ export const fetchFreightOffers = async (): Promise<FreightOffer[]> => {
     const data = await fetchAllRows('freight_offers', 'created_at', { ascending: true });
     const rawOffers = data.map(toFreightOffer);
 
-    let currentSeq = 1;
-    const formattedOffers = rawOffers.map((offer: FreightOffer) => {
-      if (offer.id && /^OFR-\d+$/i.test(offer.id)) {
-        const match = offer.id.match(/^OFR-(\d+)$/i);
+    let maxSeq = 500;
+    rawOffers.forEach((offer: FreightOffer) => {
+      const idToCheck = offer.displayId || offer.id;
+      if (idToCheck && /^OFR-\d+$/i.test(idToCheck)) {
+        const match = idToCheck.match(/^OFR-(\d+)$/i);
         if (match) {
           const num = parseInt(match[1], 10);
-          if (!isNaN(num) && num >= currentSeq) {
-            currentSeq = num + 1;
+          if (!isNaN(num) && num > maxSeq) {
+            maxSeq = num;
           }
         }
-        return { ...offer, displayId: offer.id };
-      } else {
-        const formattedId = `OFR-${String(currentSeq).padStart(2, '0')}`;
-        currentSeq++;
-        return { ...offer, displayId: formattedId };
       }
+    });
+
+    let currentSeq = maxSeq + 1;
+    const formattedOffers = rawOffers.map((offer: FreightOffer) => {
+      if (offer.displayId && /^OFR-\d+$/i.test(offer.displayId)) {
+        return offer;
+      }
+      if (offer.id && /^OFR-\d+$/i.test(offer.id)) {
+        return { ...offer, displayId: offer.id };
+      }
+      const formattedId = `OFR-${currentSeq++}`;
+      return { ...offer, displayId: formattedId };
     });
 
     return formattedOffers.reverse();
@@ -92,13 +103,15 @@ export const fetchFreightOffers = async (): Promise<FreightOffer[]> => {
 
 const fromFreightOffer = (o: FreightOffer | Omit<FreightOffer, 'id'>) => {
   const history = [...(o.history || [])].filter(h => h.id !== 'meta_dest_obs');
+  const displayId = (o as FreightOffer).displayId;
   
-  if ((o.additionalDestinations && o.additionalDestinations.length > 0) || o.observations || (o.attachments && o.attachments.length > 0) || o.driverId || o.cargoId || o.requestedEmbarcadorId || o.requestTimestamp) {
+  if ((o.additionalDestinations && o.additionalDestinations.length > 0) || o.observations || (o.attachments && o.attachments.length > 0) || o.driverId || o.cargoId || o.requestedEmbarcadorId || o.requestTimestamp || displayId) {
     history.push({
       id: 'meta_dest_obs',
       userId: 'system',
       timestamp: o.createdAt || new Date().toISOString(),
       description: JSON.stringify({
+        displayId,
         additionalDestinations: o.additionalDestinations,
         observations: o.observations,
         attachments: o.attachments,

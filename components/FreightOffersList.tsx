@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import type { FreightOffer, Client, Product, Cargo, User } from '../types';
 import { FreightOfferStatus, CargoStatus, UserProfile } from '../types';
 import { PackageIcon, CheckIcon, XIcon, MessageCircleIcon, HistoryIcon, TrashIcon, MapPinIcon, EyeIcon, PaperclipIcon, DownloadIcon, UserIcon, Clock, Edit, ExternalLink, UploadCloud, Plus, Loader2, MapIcon, FileText } from 'lucide-react';
@@ -45,6 +45,31 @@ const FreightOffersList: React.FC<FreightOffersListProps> = ({
   const [detailsTab, setDetailsTab] = useState<'details' | 'map'>('details');
   const detailFileInputRef = useRef<HTMLInputElement>(null);
 
+  const processedOffers = useMemo(() => {
+    let maxNum = 500;
+    offers.forEach((o: FreightOffer) => {
+      const match = (o.displayId || o.id || '').match(/^OFR-(\d+)$/i);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (!isNaN(num) && num > maxNum) maxNum = num;
+      }
+    });
+
+    let currentSeq = maxNum + 1;
+    return offers.map((o: FreightOffer) => {
+      if (o.displayId && /^OFR-\d+$/i.test(o.displayId)) {
+        return o;
+      }
+      if (o.id && /^OFR-\d+$/i.test(o.id)) {
+        return { ...o, displayId: o.id };
+      }
+      return {
+        ...o,
+        displayId: `OFR-${currentSeq++}`
+      };
+    });
+  }, [offers]);
+
   if (offers.length === 0) {
     return (
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 text-center">
@@ -53,7 +78,7 @@ const FreightOffersList: React.FC<FreightOffersListProps> = ({
     );
   }
 
-  const displayedOffers = isExpanded ? offers : offers.slice(0, 2);
+  const displayedOffers = isExpanded ? processedOffers : processedOffers.slice(0, 2);
 
   const getClientName = (id: string) => clients.find(c => c.id === id)?.nomeFantasia || 'Cliente Desconhecido';
   const getProductName = (id: string) => products.find(p => p.id === id)?.name || 'Produto Desconhecido';
@@ -144,7 +169,7 @@ const FreightOffersList: React.FC<FreightOffersListProps> = ({
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-            {displayedOffers.map(offer => {
+            {displayedOffers.map((offer: FreightOffer) => {
               const matchedCargo = getMatchedCargo(offer, cargos);
               const scheduledButNotLoaded = matchedCargo ? Math.max(0, matchedCargo.scheduledVolume - matchedCargo.loadedVolume) : 0;
 
@@ -507,7 +532,7 @@ const FreightOffersList: React.FC<FreightOffersListProps> = ({
                       Detalhes da Oferta
                     </h3>
                     <span className="text-xs font-semibold px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 rounded-md">
-                      {detailsModal.displayId || detailsModal.id}
+                      {processedOffers.find((o: FreightOffer) => o.id === detailsModal.id)?.displayId || detailsModal.displayId || detailsModal.id}
                     </span>
                   </div>
                   <p className="text-[11px] sm:text-xs text-gray-500 dark:text-gray-400">
