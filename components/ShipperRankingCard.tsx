@@ -47,7 +47,7 @@ const ShipperRankingCard: React.FC<ShipperRankingCardProps> = ({ shipments, carg
     const cargoMap: Map<string, Cargo> = new Map(cargos.map(c => [c.id, c]));
 
     const stats = shippers.map(shipper => {
-      const shipperShipments = shipments.filter(s => s.embarcadorId === shipper.id);
+      const shipperShipments = shipments.filter(s => (s.embarcadorId || s.createdById) === shipper.id);
       
       const uniqueVehicles = new Set<string>();
       let netMargin = 0;
@@ -57,8 +57,21 @@ const ShipperRankingCard: React.FC<ShipperRankingCardProps> = ({ shipments, carg
       shipperShipments.forEach(shipment => {
         const effectiveEntry = shipment.statusHistory?.find(h => h.status === ShipmentStatus.AguardandoNota);
         
+        let referenceDate: Date | null = null;
         if (effectiveEntry) {
-          const referenceDate = new Date(effectiveEntry.timestamp);
+          referenceDate = new Date(effectiveEntry.timestamp);
+        } else if ([
+          ShipmentStatus.AguardandoNota,
+          ShipmentStatus.AguardandoAdiantamento,
+          ShipmentStatus.AguardandoAgendamento,
+          ShipmentStatus.AguardandoDescarga,
+          ShipmentStatus.AguardandoPagamentoSaldo,
+          ShipmentStatus.Finalizado
+        ].includes(shipment.status) && (shipment.createdAt || shipment.scheduledDate)) {
+          referenceDate = new Date(shipment.createdAt || shipment.scheduledDate);
+        }
+
+        if (referenceDate) {
           const isCurrentMonth = referenceDate.getMonth() === currentMonth && referenceDate.getFullYear() === currentYear;
 
           if (isCurrentMonth) {

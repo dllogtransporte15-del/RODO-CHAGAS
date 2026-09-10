@@ -59,14 +59,16 @@ const ShipperReport: React.FC<ShipperReportProps> = ({ shipments, cargos, client
 
     const cargoMap = useMemo(() => new Map(cargos.map(c => [c.id, c])), [cargos]);
 
-    const operatorStats = useMemo<OperatorStats[]>(() => {
-        const creatorIds = [...new Set(shipments.map(s => s.createdById))];
+    const getEmbarcadorId = (s: Shipment) => s.embarcadorId || s.createdById;
 
-        return creatorIds.map(creatorId => {
-            const creator = users.find(u => u.id === creatorId);
-            const creatorShipments = shipments.filter(s => s.createdById === creatorId);
+    const operatorStats = useMemo<OperatorStats[]>(() => {
+        const shipperIds = Array.from(new Set(shipments.map(getEmbarcadorId).filter(Boolean))) as string[];
+
+        return shipperIds.map(shipperId => {
+            const shipperUser = users.find(u => u.id === shipperId);
+            const shipperShipments = shipments.filter(s => getEmbarcadorId(s) === shipperId);
           
-            const stats = creatorShipments.reduce((acc, shipment) => {
+            const stats = shipperShipments.reduce((acc, shipment) => {
                 if (shipment.status === ShipmentStatus.Finalizado) {
                   acc.finalizado += 1;
                 } else if (shipment.status === ShipmentStatus.Cancelado) {
@@ -93,9 +95,9 @@ const ShipperReport: React.FC<ShipperReportProps> = ({ shipments, cargos, client
             stats.commission = stats.effectiveTonnage * 2;
     
             return {
-                id: creatorId,
-                name: creator?.name || `Usuário (${creatorId})`,
-                total: creatorShipments.length,
+                id: shipperId,
+                name: shipperUser?.name || `Usuário (${shipperId})`,
+                total: shipperShipments.length,
                 ...stats,
             };
         }).sort((a, b) => b.total - a.total);
@@ -103,14 +105,14 @@ const ShipperReport: React.FC<ShipperReportProps> = ({ shipments, cargos, client
 
     const getShipmentsForPdfAndList = (embarcadorId?: string) => {
         if (embarcadorId && embarcadorId !== 'ALL') {
-            return shipments.filter(s => s.createdById === embarcadorId);
+            return shipments.filter(s => getEmbarcadorId(s) === embarcadorId);
         }
         return shipments;
     };
 
     const baseModalShipments = useMemo(() => {
         if (selectedEmbarcadorId && selectedEmbarcadorId !== 'ALL') {
-            return shipments.filter(s => s.createdById === selectedEmbarcadorId);
+            return shipments.filter(s => getEmbarcadorId(s) === selectedEmbarcadorId);
         }
         return shipments;
     }, [shipments, selectedEmbarcadorId]);

@@ -67,9 +67,24 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, carg
   const getEffectiveDate = (s: Shipment) => {
     // Find when it reached Aguardando Nota (effective volume)
     const effectiveEntry = s.statusHistory?.find(h => h.status === ShipmentStatus.AguardandoNota);
+    if (effectiveEntry) return effectiveEntry.timestamp.substring(0, 10);
     
-    // Return the effective timestamp date string, or scheduledDate if not effective yet
-    return effectiveEntry ? effectiveEntry.timestamp.substring(0, 10) : s.scheduledDate;
+    // Fallback if already in effective status
+    const isEffectiveStatus = [
+      ShipmentStatus.AguardandoNota,
+      ShipmentStatus.AguardandoAdiantamento,
+      ShipmentStatus.AguardandoAgendamento,
+      ShipmentStatus.AguardandoDescarga,
+      ShipmentStatus.AguardandoPagamentoSaldo,
+      ShipmentStatus.Finalizado
+    ].includes(s.status);
+
+    if (isEffectiveStatus && s.createdAt) {
+      return s.createdAt.substring(0, 10);
+    }
+    
+    // Return scheduledDate if not effective yet
+    return s.scheduledDate;
   };
 
   const filteredShipments = useMemo(() => {
@@ -133,11 +148,22 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, carg
 
       // Total Efetivado: Based on reaching 'Ag. Nota' WITHIN FILTER RANGE
       const effectiveEntry = s.statusHistory?.find(h => h.status === ShipmentStatus.AguardandoNota);
+      let effDateStr: string | null = null;
       if (effectiveEntry) {
-        const effDateStr = effectiveEntry.timestamp.substring(0, 10);
-        if (effDateStr >= startDate && effDateStr <= endDate) {
-          totalEfetivado += s.shipmentTonnage || 0;
-        }
+        effDateStr = effectiveEntry.timestamp.substring(0, 10);
+      } else if ([
+        ShipmentStatus.AguardandoNota,
+        ShipmentStatus.AguardandoAdiantamento,
+        ShipmentStatus.AguardandoAgendamento,
+        ShipmentStatus.AguardandoDescarga,
+        ShipmentStatus.AguardandoPagamentoSaldo,
+        ShipmentStatus.Finalizado
+      ].includes(s.status) && s.createdAt) {
+        effDateStr = s.createdAt.substring(0, 10);
+      }
+
+      if (effDateStr && effDateStr >= startDate && effDateStr <= endDate) {
+        totalEfetivado += s.shipmentTonnage || 0;
       }
     });
 
