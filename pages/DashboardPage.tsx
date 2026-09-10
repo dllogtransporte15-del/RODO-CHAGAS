@@ -219,6 +219,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({
   const [offerFilterStatus, setOfferFilterStatus] = React.useState<string>('all');
   const [offerFilterOrigin, setOfferFilterOrigin] = React.useState<string>('');
   const [offerFilterDestination, setOfferFilterDestination] = React.useState<string>('');
+  const [offerFilterRecipient, setOfferFilterRecipient] = React.useState<string>('');
   const [selectedDriverForHistoryId, setSelectedDriverForHistoryId] = React.useState<string | null>(null);
   const [offerForNewShipment, setOfferForNewShipment] = React.useState<FreightOffer | null>(null);
   
@@ -831,6 +832,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({
       if (offerFilterStatus !== 'all' && o.status !== offerFilterStatus) return false;
       if (offerFilterOrigin && !o.origin.toLowerCase().includes(offerFilterOrigin.toLowerCase())) return false;
       if (offerFilterDestination && !o.destination.toLowerCase().includes(offerFilterDestination.toLowerCase())) return false;
+      if (offerFilterRecipient && !(o.recipientClient && o.recipientClient.toLowerCase().includes(offerFilterRecipient.toLowerCase()))) return false;
 
       return true;
     });
@@ -924,7 +926,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Acompanhe e gerencie as ofertas de frete enviadas pela transportadora.</p>
           </div>
 
-          <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm mb-6 flex flex-col md:flex-row gap-4 items-end">
+          <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm mb-6 flex flex-col lg:flex-row gap-4 items-end">
             <div className="flex-1 w-full">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
               <select
@@ -958,13 +960,24 @@ const DashboardPage: React.FC<DashboardPageProps> = ({
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
               />
             </div>
+            <div className="flex-1 w-full">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Cliente Destinatário</label>
+              <input
+                type="text"
+                value={offerFilterRecipient}
+                onChange={(e) => setOfferFilterRecipient(e.target.value)}
+                placeholder="Buscar por destinatário..."
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
+              />
+            </div>
             <button 
               onClick={() => {
                 setOfferFilterStatus('all');
                 setOfferFilterOrigin('');
                 setOfferFilterDestination('');
+                setOfferFilterRecipient('');
               }}
-              className="px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              className="px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors whitespace-nowrap"
             >
               Limpar
             </button>
