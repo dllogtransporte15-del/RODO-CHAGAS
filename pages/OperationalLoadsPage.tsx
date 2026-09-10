@@ -233,8 +233,10 @@ const OperationalLoadsPage: React.FC<OperationalLoadsPageProps> = ({
       const destination = load.destination.toUpperCase();
       const price = load.driverFreightValuePerTon.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
       const bodyTypes = formatAllowedVehicleTypes(load.allowedVehicleTypes);
+      const availableTons = Math.max(0, (load.totalVolume || 0) - (load.scheduledVolume || 0));
+      const dispText = availableTons > 0 ? ` | ⚖️ Disp: ${availableTons.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} ton` : '';
 
-      let text = `📍 ${origin} x ${destination} \n🌾 ${product} - 💲 R$ ${price}\t\n🚛 ${bodyTypes} 🚛`;
+      let text = `📍 ${origin} x ${destination} \n🌾 ${product} - 💲 R$ ${price}${dispText}\t\n🚛 ${bodyTypes} 🚛`;
       
       const cleanOriginLink = cleanOrShortenLocationInput(load.originMapLink);
       if (cleanOriginLink) {

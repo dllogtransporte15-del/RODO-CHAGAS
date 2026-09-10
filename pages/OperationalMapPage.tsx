@@ -493,7 +493,9 @@ const OperationalMapPage: React.FC<OperationalMapPageProps> = ({
       const destination = load.destination.toUpperCase();
       const price = load.driverFreightValuePerTon.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
       const bodyTypes = formatAllowedVehicleTypes(load.allowedVehicleTypes);
-      let text = `📍 ${origin} x ${destination} \n🌾 ${product} - 💲 R$ ${price}\t\n🚛 ${bodyTypes} 🚛`;
+      const availableTons = Math.max(0, (load.totalVolume || 0) - (load.scheduledVolume || 0));
+      const dispText = availableTons > 0 ? ` | ⚖️ Disp: ${availableTons.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} ton` : '';
+      let text = `📍 ${origin} x ${destination} \n🌾 ${product} - 💲 R$ ${price}${dispText}\t\n🚛 ${bodyTypes} 🚛`;
       
       if (load.originLocation) text += `\n🏢 Coleta: ${load.originLocation}`;
       const cleanOriginMap = cleanOrShortenLocationInput(load.originMapLink);
