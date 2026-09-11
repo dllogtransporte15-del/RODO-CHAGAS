@@ -174,7 +174,7 @@ const LoadsPage: React.FC<LoadsPageProps> = ({ loads, setLoads, clients, product
             loads={loads} 
             clients={clients} 
             products={products}
-            shipments={shipments}
+            shipments={allShipments}
             dailyBalanceDate={dailyBalanceDate}
             onDailyBalanceDateChange={setDailyBalanceDate}
             onEdit={canUpdate ? handleEditLoad : undefined}
@@ -227,7 +227,7 @@ const LoadsPage: React.FC<LoadsPageProps> = ({ loads, setLoads, clients, product
         product={detailsModalCargo ? products.find(p => p.id === detailsModalCargo.productId) : undefined}
         commercialUser={users.find(u => u.id === detailsModalCargo?.createdById)}
         stays={stays}
-        shipments={shipments}
+        shipments={allShipments}
         currentUser={currentUser}
       />
 
@@ -235,7 +235,7 @@ const LoadsPage: React.FC<LoadsPageProps> = ({ loads, setLoads, clients, product
         isOpen={isShipmentsPanelOpen}
         onClose={() => setIsShipmentsPanelOpen(false)}
         cargo={selectedCargoForShipments}
-        shipments={shipments}
+        shipments={allShipments}
         users={users}
         currentUser={currentUser}
         onUpdatePrice={onUpdatePrice}

@@ -1,6 +1,7 @@
 import React from 'react';
-import { X, Truck, Calendar, Weight, Info } from 'lucide-react';
+import { X, Truck, Calendar, Weight, Info, Lock } from 'lucide-react';
 import type { Cargo, Shipment, User, Client, Product, Vehicle } from '../types';
+import { UserProfile } from '../types';
 import ShipmentDetailsModal from './ShipmentDetailsModal';
 
 interface CargoShipmentsSidePanelProps {
@@ -54,6 +55,15 @@ const CargoShipmentsSidePanel: React.FC<CargoShipmentsSidePanelProps> = ({
 
   const getEmbarcadorName = (id: string) => users.find(u => u.id === id)?.name || 'N/A';
 
+  const isInternalStaff = [
+    UserProfile.Admin,
+    UserProfile.Diretor,
+    UserProfile.Fiscal,
+    UserProfile.Supervisor,
+    UserProfile.Operacional,
+    UserProfile.Comercial
+  ].includes(currentUser.profile as UserProfile);
+
   return (
     <>
       {/* Backdrop */}
@@ -87,62 +97,74 @@ const CargoShipmentsSidePanel: React.FC<CargoShipmentsSidePanelProps> = ({
                 <p>Nenhum embarque programado ainda.</p>
               </div>
             ) : (
-              cargoShipments.map((shipment) => (
-                <div 
-                  key={shipment.id}
-                  onClick={() => {
-                    if (currentUser.profile !== 'Cliente') {
-                      setSelectedShipment(shipment);
-                    }
-                  }}
-                  className={`bg-gray-50 dark:bg-gray-900/30 border border-gray-100 dark:border-gray-700 rounded-xl p-4 transition-shadow relative ${currentUser.profile !== 'Cliente' ? 'cursor-pointer hover:shadow-md' : ''}`}
-                >
-                  <div className="absolute top-4 right-4">
-                    <Info className="w-4 h-4 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </div>
-                  <div className="flex justify-between items-start mb-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
-                        <Truck className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                      </div>
-                      <div>
-                        <h3 className="font-bold text-gray-900 dark:text-white leading-tight">{shipment.driverName}</h3>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 font-mono">{shipment.horsePlate}</p>
-                      </div>
-                    </div>
-                    <span className={`px-2 py-1 text-[10px] font-bold rounded-full uppercase tracking-wider ${
-                      shipment.status === 'Finalizado' ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' :
-                      shipment.status === 'Cancelado' ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' :
-                      'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
-                    }`}>
-                      {shipment.status}
-                    </span>
-                  </div>
+              cargoShipments.map((shipment) => {
+                const isMine = shipment.embarcadorId === currentUser.id || shipment.createdById === currentUser.id;
+                const canAccessDetails = currentUser.profile !== UserProfile.Cliente && (isInternalStaff || isMine);
 
-                  <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-1.5 text-[10px] text-gray-400 uppercase font-bold tracking-tight">
-                        <Calendar className="w-3 h-3" /> Programação
-                      </div>
-                      <p className="text-sm font-medium text-gray-700 dark:text-gray-200">
-                        {new Date(shipment.scheduledDate + 'T00:00:00').toLocaleDateString('pt-BR')} {shipment.scheduledTime || ''}
-                      </p>
+                return (
+                  <div 
+                    key={shipment.id}
+                    onClick={() => {
+                      if (canAccessDetails) {
+                        setSelectedShipment(shipment);
+                      }
+                    }}
+                    title={canAccessDetails ? 'Clique para ver detalhes do embarque' : 'Embarque vinculado a outro solicitante (exibido para controle de saldo)'}
+                    className={`bg-gray-50 dark:bg-gray-900/30 border border-gray-100 dark:border-gray-700 rounded-xl p-4 transition-shadow relative ${canAccessDetails ? 'cursor-pointer hover:shadow-md hover:border-primary/40' : 'cursor-default opacity-90'}`}
+                  >
+                    <div className="absolute top-4 right-4 flex items-center gap-1.5">
+                      {canAccessDetails ? (
+                        <Info className="w-4 h-4 text-gray-400 opacity-60 hover:opacity-100 transition-opacity" />
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-[10px] bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded-full font-medium border border-amber-200 dark:border-amber-800">
+                          <Lock className="w-3 h-3" /> Saldo Comprometido
+                        </span>
+                      )}
                     </div>
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-1.5 text-[10px] text-gray-400 uppercase font-bold tracking-tight">
-                        <Weight className="w-3 h-3" /> Tonelagem
+                    <div className="flex justify-between items-start mb-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                          <Truck className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                        </div>
+                        <div>
+                          <h3 className="font-bold text-gray-900 dark:text-white leading-tight">{shipment.driverName}</h3>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 font-mono">{shipment.horsePlate}</p>
+                        </div>
                       </div>
-                      <p className="text-sm font-bold text-gray-900 dark:text-white">
-                        {shipment.shipmentTonnage.toLocaleString('pt-BR')} ton
-                      </p>
+                      <span className={`px-2 py-1 text-[10px] font-bold rounded-full uppercase tracking-wider ${
+                        shipment.status === 'Finalizado' ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' :
+                        shipment.status === 'Cancelado' ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' :
+                        'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
+                      }`}>
+                        {shipment.status}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-1.5 text-[10px] text-gray-400 uppercase font-bold tracking-tight">
+                          <Calendar className="w-3 h-3" /> Programação
+                        </div>
+                        <p className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                          {new Date(shipment.scheduledDate + 'T00:00:00').toLocaleDateString('pt-BR')} {shipment.scheduledTime || ''}
+                        </p>
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-1.5 text-[10px] text-gray-400 uppercase font-bold tracking-tight">
+                          <Weight className="w-3 h-3" /> Tonelagem
+                        </div>
+                        <p className="text-sm font-bold text-gray-900 dark:text-white">
+                          {shipment.shipmentTonnage.toLocaleString('pt-BR')} ton
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="mt-3 text-[10px] text-gray-400 italic">
+                      Solicitante: <span className="font-medium text-gray-500 dark:text-gray-300">{getEmbarcadorName(shipment.embarcadorId)}</span>
                     </div>
                   </div>
-                  
-                  <div className="mt-3 text-[10px] text-gray-400 italic">
-                    Solicitante: <span className="font-medium text-gray-500 dark:text-gray-300">{getEmbarcadorName(shipment.embarcadorId)}</span>
-                  </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>

@@ -19,15 +19,10 @@ export const UserTable: React.FC<UserTableProps> = ({ users, onEdit, onDelete })
   const [filterProfile, setFilterProfile] = useState('Todos');
   const [filterStatus, setFilterStatus] = useState('Todos');
 
-  // Generate consistent USR-XXX registration code for each user
+  // Display ID for each user (preserves genuine ID if present)
   const usersWithDisplayId = useMemo(() => {
     return users.map((user, index) => {
-      let displayId = user.id;
-      if (!displayId || !/^USR-\d+$/i.test(displayId)) {
-        displayId = `USR-${String(101 + index).padStart(3, '0')}`;
-      } else {
-        displayId = displayId.toUpperCase();
-      }
+      let displayId = user.id ? user.id.toUpperCase() : `USR-${String(101 + index).padStart(3, '0')}`;
       return {
         ...user,
         displayId

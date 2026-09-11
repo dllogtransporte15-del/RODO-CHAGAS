@@ -233,7 +233,10 @@ const OperationalLoadsPage: React.FC<OperationalLoadsPageProps> = ({
       const destination = load.destination.toUpperCase();
       const price = load.driverFreightValuePerTon.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
       const bodyTypes = formatAllowedVehicleTypes(load.allowedVehicleTypes);
-      const availableTons = Math.max(0, (load.totalVolume || 0) - (load.scheduledVolume || 0));
+      const effectiveScheduled = allShipments
+        .filter(s => s.cargoId === load.id && s.status !== ShipmentStatus.Cancelado)
+        .reduce((sum, s) => sum + (Number(s.shipmentTonnage) || 0), 0);
+      const availableTons = Math.max(0, (load.totalVolume || 0) - effectiveScheduled);
       const dispText = availableTons > 0 ? ` | ⚖️ Disp: ${availableTons.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} ton` : '';
 
       let text = `📍 ${origin} x ${destination} \n🌾 ${product} - 💲 R$ ${price}${dispText}\t\n🚛 ${bodyTypes} 🚛`;
@@ -402,7 +405,7 @@ const OperationalLoadsPage: React.FC<OperationalLoadsPageProps> = ({
         loads={loads} 
         clients={clients} 
         products={products}
-        shipments={shipments}
+        shipments={allShipments}
         dailyBalanceDate={dailyBalanceDate}
         onDailyBalanceDateChange={setDailyBalanceDate}
         onCreateShipment={canCreateShipment ? handleOpenNewShipmentModal : undefined} 
@@ -464,7 +467,7 @@ const OperationalLoadsPage: React.FC<OperationalLoadsPageProps> = ({
         product={detailsModalCargo ? products.find(p => p.id === detailsModalCargo.productId) : undefined}
         commercialUser={detailsModalCargo ? users.find(u => u.id === detailsModalCargo.createdById) : undefined}
         stays={stays}
-        shipments={shipments}
+        shipments={allShipments}
         currentUser={currentUser}
       />
 
@@ -472,7 +475,7 @@ const OperationalLoadsPage: React.FC<OperationalLoadsPageProps> = ({
         isOpen={isShipmentsPanelOpen}
         onClose={() => setIsShipmentsPanelOpen(false)}
         cargo={selectedCargoForShipments}
-        shipments={shipments}
+        shipments={allShipments}
         users={users}
         currentUser={currentUser}
         onUpdatePrice={onUpdatePrice}

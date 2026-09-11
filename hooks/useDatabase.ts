@@ -215,7 +215,7 @@ export function useDatabase(currentUser: User | null) {
       console.log(`[useDatabase] Realtime ${eventType} em ${table}`);
 
       // Permite atualizações em tempo real mesmo com modais abertos para tabelas principais
-      const alwaysUpdateTables = ['tickets', 'cargos', 'shipments', 'freight_offers', 'drivers'];
+      const alwaysUpdateTables = ['tickets', 'cargos', 'shipments', 'freight_offers', 'drivers', 'app_users'];
       if (isAnyModalActiveRef.current && !alwaysUpdateTables.includes(table)) return;
 
       try {

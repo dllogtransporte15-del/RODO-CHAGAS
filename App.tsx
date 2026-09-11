@@ -2107,17 +2107,71 @@ const App: React.FC = () => {
   };
 
   const handleSaveUser = async (userData: User | Omit<User, 'id'>) => {
-    let saved: User;
-    if ('id' in userData) {
-      saved = userData;
-      setUsers(prev => prev.map(u => u.id === userData.id ? { ...u, ...userData } : u));
-    } else { 
-      const newId = formatId(nextIds.user, 'USR');
-      saved = { ...userData, id: newId } as User;
-      setUsers(prev => [saved, ...prev]);
-      setNextIds((prev: any) => ({ ...prev, user: prev.user + 1 }));
+    const isNew = !('id' in userData) || !userData.id;
+    const normalizedEmail = userData.email?.trim().toLowerCase();
+
+    // Validação de e-mail duplicado no frontend antes de enviar
+    const emailConflict = users.find(u => 
+      u.email?.trim().toLowerCase() === normalizedEmail && (!('id' in userData) || u.id !== userData.id)
+    );
+
+    if (emailConflict) {
+      showToast('Já existe um usuário cadastrado com este e-mail.', 'error');
+      return;
     }
-    try { await upsertUser(saved); } catch(err) { console.error('Erro ao salvar usuário:', err); }
+
+    let saved: User;
+    if (!isNew && 'id' in userData) {
+      saved = {
+        ...userData,
+        email: normalizedEmail,
+      } as User;
+      setUsers(prev => prev.map(u => u.id === userData.id ? { ...u, ...saved } : u));
+    } else {
+      // Gera ID sequencial único evitando qualquer colisão com usuários existentes
+      let maxNum = 100;
+      for (const u of users) {
+        if (u.id) {
+          const match = u.id.match(/-(\d+)$/);
+          if (match) {
+            const num = parseInt(match[1], 10);
+            if (!isNaN(num) && num > maxNum) maxNum = num;
+          }
+        }
+      }
+      let candidateNum = Math.max(maxNum + 1, (nextIds?.user || 100));
+      while (users.some(u => u.id === `USR-${String(candidateNum).padStart(3, '0')}`)) {
+        candidateNum++;
+      }
+      const newId = `USR-${String(candidateNum).padStart(3, '0')}`;
+      saved = { ...userData, id: newId, email: normalizedEmail } as User;
+      
+      // Atualização otimista
+      setUsers(prev => [saved, ...prev]);
+      setNextIds((prev: any) => ({ ...prev, user: candidateNum + 1 }));
+    }
+
+    try {
+      const persisted = await upsertUser(saved);
+      if (persisted) {
+        setUsers(prev => prev.map(u => u.id === saved.id ? persisted : u));
+      }
+      showToast(isNew ? 'Usuário cadastrado com sucesso!' : 'Usuário atualizado com sucesso!', 'success');
+    } catch (err: any) {
+      console.error('Erro ao salvar usuário:', err);
+      // Rollback se for novo usuário
+      if (isNew) {
+        setUsers(prev => prev.filter(u => u.id !== saved.id));
+      }
+      
+      let errorMsg = 'Erro ao salvar usuário no banco de dados.';
+      if (err?.code === '23505' || err?.message?.includes('app_users_email_key') || err?.message?.includes('duplicate key')) {
+        errorMsg = 'Erro: Este e-mail já está em uso no banco de dados.';
+      } else if (err?.message) {
+        errorMsg = `Erro: ${err.message}`;
+      }
+      showToast(errorMsg, 'error');
+    }
   };
   
   const handleDeleteUser = async (userId: string) => {

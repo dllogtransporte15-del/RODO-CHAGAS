@@ -10,70 +10,55 @@ export const BRAZILIAN_UFS = [
 export type BrazilianUF = typeof BRAZILIAN_UFS[number];
 
 /**
- * Normaliza e padroniza a entrada de uma cidade no formato "Nome da Cidade, UF"
- * Trata variações como:
- * - "Rio Verde - GO" -> "Rio Verde, GO"
- * - "rio verde/go" -> "Rio Verde, GO"
- * - "rio verde, go" -> "Rio Verde, GO"
- * - "rio verde go" -> "Rio Verde, GO"
+ * Formata a entrada de cidade e estado:
+ * 1. O nome da cidade é digitado livremente com espaços preservados para nomes compostos.
+ * 2. NENHUMA vírgula é adicionada automaticamente ao clicar em espaço.
+ * 3. A vírgula deve ser adicionada MANUALMENTE pelo usuário.
+ * 4. Ao adicionar a vírgula, formata o nome da cidade com capitalização e aplica o padrão ", ".
+ * 5. Após a vírgula, libera para informar APENAS a sigla da UF (máximo 2 letras, maiúsculas).
  */
 export function formatCityState(value: string | undefined | null): string {
   if (!value || typeof value !== 'string') return '';
-  if (!value.trim()) return value;
+  if (!value.trim() && value.length > 0) return value; // apenas espaços
 
-  // Preserva espaços no final para digitação contínua de nomes compostos (ex: "Ouro ")
-  const trailingSpacesMatch = value.match(/\s+$/);
-  const trailingSpaces = trailingSpacesMatch ? trailingSpacesMatch[0] : '';
-  const trimmed = value.trim();
+  // Verifica se há vírgula inserida manualmente
+  const commaIndex = value.indexOf(',');
 
-  // 1. Verifica se há separador explícito: vírgula, hífen, barra ou travessão com 2 letras de UF no final
-  const separatorMatch = trimmed.match(/^(.*?)(?:\s*[,|\-\/–—]\s*)([a-zA-Z]{2})\s*$/);
-  if (separatorMatch) {
-    const cityName = formatName(separatorMatch[1].trim());
-    const uf = separatorMatch[2].toUpperCase();
-    if (BRAZILIAN_UFS.includes(uf as BrazilianUF)) {
-      return `${cityName}, ${uf}`;
-    }
+  if (commaIndex === -1) {
+    // SEM VÍRGULA: O usuário está digitando apenas o nome da cidade.
+    // Preserva espaços no final para digitação contínua de nomes compostos (ex: "Rio Verde ")
+    const trailingSpacesMatch = value.match(/\s+$/);
+    const trailingSpaces = trailingSpacesMatch ? trailingSpacesMatch[0] : '';
+    const trimmed = value.trim();
+
+    if (!trimmed) return trailingSpaces;
+
+    // Formata o nome da cidade mantendo maiúsculas/minúsculas adequadas
+    const formattedName = formatName(trimmed);
+    return formattedName + trailingSpaces;
   }
 
-  // 2. Se termina com separador e espaço/nada (ex: "Ouro Preto," ou "Ouro Preto, ")
-  if (trimmed.endsWith(',') || trimmed.endsWith('-') || trimmed.endsWith('/')) {
-    const withoutSep = trimmed.slice(0, -1).trim();
-    return withoutSep ? `${formatName(withoutSep)}, ` : '';
+  // COM VÍRGULA: O usuário digitou a vírgula manualmente
+  const cityPartRaw = value.slice(0, commaIndex);
+  const afterCommaRaw = value.slice(commaIndex + 1);
+
+  // Formata o nome da cidade antes da vírgula
+  const trimmedCity = cityPartRaw.trim();
+  const formattedCity = trimmedCity ? formatName(trimmedCity) : '';
+
+  // Após a vírgula: libera para informar APENAS letras (máximo 2 letras para a UF, em maiúsculo)
+  const ufLetters = afterCommaRaw.replace(/[^a-zA-Z]/g, '').slice(0, 2).toUpperCase();
+
+  if (!formattedCity && !ufLetters) {
+    return ', ';
   }
 
-  // 3. Se possui vírgula no meio
-  const commaIndex = trimmed.lastIndexOf(',');
-  if (commaIndex !== -1) {
-    const cityName = formatName(trimmed.slice(0, commaIndex).trim());
-    const ufPart = trimmed.slice(commaIndex + 1).replace(/[^a-zA-Z]/g, '').slice(0, 2).toUpperCase();
-    return ufPart ? `${cityName}, ${ufPart}` : (cityName ? `${cityName}, ` : '');
+  if (ufLetters.length > 0) {
+    return `${formattedCity}, ${ufLetters}`;
   }
 
-  // 4. Se possui hífen ou barra
-  const dashIndex = Math.max(trimmed.lastIndexOf('-'), trimmed.lastIndexOf('/'));
-  if (dashIndex !== -1) {
-    const cityName = formatName(trimmed.slice(0, dashIndex).trim());
-    const ufPart = trimmed.slice(dashIndex + 1).replace(/[^a-zA-Z]/g, '').slice(0, 2).toUpperCase();
-    return ufPart ? `${cityName}, ${ufPart}` : (cityName ? `${cityName}, ` : '');
-  }
-
-  // 5. Se termina com espaço e 2 letras que batem com uma UF válida (ex: "Rio Verde GO" -> "Rio Verde, GO")
-  // Apenas converter quando NÃO houver espaço no final (ou seja, quando o usuário acabou de digitar a sigla)
-  if (!trailingSpaces) {
-    const spaceUfMatch = trimmed.match(/^(.*?)\s+([a-zA-Z]{2})$/);
-    if (spaceUfMatch) {
-      const potentialUF = spaceUfMatch[2].toUpperCase();
-      if (BRAZILIAN_UFS.includes(potentialUF as BrazilianUF)) {
-        const cityName = formatName(spaceUfMatch[1].trim());
-        return `${cityName}, ${potentialUF}`;
-      }
-    }
-  }
-
-  // 6. Formata o nome mantendo maiúsculas/minúsculas e preserva os espaços que o usuário digitou
-  const formattedName = formatName(trimmed);
-  return formattedName + trailingSpaces;
+  // Usuário acabou de digitar a vírgula (ex: "Uberaba,") -> entrega "Uberaba, "
+  return `${formattedCity}, `;
 }
 
 export interface CityValidationResult {

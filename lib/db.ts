@@ -503,7 +503,7 @@ export const toUser = (row: any): User => {
   if (typeof profile === 'string') {
     const p = profile.trim().toLowerCase();
     if (p === 'motorista') profile = UserProfile.Motorista;
-    else if (p === 'admin') profile = UserProfile.Admin;
+    else if (p === 'admin' || p === 'administrador' || p === 'administrador do sistema') profile = UserProfile.Admin;
     else if (p === 'embarcador') profile = UserProfile.Embarcador;
     else if (p === 'cliente') profile = UserProfile.Cliente;
     else if (p === 'supervisor') profile = UserProfile.Supervisor;
@@ -515,36 +515,43 @@ export const toUser = (row: any): User => {
 
   return {
     id: row.id,
-    name: row.name,
-    email: row.email,
+    name: row.name || '',
+    email: (row.email || '').trim().toLowerCase(),
     profile: profile,
-    active: row.active,
-    phone: row.phone,
-    password: row.password,
-    clientId: row.client_id,
-    requirePasswordChange: row.require_password_change,
-    authId: row.auth_id,
-    passwordUpdatedAt: row.password_updated_at,
-    branchId: row.branch_id,
-    customPermissions: row.permissions,
+    active: row.active ?? true,
+    phone: row.phone || '',
+    password: row.password || '',
+    clientId: row.client_id || undefined,
+    requirePasswordChange: row.require_password_change ?? false,
+    authId: row.auth_id || undefined,
+    passwordUpdatedAt: row.password_updated_at || undefined,
+    branchId: row.branch_id || undefined,
+    customPermissions: row.permissions || undefined,
   };
 };
 
-export const fromUser = (u: User | Omit<User, 'id'>) => ({
-  id: (u as User).id,
-  name: u.name,
-  email: u.email,
-  profile: u.profile,
-  active: u.active,
-  phone: u.phone,
-  password: u.password,
-  client_id: u.clientId,
-  require_password_change: u.requirePasswordChange,
-  auth_id: u.authId,
-  password_updated_at: u.passwordUpdatedAt,
-  branch_id: u.branchId || null,
-  permissions: (u as User).customPermissions,
-});
+export const fromUser = (u: User | Omit<User, 'id'>) => {
+  const payload: any = {
+    name: u.name?.trim() || '',
+    email: (u.email || '').trim().toLowerCase(),
+    profile: u.profile,
+    active: u.active !== undefined ? u.active : true,
+    phone: u.phone?.trim() || null,
+    client_id: u.clientId || null,
+    require_password_change: u.requirePasswordChange ?? false,
+    auth_id: u.authId || null,
+    password_updated_at: u.passwordUpdatedAt || new Date().toISOString(),
+    branch_id: u.branchId || null,
+    permissions: (u as User).customPermissions || null,
+  };
+  if ('id' in u && u.id) {
+    payload.id = u.id;
+  }
+  if (u.password && u.password.trim()) {
+    payload.password = u.password.trim();
+  }
+  return payload;
+};
 
 export const toTicket = (row: any): Ticket => {
   let cleanDesc = row.description || '';
@@ -902,9 +909,18 @@ export async function upsertShipment(shipment: Shipment): Promise<void> {
   }
 }
 
-export async function upsertUser(user: User): Promise<void> {
-  const { error } = await supabase.from('app_users').upsert(fromUser(user));
-  if (error) throw error;
+export async function upsertUser(user: User): Promise<User> {
+  const payload = fromUser(user);
+  const { data, error } = await supabase
+    .from('app_users')
+    .upsert(payload)
+    .select();
+
+  if (error) {
+    console.error('[upsertUser] Erro ao salvar usuário no Supabase:', error);
+    throw error;
+  }
+  return data && data[0] ? toUser(data[0]) : user;
 }
 
 export async function upsertBranch(branch: Branch): Promise<void> {
