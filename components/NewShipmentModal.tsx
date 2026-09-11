@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import type { Cargo, Driver, Shipment, Client, Vehicle, User } from '../types';
-import { UserProfile, DailyScheduleType, VehicleSetType, VehicleBodyType, FreightPricingType } from '../types';
+import { UserProfile, DailyScheduleType, VehicleSetType, VehicleBodyType, FreightPricingType, ShipmentStatus } from '../types';
 import { supabase } from '../supabase';
 import { useToast } from '../hooks/useToast';
 
@@ -42,6 +42,18 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
   const [driverReferences, setDriverReferences] = useState('');
   const [isScanning, setIsScanning] = useState(false);
   const { showToast } = useToast();
+
+  const activeScheduledVolume = useMemo(() => {
+    if (!cargo) return 0;
+    return shipments
+      .filter(s => s.cargoId === cargo.id && s.status !== ShipmentStatus.Cancelado)
+      .reduce((sum, s) => sum + (Number(s.shipmentTonnage) || 0), 0);
+  }, [cargo, shipments]);
+
+  const availableBalance = useMemo(() => {
+    if (!cargo) return 0;
+    return Math.max(0, (Number(cargo.totalVolume) || 0) - activeScheduledVolume);
+  }, [cargo, activeScheduledVolume]);
 
   const handleScanDocument = async (files: File[]) => {
     if (files.length === 0) {
@@ -327,8 +339,12 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
         return;
     }
 
-    // Hard Validation: Balance Check
-    const availableBalance = cargo.totalVolume - cargo.scheduledVolume;
+    // Hard Validation: Volume and Balance Check
+    if (!shipmentTonnage || shipmentTonnage <= 0) {
+        showToast('Informe uma tonelagem válida maior que zero para o embarque.', 'warning');
+        return;
+    }
+
     if (shipmentTonnage > (availableBalance + 0.001)) { // Small epsilon for float comparison
         showToast(`SALDO INSUFICIENTE: Esta carga possui apenas ${availableBalance.toLocaleString('pt-BR')} ton disponíveis. Você está tentando solicitar ${shipmentTonnage.toLocaleString('pt-BR')} ton.`, 'error');
         return;
@@ -391,19 +407,22 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
 
   const clientName = clients.find(c => c.id === cargo.clientId)?.nomeFantasia || 'Cliente não encontrado';
   const isExistingDriver = !!drivers.find(d => d.name.trim().toLowerCase() === driverName.trim().toLowerCase() && driverName.trim() !== '');
+  const isTonnageExceeded = shipmentTonnage > (availableBalance + 0.001);
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center">
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-8 max-w-3xl w-full max-h-[90vh] overflow-y-auto">
         <h2 className="text-2xl font-bold mb-2 text-gray-800 dark:text-white">Solicitação de Embarque</h2>
         <div className="mb-6 p-3 bg-gray-100 dark:bg-gray-700 rounded-md">
-          <div className="flex flex-wrap gap-x-6 gap-y-1">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <p className="text-sm text-gray-600 dark:text-gray-400">Cliente: <span className="font-semibold text-gray-800 dark:text-gray-200">{clientName}</span></p>
-            <p className="text-sm text-gray-600 dark:text-gray-400">Rota: <span className="font-semibold text-gray-800 dark:text-gray-200">{cargo.origin} → {cargo.destination}</span></p>
-            <p className="text-sm text-gray-600 dark:text-gray-400">Saldo Disponível: <span className="font-bold text-emerald-600 dark:text-emerald-400">{(cargo.totalVolume - cargo.scheduledVolume).toLocaleString('pt-BR')} ton</span></p>
+            <p className="text-sm text-gray-600 dark:text-gray-400 col-span-2">Rota: <span className="font-semibold text-gray-800 dark:text-gray-200">{cargo.origin} → {cargo.destination}</span></p>
+            <p className="text-sm text-gray-600 dark:text-gray-400">Total da Carga: <span className="font-semibold text-gray-800 dark:text-gray-200">{(cargo.totalVolume || 0).toLocaleString('pt-BR')} ton</span></p>
+            <p className="text-sm text-gray-600 dark:text-gray-400">Comprometido: <span className="font-semibold text-amber-600 dark:text-amber-400">{activeScheduledVolume.toLocaleString('pt-BR')} ton</span></p>
+            <p className="text-sm text-gray-600 dark:text-gray-400">Saldo Disponível: <span className="font-bold text-emerald-600 dark:text-emerald-400">{availableBalance.toLocaleString('pt-BR')} ton</span></p>
           </div>
           {cargo.allowedVehicleTypes && cargo.allowedVehicleTypes.length > 0 && (
-              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-2 border-t pt-2 dark:border-gray-600">
                 Veículos Permitidos: <span className="font-semibold text-gray-800 dark:text-gray-200">{cargo.allowedVehicleTypes.map(vt => `${vt.setType} (${vt.bodyTypes.join('/')})`).join(', ')}</span>
               </p>
           )}
@@ -538,8 +557,37 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
           
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Toneladas do Embarque</label>
-                  <input type="number" value={shipmentTonnage || ''} onChange={(e) => setShipmentTonnage(parseFloat(e.target.value) || 0)} placeholder="Ex: 35.5" className="mt-1 p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600" step="0.01" required />
+                  <div className="flex justify-between items-center">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Toneladas do Embarque</label>
+                    {availableBalance > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setShipmentTonnage(availableBalance)}
+                        className="text-xs text-primary dark:text-blue-400 hover:underline font-medium"
+                      >
+                        Usar saldo restante ({availableBalance.toLocaleString('pt-BR')} ton)
+                      </button>
+                    )}
+                  </div>
+                  <input 
+                    type="number" 
+                    value={shipmentTonnage || ''} 
+                    onChange={(e) => setShipmentTonnage(parseFloat(e.target.value) || 0)} 
+                    placeholder={`Máx: ${availableBalance.toLocaleString('pt-BR')} ton`} 
+                    className={`mt-1 p-2 w-full border rounded dark:bg-gray-700 transition-colors ${
+                      isTonnageExceeded 
+                        ? 'border-red-500 bg-red-50 dark:bg-red-900/20 text-red-900 dark:text-red-200 focus:ring-red-500' 
+                        : 'border-gray-300 dark:border-gray-600'
+                    }`} 
+                    step="0.01" 
+                    max={availableBalance}
+                    required 
+                  />
+                  {isTonnageExceeded && (
+                    <p className="text-xs text-red-600 dark:text-red-400 mt-1 font-semibold">
+                      ⚠️ Tonelagem excede o saldo disponível de {availableBalance.toLocaleString('pt-BR')} ton.
+                    </p>
+                  )}
                 </div>
                 <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Tag do Veículo</label>

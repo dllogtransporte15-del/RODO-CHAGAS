@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import type { Shipment, Cargo, Client, Product } from '../types';
-import { CargoStatus } from '../types';
+import { CargoStatus, ShipmentStatus } from '../types';
 import { useToast } from '../hooks/useToast';
 import { Search, Info, Package, MapPin, DollarSign, Weight } from 'lucide-react';
 
@@ -13,6 +13,7 @@ interface SwapCargoModalProps {
   cargos: Cargo[];
   clients: Client[];
   products: Product[];
+  shipments?: Shipment[];
 }
 
 const SwapCargoModal: React.FC<SwapCargoModalProps> = ({ 
@@ -22,21 +23,34 @@ const SwapCargoModal: React.FC<SwapCargoModalProps> = ({
   shipment, 
   cargos, 
   clients, 
-  products 
+  products,
+  shipments = []
 }) => {
   const { showToast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCargoId, setSelectedCargoId] = useState<string>('');
+
+  const getCargoAvailableVolume = (c: Cargo) => {
+    if (shipments && shipments.length > 0) {
+      const activeScheduled = shipments
+        .filter(s => s.cargoId === c.id && s.status !== ShipmentStatus.Cancelado)
+        .reduce((sum, s) => sum + (s.shipmentTonnage || 0), 0);
+      return Math.max(0, c.totalVolume - activeScheduled);
+    }
+    return Math.max(0, c.totalVolume - (c.scheduledVolume || 0));
+  };
 
   const availableCargos = useMemo(() => {
     return cargos.filter(c => {
       // Must be in progress
       if (c.status !== CargoStatus.EmAndamento) return false;
       
-      // Must have available volume
-      if (c.scheduledVolume >= c.totalVolume) return false;
+      // Must have enough available volume for this shipment
+      const availableVol = getCargoAvailableVolume(c);
+      if (shipment && availableVol < shipment.shipmentTonnage) return false;
+      if (availableVol <= 0) return false;
       
-      // Current cargo should be excluded or at least handled
+      // Current cargo should be excluded
       if (shipment && c.id === shipment.cargoId) return false;
 
       // Search filter
@@ -54,7 +68,7 @@ const SwapCargoModal: React.FC<SwapCargoModalProps> = ({
       }
       return true;
     }).sort((a, b) => b.sequenceId - a.sequenceId);
-  }, [cargos, shipment, searchTerm, clients, products]);
+  }, [cargos, shipment, searchTerm, clients, products, shipments]);
 
   const handleConfirm = () => {
     if (!shipment) return;
@@ -116,7 +130,7 @@ const SwapCargoModal: React.FC<SwapCargoModalProps> = ({
                 const client = clients.find(cl => cl.id === cargo.clientId);
                 const product = products.find(p => p.id === cargo.productId);
                 const isSelected = selectedCargoId === cargo.id;
-                const remainingVol = cargo.totalVolume - cargo.scheduledVolume;
+                const remainingVol = getCargoAvailableVolume(cargo);
 
                 return (
                   <div 

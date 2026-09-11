@@ -755,6 +755,15 @@ const App: React.FC = () => {
   const handleRequestLoadOrder = (cargo: Cargo) => {
     if (!currentUser) return;
     
+    const activeShipments = shipments.filter(s => s.cargoId === cargo.id && s.status !== ShipmentStatus.Cancelado);
+    const scheduled = activeShipments.reduce((sum, s) => sum + (Number(s.shipmentTonnage) || 0), 0);
+    const available = Math.max(0, (Number(cargo.totalVolume) || 0) - scheduled);
+
+    if (available <= 0) {
+      showToast('Esta carga não possui saldo disponível para novas solicitações.', 'warning');
+      return;
+    }
+
     // Check if the user already has a pending offer for this cargo
     const existingOffer = freightOffers.find(o => o.cargoId === cargo.id && o.driverId === currentUser.id && o.status === FreightOfferStatus.Pendente);
     if (existingOffer) {
@@ -770,13 +779,17 @@ const App: React.FC = () => {
     if (!currentUser || !selectedCargoForRequest) return;
     const cargo = selectedCargoForRequest;
     
+    const activeShipments = shipments.filter(s => s.cargoId === cargo.id && s.status !== ShipmentStatus.Cancelado);
+    const scheduled = activeShipments.reduce((sum, s) => sum + (Number(s.shipmentTonnage) || 0), 0);
+    const available = Math.max(0, (Number(cargo.totalVolume) || 0) - scheduled);
+
     const newOffer: FreightOffer | Omit<FreightOffer, 'id' | 'createdAt'> = {
       clientId: cargo.clientId,
       origin: cargo.origin,
       originLocation: cargo.originMapLink,
       destination: cargo.destination,
       destinationLocation: cargo.destinationMapLink,
-      totalTonnage: Math.max(0, cargo.scheduledVolume - cargo.loadedVolume) || cargo.scheduledVolume, 
+      totalTonnage: available, 
       productId: cargo.productId,
       freightValuePerTon: cargo.driverFreightValuePerTon,
       status: FreightOfferStatus.Pendente,
@@ -788,7 +801,7 @@ const App: React.FC = () => {
         id: `log_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
         userId: currentUser.id,
         timestamp: new Date().toISOString(),
-        description: `Motorista ${currentUser.name} solicitou ordem de carregamento para a Carga ${cargo.sequenceId}.`
+        description: `Motorista ${currentUser.name} solicitou ordem de carregamento para a Carga ${cargo.sequenceId}. Saldo disponível no momento: ${available.toFixed(2)} ton.`
       }]
     };
     
@@ -933,6 +946,26 @@ const App: React.FC = () => {
     if (attachedFileNames.length > 0) historyMsg += ` Anexo(s): ${attachedFileNames.join(', ')}.`;
     if (data.bankDetails) historyMsg += ` Dados bancários preenchidos.`;
 
+    const cargo = cargos.find(c => c.id === data.cargoId);
+    if (!cargo) {
+      showToast('Carga não encontrada para este embarque.', 'error');
+      return;
+    }
+
+    const activeShipments = shipments.filter(s => s.cargoId === data.cargoId && s.status !== ShipmentStatus.Cancelado);
+    const currentScheduled = activeShipments.reduce((sum, s) => sum + (Number(s.shipmentTonnage) || 0), 0);
+    const availableBalance = Math.max(0, (Number(cargo.totalVolume) || 0) - currentScheduled);
+
+    if (!data.shipmentTonnage || data.shipmentTonnage <= 0) {
+      showToast('A tonelagem do embarque deve ser maior que zero.', 'warning');
+      return;
+    }
+
+    if (data.shipmentTonnage > (availableBalance + 0.001)) {
+      showToast(`SALDO INSUFICIENTE: Esta carga possui apenas ${availableBalance.toLocaleString('pt-BR')} ton disponíveis. Você está tentando solicitar ${data.shipmentTonnage.toLocaleString('pt-BR')} ton.`, 'error');
+      return;
+    }
+
     const newShipment: Shipment = {
       id: newShipmentId,
       orderId: `ord_${newShipmentId}`,
@@ -947,8 +980,8 @@ const App: React.FC = () => {
       trailer3Plate: data.trailer3Plate,
       shipmentTonnage: data.shipmentTonnage,
       driverFreightValue: data.driverFreightValue,
-      driverFreightRateSnapshot: cargos.find(c => c.id === data.cargoId)?.driverFreightValuePerTon,
-      companyFreightRateSnapshot: cargos.find(c => c.id === data.cargoId)?.companyFreightValuePerTon,
+      driverFreightRateSnapshot: cargo.driverFreightValuePerTon,
+      companyFreightRateSnapshot: cargo.companyFreightValuePerTon,
       status: ShipmentStatus.AguardandoSeguradora,
       scheduledDate: data.scheduledDate,
       scheduledTime: data.scheduledTime,
@@ -971,16 +1004,16 @@ const App: React.FC = () => {
     };
     const newShipments = [newShipment, ...shipments];
     
-    const newCargos = cargos.map(cargo => {
-      if (cargo.id === data.cargoId) {
-        const newScheduledVolume = cargo.scheduledVolume + data.shipmentTonnage;
+    const newScheduledVolume = currentScheduled + data.shipmentTonnage;
+    const newCargos = cargos.map(c => {
+      if (c.id === data.cargoId) {
         return {
-          ...cargo,
+          ...c,
           scheduledVolume: newScheduledVolume,
-          history: [...cargo.history, createHistoryLogLocal(`Volume agendado atualizado para ${newScheduledVolume.toFixed(2)} ton devido ao novo embarque ${newShipmentId}`)],
+          history: [...c.history, createHistoryLogLocal(`Volume agendado atualizado para ${newScheduledVolume.toFixed(2)} ton devido ao novo embarque ${newShipmentId}`)],
         };
       }
-      return cargo;
+      return c;
     });
     
     currentNextIds.shipment++;
@@ -1459,23 +1492,45 @@ const App: React.FC = () => {
     let updatedCargo: Cargo | undefined;
 
     if (data.shipmentTonnage !== undefined && data.shipmentTonnage !== shipmentToUpdate.shipmentTonnage) {
-        const diff = data.shipmentTonnage - shipmentToUpdate.shipmentTonnage;
+        const newTonnage = Number(data.shipmentTonnage);
+        if (newTonnage <= 0) {
+            showToast('A tonelagem do embarque deve ser maior que zero.', 'warning');
+            return;
+        }
+
         const cargo = cargos.find(c => c.id === shipmentToUpdate.cargoId);
+        if (cargo) {
+            // Se o embarque está ativo (não cancelado), validar saldo disponível
+            if (shipmentToUpdate.status !== ShipmentStatus.Cancelado) {
+                const otherActiveShipments = shipments.filter(s => s.cargoId === shipmentToUpdate.cargoId && s.id !== shipmentId && s.status !== ShipmentStatus.Cancelado);
+                const otherScheduled = otherActiveShipments.reduce((sum, s) => sum + (Number(s.shipmentTonnage) || 0), 0);
+                const availableForThisShipment = Math.max(0, (Number(cargo.totalVolume) || 0) - otherScheduled);
+
+                if (newTonnage > (availableForThisShipment + 0.001)) {
+                    showToast(`SALDO INSUFICIENTE: Esta carga possui apenas ${availableForThisShipment.toLocaleString('pt-BR')} ton disponíveis para este embarque.`, 'error');
+                    return;
+                }
+
+                const isLoaded = Object.values(ShipmentStatus).indexOf(shipmentToUpdate.status) >= Object.values(ShipmentStatus).indexOf(ShipmentStatus.AguardandoDescarga);
+                const newScheduledVolume = otherScheduled + newTonnage;
+                const newLoadedVolume = otherActiveShipments
+                  .filter(s => Object.values(ShipmentStatus).indexOf(s.status) >= Object.values(ShipmentStatus).indexOf(ShipmentStatus.AguardandoDescarga))
+                  .reduce((sum, s) => sum + (Number(s.shipmentTonnage) || 0), 0) + (isLoaded ? newTonnage : 0);
+
+                updatedCargo = {
+                    ...cargo,
+                    scheduledVolume: newScheduledVolume,
+                    loadedVolume: newLoadedVolume,
+                    history: [...cargo.history, createHistoryLog(`Volume ajustado devido à correção de tonelagem no embarque ${shipmentId} (${shipmentToUpdate.shipmentTonnage} -> ${newTonnage} ton). Novo saldo agendado: ${newScheduledVolume.toFixed(2)} ton.`)]
+                };
+            }
+        }
+
         if (cargo?.freightPricingType === FreightPricingType.FreteFechado) {
             updatedDriverFreight = cargo.fixedDriverFreight || shipmentToUpdate.driverFreightValue;
         } else {
             const rateToUse = shipmentToUpdate.driverFreightRateSnapshot || cargo?.driverFreightValuePerTon || 0;
-            updatedDriverFreight = rateToUse * data.shipmentTonnage;
-        }
-        
-        if (cargo) {
-            const isLoaded = Object.values(ShipmentStatus).indexOf(shipmentToUpdate.status) >= Object.values(ShipmentStatus).indexOf(ShipmentStatus.AguardandoDescarga);
-            updatedCargo = {
-                ...cargo,
-                scheduledVolume: Math.max(0, cargo.scheduledVolume + diff),
-                loadedVolume: isLoaded ? Math.max(0, cargo.loadedVolume + diff) : cargo.loadedVolume,
-                history: [...cargo.history, createHistoryLog(`Volume ajustado devido à correção de tonelagem no embarque ${shipmentId} (${shipmentToUpdate.shipmentTonnage} -> ${data.shipmentTonnage}).`)]
-            };
+            updatedDriverFreight = rateToUse * newTonnage;
         }
     }
 
@@ -1555,8 +1610,8 @@ const App: React.FC = () => {
 
     const updatedShipment: Shipment = { 
       ...shipmentToUpdate, 
-      scheduledDate: data.scheduledDate,
-      scheduledTime: data.scheduledTime,
+      scheduledDate: data.scheduledDate, 
+      scheduledTime: data.scheduledTime, 
       history: [...shipmentToUpdate.history, createHistoryLog(changes.join(' '))] 
     };
 
@@ -1584,18 +1639,17 @@ const App: React.FC = () => {
       statusHistory: [...(shipmentToCancel.statusHistory || []), { status: ShipmentStatus.Cancelado, timestamp: new Date().toISOString(), userId: currentUser.id }] 
     };
 
-    setShipments((prev: Shipment[]) => prev.map(s => s.id === shipmentId ? cancelledShipment : s));
-
-    const wasLoaded = Object.values(ShipmentStatus).indexOf(shipmentToCancel.status) >= Object.values(ShipmentStatus).indexOf(ShipmentStatus.AguardandoDescarga);
+    const remainingActiveShipments = shipments.filter(s => s.cargoId === shipmentToCancel.cargoId && s.id !== shipmentId && s.status !== ShipmentStatus.Cancelado);
     const relatedCargo = cargos.find(c => c.id === shipmentToCancel.cargoId);
     
     let updatedCargo: Cargo | undefined;
     if (relatedCargo) {
-        const newScheduledVolume = relatedCargo.scheduledVolume - shipmentToCancel.shipmentTonnage;
-        const newLoadedVolume = wasLoaded ? relatedCargo.loadedVolume - shipmentToCancel.shipmentTonnage : relatedCargo.loadedVolume;
-        const historyDescription = wasLoaded
-            ? `Volumes agendado e carregado ajustados devido ao cancelamento do embarque ${shipmentId}`
-            : `Volume agendado ajustado devido ao cancelamento do embarque ${shipmentId}`;
+        const newScheduledVolume = remainingActiveShipments.reduce((sum, s) => sum + (Number(s.shipmentTonnage) || 0), 0);
+        const newLoadedVolume = remainingActiveShipments
+          .filter(s => Object.values(ShipmentStatus).indexOf(s.status) >= Object.values(ShipmentStatus).indexOf(ShipmentStatus.AguardandoDescarga))
+          .reduce((sum, s) => sum + (Number(s.shipmentTonnage) || 0), 0);
+        
+        const historyDescription = `Volume agendado estornado em ${shipmentToCancel.shipmentTonnage} ton devido ao cancelamento do embarque ${shipmentId}. Novo saldo agendado: ${newScheduledVolume.toFixed(2)} ton.`;
         
         updatedCargo = { 
             ...relatedCargo, 
@@ -1603,15 +1657,20 @@ const App: React.FC = () => {
             loadedVolume: Math.max(0, newLoadedVolume), 
             history: [...relatedCargo.history, createHistoryLog(historyDescription)] 
         };
-        
-        setCargos(prevCargos => prevCargos.map(cargo => cargo.id === relatedCargo.id ? updatedCargo! : cargo));
+    }
+
+    setShipments((prev: Shipment[]) => prev.map(s => s.id === shipmentId ? cancelledShipment : s));
+    if (updatedCargo) {
+        setCargos(prevCargos => prevCargos.map(cargo => cargo.id === relatedCargo!.id ? updatedCargo! : cargo));
     }
 
     try {
       await upsertShipment(cancelledShipment);
       if (updatedCargo) await upsertCargo(updatedCargo);
+      showToast(`Embarque ${shipmentId} cancelado. Saldo de ${shipmentToCancel.shipmentTonnage.toLocaleString('pt-BR')} ton estornado para a carga!`, 'success');
     } catch (err) {
       console.error('Erro ao cancelar embarque:', err);
+      showToast('Erro ao cancelar embarque no banco de dados.', 'error');
     }
   };
 
@@ -1648,7 +1707,15 @@ const App: React.FC = () => {
       return;
     }
 
-    const tonnage = shipment.shipmentTonnage;
+    const tonnage = Number(shipment.shipmentTonnage) || 0;
+    const activeNewShipments = shipments.filter(s => s.cargoId === newCargoId && s.status !== ShipmentStatus.Cancelado);
+    const currentNewScheduled = activeNewShipments.reduce((sum, s) => sum + (Number(s.shipmentTonnage) || 0), 0);
+    const availableNewBalance = Math.max(0, (Number(newCargo.totalVolume) || 0) - currentNewScheduled);
+
+    if (shipment.status !== ShipmentStatus.Cancelado && tonnage > (availableNewBalance + 0.001)) {
+      showToast(`SALDO INSUFICIENTE: A carga destino #${newCargo.sequenceId} possui apenas ${availableNewBalance.toLocaleString('pt-BR')} ton disponíveis para receber este embarque (${tonnage.toLocaleString('pt-BR')} ton).`, 'error');
+      return;
+    }
 
     // 1. Prepare updated Shipment
     const newDriverRate = newCargo.driverFreightValuePerTon;
@@ -1667,12 +1734,20 @@ const App: React.FC = () => {
       ]
     };
 
+    const isLoaded = Object.values(ShipmentStatus).indexOf(shipment.status) >= Object.values(ShipmentStatus).indexOf(ShipmentStatus.AguardandoDescarga);
+    const isActive = shipment.status !== ShipmentStatus.Cancelado;
+
     // 2. Prepare updated Old Cargo (if exists)
     let updatedOldCargo: Cargo | undefined;
-    if (oldCargo) {
+    if (oldCargo && isActive) {
+      const remainingOldActive = shipments.filter(s => s.cargoId === oldCargoId && s.id !== shipmentId && s.status !== ShipmentStatus.Cancelado);
+      const newOldScheduled = remainingOldActive.reduce((sum, s) => sum + (Number(s.shipmentTonnage) || 0), 0);
+      const newOldLoaded = remainingOldActive.filter(s => Object.values(ShipmentStatus).indexOf(s.status) >= Object.values(ShipmentStatus).indexOf(ShipmentStatus.AguardandoDescarga)).reduce((sum, s) => sum + (Number(s.shipmentTonnage) || 0), 0);
+
       updatedOldCargo = {
         ...oldCargo,
-        scheduledVolume: Math.max(0, oldCargo.scheduledVolume - tonnage),
+        scheduledVolume: newOldScheduled,
+        loadedVolume: newOldLoaded,
         history: [
           ...oldCargo.history,
           createHistoryLog(`Volume agendado reduzido em ${tonnage} ton devido à troca de carga do embarque ${shipmentId} para a carga #${newCargo.sequenceId}.`)
@@ -1681,20 +1756,27 @@ const App: React.FC = () => {
     }
 
     // 3. Prepare updated New Cargo
-    const updatedNewCargo: Cargo = {
-      ...newCargo,
-      scheduledVolume: newCargo.scheduledVolume + tonnage,
-      history: [
-        ...newCargo.history,
-        createHistoryLog(`Volume agendado aumentado em ${tonnage} ton devido à troca de carga do embarque ${shipmentId} da carga #${oldCargo?.sequenceId || oldCargoId}.`)
-      ]
-    };
+    let updatedNewCargo: Cargo = newCargo;
+    if (isActive) {
+      const newNewScheduled = currentNewScheduled + tonnage;
+      const newNewLoaded = activeNewShipments.filter(s => Object.values(ShipmentStatus).indexOf(s.status) >= Object.values(ShipmentStatus).indexOf(ShipmentStatus.AguardandoDescarga)).reduce((sum, s) => sum + (Number(s.shipmentTonnage) || 0), 0) + (isLoaded ? tonnage : 0);
+
+      updatedNewCargo = {
+        ...newCargo,
+        scheduledVolume: newNewScheduled,
+        loadedVolume: newNewLoaded,
+        history: [
+          ...newCargo.history,
+          createHistoryLog(`Volume agendado aumentado em ${tonnage} ton devido à troca de carga do embarque ${shipmentId} da carga #${oldCargo?.sequenceId || oldCargoId}.`)
+        ]
+      };
+    }
 
     // Optimistic UI updates
     setShipments(prev => prev.map(s => s.id === shipmentId ? updatedShipment : s));
     setCargos(prev => prev.map(c => {
       if (c.id === oldCargoId && updatedOldCargo) return updatedOldCargo;
-      if (c.id === newCargoId) return updatedNewCargo;
+      if (c.id === newCargoId && isActive) return updatedNewCargo;
       return c;
     }));
 
@@ -1702,8 +1784,8 @@ const App: React.FC = () => {
     try {
       const promises = [
         upsertShipment(updatedShipment),
-        upsertCargo(updatedNewCargo)
       ];
+      if (isActive) promises.push(upsertCargo(updatedNewCargo));
       if (updatedOldCargo) promises.push(upsertCargo(updatedOldCargo));
       
       await Promise.all(promises);
@@ -1763,16 +1845,20 @@ const App: React.FC = () => {
             setShipments(prev => prev.filter(s => s.id !== shipmentId));
 
             // Atualizar volumes da carga
-            const wasLoaded = Object.values(ShipmentStatus).indexOf(shipmentToDelete.status) >= Object.values(ShipmentStatus).indexOf(ShipmentStatus.AguardandoDescarga);
+            const wasActive = shipmentToDelete.status !== ShipmentStatus.Cancelado;
             const relatedCargo = cargos.find(c => c.id === shipmentToDelete.cargoId);
             
-            if (relatedCargo) {
-                const newScheduledVolume = Math.max(0, relatedCargo.scheduledVolume - shipmentToDelete.shipmentTonnage);
-                const newLoadedVolume = wasLoaded ? Math.max(0, relatedCargo.loadedVolume - shipmentToDelete.shipmentTonnage) : relatedCargo.loadedVolume;
+            if (relatedCargo && wasActive) {
+                const remainingActiveShipments = shipments.filter(s => s.cargoId === shipmentToDelete.cargoId && s.id !== shipmentId && s.status !== ShipmentStatus.Cancelado);
+                const newScheduledVolume = remainingActiveShipments.reduce((sum, s) => sum + (Number(s.shipmentTonnage) || 0), 0);
+                const newLoadedVolume = remainingActiveShipments
+                  .filter(s => Object.values(ShipmentStatus).indexOf(s.status) >= Object.values(ShipmentStatus).indexOf(ShipmentStatus.AguardandoDescarga))
+                  .reduce((sum, s) => sum + (Number(s.shipmentTonnage) || 0), 0);
+
                 const updatedCargo: Cargo = { 
                     ...relatedCargo, 
-                    scheduledVolume: newScheduledVolume, 
-                    loadedVolume: newLoadedVolume,
+                    scheduledVolume: Math.max(0, newScheduledVolume), 
+                    loadedVolume: Math.max(0, newLoadedVolume), 
                     history: [...relatedCargo.history, createHistoryLog(`Embarque ${shipmentId} EXCLUÍDO pelo Administrador. Volumes ajustados.`)]
                 };
                 
@@ -2111,7 +2197,32 @@ const App: React.FC = () => {
     }
 
     let updatedCargo: Cargo | undefined;
-    if (currentStatus === ShipmentStatus.AguardandoDescarga) {
+    if (currentStatus === ShipmentStatus.Cancelado) {
+        const cargo = cargos.find(c => c.id === shipment.cargoId);
+        if (cargo) {
+            const activeShipments = shipments.filter(s => s.cargoId === shipment.cargoId && s.id !== shipmentId && s.status !== ShipmentStatus.Cancelado);
+            const currentScheduled = activeShipments.reduce((sum, s) => sum + (Number(s.shipmentTonnage) || 0), 0);
+            const availableBalance = Math.max(0, (Number(cargo.totalVolume) || 0) - currentScheduled);
+
+            if (shipment.shipmentTonnage > (availableBalance + 0.001)) {
+                showToast(`Não é possível reativar o embarque: Saldo insuficiente na carga (Disponível: ${availableBalance.toLocaleString('pt-BR')} ton, Embarque: ${shipment.shipmentTonnage.toLocaleString('pt-BR')} ton).`, 'error');
+                return;
+            }
+
+            const newScheduledVolume = currentScheduled + shipment.shipmentTonnage;
+            const isLoaded = Object.values(ShipmentStatus).indexOf(previousStatus) >= Object.values(ShipmentStatus).indexOf(ShipmentStatus.AguardandoDescarga);
+            const newLoadedVolume = activeShipments
+              .filter(s => Object.values(ShipmentStatus).indexOf(s.status) >= Object.values(ShipmentStatus).indexOf(ShipmentStatus.AguardandoDescarga))
+              .reduce((sum, s) => sum + (Number(s.shipmentTonnage) || 0), 0) + (isLoaded ? shipment.shipmentTonnage : 0);
+
+            updatedCargo = {
+                ...cargo,
+                scheduledVolume: newScheduledVolume,
+                loadedVolume: newLoadedVolume,
+                history: [...cargo.history, createHistoryLog(`Volume agendado recomposto em ${shipment.shipmentTonnage} ton devido à reativação do embarque ${shipmentId} (Status revertido para ${previousStatus}).`)]
+            };
+        }
+    } else if (currentStatus === ShipmentStatus.AguardandoDescarga) {
         const cargo = cargos.find(c => c.id === shipment.cargoId);
         if (cargo) {
             const newLoadedVolume = Math.max(0, cargo.loadedVolume - shipment.shipmentTonnage);

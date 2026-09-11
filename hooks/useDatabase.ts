@@ -5,6 +5,7 @@ import type {
   User, Client, Owner, Driver, Vehicle, Product, Cargo, Shipment, Ticket,
   ProfilePermissions, ShipmentLock, Branch, FreightOffer
 } from '../types';
+import { ShipmentStatus } from '../types';
 import { INITIAL_PERMISSIONS } from '../auth';
 import { 
   fetchClients, fetchOwners, fetchDrivers, fetchVehicles, fetchProducts,
@@ -54,6 +55,22 @@ function calculateNextIds(
     freightOffer: getMaxId(dbOffers, 500),
     history: 9999,
   };
+}
+
+export function syncCargosWithShipments(cargosList: Cargo[], shipmentsList: Shipment[]): Cargo[] {
+  return cargosList.map(cargo => {
+    const activeShipments = shipmentsList.filter(s => s.cargoId === cargo.id && s.status !== ShipmentStatus.Cancelado);
+    const scheduledVolume = activeShipments.reduce((sum, s) => sum + (Number(s.shipmentTonnage) || 0), 0);
+    const loadedVolume = activeShipments
+      .filter(s => Object.values(ShipmentStatus).indexOf(s.status) >= Object.values(ShipmentStatus).indexOf(ShipmentStatus.AguardandoDescarga))
+      .reduce((sum, s) => sum + (Number(s.shipmentTonnage) || 0), 0);
+    
+    return {
+      ...cargo,
+      scheduledVolume,
+      loadedVolume,
+    };
+  });
 }
 
 // ─────────────────────────────────────────────
@@ -113,7 +130,8 @@ export function useDatabase(currentUser: User | null) {
           fetchProducts(), fetchClients(), fetchFreightOffers(), fetchUsers()
         ]);
 
-        setCargos(dbCargos);
+        const syncedCargos = syncCargosWithShipments(dbCargos, dbShipments);
+        setCargos(syncedCargos);
         setShipments(dbShipments);
         setProducts(dbProducts);
         setClients(dbClients);
@@ -138,12 +156,13 @@ export function useDatabase(currentUser: User | null) {
           fetchBranches(), getAllToolStays(), fetchFreightOffers()
         ]);
 
+        const syncedCargos = syncCargosWithShipments(dbCargos, dbShipments);
         setClients(dbClients);
         setOwners(dbOwners);
         setDrivers(dbDrivers);
         setVehicles(dbVehicles);
         setProducts(dbProducts);
-        setCargos(dbCargos);
+        setCargos(syncedCargos);
         setShipments(dbShipments);
         setUsers(dbUsers);
         setTickets(dbTickets);

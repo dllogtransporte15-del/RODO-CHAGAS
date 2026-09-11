@@ -310,10 +310,17 @@ const LoadTable: React.FC<LoadTableProps> = ({ loads, clients, products, shipmen
 
       <div className="space-y-3">
         {paginatedLoads.map((load) => {
-          const scheduledButNotLoaded = Math.max(0, load.scheduledVolume - load.loadedVolume);
+          const loadShipments = shipments.filter(s => s.cargoId === load.id && s.status !== ShipmentStatus.Cancelado);
+          const effectiveScheduledVolume = loadShipments.reduce((sum, s) => sum + (Number(s.shipmentTonnage) || 0), 0);
+          const effectiveLoadedVolume = loadShipments
+            .filter(s => Object.values(ShipmentStatus).indexOf(s.status) >= Object.values(ShipmentStatus).indexOf(ShipmentStatus.AguardandoDescarga))
+            .reduce((sum, s) => sum + (Number(s.shipmentTonnage) || 0), 0);
+          const scheduledButNotLoaded = Math.max(0, effectiveScheduledVolume - effectiveLoadedVolume);
+          const availableVolume = Math.max(0, (Number(load.totalVolume) || 0) - effectiveScheduledVolume);
+          
           const dailyScheduledTonnage = shipments
-            .filter(s => s.cargoId === load.id && s.scheduledDate === dailyBalanceDate)
-            .reduce((sum, s) => sum + s.shipmentTonnage, 0);
+            .filter(s => s.cargoId === load.id && s.scheduledDate === dailyBalanceDate && s.status !== ShipmentStatus.Cancelado)
+            .reduce((sum, s) => sum + (Number(s.shipmentTonnage) || 0), 0);
           const dailyScheduleInfo = load.dailySchedule?.find(ds => ds.date === dailyBalanceDate);
 
           const freightLegsToDisplay = (load.freightLegs && load.freightLegs.length > 0)
@@ -334,7 +341,6 @@ const LoadTable: React.FC<LoadTableProps> = ({ loads, clients, products, shipmen
           const totalCommission = load.salespersonCommissionPerTon || 0;
           
           // Calculate average demurrage profit per ton for this load's shipments
-          const loadShipments = shipments.filter(s => s.cargoId === load.id && s.status !== ShipmentStatus.Cancelado);
           const loadShipmentIds = new Set(loadShipments.map(s => s.id));
           const totalDemurrageProfit = stays
               .filter(s => s.shipmentId && loadShipmentIds.has(s.shipmentId))
@@ -600,12 +606,12 @@ const LoadTable: React.FC<LoadTableProps> = ({ loads, clients, products, shipmen
                     <div className="flex justify-between items-start text-[10px] font-bold text-gray-500 uppercase">
                       <span>Geral</span>
                       <div className="text-right">
-                        <div className="text-gray-700 dark:text-gray-300">{formatNumber(load.loadedVolume)} / {formatNumber(load.totalVolume)}</div>
-                        <div className="text-emerald-600 dark:text-emerald-400 font-bold mt-0.5">Disp: {formatNumber(Math.max(0, load.totalVolume - load.scheduledVolume))} ton</div>
+                        <div className="text-gray-700 dark:text-gray-300">{formatNumber(effectiveLoadedVolume)} / {formatNumber(load.totalVolume)}</div>
+                        <div className="text-emerald-600 dark:text-emerald-400 font-bold mt-0.5">Disp: {formatNumber(availableVolume)} ton</div>
                       </div>
                     </div>
                     <VolumeBar
-                      loaded={load.loadedVolume}
+                      loaded={effectiveLoadedVolume}
                       scheduled={scheduledButNotLoaded}
                       total={load.totalVolume}
                       onClick={onShowShipments ? () => onShowShipments(load) : undefined}
