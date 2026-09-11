@@ -266,6 +266,19 @@ export const toProduct = (row: any): Product => ({
 });
 
 export const toCargo = (row: any): Cargo => {
+  const rawHistory = row.history || [];
+  const metaLog = rawHistory.find((h: any) => h.id === 'meta_dest_obs' || h.id === 'meta_cargo_extra');
+  let recipientClient = row.recipient_client || row.recipientClient || undefined;
+
+  if (metaLog) {
+    try {
+      const parsed = typeof metaLog.description === 'string' ? JSON.parse(metaLog.description) : metaLog.description;
+      if (parsed.recipientClient) recipientClient = parsed.recipientClient;
+    } catch (e) {
+      console.error('Error parsing cargo extra metadata:', e);
+    }
+  }
+
   const freightLegs = row.freight_legs || [];
   const firstLeg = freightLegs[0] || {};
   const pricingType: FreightPricingType = row.freight_pricing_type || firstLeg.pricingType || FreightPricingType.PorTonelada;
@@ -303,7 +316,7 @@ export const toCargo = (row: any): Cargo => {
     status: row.status,
     createdAt: row.created_at,
     createdById: row.created_by_id,
-    history: row.history || [],
+    history: rawHistory.filter((h: any) => h.id !== 'meta_dest_obs' && h.id !== 'meta_cargo_extra'),
     loadingDeadline: row.loading_deadline,
     allowedVehicleTypes: row.allowed_vehicle_types,
     freightLegs: row.freight_legs,
@@ -320,11 +333,23 @@ export const toCargo = (row: any): Cargo => {
     salespersonName: row.salesperson_name,
     salespersonCommissionPerTon: Number(row.salesperson_commission_per_ton),
     branchId: row.branch_id,
-    recipientClient: row.recipient_client || row.recipientClient || undefined,
+    recipientClient: recipientClient,
   };
 };
 
 const fromCargo = (c: Cargo | Omit<Cargo, 'id'>) => {
+  const rawHistory = [...(c.history || [])].filter(h => h.id !== 'meta_cargo_extra');
+  if (c.recipientClient) {
+    rawHistory.push({
+      id: 'meta_cargo_extra',
+      userId: 'system',
+      timestamp: c.createdAt || new Date().toISOString(),
+      description: JSON.stringify({
+        recipientClient: c.recipientClient,
+      }),
+    });
+  }
+
   const pricingType = c.freightPricingType || FreightPricingType.PorTonelada;
   const legs = (c.freightLegs && c.freightLegs.length > 0)
     ? c.freightLegs.map(leg => ({
@@ -358,7 +383,6 @@ const fromCargo = (c: Cargo | Omit<Cargo, 'id'>) => {
     destination: c.destination,
     destination_location: cleanOrShortenLocationInput(c.destinationLocation),
     destination_map_link: cleanOrShortenLocationInput(c.destinationMapLink),
-    recipient_client: c.recipientClient || null,
     total_volume: c.totalVolume,
     scheduled_volume: c.scheduledVolume,
     loaded_volume: c.loadedVolume,
@@ -371,7 +395,7 @@ const fromCargo = (c: Cargo | Omit<Cargo, 'id'>) => {
     status: c.status,
     created_at: c.createdAt,
     created_by_id: c.createdById,
-    history: c.history,
+    history: rawHistory,
     loading_deadline: c.loadingDeadline,
     allowed_vehicle_types: c.allowedVehicleTypes,
     freight_legs: legs,
