@@ -193,20 +193,20 @@ const TopNavBar: React.FC<TopNavBarProps> = ({
   return (
     <header className="bg-white/90 dark:bg-[#0A1128]/90 backdrop-blur-2xl border-b border-slate-200 dark:border-white/10 shadow-sm dark:shadow-2xl sticky top-0 z-40 transition-colors duration-200">
       <div className="container mx-auto px-6">
-        <div className="flex items-center justify-between h-16">
+        <div className="flex items-center justify-between min-h-16 md:min-h-20 py-1.5">
           {/* Logo e Nome da Empresa + Status Online */}
           <div className="flex items-center flex-shrink-0 mr-4">
             <a href="#" onClick={(e) => { e.preventDefault(); handlePageSelect(user.profile === UserProfile.Motorista ? 'operational-loads' : 'dashboard'); }} className="flex items-center gap-3">
                 {companyLogo ? (
-                    <img src={companyLogo} alt="Logo" className="h-8 md:h-10 w-auto object-contain max-w-[150px] md:max-w-none filter drop-shadow-[0_4px_12px_rgba(241,100,33,0.3)]" />
+                    <img src={companyLogo} alt="Logo" className="h-12 md:h-16 w-auto object-contain max-w-[220px] md:max-w-none filter drop-shadow-[0_4px_14px_rgba(241,100,33,0.35)] transition-all" />
                 ) : (
                     <div className="flex items-center gap-2.5">
-                      <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#1D3B8D] to-[#F16421] flex items-center justify-center shadow-lg shadow-orange-500/20 border border-white/20">
-                        <TruckIcon className="w-5 h-5 text-white" />
+                      <div className="w-11 h-11 rounded-xl bg-gradient-to-tr from-[#1D3B8D] to-[#F16421] flex items-center justify-center shadow-lg shadow-orange-500/20 border border-white/20">
+                        <TruckIcon className="w-6 h-6 text-white" />
                       </div>
                       <div>
-                        <span className="text-lg md:text-xl font-black tracking-tight text-slate-900 dark:text-white">RODO</span>
-                        <span className="text-lg md:text-xl font-black tracking-tight text-[#F16421]">CHAGAS</span>
+                        <span className="text-xl md:text-2xl font-black tracking-tight text-slate-900 dark:text-white">RODO</span>
+                        <span className="text-xl md:text-2xl font-black tracking-tight text-[#F16421]">CHAGAS</span>
                       </div>
                     </div>
                 )}

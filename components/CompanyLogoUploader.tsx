@@ -40,7 +40,7 @@ const CompanyLogoUploader: React.FC<CompanyLogoUploaderProps> = ({ currentLogo, 
     <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md border dark:border-gray-700">
       <h3 className="text-lg font-semibold mb-4 text-gray-700 dark:text-gray-200">Logo da Empresa</h3>
       <div className="flex items-center gap-6">
-        <div className="w-24 h-24 bg-gray-100 dark:bg-gray-700 rounded-md flex items-center justify-center overflow-hidden border dark:border-gray-200 dark:dark:border-gray-600">
+        <div className="w-44 h-28 bg-gray-100 dark:bg-gray-700 rounded-lg p-2 flex items-center justify-center overflow-hidden border dark:border-gray-600">
           {currentLogo ? (
             <img src={currentLogo} alt="Logo Atual" className="max-w-full max-h-full object-contain" />
           ) : (

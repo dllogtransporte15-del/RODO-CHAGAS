@@ -538,9 +538,9 @@ const OperationalMapPage: React.FC<OperationalMapPageProps> = ({
           <div className="max-w-6xl mx-auto flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               {companyLogo ? (
-                <img src={companyLogo} alt="Logo" className="h-9 w-auto object-contain max-w-[140px]" />
+                <img src={companyLogo} alt="Logo" className="h-12 md:h-14 w-auto object-contain max-w-[200px]" />
               ) : (
-                <div className="flex items-center gap-1.5 font-black text-lg tracking-wider">
+                <div className="flex items-center gap-2 font-black text-xl tracking-wider">
                   <span className="text-white">RODO</span>
                   <span className="text-cyan-400">CHAGAS</span>
                 </div>

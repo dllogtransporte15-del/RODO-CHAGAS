@@ -52,10 +52,10 @@ const DownloadAppPage: React.FC<DownloadAppPageProps> = ({ companyLogo }) => {
       <div className="max-w-md w-full bg-white rounded-2xl shadow-xl overflow-hidden text-center p-8">
         
         {companyLogo ? (
-          <img src={companyLogo} alt="Logo" className="h-24 mx-auto mb-6 object-contain" />
+          <img src={companyLogo} alt="Logo" className="h-36 max-h-44 mx-auto mb-6 object-contain" />
         ) : (
-          <div className="h-24 w-24 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
-            <span className="text-3xl text-blue-600 font-bold">RC</span>
+          <div className="h-28 w-28 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
+            <span className="text-4xl text-blue-600 font-bold">RC</span>
           </div>
         )}
         
