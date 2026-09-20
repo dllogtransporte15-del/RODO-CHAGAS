@@ -40,6 +40,8 @@ import TopNavBar from './components/TopNavBar';
 import TicketModal from './components/TicketModal';
 import PasswordChangeModal from './components/PasswordChangeModal';
 import SelectEmbarcadorModal from './components/SelectEmbarcadorModal';
+import SystemUpdateModal from './components/SystemUpdateModal';
+import { shouldShowUpdateModal } from './utils/systemUpdates';
 
 import {
   upsertClient, upsertOwner, upsertDriver, upsertVehicle, upsertCargo, insertCargo,
@@ -125,6 +127,14 @@ const App: React.FC = () => {
   const [offerToConvert, setOfferToConvert] = useState<FreightOffer | null>(null);
   const [isSelectEmbarcadorModalOpen, setIsSelectEmbarcadorModalOpen] = useState(false);
   const [selectedCargoForRequest, setSelectedCargoForRequest] = useState<Cargo | null>(null);
+  const [isSystemUpdateModalOpen, setIsSystemUpdateModalOpen] = useState(false);
+
+  // Exibe o informativo de novidades no primeiro acesso após cada versão
+  useEffect(() => {
+    if (currentUser?.id && shouldShowUpdateModal(currentUser.id)) {
+      setIsSystemUpdateModalOpen(true);
+    }
+  }, [currentUser?.id]);
   
   // Use custom hook for all database-related state and logic
   const {
@@ -2480,6 +2490,7 @@ const App: React.FC = () => {
             tickets={tickets}
             themeMode={themeMode}
             onToggleTheme={toggleThemeMode}
+            onOpenSystemUpdates={() => setIsSystemUpdateModalOpen(true)}
           />
         )}
         <main className="flex-1 overflow-y-auto" style={{ zoom: isDriverUser ? 0.8 : 0.8 }}>
@@ -2488,6 +2499,11 @@ const App: React.FC = () => {
           </div>
         </main>
       </div>
+       <SystemUpdateModal
+         isOpen={isSystemUpdateModalOpen}
+         onClose={() => setIsSystemUpdateModalOpen(false)}
+         currentUser={currentUser}
+       />
        <SelectEmbarcadorModal
          isOpen={isSelectEmbarcadorModalOpen}
          onClose={() => setIsSelectEmbarcadorModalOpen(false)}

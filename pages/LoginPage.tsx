@@ -504,30 +504,47 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, companyLogo, profilePerm
                   <button
                     type="button"
                     onClick={handleInstallApp}
-                    className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-semibold text-orange-400 transition-all"
+                    className="w-full flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-gradient-to-r from-[#F16421]/20 to-[#1D3B8D]/30 hover:from-[#F16421]/30 hover:to-[#1D3B8D]/45 border border-orange-500/40 text-xs font-bold text-white transition-all shadow-md shadow-orange-500/10"
                   >
-                    <Smartphone className="w-3.5 h-3.5" />
-                    <span>Instalar Aplicativo no Celular</span>
+                    <Smartphone className="w-4 h-4 text-[#F16421]" />
+                    <span>Baixar APP Rodochagas no Celular</span>
                   </button>
                 </div>
               )}
 
-              {/* Additional Links & Support */}
-              <div className="mt-3 text-center text-xs text-slate-500 flex items-center justify-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => setShowHelpModal(true)}
-                  className="hover:text-slate-300 transition-colors underline text-[11px]"
-                >
-                  Precisa de ajuda?
-                </button>
-                <span>•</span>
+              {/* Baixar APP Highlight & Support */}
+              <div className="mt-3.5 pt-3 border-t border-white/10 flex flex-col gap-2">
                 <a
                   href="/baixar-app"
-                  className="hover:text-slate-300 transition-colors underline text-[11px]"
+                  className="w-full flex items-center justify-between px-3.5 py-2 rounded-xl bg-gradient-to-r from-orange-500/15 via-[#1D3B8D]/20 to-orange-500/15 hover:from-orange-500/25 hover:to-[#F16421]/25 border border-orange-500/35 hover:border-orange-400 text-white font-bold text-xs shadow-md shadow-orange-500/10 transition-all group cursor-pointer"
                 >
-                  Instalar PWA
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-6 h-6 rounded-lg bg-[#F16421]/20 border border-orange-400/40 flex items-center justify-center text-[#F16421] group-hover:scale-110 transition-transform shrink-0">
+                      <Smartphone className="w-3.5 h-3.5" />
+                    </div>
+                    <div className="text-left">
+                      <span className="block text-xs font-bold text-white group-hover:text-[#F16421] transition-colors">
+                        Baixar APP
+                      </span>
+                      <span className="block text-[10px] font-normal text-slate-400">
+                        Celular & Computador
+                      </span>
+                    </div>
+                  </div>
+                  <span className="px-2 py-0.5 text-[9px] font-black uppercase rounded-md bg-[#F16421] text-white tracking-wider shadow-xs">
+                    Instalar
+                  </span>
                 </a>
+
+                <div className="text-center mt-1">
+                  <button
+                    type="button"
+                    onClick={() => setShowHelpModal(true)}
+                    className="hover:text-slate-300 text-slate-400 transition-colors text-[11px] underline"
+                  >
+                    Precisa de ajuda?
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -537,10 +554,11 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, companyLogo, profilePerm
             
             {/* System Status Pill at Top Right */}
             <div className="hidden sm:flex items-center justify-end w-full mb-6 lg:mb-8">
-              <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 backdrop-blur-md">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-                <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                <span className="text-[11px] font-semibold text-slate-300 tracking-wide">SISTEMA ONLINE</span>
+              <div className="flex items-center px-2.5 py-1.5 rounded-full bg-white/5 border border-white/10 backdrop-blur-md" title="Sistema Online">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
               </div>
             </div>
 

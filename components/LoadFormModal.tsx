@@ -135,11 +135,23 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
   // State for the new allowed vehicle types UI
   const [currentSetType, setCurrentSetType] = useState<VehicleSetType>(VehicleSetType.LSSimples);
   const [currentBodyTypes, setCurrentBodyTypes] = useState<VehicleBodyType[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { showToast } = useToast();
 
   const commercialUsers = useMemo(() => {
     return users.filter(u => u.profile === UserProfile.Comercial);
   }, [users]);
+
+  // Previne recarregamento acidental com dados preenchidos no mobile/desktop
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isOpen]);
 
   const prevIsOpen = useRef(isOpen);
 
@@ -364,6 +376,7 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
 
     // Validação estrita de Origem e Destino
     const originValidation = validateCityFormat(load.origin, 'Origem (Cidade)');
@@ -380,77 +393,86 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
       return;
     }
 
-    const pricingType = load.freightPricingType || FreightPricingType.PorTonelada;
-    let activeLegs = hasMultiLeg ? (load.freightLegs || []).slice(0, 2) : (load.freightLegs || []).slice(0, 1);
+    setIsSubmitting(true);
 
-    if (pricingType === FreightPricingType.FreteFechado) {
-      activeLegs = [{
-        companyFreightValuePerTon: load.fixedCompanyFreight || 0,
-        driverFreightValuePerTon: load.fixedDriverFreight || 0,
-        hasIcms: load.hasIcms || false,
-        icmsPercentage: load.icmsPercentage || 0,
-        pricingType: FreightPricingType.FreteFechado,
-        fixedCompanyFreight: load.fixedCompanyFreight || 0,
-        fixedDriverFreight: load.fixedDriverFreight || 0,
-      }];
-    } else if (pricingType === FreightPricingType.VlrTonIcms) {
-      activeLegs = [{
-        companyFreightValuePerTon: load.freightLegs?.[0]?.companyFreightValuePerTon || 0,
-        driverFreightValuePerTon: load.freightLegs?.[0]?.driverFreightValuePerTon || 0,
-        hasIcms: true,
-        icmsPercentage: load.icmsPercentage || 0,
-        pricingType: FreightPricingType.VlrTonIcms,
-        icmsCalculationType: load.icmsCalculationType || 'percentage',
-        icmsValue: load.icmsValue || 0,
-      }];
-    } else {
-      activeLegs = activeLegs.map(leg => ({
-        ...leg,
-        pricingType: FreightPricingType.PorTonelada,
-      }));
-    }
+    try {
+      const pricingType = load.freightPricingType || FreightPricingType.PorTonelada;
+      let activeLegs = hasMultiLeg ? (load.freightLegs || []).slice(0, 2) : (load.freightLegs || []).slice(0, 1);
 
-    // Geocode origin and destination
-    const [originCoords, destinationCoords] = await Promise.all([
-        geocodeCity(originValidation.formatted),
-        geocodeCity(destValidation.formatted)
-    ]);
+      if (pricingType === FreightPricingType.FreteFechado) {
+        activeLegs = [{
+          companyFreightValuePerTon: load.fixedCompanyFreight || 0,
+          driverFreightValuePerTon: load.fixedDriverFreight || 0,
+          hasIcms: load.hasIcms || false,
+          icmsPercentage: load.icmsPercentage || 0,
+          pricingType: FreightPricingType.FreteFechado,
+          fixedCompanyFreight: load.fixedCompanyFreight || 0,
+          fixedDriverFreight: load.fixedDriverFreight || 0,
+        }];
+      } else if (pricingType === FreightPricingType.VlrTonIcms) {
+        activeLegs = [{
+          companyFreightValuePerTon: load.freightLegs?.[0]?.companyFreightValuePerTon || 0,
+          driverFreightValuePerTon: load.freightLegs?.[0]?.driverFreightValuePerTon || 0,
+          hasIcms: true,
+          icmsPercentage: load.icmsPercentage || 0,
+          pricingType: FreightPricingType.VlrTonIcms,
+          icmsCalculationType: load.icmsCalculationType || 'percentage',
+          icmsValue: load.icmsValue || 0,
+        }];
+      } else {
+        activeLegs = activeLegs.map(leg => ({
+          ...leg,
+          pricingType: FreightPricingType.PorTonelada,
+        }));
+      }
 
-    const finalLoadData = {
-        ...load,
-        origin: originValidation.formatted,
-        destination: destValidation.formatted,
-        freightPricingType: pricingType,
-        fixedCompanyFreight: pricingType === FreightPricingType.FreteFechado ? (load.fixedCompanyFreight || 0) : undefined,
-        fixedDriverFreight: pricingType === FreightPricingType.FreteFechado ? (load.fixedDriverFreight || 0) : undefined,
-        icmsCalculationType: pricingType === FreightPricingType.VlrTonIcms ? (load.icmsCalculationType || 'percentage') : undefined,
-        icmsValue: pricingType === FreightPricingType.VlrTonIcms ? (load.icmsValue || 0) : undefined,
-        companyFreightValuePerTon: pricingType === FreightPricingType.FreteFechado 
-          ? (load.fixedCompanyFreight || 0) 
-          : (pricingType === FreightPricingType.VlrTonIcms ? (load.freightLegs?.[0]?.companyFreightValuePerTon || 0) : totalCompanyFreight),
-        driverFreightValuePerTon: pricingType === FreightPricingType.FreteFechado
-          ? (load.fixedDriverFreight || 0)
-          : (pricingType === FreightPricingType.VlrTonIcms ? (load.freightLegs?.[0]?.driverFreightValuePerTon || 0) : totalDriverFreight),
-        freightLegs: activeLegs,
-        hasIcms: pricingType === FreightPricingType.VlrTonIcms ? true : (activeLegs[0]?.hasIcms || false),
-        icmsPercentage: activeLegs[0]?.icmsPercentage || load.icmsPercentage || 0,
-        originCoords: originCoords || undefined,
-        destinationCoords: destinationCoords || undefined,
-    };
+      // Geocode origin and destination
+      const [originCoords, destinationCoords] = await Promise.all([
+          geocodeCity(originValidation.formatted),
+          geocodeCity(destValidation.formatted)
+      ]);
 
-    if (loadToEdit) {
-      onSave({
-        ...loadToEdit, 
-        ...finalLoadData,
-        scheduledVolume: loadToEdit.scheduledVolume,
-        loadedVolume: loadToEdit.loadedVolume,
-      });
-    } else {
-      onSave({
-        ...finalLoadData,
-        scheduledVolume: 0,
-        loadedVolume: 0,
-      });
+      const finalLoadData = {
+          ...load,
+          origin: originValidation.formatted,
+          destination: destValidation.formatted,
+          freightPricingType: pricingType,
+          fixedCompanyFreight: pricingType === FreightPricingType.FreteFechado ? (load.fixedCompanyFreight || 0) : undefined,
+          fixedDriverFreight: pricingType === FreightPricingType.FreteFechado ? (load.fixedDriverFreight || 0) : undefined,
+          icmsCalculationType: pricingType === FreightPricingType.VlrTonIcms ? (load.icmsCalculationType || 'percentage') : undefined,
+          icmsValue: pricingType === FreightPricingType.VlrTonIcms ? (load.icmsValue || 0) : undefined,
+          companyFreightValuePerTon: pricingType === FreightPricingType.FreteFechado 
+            ? (load.fixedCompanyFreight || 0) 
+            : (pricingType === FreightPricingType.VlrTonIcms ? (load.freightLegs?.[0]?.companyFreightValuePerTon || 0) : totalCompanyFreight),
+          driverFreightValuePerTon: pricingType === FreightPricingType.FreteFechado
+            ? (load.fixedDriverFreight || 0)
+            : (pricingType === FreightPricingType.VlrTonIcms ? (load.freightLegs?.[0]?.driverFreightValuePerTon || 0) : totalDriverFreight),
+          freightLegs: activeLegs,
+          hasIcms: pricingType === FreightPricingType.VlrTonIcms ? true : (activeLegs[0]?.hasIcms || false),
+          icmsPercentage: activeLegs[0]?.icmsPercentage || load.icmsPercentage || 0,
+          originCoords: originCoords || undefined,
+          destinationCoords: destinationCoords || undefined,
+      };
+
+      if (loadToEdit) {
+        onSave({
+          ...loadToEdit, 
+          ...finalLoadData,
+          scheduledVolume: loadToEdit.scheduledVolume,
+          loadedVolume: loadToEdit.loadedVolume,
+        });
+      } else {
+        onSave({
+          ...finalLoadData,
+          scheduledVolume: 0,
+          loadedVolume: 0,
+        });
+      }
+    } catch (err) {
+      console.error('Error saving load:', err);
+      showToast('Erro ao salvar os dados da carga.', 'error');
+    } finally {
+      setIsSubmitting(false);
     }
   };
   
@@ -573,8 +595,8 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
 
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-8 max-w-4xl w-full max-h-[90vh] flex flex-col">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex justify-center items-center p-4 overscroll-contain modal-container">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-6 md:p-8 max-w-4xl w-full max-h-[92vh] flex flex-col border border-gray-100 dark:border-gray-700 overscroll-contain">
         <h2 className="text-2xl font-bold mb-2 text-gray-800 dark:text-white">{loadToEdit ? 'Editar Carga' : 'Nova Carga'}</h2>
 
         {/* Stepper */}
@@ -592,7 +614,25 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
             ))}
         </div>
         
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto space-y-6 pr-2">
+        <form 
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (step === STEPS.length) {
+              handleSubmit(e);
+            } else {
+              nextStep();
+            }
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && e.target instanceof HTMLInputElement && (e.target as HTMLInputElement).type !== 'textarea') {
+              if (step < STEPS.length) {
+                e.preventDefault();
+                nextStep();
+              }
+            }
+          }}
+          className="flex-1 overflow-y-auto space-y-6 pr-2 overscroll-contain"
+        >
           {step === 1 && (
             <div className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
@@ -1203,12 +1243,21 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
 
         <div className="mt-8 flex justify-between items-center border-t dark:border-gray-700 pt-4">
             <div>
-                {step > 1 && <button type="button" onClick={prevStep} className="py-2 px-4 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-200 dark:hover:bg-gray-500">Anterior</button>}
+                {step > 1 && <button type="button" onClick={prevStep} disabled={isSubmitting} className="py-2 px-4 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-200 dark:hover:bg-gray-500 disabled:opacity-50">Anterior</button>}
             </div>
             <div className="flex items-center space-x-4">
-                <button type="button" onClick={onClose} className="py-2 px-4 text-gray-600 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">Cancelar</button>
-                {step < STEPS.length && <button type="button" onClick={nextStep} className="py-2 px-4 bg-primary text-white rounded-lg hover:bg-primary-dark">Próximo</button>}
-                {step === STEPS.length && <button type="submit" onClick={handleSubmit} className="py-2 px-4 bg-primary text-white rounded-lg hover:bg-primary-dark">Salvar Carga</button>}
+                <button type="button" onClick={onClose} disabled={isSubmitting} className="py-2 px-4 text-gray-600 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50">Cancelar</button>
+                {step < STEPS.length && <button type="button" onClick={nextStep} disabled={isSubmitting} className="py-2 px-4 bg-primary text-white rounded-lg hover:bg-primary-dark disabled:opacity-50">Próximo</button>}
+                {step === STEPS.length && (
+                  <button 
+                    type="button" 
+                    onClick={handleSubmit} 
+                    disabled={isSubmitting}
+                    className="py-2 px-4 bg-primary text-white rounded-lg hover:bg-primary-dark disabled:opacity-50 flex items-center gap-2"
+                  >
+                    {isSubmitting ? 'Salvando...' : 'Salvar Carga'}
+                  </button>
+                )}
             </div>
         </div>
       </div>

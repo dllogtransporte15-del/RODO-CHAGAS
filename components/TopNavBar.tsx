@@ -23,7 +23,7 @@ import { ArchiveIcon } from './icons/ArchiveIcon';
 import { ToolIcon } from './icons/ToolIcon';
 import { CalculatorIcon } from './icons/CalculatorIcon';
 import { InfoIcon } from './icons/InfoIcon';
-import { Menu as MenuIcon, X as XIcon, Activity, Sun, Moon } from 'lucide-react';
+import { Menu as MenuIcon, X as XIcon, Activity, Sun, Moon, Sparkles } from 'lucide-react';
 import DriverLocationTracker from './DriverLocationTracker';
 
 interface TopNavBarProps {
@@ -37,6 +37,7 @@ interface TopNavBarProps {
   tickets: Ticket[];
   themeMode?: 'dark' | 'light';
   onToggleTheme?: () => void;
+  onOpenSystemUpdates?: () => void;
 }
 
 interface NavItem {
@@ -108,7 +109,8 @@ const TopNavBar: React.FC<TopNavBarProps> = ({
   onOpenTickets, 
   tickets,
   themeMode = 'dark',
-  onToggleTheme
+  onToggleTheme,
+  onOpenSystemUpdates
 }) => {
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -212,11 +214,12 @@ const TopNavBar: React.FC<TopNavBarProps> = ({
                 )}
             </a>
 
-            {/* Status Pill matching Login */}
-            <div className="hidden xl:flex items-center gap-2 ml-4 px-3 py-1 rounded-full bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 backdrop-blur-md">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-ping" />
-              <span className="w-2 h-2 rounded-full bg-emerald-500 dark:bg-emerald-400" />
-              <span className="text-[10px] font-bold text-slate-600 dark:text-slate-300 tracking-wider">SISTEMA ONLINE</span>
+            {/* Status Pill */}
+            <div className="hidden xl:flex items-center ml-3 px-2.5 py-1.5 rounded-full bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 backdrop-blur-md" title="Sistema Online">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
             </div>
           </div>
 
@@ -315,11 +318,23 @@ const TopNavBar: React.FC<TopNavBarProps> = ({
                 </button>
              )}
              
+             {/* Novidades do Sistema */}
+             {onOpenSystemUpdates && (
+                <button
+                  type="button"
+                  onClick={onOpenSystemUpdates}
+                  className="p-2.5 rounded-xl bg-gradient-to-r from-[#1D3B8D]/10 to-[#F16421]/10 dark:from-white/5 dark:to-white/5 hover:from-[#1D3B8D]/20 hover:to-[#F16421]/20 dark:hover:bg-white/10 border border-[#1D3B8D]/20 dark:border-white/10 text-[#1D3B8D] dark:text-[#F16421] transition-all focus:outline-none shadow-sm cursor-pointer"
+                  title="O que há de novo? (Atualizações do Sistema)"
+                >
+                  <Sparkles className="w-5 h-5 text-[#F16421]" />
+                </button>
+             )}
+
              {/* Chamados / Tickets */}
              <div className="relative">
                 <button
                 onClick={onOpenTickets}
-                className="p-2.5 rounded-xl bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-all focus:outline-none shadow-sm"
+                className="p-2.5 rounded-xl bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-all focus:outline-none shadow-sm cursor-pointer"
                 aria-label="Abrir chamados"
                 >
                     <BellIcon className="w-5 h-5" />
@@ -335,7 +350,7 @@ const TopNavBar: React.FC<TopNavBarProps> = ({
             <div className="relative" ref={openDropdown === 'user' ? dropdownRef : null}>
               <button 
                 onClick={() => handleDropdownToggle('user')} 
-                className="flex items-center space-x-2.5 p-1.5 pr-3 rounded-xl bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10 transition-all shadow-sm"
+                className="flex items-center space-x-2.5 p-1.5 pr-3 rounded-xl bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10 transition-all shadow-sm cursor-pointer"
               >
                 <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-[#1D3B8D] to-[#F16421] text-white flex items-center justify-center font-black text-xs shadow-md border border-white/20">
                   {user.name.charAt(0).toUpperCase()}
@@ -353,6 +368,26 @@ const TopNavBar: React.FC<TopNavBarProps> = ({
                       <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">{user.email}</p>
                     </div>
 
+                    {/* System Updates Link in Dropdown */}
+                    {onOpenSystemUpdates && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onOpenSystemUpdates();
+                          setOpenDropdown(null);
+                        }}
+                        className="w-full text-left flex items-center justify-between px-3 py-2 text-xs font-medium text-slate-700 dark:text-slate-300 hover:text-[#1D3B8D] dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 rounded-xl transition-all mb-1 cursor-pointer"
+                      >
+                        <span className="flex items-center gap-2.5 font-bold">
+                          <Sparkles className="w-4 h-4 text-[#F16421]" />
+                          <span>Novidades do Sistema</span>
+                        </span>
+                        <span className="text-[9px] uppercase font-black px-1.5 py-0.5 rounded bg-[#F16421]/15 text-[#D1541C] dark:text-[#F16421]">
+                          v2.8.2
+                        </span>
+                      </button>
+                    )}
+
                     {/* Theme Mode Toggle Item in Dropdown */}
                     {onToggleTheme && (
                       <button
@@ -361,7 +396,7 @@ const TopNavBar: React.FC<TopNavBarProps> = ({
                           onToggleTheme();
                           setOpenDropdown(null);
                         }}
-                        className="w-full text-left flex items-center justify-between px-3 py-2 text-xs font-medium text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 rounded-xl transition-all mb-1"
+                        className="w-full text-left flex items-center justify-between px-3 py-2 text-xs font-medium text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 rounded-xl transition-all mb-1 cursor-pointer"
                       >
                         <span className="flex items-center gap-2.5">
                           {themeMode === 'dark' ? (
@@ -379,7 +414,7 @@ const TopNavBar: React.FC<TopNavBarProps> = ({
 
                     <button 
                       onClick={onLogout} 
-                      className="w-full text-left flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-xl transition-all"
+                      className="w-full text-left flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-xl transition-all cursor-pointer"
                     >
                         <LogOutIcon className="w-4 h-4" />
                         Sair do Sistema

@@ -41,7 +41,19 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
   const [filesToAttach, setFilesToAttach] = useState<File[]>([]);
   const [driverReferences, setDriverReferences] = useState('');
   const [isScanning, setIsScanning] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { showToast } = useToast();
+
+  // Previne perda de dados por recarregamento acidental
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isOpen]);
 
   const activeScheduledVolume = useMemo(() => {
     if (!cargo) return 0;
@@ -65,11 +77,12 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
     try {
         for (const file of files) {
             const reader = new FileReader();
-            const base64Promise = new Promise<string>((resolve) => {
+            const base64Promise = new Promise<string>((resolve, reject) => {
                 reader.onload = () => {
                     const base64 = (reader.result as string).split(',')[1];
                     resolve(base64);
                 };
+                reader.onerror = () => reject(new Error('Falha ao processar o arquivo selecionado.'));
             });
             reader.readAsDataURL(file);
             const base64Image = await base64Promise;
@@ -351,39 +364,46 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
     }
 
 
-    onSave({
-      cargoId: cargo.id,
-      driverName,
-      driverCpf,
-      driverContact,
-      ownerContact: ownerContact || undefined,
-      horsePlate,
-      trailer1Plate,
-      trailer2Plate,
-      trailer3Plate,
-      shipmentTonnage,
-      driverFreightValue: calculatedFreight,
-      embarcadorId: embarcadorId,
-      scheduledDate,
-      scheduledTime,
-      vehicleSetType: vehicleSetType || undefined,
-      vehicleBodyType: vehicleBodyType || undefined,
-      bankDetails: bankDetails || undefined,
-      vehicleTag: vehicleTag || undefined,
-      filesToAttach: filesToAttach.length > 0 ? filesToAttach : undefined,
-      driverReferences: driverReferences || undefined,
-    });
+    setIsSubmitting(true);
+    try {
+      onSave({
+        cargoId: cargo.id,
+        driverName,
+        driverCpf,
+        driverContact,
+        ownerContact: ownerContact || undefined,
+        horsePlate,
+        trailer1Plate,
+        trailer2Plate,
+        trailer3Plate,
+        shipmentTonnage,
+        driverFreightValue: calculatedFreight,
+        embarcadorId: embarcadorId,
+        scheduledDate,
+        scheduledTime,
+        vehicleSetType: vehicleSetType || undefined,
+        vehicleBodyType: vehicleBodyType || undefined,
+        bankDetails: bankDetails || undefined,
+        vehicleTag: vehicleTag || undefined,
+        filesToAttach: filesToAttach.length > 0 ? filesToAttach : undefined,
+        driverReferences: driverReferences || undefined,
+      });
+    } catch (err) {
+      console.error('Erro ao salvar solicitação de embarque:', err);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (!isOpen) return null;
 
   if (!cargo) {
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center">
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-8 max-w-md w-full">
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex justify-center items-center p-4 overscroll-contain modal-container">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 max-w-md w-full border border-gray-100 dark:border-gray-700">
           <div className="flex flex-col items-center gap-4 text-center">
-            <div className="w-14 h-14 rounded-full bg-red-100 flex items-center justify-center">
-              <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-14 h-14 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center text-red-600">
+              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
               </svg>
             </div>
@@ -410,8 +430,8 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
   const isTonnageExceeded = shipmentTonnage > (availableBalance + 0.001);
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-8 max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex justify-center items-center p-4 overscroll-contain modal-container">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-6 md:p-8 max-w-3xl w-full max-h-[92vh] overflow-y-auto border border-gray-100 dark:border-gray-700 overscroll-contain">
         <h2 className="text-2xl font-bold mb-2 text-gray-800 dark:text-white">Solicitação de Embarque</h2>
         <div className="mb-6 p-3 bg-gray-100 dark:bg-gray-700 rounded-md">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
@@ -636,8 +656,10 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
             </div>
           
             <div className="mt-8 flex justify-end space-x-4">
-              <button type="button" onClick={onClose} className="py-2 px-4 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-200 dark:hover:bg-gray-500">Cancelar</button>
-              <button type="submit" className="py-2 px-4 bg-primary text-white rounded-lg hover:bg-primary-dark">Solicitar Embarque</button>
+              <button type="button" onClick={onClose} disabled={isSubmitting} className="py-2 px-4 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-200 dark:hover:bg-gray-500 disabled:opacity-50">Cancelar</button>
+              <button type="submit" disabled={isSubmitting} className="py-2 px-4 bg-primary text-white rounded-lg hover:bg-primary-dark disabled:opacity-50 flex items-center gap-2">
+                {isSubmitting ? 'Solicitando...' : 'Solicitar Embarque'}
+              </button>
             </div>
         </form>
       </div>
