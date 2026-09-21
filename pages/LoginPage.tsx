@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabase';
 import { User, UserProfile } from '../types';
 import type { ProfilePermissions } from '../types';
@@ -30,6 +31,7 @@ interface LoginPageProps {
 }
 
 const LoginPage: React.FC<LoginPageProps> = ({ onLogin, companyLogo, profilePermissions }) => {
+  const navigate = useNavigate();
   const [loginType, setLoginType] = useState<'interno' | 'motorista'>('interno');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -514,9 +516,10 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, companyLogo, profilePerm
 
               {/* Baixar APP Highlight & Support */}
               <div className="mt-3.5 pt-3 border-t border-white/10 flex flex-col gap-2">
-                <a
-                  href="/baixar-app"
-                  className="w-full flex items-center justify-between px-3.5 py-2 rounded-xl bg-gradient-to-r from-orange-500/15 via-[#1D3B8D]/20 to-orange-500/15 hover:from-orange-500/25 hover:to-[#F16421]/25 border border-orange-500/35 hover:border-orange-400 text-white font-bold text-xs shadow-md shadow-orange-500/10 transition-all group cursor-pointer"
+                <button
+                  type="button"
+                  onClick={handleInstallApp}
+                  className="w-full flex items-center justify-between px-3.5 py-2 rounded-xl bg-gradient-to-r from-orange-500/15 via-[#1D3B8D]/20 to-orange-500/15 hover:from-orange-500/25 hover:to-[#F16421]/25 border border-orange-500/35 hover:border-orange-400 text-white font-bold text-xs shadow-md shadow-orange-500/10 transition-all group cursor-pointer text-left"
                 >
                   <div className="flex items-center gap-2.5">
                     <div className="w-6 h-6 rounded-lg bg-[#F16421]/20 border border-orange-400/40 flex items-center justify-center text-[#F16421] group-hover:scale-110 transition-transform shrink-0">
@@ -534,7 +537,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, companyLogo, profilePerm
                   <span className="px-2 py-0.5 text-[9px] font-black uppercase rounded-md bg-[#F16421] text-white tracking-wider shadow-xs">
                     Instalar
                   </span>
-                </a>
+                </button>
 
                 <div className="text-center mt-1">
                   <button
@@ -699,30 +702,66 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, companyLogo, profilePerm
             </button>
 
             <div className="flex items-center gap-3 mb-4">
-              <div className="p-2 rounded-xl bg-orange-500/20 text-orange-400">
+              <div className="p-2.5 rounded-xl bg-orange-500/20 text-[#F16421] border border-orange-500/30">
                 <Download className="w-6 h-6" />
               </div>
-              <h3 className="text-lg font-bold text-white">Instalar no Smartphone</h3>
+              <div>
+                <h3 className="text-lg font-bold text-white">Instalar Aplicativo</h3>
+                <p className="text-xs text-slate-400">Celular, Tablet ou Computador</p>
+              </div>
             </div>
 
             <div className="space-y-3 text-xs sm:text-sm text-slate-300">
-              <div className="p-3 bg-white/5 rounded-xl">
-                <h4 className="font-bold text-white mb-1">No Android (Google Chrome):</h4>
-                <p className="text-xs text-slate-400">Toque nos <strong>3 pontinhos (⋮)</strong> no topo do navegador e selecione <strong>"Adicionar à tela inicial"</strong> ou <strong>"Instalar aplicativo"</strong>.</p>
+              <div className="p-3 bg-white/5 rounded-xl border border-white/10">
+                <h4 className="font-bold text-white mb-1 flex items-center gap-2">
+                  <Smartphone className="w-3.5 h-3.5 text-[#F16421]" />
+                  No Android (Google Chrome):
+                </h4>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Toque nos <strong>3 pontinhos (⋮)</strong> no topo do navegador e selecione <strong>"Adicionar à tela inicial"</strong> ou <strong>"Instalar aplicativo"</strong>.
+                </p>
               </div>
 
-              <div className="p-3 bg-white/5 rounded-xl">
-                <h4 className="font-bold text-white mb-1">No iPhone (Apple Safari):</h4>
-                <p className="text-xs text-slate-400">Toque no ícone de <strong>Compartilhar (quadrado com seta para cima)</strong> e escolha <strong>"Adicionar à Tela de Início"</strong>.</p>
+              <div className="p-3 bg-white/5 rounded-xl border border-white/10">
+                <h4 className="font-bold text-white mb-1 flex items-center gap-2">
+                  <Smartphone className="w-3.5 h-3.5 text-blue-400" />
+                  No iPhone (Apple Safari):
+                </h4>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Toque no ícone de <strong>Compartilhar (quadrado com seta para cima)</strong> e escolha <strong>"Adicionar à Tela de Início"</strong>.
+                </p>
+              </div>
+
+              <div className="p-3 bg-white/5 rounded-xl border border-white/10">
+                <h4 className="font-bold text-white mb-1 flex items-center gap-2">
+                  <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                  No Computador (Chrome / Edge):
+                </h4>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Clique no <strong>ícone de instalação</strong> na barra de endereços do navegador (ao lado da estrela de favoritos).
+                </p>
               </div>
             </div>
 
-            <button
-              onClick={() => setShowInstallModal(false)}
-              className="w-full mt-5 py-2.5 bg-[#F16421] hover:bg-orange-600 text-white text-sm font-bold rounded-xl transition-all shadow-lg"
-            >
-              Entendido
-            </button>
+            <div className="mt-5 flex gap-2.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowInstallModal(false);
+                  navigate('/baixar-app');
+                }}
+                className="flex-1 py-2.5 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 text-white text-xs sm:text-sm font-bold rounded-xl transition-all"
+              >
+                Página Completa
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowInstallModal(false)}
+                className="flex-1 py-2.5 bg-[#F16421] hover:bg-orange-600 text-white text-xs sm:text-sm font-bold rounded-xl transition-all shadow-lg shadow-orange-500/20"
+              >
+                Entendido
+              </button>
+            </div>
           </div>
         </div>
       )}

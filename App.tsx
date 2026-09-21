@@ -2426,6 +2426,10 @@ const App: React.FC = () => {
     );
   };
 
+  if (location.pathname === '/baixar-app') {
+    return <DownloadAppPage companyLogo={companyLogo} />;
+  }
+
   // Only show the full-screen loader if it's the initial load (no data yet) or checking auth
   if (isAuthChecking || isLoading) {
     return (
@@ -2435,10 +2439,6 @@ const App: React.FC = () => {
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
     );
-  }
-
-  if (location.pathname === '/baixar-app') {
-    return <DownloadAppPage companyLogo={companyLogo} />;
   }
 
   if (!currentUser) {
