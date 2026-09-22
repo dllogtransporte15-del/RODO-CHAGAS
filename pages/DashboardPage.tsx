@@ -388,6 +388,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({
 
     const scheduledStatuses: ShipmentStatus[] = [
         ShipmentStatus.AguardandoSeguradora,
+        ShipmentStatus.PreCadastro,
         ShipmentStatus.AguardandoCarregamento,
         ShipmentStatus.AguardandoNota,
         ShipmentStatus.AguardandoAdiantamento,

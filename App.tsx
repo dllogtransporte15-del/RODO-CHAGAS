@@ -406,10 +406,63 @@ const App: React.FC = () => {
     [ShipmentStatus.PreCadastro]: ShipmentStatus.AguardandoCarregamento,
     [ShipmentStatus.AguardandoCarregamento]: ShipmentStatus.AguardandoNota,
     [ShipmentStatus.AguardandoNota]: ShipmentStatus.AguardandoAdiantamento,
-    // AguardandoAdiantamento is now handled conditionally
+    [ShipmentStatus.AguardandoAdiantamento]: ShipmentStatus.AguardandoAgendamento,
     [ShipmentStatus.AguardandoAgendamento]: ShipmentStatus.AguardandoDescarga,
     [ShipmentStatus.AguardandoDescarga]: ShipmentStatus.AguardandoPagamentoSaldo,
     [ShipmentStatus.AguardandoPagamentoSaldo]: ShipmentStatus.Finalizado,
+  };
+
+  const prevStatusMap: Partial<Record<ShipmentStatus, ShipmentStatus>> = {
+    [ShipmentStatus.Finalizado]: ShipmentStatus.AguardandoPagamentoSaldo,
+    [ShipmentStatus.AguardandoPagamentoSaldo]: ShipmentStatus.AguardandoDescarga,
+    [ShipmentStatus.AguardandoDescarga]: ShipmentStatus.AguardandoAgendamento,
+    [ShipmentStatus.AguardandoAgendamento]: ShipmentStatus.AguardandoAdiantamento,
+    [ShipmentStatus.AguardandoAdiantamento]: ShipmentStatus.AguardandoNota,
+    [ShipmentStatus.AguardandoNota]: ShipmentStatus.AguardandoCarregamento,
+    [ShipmentStatus.AguardandoCarregamento]: ShipmentStatus.PreCadastro,
+    [ShipmentStatus.PreCadastro]: ShipmentStatus.AguardandoSeguradora,
+  };
+
+  const hasDriverEffectiveShipment = (
+    driverName?: string, 
+    driverCpf?: string, 
+    excludeShipmentId?: string,
+    currentShipments: Shipment[] = shipments
+  ): boolean => {
+    const cleanCurrentCpf = driverCpf ? driverCpf.replace(/\D/g, '') : '';
+    const cleanCurrentName = driverName ? driverName.trim().toLowerCase() : '';
+
+    if (!cleanCurrentCpf && !cleanCurrentName) return false;
+
+    const effectiveStatuses = [
+      ShipmentStatus.AguardandoNota,
+      ShipmentStatus.AguardandoAdiantamento,
+      ShipmentStatus.AguardandoAgendamento,
+      ShipmentStatus.AguardandoDescarga,
+      ShipmentStatus.AguardandoPagamentoSaldo,
+      ShipmentStatus.Finalizado,
+    ];
+
+    return currentShipments.some(s => {
+      if (s.id === excludeShipmentId) return false;
+      if (s.status === ShipmentStatus.Cancelado) return false;
+
+      const sCpf = s.driverCpf ? s.driverCpf.replace(/\D/g, '') : '';
+      const sName = s.driverName ? s.driverName.trim().toLowerCase() : '';
+
+      const isSameDriver = (cleanCurrentCpf && sCpf && cleanCurrentCpf === sCpf) || 
+                           (cleanCurrentName && sName && cleanCurrentName === sName);
+
+      if (!isSameDriver) return false;
+
+      const isEffectiveStatus = effectiveStatuses.includes(s.status);
+      const hasEffectiveHistory = s.statusHistory?.some(h => 
+        h.status === ShipmentStatus.AguardandoNota || 
+        h.status === ShipmentStatus.Finalizado
+      );
+
+      return isEffectiveStatus || !!hasEffectiveHistory;
+    });
   };
 
   // --- HISTORY LOGGING ---
@@ -1211,12 +1264,17 @@ const App: React.FC = () => {
 
     if (currentUser.profile === UserProfile.Motorista && originalShipment.status === ShipmentStatus.AguardandoDescarga) {
         nextStatus = ShipmentStatus.AguardandoDescarga;
-    } else if (originalShipment.status === ShipmentStatus.AguardandoAdiantamento) {
-        const relatedCargo = cargos.find(c => c.id === originalShipment.cargoId);
-        if (relatedCargo?.requiresScheduling) {
-            nextStatus = ShipmentStatus.AguardandoAgendamento;
+    } else if (originalShipment.status === ShipmentStatus.AguardandoSeguradora) {
+        const hasEffectiveHistory = hasDriverEffectiveShipment(
+            originalShipment.driverName,
+            originalShipment.driverCpf,
+            originalShipment.id,
+            shipments
+        );
+        if (hasEffectiveHistory) {
+            nextStatus = ShipmentStatus.AguardandoCarregamento;
         } else {
-            nextStatus = ShipmentStatus.AguardandoDescarga;
+            nextStatus = ShipmentStatus.PreCadastro;
         }
     } else {
         nextStatus = nextStatusMap[originalShipment.status];
@@ -2243,16 +2301,37 @@ const App: React.FC = () => {
         return;
     }
 
-    if (!shipment.statusHistory || shipment.statusHistory.length <= 1) {
-        showToast("Não há histórico de status para reverter.", 'info');
-        return;
+    const currentStatus = shipment.status;
+    let historyCopy = shipment.statusHistory ? [...shipment.statusHistory] : [];
+    let previousStatus: ShipmentStatus | undefined;
+
+    if (historyCopy.length > 1) {
+        historyCopy.pop(); // Remove the current status entry
+        const previousStatusEntry = historyCopy[historyCopy.length - 1];
+        previousStatus = previousStatusEntry.status;
+    } else {
+        // Fallback para a ordem inversa estrita: 9 -> 8 -> 7 -> 6 -> 5 -> 4 -> 3 -> 2 -> 1
+        previousStatus = prevStatusMap[currentStatus];
+        if (previousStatus === ShipmentStatus.PreCadastro) {
+            const hasEffectiveHistory = hasDriverEffectiveShipment(
+                shipment.driverName,
+                shipment.driverCpf,
+                shipment.id,
+                shipments
+            );
+            if (hasEffectiveHistory) {
+                previousStatus = ShipmentStatus.AguardandoSeguradora;
+            }
+        }
+        if (previousStatus) {
+            historyCopy = [{ status: previousStatus, timestamp: new Date().toISOString(), userId: currentUser.id }];
+        }
     }
 
-    const currentStatus = shipment.status;
-    const historyCopy = [...shipment.statusHistory];
-    historyCopy.pop(); // Remove the current status entry
-    const previousStatusEntry = historyCopy[historyCopy.length - 1];
-    const previousStatus = previousStatusEntry.status;
+    if (!previousStatus) {
+        showToast("Não há status anterior para reverter.", 'info');
+        return;
+    }
 
     const docTypeToRemove = REQUIRED_DOCUMENT_MAP[previousStatus];
     const updatedDocuments = { ...(shipment.documents || {}) };
