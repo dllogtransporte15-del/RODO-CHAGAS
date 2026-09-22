@@ -1191,8 +1191,10 @@ const App: React.FC = () => {
       throw new Error('Usuário não autenticado');
     }
 
-    // Validation for "Aguardando Nota" transition
-    if (originalShipment.status === ShipmentStatus.AguardandoNota && !originalShipment.bankDetails && !bankDetails) {
+    const advPct = advancePercentage !== undefined ? Number(advancePercentage) : originalShipment.advancePercentage;
+
+    // Validation for "Aguardando Nota" transition: bank details required only if advance is not 0%
+    if (originalShipment.status === ShipmentStatus.AguardandoNota && advPct !== 0 && !originalShipment.bankDetails && !bankDetails) {
         showToast('Dados bancários são obrigatórios para avançar para a etapa de adiantamento.', 'warning');
         return;
     }
@@ -1211,6 +1213,15 @@ const App: React.FC = () => {
 
     if (currentUser.profile === UserProfile.Motorista && originalShipment.status === ShipmentStatus.AguardandoDescarga) {
         nextStatus = ShipmentStatus.AguardandoDescarga;
+    } else if (originalShipment.status === ShipmentStatus.AguardandoNota) {
+        // Ao salvar a documentação fiscal em Ag. Nota, avança sempre e obrigatoriamente para Ag. Adiantamento,
+        // exceto se o adiantamento for expressamente zerado (0%).
+        if (advPct === 0) {
+            const relatedCargo = cargos.find(c => c.id === originalShipment.cargoId);
+            nextStatus = relatedCargo?.requiresScheduling ? ShipmentStatus.AguardandoAgendamento : ShipmentStatus.AguardandoDescarga;
+        } else {
+            nextStatus = ShipmentStatus.AguardandoAdiantamento;
+        }
     } else if (originalShipment.status === ShipmentStatus.AguardandoAdiantamento) {
         const relatedCargo = cargos.find(c => c.id === originalShipment.cargoId);
         if (relatedCargo?.requiresScheduling) {
@@ -1297,13 +1308,18 @@ const App: React.FC = () => {
     
     if (advanceValue !== undefined) {
         calculatedAdvanceValue = advanceValue;
-        finalAdvancePercentage = advancePercentage || originalShipment.advancePercentage;
+        finalAdvancePercentage = advancePercentage !== undefined ? advancePercentage : originalShipment.advancePercentage;
         historyLogs.push(`Valor pago na conta de R$ ${calculatedAdvanceValue.toLocaleString('pt-BR')} registrado.`);
-    } else if (advancePercentage !== undefined && advancePercentage > 0) {
+    } else if (advancePercentage !== undefined) {
         finalAdvancePercentage = advancePercentage;
-        calculatedAdvanceValue = ((updatedDriverFreight * advancePercentage) / 100) - (tollValue || 0);
-        const formattedAdv = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calculatedAdvanceValue);
-        historyLogs.push(`Pagamento de Adiantamento: ${advancePercentage}% registrado (${formattedAdv}).`);
+        if (advancePercentage > 0) {
+            calculatedAdvanceValue = ((updatedDriverFreight * advancePercentage) / 100) - (tollValue || 0);
+            const formattedAdv = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calculatedAdvanceValue);
+            historyLogs.push(`Pagamento de Adiantamento: ${advancePercentage}% registrado (${formattedAdv}).`);
+        } else {
+            calculatedAdvanceValue = 0;
+            historyLogs.push(`Adiantamento zerado (0%).`);
+        }
     }
 
     let finalBalanceToReceive = balanceToReceiveValue ?? originalShipment.balanceToReceiveValue;

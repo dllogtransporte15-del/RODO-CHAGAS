@@ -288,8 +288,9 @@ const AttachmentModal: React.FC<AttachmentModalProps> = ({ isOpen, onClose, onSa
         setError('Anexe pelo menos um documento para avançar.');
         return;
       }
-      if (!shipment.bankDetails && !bankDetails) {
-        setError('Dados bancários são obrigatórios.');
+      const advPct = advancePercentage !== '' ? Number(advancePercentage) : shipment.advancePercentage;
+      if (advPct !== 0 && !shipment.bankDetails && !bankDetails) {
+        setError('Dados bancários são obrigatórios para a etapa de adiantamento.');
         return;
       }
       filesToAttach = multiFiles;
@@ -334,7 +335,7 @@ const AttachmentModal: React.FC<AttachmentModalProps> = ({ isOpen, onClose, onSa
         filesToAttach, 
         bankDetails: bankDetails || undefined,
         loadedTonnage: shipment.status === ShipmentStatus.AguardandoCarregamento ? Number(loadedTonnage) : undefined,
-        advancePercentage: shipment.status === ShipmentStatus.AguardandoAdiantamento ? Number(advancePercentage) : undefined,
+        advancePercentage: (shipment.status === ShipmentStatus.AguardandoAdiantamento || shipment.status === ShipmentStatus.AguardandoNota) && advancePercentage !== '' ? Number(advancePercentage) : undefined,
         advanceValue: shipment.status === ShipmentStatus.AguardandoAdiantamento ? Number(advanceValue) : undefined,
         tollValue: shipment.status === ShipmentStatus.AguardandoAdiantamento ? Number(tollValue || 0) : undefined,
         balanceToReceiveValue: shipment.status === ShipmentStatus.AguardandoPagamentoSaldo ? Number(balanceToReceiveValue) : undefined,
@@ -451,6 +452,30 @@ const AttachmentModal: React.FC<AttachmentModalProps> = ({ isOpen, onClose, onSa
                             {fiscalDocTypes.map(docType => (
                                 <FileInput key={docType} label={docType} files={multiFiles[docType] || []} onFileChange={(f) => setMultiFiles(prev => ({...prev, [docType]: f ? Array.from(f) : []}))} />
                             ))}
+                        </div>
+
+                        <div className="p-4 bg-gray-50 dark:bg-gray-900/40 border border-gray-200 dark:border-gray-700 rounded-xl">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                <div>
+                                    <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200">
+                                        Percentual de Adiantamento (%)
+                                    </label>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                                        Padrão: segue para <strong>Ag. Adiantamento</strong>. Se configurado <strong>0%</strong>, a etapa de adiantamento será pulada.
+                                    </p>
+                                </div>
+                                <div className="w-full sm:w-36">
+                                    <input 
+                                        type="number" 
+                                        min="0"
+                                        max="100"
+                                        value={advancePercentage} 
+                                        onChange={(e) => setAdvancePercentage(e.target.value === '' ? '' : Number(e.target.value))} 
+                                        placeholder="Ex: 70"
+                                        className="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 text-right font-mono"
+                                    />
+                                </div>
+                            </div>
                         </div>
                     </div>
                 ) : shipment.status === ShipmentStatus.AguardandoCarregamento ? (
