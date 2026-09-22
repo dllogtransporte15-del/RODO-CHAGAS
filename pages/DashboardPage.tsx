@@ -20,6 +20,7 @@ import ShipmentHistoryModal from '../components/ShipmentHistoryModal';
 import NewShipmentModal from '../components/NewShipmentModal';
 import OptimizedShipmentsBoard, { BoardColumnConfig } from '../components/OptimizedShipmentsBoard';
 import { ShieldCheck, FileCheck2, Receipt, Wallet, Truck as TruckLucide, Clock } from 'lucide-react';
+import { getShipmentRequesterUser } from '../utils/shipperUtils';
 
 interface DashboardPageProps {
   cargos: Cargo[];
@@ -160,26 +161,29 @@ const ShipmentListCard: React.FC<ShipmentListCardProps> = ({ title, shipments, u
                             <p className="text-xs text-gray-500 dark:text-gray-400">{formatDate(requestTimestamp)}</p>
                         </div>
                     </div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 flex items-center gap-1">
-                      <span>Solicitante: {getEmbarcadorName(shipment.embarcadorId)}</span>
-                      {(() => {
-                        const link = getEmbarcadorWhatsAppLink(shipment.embarcadorId);
-                        if (!link) return null;
-                        return (
-                          <a
-                            href={link}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center text-green-500 hover:text-green-600 dark:text-green-400 dark:hover:text-green-300 transition-colors"
-                            title="Conversar com o embarcador no WhatsApp"
-                          >
-                            <WhatsAppIcon className="w-3 h-3" />
-                          </a>
-                        );
-                      })()}
-                    </div>
+                    {(() => {
+                      const reqUser = getShipmentRequesterUser(shipment, users);
+                      const cleanedPhone = reqUser.phone ? reqUser.phone.replace(/\D/g, '') : '';
+                      const link = cleanedPhone.length >= 10 ? `https://wa.me/55${cleanedPhone}` : null;
+                      return (
+                        <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 flex items-center gap-1">
+                          <span>Solicitante: <strong className="text-gray-700 dark:text-gray-200">{reqUser.name}</strong>{reqUser.profile ? ` (${reqUser.profile})` : ''}</span>
+                          {link && (
+                            <a
+                              href={link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center text-green-500 hover:text-green-600 dark:text-green-400 dark:hover:text-green-300 transition-colors"
+                              title={`Conversar com ${reqUser.name} no WhatsApp`}
+                            >
+                              <WhatsAppIcon className="w-3 h-3" />
+                            </a>
+                          )}
+                        </div>
+                      );
+                    })()}
                 </div>
-            )
+            );
           })
         ) : (
           <p className="text-sm text-center text-gray-500 dark:text-gray-400 pt-8">Nenhum embarque neste status.</p>

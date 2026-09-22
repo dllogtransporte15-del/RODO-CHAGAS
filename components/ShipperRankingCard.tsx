@@ -4,6 +4,8 @@ import type { Shipment, Cargo, User } from '../types';
 import { UserProfile, ShipmentStatus } from '../types';
 import { WhatsAppIcon } from './icons/WhatsAppIcon';
 
+import { resolveShipmentRequesterId } from '../utils/shipperUtils';
+
 interface ShipperRankingCardProps {
   shipments: Shipment[];
   cargos: Cargo[];
@@ -14,6 +16,7 @@ interface ShipperRankingCardProps {
 interface ShipperStat {
   id: string;
   name: string;
+  profile?: string;
   vehicleCount: number;
   shipmentCount: number;
   netMargin: number;
@@ -42,12 +45,41 @@ const ShipperRankingCard: React.FC<ShipperRankingCardProps> = ({ shipments, carg
     const currentMonth = now.getMonth();
     const currentYear = now.getFullYear();
 
-    const shippers = users.filter(u => u.profile === UserProfile.Embarcador);
-    // Explicitly type `cargoMap` to ensure correct type inference.
+    // Collect all unique requester IDs that requested or created shipments
+    const activeShipperIds = new Set(
+      shipments.map(s => resolveShipmentRequesterId(s, users)).filter(Boolean)
+    );
+
+    // Candidates: All Embarcadores OR any user who has shipments (Admin, Diretor, Comercial, Supervisor, etc.)
+    const userMap = new Map<string, { id: string; name: string; profile?: string; phone?: string }>();
+    
+    users.forEach(u => {
+      if (u.profile === UserProfile.Embarcador || activeShipperIds.has(u.id)) {
+        userMap.set(u.id, {
+          id: u.id,
+          name: u.name,
+          profile: u.profile,
+          phone: u.phone,
+        });
+      }
+    });
+
+    // Also include any ID present in shipments that might not be in the users array
+    activeShipperIds.forEach(id => {
+      if (!userMap.has(id)) {
+        userMap.set(id, {
+          id,
+          name: `Usuário (${id})`,
+          profile: 'Operador',
+        });
+      }
+    });
+
+    const candidateShippers = Array.from(userMap.values());
     const cargoMap: Map<string, Cargo> = new Map(cargos.map(c => [c.id, c]));
 
-    const stats = shippers.map(shipper => {
-      const shipperShipments = shipments.filter(s => (s.embarcadorId || s.createdById) === shipper.id);
+    const stats = candidateShippers.map(shipper => {
+      const shipperShipments = shipments.filter(s => resolveShipmentRequesterId(s, users) === shipper.id);
       
       const uniqueVehicles = new Set<string>();
       let netMargin = 0;
@@ -98,6 +130,7 @@ const ShipperRankingCard: React.FC<ShipperRankingCardProps> = ({ shipments, carg
       return {
         id: shipper.id,
         name: shipper.name,
+        profile: shipper.profile,
         vehicleCount: uniqueVehicles.size,
         shipmentCount,
         netMargin: netMargin,
@@ -106,7 +139,16 @@ const ShipperRankingCard: React.FC<ShipperRankingCardProps> = ({ shipments, carg
       };
     });
 
-    return stats.sort((a, b) => b.netMargin - a.netMargin);
+    // Include all active requesters with movement; ignore generic placeholder accounts if they have no shipments
+    const filteredStats = stats.filter(stat => {
+      if (stat.name.trim().toLowerCase() === 'embarcador' && stat.shipmentCount === 0 && stat.effectiveTonnage === 0) {
+        return false;
+      }
+      if (stat.profile === UserProfile.Embarcador) return true;
+      return stat.shipmentCount > 0 || stat.effectiveTonnage > 0 || stat.netMargin !== 0;
+    });
+
+    return filteredStats.sort((a, b) => b.netMargin - a.netMargin || b.effectiveTonnage - a.effectiveTonnage);
   }, [shipments, cargos, users]);
 
   const formatCurrency = (value: number) => {
@@ -122,7 +164,7 @@ const ShipperRankingCard: React.FC<ShipperRankingCardProps> = ({ shipments, carg
           <thead className="border-b dark:border-gray-700">
             <tr>
               <th className="py-2 px-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">#</th>
-              <th className="py-2 px-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">Embarcador</th>
+              <th className="py-2 px-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">Embarcador / Solicitante</th>
               <th className="py-2 px-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">Veículos</th>
               <th className="py-2 px-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">Embarques</th>
               <th className="py-2 px-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 tracking-wider">T. Efetivas</th>
@@ -136,6 +178,8 @@ const ShipperRankingCard: React.FC<ShipperRankingCardProps> = ({ shipments, carg
               if (currentUser?.profile === UserProfile.Embarcador && !isCurrentUser) {
                 return null;
               }
+              const isNonDefaultProfile = stat.profile && stat.profile !== UserProfile.Embarcador;
+
               return (
                 <tr 
                   key={stat.id} 
@@ -147,15 +191,21 @@ const ShipperRankingCard: React.FC<ShipperRankingCardProps> = ({ shipments, carg
                 >
                   <td className={`py-3 px-3 text-sm font-medium ${isCurrentUser ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-500 dark:text-gray-400'}`}>{index + 1}</td>
                   <td className={`py-3 px-3 text-sm font-medium ${isCurrentUser ? 'text-indigo-900 dark:text-indigo-200 font-bold' : 'text-gray-900 dark:text-white'}`}>
-                    <div className="flex items-center gap-1.5">
-                      <span>
-                        {stat.name} 
-                        {isCurrentUser && (
-                          <span className="ml-2 px-2 py-0.5 text-[10px] font-semibold bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 rounded-full">
-                            Você
-                          </span>
-                        )}
-                      </span>
+                    <div className="flex items-center flex-wrap gap-1.5">
+                      <span>{stat.name}</span>
+                      
+                      {isNonDefaultProfile && (
+                        <span className="px-1.5 py-0.5 text-[10px] font-semibold bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 rounded border border-blue-200 dark:border-blue-800">
+                          {stat.profile}
+                        </span>
+                      )}
+
+                      {isCurrentUser && (
+                        <span className="px-2 py-0.5 text-[10px] font-semibold bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 rounded-full">
+                          Você
+                        </span>
+                      )}
+
                       {(() => {
                         const link = getWhatsAppLink(stat.id);
                         if (!link) return null;
@@ -165,7 +215,7 @@ const ShipperRankingCard: React.FC<ShipperRankingCardProps> = ({ shipments, carg
                             target="_blank"
                             rel="noopener noreferrer"
                             className="inline-flex items-center text-green-500 hover:text-green-600 dark:text-green-400 dark:hover:text-green-300 transition-colors"
-                            title="Conversar com o embarcador no WhatsApp"
+                            title="Conversar no WhatsApp"
                           >
                             <WhatsAppIcon className="w-3.5 h-3.5" />
                           </a>
@@ -183,7 +233,7 @@ const ShipperRankingCard: React.FC<ShipperRankingCardProps> = ({ shipments, carg
             })}
             {shipperStats.length === 0 && (
                 <tr>
-                    <td colSpan={canViewCommission ? 6 : 5} className="py-4 px-3 text-center text-sm text-gray-500 dark:text-gray-400">Nenhum embarcador com movimentação.</td>
+                    <td colSpan={canViewCommission ? 6 : 5} className="py-4 px-3 text-center text-sm text-gray-500 dark:text-gray-400">Nenhum operador ou embarcador com movimentação.</td>
                 </tr>
             )}
           </tbody>
@@ -194,3 +244,4 @@ const ShipperRankingCard: React.FC<ShipperRankingCardProps> = ({ shipments, carg
 };
 
 export default ShipperRankingCard;
+

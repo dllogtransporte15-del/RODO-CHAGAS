@@ -3,6 +3,7 @@ import { X, Truck, Calendar, Weight, Info, Lock } from 'lucide-react';
 import type { Cargo, Shipment, User, Client, Product, Vehicle } from '../types';
 import { UserProfile } from '../types';
 import ShipmentDetailsModal from './ShipmentDetailsModal';
+import { resolveShipmentRequesterId, getShipmentRequesterUser } from '../utils/shipperUtils';
 
 interface CargoShipmentsSidePanelProps {
   isOpen: boolean;
@@ -98,7 +99,8 @@ const CargoShipmentsSidePanel: React.FC<CargoShipmentsSidePanelProps> = ({
               </div>
             ) : (
               cargoShipments.map((shipment) => {
-                const isMine = shipment.embarcadorId === currentUser.id || shipment.createdById === currentUser.id;
+                const requesterId = resolveShipmentRequesterId(shipment, users);
+                const isMine = shipment.embarcadorId === currentUser.id || shipment.createdById === currentUser.id || requesterId === currentUser.id;
                 const canAccessDetails = currentUser.profile !== UserProfile.Cliente && (isInternalStaff || isMine);
 
                 return (
@@ -160,7 +162,7 @@ const CargoShipmentsSidePanel: React.FC<CargoShipmentsSidePanelProps> = ({
                     </div>
                     
                     <div className="mt-3 text-[10px] text-gray-400 italic">
-                      Solicitante: <span className="font-medium text-gray-500 dark:text-gray-300">{getEmbarcadorName(shipment.embarcadorId)}</span>
+                      Solicitante: <span className="font-medium text-gray-500 dark:text-gray-300">{getShipmentRequesterUser(shipment, users).name}</span>
                     </div>
                   </div>
                 );

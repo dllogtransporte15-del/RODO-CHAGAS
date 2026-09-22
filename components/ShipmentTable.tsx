@@ -20,6 +20,7 @@ import { useDriverLocations } from '../hooks/useDriverLocations';
 
 import MultiSelectDropdown from './MultiSelectDropdown';
 import ShipmentDetailsModal from './ShipmentDetailsModal';
+import { getShipmentRequesterUser } from '../utils/shipperUtils';
 
 interface ShipmentTableProps {
   shipments: Shipment[];
@@ -732,24 +733,32 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, drivers, cargo
                         })()}
                       </div>
                       <div className="text-sm text-gray-500 dark:text-gray-400">{shipment.horsePlate}</div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 flex items-center gap-1">
-                          Sol.: <span className="font-medium">{getEmbarcadorName(shipment.embarcadorId)}</span>
-                          {(() => {
-                            const link = getEmbarcadorWhatsAppLink(shipment.embarcadorId);
-                            if (!link) return null;
-                            return (
+                      {(() => {
+                        const reqUser = getShipmentRequesterUser(shipment, users);
+                        const cleanedPhone = reqUser.phone ? reqUser.phone.replace(/\D/g, '') : '';
+                        const link = cleanedPhone.length >= 10 ? `https://wa.me/55${cleanedPhone}` : null;
+                        return (
+                          <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 flex items-center gap-1">
+                            Sol.: <span className="font-medium text-gray-700 dark:text-gray-300">{reqUser.name}</span>
+                            {reqUser.profile && reqUser.profile !== UserProfile.Embarcador && (
+                              <span className="text-[10px] px-1 py-0.2 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded border border-blue-200 dark:border-blue-800">
+                                {reqUser.profile}
+                              </span>
+                            )}
+                            {link && (
                               <a
                                 href={link}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="inline-flex items-center text-green-500 hover:text-green-600 dark:text-green-400 dark:hover:text-green-300 transition-colors"
-                                title="Conversar com o embarcador no WhatsApp"
+                                title={`Conversar com ${reqUser.name} no WhatsApp`}
                               >
                                 <WhatsAppIcon className="w-3.5 h-3.5" />
                               </a>
-                            );
-                          })()}
-                      </div>
+                            )}
+                          </div>
+                        );
+                      })()}
                       {(vehicle || shipment.vehicleSetType || shipment.vehicleBodyType) && (
                           <div className="mt-1">
                           <span className="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-gray-200 text-gray-700 dark:bg-gray-600 dark:text-gray-200">

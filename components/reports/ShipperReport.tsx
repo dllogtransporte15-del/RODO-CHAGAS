@@ -11,6 +11,8 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import MultiSelectDropdown from '../MultiSelectDropdown';
 
+import { resolveShipmentRequesterId, getShipmentRequesterUser } from '../../utils/shipperUtils';
+
 interface ShipperReportProps {
   shipments: Shipment[];
   cargos: Cargo[];
@@ -23,6 +25,7 @@ interface ShipperReportProps {
 interface OperatorStats {
   id: string;
   name: string;
+  profile?: UserProfile;
   total: number;
   finalizado: number;
   emAndamento: number;
@@ -59,14 +62,14 @@ const ShipperReport: React.FC<ShipperReportProps> = ({ shipments, cargos, client
 
     const cargoMap = useMemo(() => new Map(cargos.map(c => [c.id, c])), [cargos]);
 
-    const getEmbarcadorId = (s: Shipment) => s.embarcadorId || s.createdById;
+    const getEmbarcadorId = (s: Shipment) => resolveShipmentRequesterId(s, users);
 
     const operatorStats = useMemo<OperatorStats[]>(() => {
-        const shipperIds = Array.from(new Set(shipments.map(getEmbarcadorId).filter(Boolean))) as string[];
+        const shipperIds = Array.from(new Set(shipments.map(s => resolveShipmentRequesterId(s, users)).filter(Boolean))) as string[];
 
         return shipperIds.map(shipperId => {
             const shipperUser = users.find(u => u.id === shipperId);
-            const shipperShipments = shipments.filter(s => getEmbarcadorId(s) === shipperId);
+            const shipperShipments = shipments.filter(s => resolveShipmentRequesterId(s, users) === shipperId);
           
             const stats = shipperShipments.reduce((acc, shipment) => {
                 if (shipment.status === ShipmentStatus.Finalizado) {
@@ -97,25 +100,29 @@ const ShipperReport: React.FC<ShipperReportProps> = ({ shipments, cargos, client
             return {
                 id: shipperId,
                 name: shipperUser?.name || `Usuário (${shipperId})`,
+                profile: shipperUser?.profile,
                 total: shipperShipments.length,
                 ...stats,
             };
+        }).filter(stat => {
+            if (stat.name.trim().toLowerCase() === 'embarcador' && stat.total === 0) return false;
+            return stat.total > 0;
         }).sort((a, b) => b.total - a.total);
     }, [shipments, users]);
 
     const getShipmentsForPdfAndList = (embarcadorId?: string) => {
         if (embarcadorId && embarcadorId !== 'ALL') {
-            return shipments.filter(s => getEmbarcadorId(s) === embarcadorId);
+            return shipments.filter(s => resolveShipmentRequesterId(s, users) === embarcadorId);
         }
         return shipments;
     };
 
     const baseModalShipments = useMemo(() => {
         if (selectedEmbarcadorId && selectedEmbarcadorId !== 'ALL') {
-            return shipments.filter(s => getEmbarcadorId(s) === selectedEmbarcadorId);
+            return shipments.filter(s => resolveShipmentRequesterId(s, users) === selectedEmbarcadorId);
         }
         return shipments;
-    }, [shipments, selectedEmbarcadorId]);
+    }, [shipments, selectedEmbarcadorId, users]);
 
     const modalStatusOptions = useMemo(() => Array.from(new Set(baseModalShipments.map(s => s.status))).filter(Boolean).sort(), [baseModalShipments]);
     const modalOriginOptions = useMemo(() => Array.from(new Set(baseModalShipments.map(s => cargoMap.get(s.cargoId)?.origin || ''))).filter(Boolean).sort(), [baseModalShipments, cargoMap]);
@@ -143,9 +150,10 @@ const ShipperReport: React.FC<ShipperReportProps> = ({ shipments, cargos, client
     };
 
     const generatePDFFromModal = () => {
+        const op = selectedEmbarcadorId !== 'ALL' ? operatorStats.find(o => o.id === selectedEmbarcadorId) : null;
         const embarcadorName = selectedEmbarcadorId === 'ALL'
             ? 'Geral'
-            : operatorStats.find(o => o.id === selectedEmbarcadorId)?.name || 'Embarcador';
+            : (op ? `${op.name}${op.profile ? ` (${op.profile})` : ''}` : 'Embarcador');
 
         const filterDesc: string[] = [];
         if (filterModalStatus.length > 0) filterDesc.push(`Status: ${filterModalStatus.join(', ')}`);
@@ -314,8 +322,9 @@ const ShipperReport: React.FC<ShipperReportProps> = ({ shipments, cargos, client
     const generatePDF = (embarcadorId?: string) => {
         // Filter to only export finalized shipments for the PDF
         const targetShipments = getShipmentsForPdfAndList(embarcadorId).filter(s => s.status === ShipmentStatus.Finalizado);
+        const op = embarcadorId && embarcadorId !== 'ALL' ? operatorStats.find(o => o.id === embarcadorId) : null;
         const embarcadorName = embarcadorId && embarcadorId !== 'ALL' 
-            ? operatorStats.find(o => o.id === embarcadorId)?.name 
+            ? (op ? `${op.name}${op.profile ? ` (${op.profile})` : ''}` : 'Geral')
             : 'Geral';
 
         const doc = new jsPDF('landscape');
@@ -330,7 +339,7 @@ const ShipperReport: React.FC<ShipperReportProps> = ({ shipments, cargos, client
         }
         
         doc.setFontSize(16);
-        doc.text(`Relatório de Embarques Finalizados - Embarcador: ${embarcadorName || 'Todos'}`, 14, 15);
+        doc.text(`Relatório de Embarques Finalizados - Solicitante: ${embarcadorName || 'Todos'}`, 14, 15);
         doc.setFontSize(10);
         doc.text(`Gerado em: ${new Date().toLocaleString('pt-BR')}`, 14, 22);
 
@@ -476,7 +485,7 @@ const ShipperReport: React.FC<ShipperReportProps> = ({ shipments, cargos, client
     return (
         <div>
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-                <h2 className="text-2xl font-semibold text-gray-800 dark:text-white">Desempenho por Embarcador</h2>
+                <h2 className="text-2xl font-semibold text-gray-800 dark:text-white">Desempenho por Embarcador / Solicitante</h2>
                 <div className="flex gap-2">
                     <button 
                         onClick={() => generatePDF('ALL')}
@@ -502,7 +511,14 @@ const ShipperReport: React.FC<ShipperReportProps> = ({ shipments, cargos, client
                 {operatorStats.map(stats => (
                     <div key={stats.id} className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700">
                         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-4">
-                            <h3 className="text-xl font-bold text-primary dark:text-blue-400">{stats.name}</h3>
+                            <div className="flex items-center gap-2 flex-wrap">
+                                <h3 className="text-xl font-bold text-primary dark:text-blue-400">{stats.name}</h3>
+                                {stats.profile && (
+                                    <span className="text-xs px-2.5 py-0.5 rounded-full font-semibold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-600">
+                                        {stats.profile}
+                                    </span>
+                                )}
+                            </div>
                             <div className="flex gap-2">
                                 <button 
                                     onClick={() => generatePDF(stats.id)}
@@ -529,6 +545,7 @@ const ShipperReport: React.FC<ShipperReportProps> = ({ shipments, cargos, client
                                     title="Comissão (R$ 2/t)" 
                                     value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(stats.commission)} 
                                     icon={<DollarSignIcon className="w-8 h-8 text-emerald-500"/>} 
+                                
                                 />
                             )}
                         </div>
@@ -546,7 +563,10 @@ const ShipperReport: React.FC<ShipperReportProps> = ({ shipments, cargos, client
                                     Listagem de Embarques
                                 </h3>
                                 <p className="text-sm text-gray-500 dark:text-gray-400">
-                                    {selectedEmbarcadorId === 'ALL' ? 'Todos os Embarcadores' : `Embarcador: ${operatorStats.find(o => o.id === selectedEmbarcadorId)?.name}`}
+                                    {selectedEmbarcadorId === 'ALL' ? 'Todos os Solicitantes / Embarcadores' : (() => {
+                                        const op = operatorStats.find(o => o.id === selectedEmbarcadorId);
+                                        return `Responsável: ${op?.name || ''}${op?.profile ? ` (${op.profile})` : ''}`;
+                                    })()}
                                 </p>
                             </div>
                             <div className="flex items-center gap-2">

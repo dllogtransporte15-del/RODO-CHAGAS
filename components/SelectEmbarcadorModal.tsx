@@ -15,7 +15,10 @@ const SelectEmbarcadorModal: React.FC<SelectEmbarcadorModalProps> = ({ isOpen, o
 
   if (!isOpen) return null;
 
-  const embarcadores = users.filter(u => u.profile === UserProfile.Embarcador && u.active !== false);
+  const embarcadores = users.filter(u => 
+    [UserProfile.Embarcador, UserProfile.Admin, UserProfile.Diretor, UserProfile.Comercial, UserProfile.Supervisor].includes(u.profile) && 
+    u.active !== false
+  );
 
   const handleConfirm = () => {
     if (selectedEmbarcador) {
@@ -29,7 +32,7 @@ const SelectEmbarcadorModal: React.FC<SelectEmbarcadorModalProps> = ({ isOpen, o
       <div className="bg-white dark:bg-gray-800 rounded-xl max-w-md w-full shadow-2xl overflow-hidden border border-gray-100 dark:border-gray-700">
         <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-gray-50/50 dark:bg-gray-800/50">
           <div>
-            <h2 className="text-xl font-bold text-gray-800 dark:text-white">Selecionar Embarcador</h2>
+            <h2 className="text-xl font-bold text-gray-800 dark:text-white">Selecionar Embarcador / Responsável</h2>
             {cargo && (
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Carga {cargo.sequenceId} - {cargo.origin} para {cargo.destination}</p>
             )}
@@ -44,7 +47,7 @@ const SelectEmbarcadorModal: React.FC<SelectEmbarcadorModalProps> = ({ isOpen, o
 
         <div className="p-6">
           <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
-            Escolha o embarcador para qual você deseja enviar a solicitação. 
+            Escolha o responsável para o qual você deseja direcionar a solicitação. 
             Se não for aceita em 5 minutos, a solicitação ficará disponível para todos.
           </p>
 
@@ -52,26 +55,33 @@ const SelectEmbarcadorModal: React.FC<SelectEmbarcadorModalProps> = ({ isOpen, o
             {embarcadores.map(emb => (
               <label
                 key={emb.id}
-                className={`flex items-center p-3 rounded-lg border cursor-pointer transition-colors ${
+                className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-colors ${
                   selectedEmbarcador === emb.id 
                     ? 'border-primary bg-primary/5 dark:bg-primary/10' 
                     : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50'
                 }`}
               >
-                <input
-                  type="radio"
-                  name="embarcador"
-                  value={emb.id}
-                  checked={selectedEmbarcador === emb.id}
-                  onChange={() => setSelectedEmbarcador(emb.id)}
-                  className="mr-3 text-primary focus:ring-primary h-4 w-4"
-                />
-                <span className="font-medium text-gray-800 dark:text-gray-200">{emb.name}</span>
+                <div className="flex items-center">
+                  <input
+                    type="radio"
+                    name="embarcador"
+                    value={emb.id}
+                    checked={selectedEmbarcador === emb.id}
+                    onChange={() => setSelectedEmbarcador(emb.id)}
+                    className="mr-3 text-primary focus:ring-primary h-4 w-4"
+                  />
+                  <span className="font-medium text-gray-800 dark:text-gray-200">{emb.name}</span>
+                </div>
+                {emb.profile && (
+                  <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600">
+                    {emb.profile}
+                  </span>
+                )}
               </label>
             ))}
             {embarcadores.length === 0 && (
               <div className="text-center text-gray-500 py-4">
-                Nenhum embarcador ativo encontrado.
+                Nenhum responsável ativo encontrado.
               </div>
             )}
           </div>

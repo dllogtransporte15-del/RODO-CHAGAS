@@ -17,18 +17,21 @@ const TransferShipmentModal: React.FC<TransferShipmentModalProps> = ({ isOpen, o
   const [selectedEmbarcadorId, setSelectedEmbarcadorId] = useState('');
 
   const embarcadores = useMemo(() => {
-    return users.filter(u => u.profile === UserProfile.Embarcador);
+    return users.filter(u => 
+      [UserProfile.Embarcador, UserProfile.Admin, UserProfile.Diretor, UserProfile.Comercial, UserProfile.Supervisor].includes(u.profile) &&
+      u.active !== false
+    );
   }, [users]);
 
   useEffect(() => {
     if (isOpen && shipment) {
-      setSelectedEmbarcadorId(shipment.embarcadorId || '');
+      setSelectedEmbarcadorId(shipment.embarcadorId || shipment.createdById || '');
     }
   }, [isOpen, shipment]);
 
   const handleSave = () => {
     if (!selectedEmbarcadorId) {
-      showToast('Por favor, selecione um embarcador.', 'warning');
+      showToast('Por favor, selecione um responsável.', 'warning');
       return;
     }
     onSave(selectedEmbarcadorId);
@@ -36,19 +39,22 @@ const TransferShipmentModal: React.FC<TransferShipmentModalProps> = ({ isOpen, o
 
   if (!isOpen || !shipment) return null;
 
-  const currentEmbarcadorName = users.find(u => u.id === shipment.embarcadorId)?.name || 'Não atribuído';
+  const currentEmbarcador = users.find(u => u.id === (shipment.embarcadorId || shipment.createdById));
+  const currentEmbarcadorName = currentEmbarcador 
+    ? `${currentEmbarcador.name}${currentEmbarcador.profile ? ` (${currentEmbarcador.profile})` : ''}` 
+    : 'Não atribuído';
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center">
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-8 max-w-lg w-full">
         <h2 className="text-2xl font-bold mb-4 text-gray-800 dark:text-white">Transferir Embarque</h2>
         <p className="mb-2 text-sm text-gray-500 dark:text-gray-400">Embarque ID: <b>{shipment.id}</b></p>
-        <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">Embarcador Atual: <b>{currentEmbarcadorName}</b></p>
+        <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">Responsável Atual: <b>{currentEmbarcadorName}</b></p>
         
         <div className="space-y-4">
           <div>
             <label htmlFor="embarcador-select" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Novo Embarcador Responsável
+              Novo Responsável / Solicitante
             </label>
             <select
               id="embarcador-select"
@@ -58,7 +64,7 @@ const TransferShipmentModal: React.FC<TransferShipmentModalProps> = ({ isOpen, o
               required
             >
               <option value="" disabled>Selecione um novo responsável...</option>
-              {embarcadores.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+              {embarcadores.map(e => <option key={e.id} value={e.id}>{e.name} ({e.profile})</option>)}
             </select>
           </div>
         </div>

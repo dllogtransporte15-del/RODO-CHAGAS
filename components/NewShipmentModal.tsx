@@ -120,7 +120,10 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
   };
 
   const embarcadores = useMemo(() => {
-    return users.filter(u => u.profile === UserProfile.Embarcador);
+    return users.filter(u => 
+      [UserProfile.Embarcador, UserProfile.Admin, UserProfile.Diretor, UserProfile.Comercial, UserProfile.Supervisor].includes(u.profile) &&
+      u.active !== false
+    );
   }, [users]);
 
   const prevIsOpen = React.useRef(isOpen);
@@ -160,9 +163,7 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
       setFilesToAttach([]);
       setDriverReferences(lastShipment?.driverReferences || '');
       setEmbarcadorId(
-          currentUser?.profile === UserProfile.Embarcador
-              ? currentUser.id
-              : (embarcadores.length === 1 ? embarcadores[0].id : '')
+          currentUser?.id || (embarcadores.length > 0 ? embarcadores[0].id : '')
       );
     }
     prevIsOpen.current = isOpen;
@@ -461,7 +462,7 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
             </div>
             
             <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Embarcador Responsável</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Responsável / Solicitante</label>
                 <select
                     value={embarcadorId}
                     onChange={(e) => setEmbarcadorId(e.target.value)}
@@ -469,7 +470,7 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
                     required
                 >
                     <option value="" disabled>Selecione um responsável...</option>
-                    {embarcadores.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+                    {embarcadores.map(e => <option key={e.id} value={e.id}>{e.name} ({e.profile})</option>)}
                 </select>
             </div>
 

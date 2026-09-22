@@ -26,6 +26,7 @@ import {
   UserCheck
 } from 'lucide-react';
 import { WhatsAppIcon } from './icons/WhatsAppIcon';
+import { resolveShipmentRequesterId, getShipmentRequesterUser } from '../utils/shipperUtils';
 
 export interface BoardColumnConfig {
   id: string;
@@ -169,18 +170,20 @@ export const OptimizedShipmentsBoard: React.FC<OptimizedShipmentsBoardProps> = (
 
   // Extract unique solicitantes for filter
   const solicitantesList = useMemo(() => {
-    const ids = Array.from(new Set(shipments.map(s => s.embarcadorId).filter(Boolean)));
+    const ids = Array.from(new Set(shipments.map(s => resolveShipmentRequesterId(s, users)).filter(Boolean)));
     return ids.map(id => {
       const u = getUser(id);
-      return { id, name: u?.name || 'Não atribuído' };
+      return { id, name: u?.name || `Usuário (${id})` };
     }).sort((a, b) => a.name.localeCompare(b.name));
-  }, [shipments, getUser]);
+  }, [shipments, users, getUser]);
 
   // Filtered shipments
   const filteredShipments = useMemo(() => {
     return shipments.filter(shipment => {
+      const requesterId = resolveShipmentRequesterId(shipment, users);
+
       // Solicitante filter
-      if (selectedEmbarcador !== 'all' && shipment.embarcadorId !== selectedEmbarcador) {
+      if (selectedEmbarcador !== 'all' && requesterId !== selectedEmbarcador) {
         return false;
       }
 
@@ -190,7 +193,7 @@ export const OptimizedShipmentsBoard: React.FC<OptimizedShipmentsBoardProps> = (
         const cargo = getCargo(shipment.cargoId);
         const client = getClient(cargo?.clientId);
         const product = getProduct(cargo?.productId);
-        const solicitante = getUser(shipment.embarcadorId);
+        const solicitante = getShipmentRequesterUser(shipment, users);
 
         const matchId = shipment.id?.toLowerCase().includes(term);
         const matchPlate = shipment.horsePlate?.toLowerCase().includes(term) ||
@@ -433,7 +436,7 @@ export const OptimizedShipmentsBoard: React.FC<OptimizedShipmentsBoardProps> = (
                     const cargo = getCargo(shipment.cargoId);
                     const client = getClient(cargo?.clientId);
                     const product = getProduct(cargo?.productId);
-                    const solicitante = getUser(shipment.embarcadorId);
+                    const solicitante = getShipmentRequesterUser(shipment, users);
                     const driverPhone = getDriverPhone(shipment);
                     const currentStatusEntry = shipment.statusHistory?.[shipment.statusHistory.length - 1];
                     const requestTimestamp = currentStatusEntry?.timestamp || shipment.createdAt;

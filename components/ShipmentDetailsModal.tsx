@@ -6,7 +6,7 @@ import { FileTextIcon, Trash2 } from 'lucide-react';
 import { getToolStaysByShipment, StayRecord } from '../utils/toolStorage';
 import { getShipmentAttachmentUrl } from '../lib/db';
 import { autoFormatInput } from '../utils/formatters';
-
+import { getShipmentRequesterUser } from '../utils/shipperUtils';
 
 interface ShipmentDetailsModalProps {
   isOpen: boolean;
@@ -24,7 +24,6 @@ interface ShipmentDetailsModalProps {
   users: User[];
   companyLogo?: string | null;
 }
-
 
 const DetailItem: React.FC<{ label: string; value?: string | number | null; children?: React.ReactNode }> = ({ label, value, children }) => (
     <div>
@@ -72,7 +71,7 @@ const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
   };
 
   const mainVehicle = vehicles.find(v => v.plate === shipment.horsePlate);
-  const embarcador = users.find(u => u.id === shipment.embarcadorId);
+  const embarcador = getShipmentRequesterUser(shipment, users);
   const product = products.find(p => p.id === cargo?.productId);
 
   const handleSave = () => {
@@ -158,7 +157,10 @@ const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
                 <DetailItem label="Produto" value={product?.name} />
                 <DetailItem label="Carga Vinculada" value={cargo?.sequenceId ? `#${cargo.sequenceId}` : cargo?.id} />
                 <DetailItem label="Status Atual" value={shipment.status} />
-                <DetailItem label="Comercial (Embarcador)" value={embarcador?.name || 'N/A'} />
+                <DetailItem 
+                    label="Solicitante / Responsável" 
+                    value={embarcador ? `${embarcador.name}${embarcador.profile ? ` (${embarcador.profile})` : ''}` : 'N/A'} 
+                />
                 {shipment.status === 'Cancelado' && shipment.cancellationReason && (
                     <div className="md:col-span-2 mt-2 p-3 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800/50 rounded-md">
                         <p className="text-xs font-medium text-red-800 dark:text-red-400">Motivo do Cancelamento</p>
