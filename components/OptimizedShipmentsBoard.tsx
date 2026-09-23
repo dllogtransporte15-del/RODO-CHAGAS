@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { WhatsAppIcon } from './icons/WhatsAppIcon';
 import { resolveShipmentRequesterId, getShipmentRequesterUser } from '../utils/shipperUtils';
+import { hasDriverEffectiveShipment, hasVehicleEffectiveShipment } from '../utils';
 
 export interface BoardColumnConfig {
   id: string;
@@ -40,6 +41,7 @@ export interface BoardColumnConfig {
 export interface OptimizedShipmentsBoardProps {
   columns: BoardColumnConfig[];
   shipments: Shipment[];
+  allShipments?: Shipment[];
   cargos: Cargo[];
   clients: Client[];
   products: Product[];
@@ -54,6 +56,7 @@ export interface OptimizedShipmentsBoardProps {
 export const OptimizedShipmentsBoard: React.FC<OptimizedShipmentsBoardProps> = ({
   columns,
   shipments,
+  allShipments,
   cargos,
   clients,
   products,
@@ -64,6 +67,7 @@ export const OptimizedShipmentsBoard: React.FC<OptimizedShipmentsBoardProps> = (
   onShowDetails,
   onAttach,
 }) => {
+  const allShipmentsList = allShipments || shipments;
   const [searchTerm, setSearchTerm] = useState('');
   const [urgencyFilter, setUrgencyFilter] = useState<'all' | 'normal' | 'warning' | 'critical'>('all');
   const [selectedEmbarcador, setSelectedEmbarcador] = useState<string>('all');
@@ -455,6 +459,10 @@ export const OptimizedShipmentsBoard: React.FC<OptimizedShipmentsBoardProps> = (
                       urgencyDot = 'bg-red-500 animate-pulse';
                     }
 
+                    const isInitialPhase = shipment.status === ShipmentStatus.AguardandoSeguradora || shipment.status === ShipmentStatus.PreCadastro;
+                    const isFirstDriver = isInitialPhase && !hasDriverEffectiveShipment(shipment.driverName, shipment.driverCpf, shipment.id, allShipmentsList);
+                    const isFirstPlate = isInitialPhase && !hasVehicleEffectiveShipment(shipment.horsePlate, shipment.id, allShipmentsList);
+
                     if (viewDensity === 'compact') {
                       // COMPACT VIEW
                       return (
@@ -467,7 +475,14 @@ export const OptimizedShipmentsBoard: React.FC<OptimizedShipmentsBoardProps> = (
                               <span className="font-mono text-xs font-bold text-primary dark:text-blue-400">
                                 {shipment.id}
                               </span>
-                              <span className="px-1.5 py-0.5 text-[10px] font-bold bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded border border-gray-200 dark:border-gray-600">
+                              <span 
+                                className={`px-1.5 py-0.5 text-[10px] font-bold rounded border ${
+                                  isFirstPlate 
+                                    ? 'bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 border-red-300 dark:border-red-800' 
+                                    : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 border-gray-200 dark:border-gray-600'
+                                }`}
+                                title={isFirstPlate ? 'Primeiro embarque solicitado desta placa (sem histórico de viagens)' : undefined}
+                              >
                                 {shipment.horsePlate}
                               </span>
                             </div>
@@ -477,7 +492,10 @@ export const OptimizedShipmentsBoard: React.FC<OptimizedShipmentsBoardProps> = (
                             </span>
                           </div>
 
-                          <p className="text-xs font-semibold text-gray-900 dark:text-white truncate mb-1">
+                          <p 
+                            className={`text-xs font-semibold truncate mb-1 ${isFirstDriver ? 'text-red-600 dark:text-red-400 font-bold' : 'text-gray-900 dark:text-white'}`}
+                            title={isFirstDriver ? 'Primeiro embarque solicitado deste motorista (sem histórico de viagens)' : undefined}
+                          >
                             {shipment.driverName}
                           </p>
 
@@ -505,7 +523,7 @@ export const OptimizedShipmentsBoard: React.FC<OptimizedShipmentsBoardProps> = (
                               {onShowDetails && (
                                 <button
                                   onClick={() => onShowDetails(shipment)}
-                                  className="p-1 text-xs bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-md transition-all"
+                                  className="p-1 text-xs bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 rounded-md transition-all"
                                   title="Ver Detalhes"
                                 >
                                   <Eye className="w-3.5 h-3.5" />
@@ -517,51 +535,56 @@ export const OptimizedShipmentsBoard: React.FC<OptimizedShipmentsBoardProps> = (
                       );
                     }
 
-                    // RICH DETAILED VIEW (Standard)
+                    // STANDARD / DETAILED VIEW
                     return (
                       <div
                         key={shipment.id}
-                        className={`bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm hover:shadow-md transition-all border border-gray-150 dark:border-gray-700 border-l-4 ${theme.cardBorder} flex flex-col gap-3 group relative hover:-translate-y-0.5`}
+                        className="bg-white dark:bg-gray-800 rounded-xl shadow-xs hover:shadow-md transition-all duration-200 border border-gray-100 dark:border-gray-700/80 border-l-4 border-l-primary flex flex-col group overflow-hidden"
                       >
-                        {/* Card Header: ID, Copy, SLA & Time */}
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            {onShowDetails ? (
-                              <button
-                                onClick={() => onShowDetails(shipment)}
-                                className="font-mono text-xs font-bold text-primary hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 hover:underline flex items-center gap-1 transition-colors"
-                                title="Clique para ver todos os detalhes"
-                              >
-                                {shipment.id}
-                              </button>
-                            ) : (
-                              <span className="font-mono text-xs font-bold text-gray-800 dark:text-gray-200">
-                                {shipment.id}
-                              </span>
-                            )}
-                            
-                            <button
-                              onClick={() => handleCopy(shipment.id, `id-${shipment.id}`)}
-                              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-0.5 rounded transition-colors"
-                              title="Copiar ID"
-                            >
-                              {copiedItemId === `id-${shipment.id}` ? (
-                                <Check className="w-3 h-3 text-green-500" />
+                        {/* Card Header */}
+                        <div className="p-3 pb-2 flex flex-col gap-2">
+                          {/* Top row: ID, Urgency, Quick Actions */}
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              {onShowDetails ? (
+                                <button
+                                  onClick={() => onShowDetails(shipment)}
+                                  className="font-mono text-xs font-bold text-primary dark:text-blue-400 hover:underline flex items-center gap-1 group/id"
+                                  title="Abrir Detalhes do Embarque"
+                                >
+                                  <span>{shipment.id}</span>
+                                  <Eye className="w-3 h-3 opacity-0 group-hover/id:opacity-100 transition-opacity" />
+                                </button>
                               ) : (
-                                <Copy className="w-3 h-3" />
+                                <span className="font-mono text-xs font-bold text-gray-700 dark:text-gray-300">
+                                  {shipment.id}
+                                </span>
                               )}
-                            </button>
+
+                              {cargo && (
+                                <span className="text-[10px] px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded font-mono">
+                                  #{cargo.sequenceId}
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Urgency Badge */}
+                            <div
+                              className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold border transition-colors ${urgencyBadgeBg}`}
+                              title={`Tempo neste status: ${formatElapsedTime(elapsedMinutes)}`}
+                            >
+                              <span className={`w-2 h-2 rounded-full ${urgencyDot}`} />
+                              <span>{formatElapsedTime(elapsedMinutes)}</span>
+                            </div>
                           </div>
 
-                          <div className="text-right flex-shrink-0">
-                            <span 
-                              className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-bold border shadow-2xs ${urgencyBadgeBg}`}
-                              title={`Tempo de espera no status atual: ${formatElapsedTime(elapsedMinutes)}`}
-                            >
-                              <span className={`w-1.5 h-1.5 rounded-full ${urgencyDot}`} />
-                              {formatElapsedTime(elapsedMinutes)}
+                          {/* Data/Hora de solicitação */}
+                          <div className="flex items-center justify-between text-[11px] text-gray-400 dark:text-gray-500">
+                            <span className="flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              Entrada:
                             </span>
-                            <p className="text-[10px] text-gray-400 dark:text-gray-400 mt-0.5">
+                            <p className="font-mono">
                               {formatDateTime(requestTimestamp)}
                             </p>
                           </div>
@@ -572,7 +595,10 @@ export const OptimizedShipmentsBoard: React.FC<OptimizedShipmentsBoardProps> = (
                           {/* Driver row */}
                           <div className="flex items-center justify-between gap-2">
                             <div className="flex items-center gap-1.5 min-w-0">
-                              <span className="font-bold text-xs text-gray-900 dark:text-white truncate">
+                              <span 
+                                className={`font-bold text-xs truncate ${isFirstDriver ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-white'}`}
+                                title={isFirstDriver ? 'Primeiro embarque solicitado deste motorista (sem histórico de viagens)' : undefined}
+                              >
                                 {shipment.driverName}
                               </span>
                               {shipment.driverCpf && (
@@ -602,8 +628,15 @@ export const OptimizedShipmentsBoard: React.FC<OptimizedShipmentsBoardProps> = (
 
                           {/* Plates row */}
                           <div className="flex items-center gap-2 flex-wrap text-xs">
-                            <div className="inline-flex items-center gap-1 bg-white dark:bg-gray-800 px-2 py-0.5 rounded border border-gray-200 dark:border-gray-600 font-mono font-bold text-gray-800 dark:text-gray-100 shadow-2xs">
-                              <Truck className="w-3 h-3 text-primary dark:text-blue-400" />
+                            <div 
+                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded border font-mono font-bold shadow-2xs ${
+                                isFirstPlate 
+                                  ? 'bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 border-red-300 dark:border-red-800' 
+                                  : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 border-gray-200 dark:border-gray-600'
+                              }`}
+                              title={isFirstPlate ? 'Primeiro embarque solicitado desta placa (sem histórico de viagens)' : undefined}
+                            >
+                              <Truck className={`w-3 h-3 ${isFirstPlate ? 'text-red-600 dark:text-red-400' : 'text-primary dark:text-blue-400'}`} />
                               <span>{shipment.horsePlate || 'Sem placa'}</span>
                               <button
                                 onClick={() => handleCopy(shipment.horsePlate, `plate-${shipment.id}`)}

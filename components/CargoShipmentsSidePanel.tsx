@@ -1,9 +1,10 @@
 import React from 'react';
 import { X, Truck, Calendar, Weight, Info, Lock } from 'lucide-react';
 import type { Cargo, Shipment, User, Client, Product, Vehicle } from '../types';
-import { UserProfile } from '../types';
+import { UserProfile, ShipmentStatus } from '../types';
 import ShipmentDetailsModal from './ShipmentDetailsModal';
 import { resolveShipmentRequesterId, getShipmentRequesterUser } from '../utils/shipperUtils';
+import { hasDriverEffectiveShipment, hasVehicleEffectiveShipment } from '../utils';
 
 interface CargoShipmentsSidePanelProps {
   isOpen: boolean;
@@ -103,6 +104,10 @@ const CargoShipmentsSidePanel: React.FC<CargoShipmentsSidePanelProps> = ({
                 const isMine = shipment.embarcadorId === currentUser.id || shipment.createdById === currentUser.id || requesterId === currentUser.id;
                 const canAccessDetails = currentUser.profile !== UserProfile.Cliente && (isInternalStaff || isMine);
 
+                const isInitialPhase = shipment.status === ShipmentStatus.AguardandoSeguradora || shipment.status === ShipmentStatus.PreCadastro;
+                const isFirstDriver = isInitialPhase && !hasDriverEffectiveShipment(shipment.driverName, shipment.driverCpf, shipment.id, shipments);
+                const isFirstPlate = isInitialPhase && !hasVehicleEffectiveShipment(shipment.horsePlate, shipment.id, shipments);
+
                 return (
                   <div 
                     key={shipment.id}
@@ -129,8 +134,18 @@ const CargoShipmentsSidePanel: React.FC<CargoShipmentsSidePanelProps> = ({
                           <Truck className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                         </div>
                         <div>
-                          <h3 className="font-bold text-gray-900 dark:text-white leading-tight">{shipment.driverName}</h3>
-                          <p className="text-xs text-gray-500 dark:text-gray-400 font-mono">{shipment.horsePlate}</p>
+                          <h3 
+                            className={`font-bold leading-tight ${isFirstDriver ? 'text-red-600 dark:text-red-400 font-bold' : 'text-gray-900 dark:text-white'}`}
+                            title={isFirstDriver ? 'Primeiro embarque solicitado deste motorista (sem histórico de viagens)' : undefined}
+                          >
+                            {shipment.driverName}
+                          </h3>
+                          <p 
+                            className={`text-xs font-mono ${isFirstPlate ? 'text-red-600 dark:text-red-400 font-bold' : 'text-gray-500 dark:text-gray-400'}`}
+                            title={isFirstPlate ? 'Primeiro embarque solicitado desta placa (sem histórico de viagens)' : undefined}
+                          >
+                            {shipment.horsePlate}
+                          </p>
                         </div>
                       </div>
                       <span className={`px-2 py-1 text-[10px] font-bold rounded-full uppercase tracking-wider ${

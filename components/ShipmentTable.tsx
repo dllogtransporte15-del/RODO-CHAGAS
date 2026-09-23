@@ -21,9 +21,11 @@ import { useDriverLocations } from '../hooks/useDriverLocations';
 import MultiSelectDropdown from './MultiSelectDropdown';
 import ShipmentDetailsModal from './ShipmentDetailsModal';
 import { getShipmentRequesterUser } from '../utils/shipperUtils';
+import { hasDriverEffectiveShipment, hasVehicleEffectiveShipment } from '../utils';
 
 interface ShipmentTableProps {
   shipments: Shipment[];
+  allShipments?: Shipment[];
   drivers: Driver[];
   cargos: Cargo[];
   users: User[];
@@ -55,7 +57,8 @@ interface ShipmentTableProps {
   tickets?: Ticket[];
 }
 
-const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, drivers, cargos, users, vehicles, onAttach, onEditPrice, onCancel, onTransfer, onShowHistory, onShowCargoDetails, canUserAdvanceStatus, onMarkArrival, onDelete, onRevertStatus, onOpenCadastroAntt, onUpdatePrice, onUpdateShipmentData, onAddAttachments, onOpenEditScheduledDateTime, currentUser, activeStatus, clients, products, stays = [], companyLogo, onDeleteAttachment, onSwapCargo, tickets = [] }) => {
+const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, allShipments, drivers, cargos, users, vehicles, onAttach, onEditPrice, onCancel, onTransfer, onShowHistory, onShowCargoDetails, canUserAdvanceStatus, onMarkArrival, onDelete, onRevertStatus, onOpenCadastroAntt, onUpdatePrice, onUpdateShipmentData, onAddAttachments, onOpenEditScheduledDateTime, currentUser, activeStatus, clients, products, stays = [], companyLogo, onDeleteAttachment, onSwapCargo, tickets = [] }) => {
+  const allShipmentsList = allShipments || shipments;
 
 
   const [openActionMenu, setOpenActionMenu] = useState<string | null>(null);
@@ -344,6 +347,9 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, drivers, cargo
             const canAdvance = advanceStatusCheck.allowed;
             const disabledReason = advanceStatusCheck.reason;
             const isActionable = shipment.status !== ShipmentStatus.Finalizado && shipment.status !== ShipmentStatus.Cancelado;
+            const isInitialPhase = shipment.status === ShipmentStatus.AguardandoSeguradora || shipment.status === ShipmentStatus.PreCadastro;
+            const isFirstDriver = isInitialPhase && !hasDriverEffectiveShipment(shipment.driverName, shipment.driverCpf, shipment.id, allShipmentsList);
+            const isFirstPlate = isInitialPhase && !hasVehicleEffectiveShipment(shipment.horsePlate, shipment.id, allShipmentsList);
 
             return (
               <div key={shipment.id} className="p-3 space-y-3">
@@ -351,13 +357,13 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, drivers, cargo
                   <div>
                     <div className="flex items-center gap-1">
                       {isClient ? (
-                        <span className="text-sm font-bold text-gray-700 dark:text-gray-300">
+                        <span className="font-mono text-sm text-primary dark:text-blue-400 font-bold">
                           {shipment.id}
                         </span>
                       ) : (
                         <button 
                           onClick={() => setDetailsModalShipment(shipment)} 
-                          className="text-sm font-bold text-primary dark:text-blue-400 hover:underline"
+                          className="font-mono text-sm text-primary dark:text-blue-400 font-bold hover:underline text-left block"
                         >
                           {shipment.id}
                         </button>
@@ -398,7 +404,12 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, drivers, cargo
                   <div>
                     <div className="text-[10px] text-gray-400 uppercase font-bold">Motorista</div>
                     <div className="flex items-center gap-1.5">
-                      <div className="font-medium dark:text-gray-200">{shipment.driverName}</div>
+                      <div 
+                        className={`font-medium ${isFirstDriver ? 'text-red-600 dark:text-red-400 font-bold' : 'dark:text-gray-200'}`}
+                        title={isFirstDriver ? 'Primeiro embarque solicitado deste motorista (sem histórico de viagens)' : undefined}
+                      >
+                        {shipment.driverName}
+                      </div>
                       {(() => {
                           const cleanDriverCpf = (shipment.driverCpf || '').replace(/\D/g, '');
                           const driver = drivers?.find(d => (d.cpf && d.cpf.replace(/\D/g, '') === cleanDriverCpf) || (d.name && d.name.toLowerCase().trim() === (shipment.driverName || '').toLowerCase().trim()));
@@ -473,7 +484,12 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, drivers, cargo
                           return null;
                       })()}
                     </div>
-                    <div className="text-xs text-gray-500">{shipment.horsePlate}</div>
+                    <div 
+                      className={`text-xs ${isFirstPlate ? 'text-red-600 dark:text-red-400 font-bold' : 'text-gray-500'}`}
+                      title={isFirstPlate ? 'Primeiro embarque solicitado desta placa (sem histórico de viagens)' : undefined}
+                    >
+                      {shipment.horsePlate}
+                    </div>
                     {(vehicle || shipment.vehicleSetType || shipment.vehicleBodyType) && (
                       <span className="mt-1 inline-block px-2 py-0.5 text-[10px] font-semibold rounded-full bg-gray-200 text-gray-700 dark:bg-gray-600 dark:text-gray-200">
                         {shipment.vehicleSetType || vehicle?.setType} / {shipment.vehicleBodyType || vehicle?.bodyType}
@@ -611,6 +627,9 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, drivers, cargo
                 const canAdvance = advanceStatusCheck.allowed;
                 const disabledReason = advanceStatusCheck.reason;
                 const statusHistoryCount = shipment.statusHistory?.length || 0;
+                const isInitialPhase = shipment.status === ShipmentStatus.AguardandoSeguradora || shipment.status === ShipmentStatus.PreCadastro;
+                const isFirstDriver = isInitialPhase && !hasDriverEffectiveShipment(shipment.driverName, shipment.driverCpf, shipment.id, allShipmentsList);
+                const isFirstPlate = isInitialPhase && !hasVehicleEffectiveShipment(shipment.horsePlate, shipment.id, allShipmentsList);
 
                 let isLate = false;
                 if (shipment.scheduledTime && !shipment.arrivalTime) {
@@ -657,7 +676,12 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, drivers, cargo
                     </td>
                     <td className="px-6 py-[11px] whitespace-nowrap">
                       <div className="flex items-center gap-1.5">
-                        <div className="text-sm text-gray-900 dark:text-white">{shipment.driverName}</div>
+                        <div 
+                          className={`text-sm ${isFirstDriver ? 'text-red-600 dark:text-red-400 font-bold' : 'text-gray-900 dark:text-white'}`}
+                          title={isFirstDriver ? 'Primeiro embarque solicitado deste motorista (sem histórico de viagens)' : undefined}
+                        >
+                          {shipment.driverName}
+                        </div>
                         {(() => {
                             const cleanDriverCpf = (shipment.driverCpf || '').replace(/\D/g, '');
                             const driver = drivers?.find(d => (d.cpf && d.cpf.replace(/\D/g, '') === cleanDriverCpf) || (d.name && d.name.toLowerCase().trim() === (shipment.driverName || '').toLowerCase().trim()));
@@ -732,7 +756,12 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, drivers, cargo
                             return null;
                         })()}
                       </div>
-                      <div className="text-sm text-gray-500 dark:text-gray-400">{shipment.horsePlate}</div>
+                      <div 
+                        className={`text-sm ${isFirstPlate ? 'text-red-600 dark:text-red-400 font-bold' : 'text-gray-500 dark:text-gray-400'}`}
+                        title={isFirstPlate ? 'Primeiro embarque solicitado desta placa (sem histórico de viagens)' : undefined}
+                      >
+                        {shipment.horsePlate}
+                      </div>
                       {(() => {
                         const reqUser = getShipmentRequesterUser(shipment, users);
                         const cleanedPhone = reqUser.phone ? reqUser.phone.replace(/\D/g, '') : '';

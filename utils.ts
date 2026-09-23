@@ -141,3 +141,79 @@ export const getMatchedCargo = (offer: FreightOffer, cargos?: Cargo[]): Cargo | 
   return null;
 };
 
+export const hasDriverEffectiveShipment = (
+  driverName?: string, 
+  driverCpf?: string, 
+  excludeShipmentId?: string,
+  currentShipments: any[] = []
+): boolean => {
+  const cleanCurrentCpf = driverCpf ? driverCpf.replace(/\D/g, '') : '';
+  const cleanCurrentName = driverName ? driverName.trim().toLowerCase() : '';
+
+  if (!cleanCurrentCpf && !cleanCurrentName) return false;
+
+  const effectiveStatuses = [
+    'Ag. Nota',
+    'Ag. Adiantamento',
+    'Ag. Agendamento',
+    'Ag. Descarga',
+    'Ag. Saldo',
+    'Finalizado',
+  ];
+
+  return currentShipments.some(s => {
+    if (s.id === excludeShipmentId) return false;
+    if (s.status === 'Cancelado') return false;
+
+    const sCpf = s.driverCpf ? s.driverCpf.replace(/\D/g, '') : '';
+    const sName = s.driverName ? s.driverName.trim().toLowerCase() : '';
+
+    const isSameDriver = (cleanCurrentCpf && sCpf && cleanCurrentCpf === sCpf) || 
+                         (cleanCurrentName && sName && cleanCurrentName === sName);
+
+    if (!isSameDriver) return false;
+
+    const isEffectiveStatus = effectiveStatuses.includes(s.status);
+    const hasEffectiveHistory = s.statusHistory?.some((h: any) => 
+      h.status === 'Ag. Nota' || 
+      h.status === 'Finalizado'
+    );
+
+    return isEffectiveStatus || !!hasEffectiveHistory;
+  });
+};
+
+export const hasVehicleEffectiveShipment = (
+  horsePlate?: string,
+  excludeShipmentId?: string,
+  currentShipments: any[] = []
+): boolean => {
+  const cleanPlate = (horsePlate || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+  if (!cleanPlate) return false;
+
+  const effectiveStatuses = [
+    'Ag. Nota',
+    'Ag. Adiantamento',
+    'Ag. Agendamento',
+    'Ag. Descarga',
+    'Ag. Saldo',
+    'Finalizado',
+  ];
+
+  return currentShipments.some(s => {
+    if (s.id === excludeShipmentId) return false;
+    if (s.status === 'Cancelado') return false;
+
+    const sPlate = (s.horsePlate || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+    if (sPlate !== cleanPlate) return false;
+
+    const isEffectiveStatus = effectiveStatuses.includes(s.status);
+    const hasEffectiveHistory = s.statusHistory?.some((h: any) => 
+      h.status === 'Ag. Nota' || 
+      h.status === 'Finalizado'
+    );
+
+    return isEffectiveStatus || !!hasEffectiveHistory;
+  });
+};
+

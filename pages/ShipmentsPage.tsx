@@ -269,6 +269,7 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({
 
       <ShipmentTable 
         shipments={filteredShipments} 
+        allShipments={shipments}
         cargos={cargos}
         drivers={drivers}
         users={users}

@@ -21,6 +21,7 @@ import NewShipmentModal from '../components/NewShipmentModal';
 import OptimizedShipmentsBoard, { BoardColumnConfig } from '../components/OptimizedShipmentsBoard';
 import { ShieldCheck, FileCheck2, Receipt, Wallet, Truck as TruckLucide, Clock } from 'lucide-react';
 import { getShipmentRequesterUser } from '../utils/shipperUtils';
+import { hasDriverEffectiveShipment, hasVehicleEffectiveShipment } from '../utils';
 
 interface DashboardPageProps {
   cargos: Cargo[];
@@ -63,12 +64,14 @@ interface DashboardPageProps {
 interface ShipmentListCardProps {
   title: string;
   shipments: Shipment[];
+  allShipments?: Shipment[];
   users: User[];
   thresholds?: { yellow: number; red: number }; // in minutes
   onShowDetails?: (shipment: Shipment) => void;
 }
 
-const ShipmentListCard: React.FC<ShipmentListCardProps> = ({ title, shipments, users, thresholds, onShowDetails }) => {
+const ShipmentListCard: React.FC<ShipmentListCardProps> = ({ title, shipments, allShipments, users, thresholds, onShowDetails }) => {
+  const allShipmentsList = allShipments || shipments;
   const getEmbarcadorName = (embarcadorId: string): string => {
     return users.find(u => u.id === embarcadorId)?.name || 'N/A';
   };
@@ -90,11 +93,11 @@ const ShipmentListCard: React.FC<ShipmentListCardProps> = ({ title, shipments, u
     const now = Date.now();
     const diffMinutes = Math.floor((now - start) / (1000 * 60));
 
-    if (diffMinutes > thresholds.red) {
-      return 'text-red-500 dark:text-red-400';
+    if (diffMinutes >= thresholds.red) {
+      return 'text-red-500 font-bold';
     }
-    if (diffMinutes > thresholds.yellow) {
-      return 'text-yellow-500 dark:text-yellow-400';
+    if (diffMinutes >= thresholds.yellow) {
+      return 'text-yellow-500 font-semibold';
     }
     return 'text-gray-800 dark:text-gray-200';
   };
@@ -138,6 +141,9 @@ const ShipmentListCard: React.FC<ShipmentListCardProps> = ({ title, shipments, u
             const currentStatusEntry = shipment.statusHistory?.[shipment.statusHistory.length - 1];
             const requestTimestamp = currentStatusEntry?.timestamp || shipment.createdAt;
             const timeColorClass = getElapsedTimeColor(requestTimestamp);
+            const isInitialPhase = shipment.status === ShipmentStatus.AguardandoSeguradora || shipment.status === ShipmentStatus.PreCadastro;
+            const isFirstDriver = isInitialPhase && !hasDriverEffectiveShipment(shipment.driverName, shipment.driverCpf, shipment.id, allShipmentsList);
+            const isFirstPlate = isInitialPhase && !hasVehicleEffectiveShipment(shipment.horsePlate, shipment.id, allShipmentsList);
             
             return (
                 <div key={shipment.id} className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-md border-l-4 border-primary">
@@ -153,8 +159,18 @@ const ShipmentListCard: React.FC<ShipmentListCardProps> = ({ title, shipments, u
                             ) : (
                                 <p className="font-mono text-xs text-gray-500 mb-1">{shipment.id}</p>
                             )}
-                            <p className="font-semibold text-gray-900 dark:text-white truncate">{shipment.driverName}</p>
-                            <p className="text-sm text-gray-600 dark:text-gray-300">{shipment.horsePlate}</p>
+                            <p 
+                              className={`font-semibold truncate ${isFirstDriver ? 'text-red-600 dark:text-red-400 font-bold' : 'text-gray-900 dark:text-white'}`}
+                              title={isFirstDriver ? 'Primeiro embarque solicitado deste motorista (sem histórico de viagens)' : undefined}
+                            >
+                              {shipment.driverName}
+                            </p>
+                            <p 
+                              className={`text-sm ${isFirstPlate ? 'text-red-600 dark:text-red-400 font-bold' : 'text-gray-600 dark:text-gray-300'}`}
+                              title={isFirstPlate ? 'Primeiro embarque solicitado desta placa (sem histórico de viagens)' : undefined}
+                            >
+                              {shipment.horsePlate}
+                            </p>
                         </div>
                         <div className="text-right flex-shrink-0 ml-2">
                             <p className={`font-bold text-sm ${timeColorClass}`} title="Tempo de espera no status atual">{formatElapsedTime(requestTimestamp)}</p>
@@ -616,6 +632,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({
                 <ShipmentListCard 
                     title="Embarques Aguardando Carregamento"
                     shipments={shipmentsAwaitingLoading}
+                    allShipments={shipments}
                     users={users}
                     onShowDetails={setDetailsModalShipment}
                 />
@@ -692,6 +709,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({
         <OptimizedShipmentsBoard
           columns={fiscalColumns}
           shipments={fiscalShipments}
+          allShipments={shipments}
           cargos={cargos}
           clients={clients}
           products={products}
@@ -773,6 +791,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({
         <OptimizedShipmentsBoard
           columns={financialColumns}
           shipments={financialShipments}
+          allShipments={shipments}
           cargos={cargos}
           clients={clients}
           products={products}
