@@ -2286,8 +2286,8 @@ const App: React.FC = () => {
     const shipment = shipments.find(s => s.id === shipmentId);
     if (!shipment || !currentUser) return;
     
-    if (![UserProfile.Admin, UserProfile.Diretor].includes(currentUser.profile)) {
-        showToast("Apenas administradores ou diretores podem reverter o status.", 'warning');
+    if (![UserProfile.Admin, UserProfile.Diretor, UserProfile.Fiscal, UserProfile.Supervisor].includes(currentUser.profile)) {
+        showToast("Apenas administradores, diretores, fiscais ou supervisores podem reverter o status.", 'warning');
         return;
     }
 

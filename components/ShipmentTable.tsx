@@ -977,7 +977,7 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, allShipments, 
                                               </a>
                                           )}
           
-                                          {shipment.status === ShipmentStatus.Cancelado && currentUser.profile !== UserProfile.Admin && currentUser.profile !== UserProfile.Diretor ? (
+                                          {shipment.status === ShipmentStatus.Cancelado && ![UserProfile.Admin, UserProfile.Diretor, UserProfile.Fiscal, UserProfile.Supervisor].includes(currentUser.profile) ? (
                                               <span className="text-xs text-gray-400 dark:text-gray-500 italic px-2">Cancelado</span>
                                           ) : (
                                               <div className="relative">
@@ -1020,10 +1020,10 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, allShipments, 
                                                                       {isActionable && (shipment.status === ShipmentStatus.PreCadastro || shipment.status === ShipmentStatus.AguardandoSeguradora) && onSwapCargo && <ActionMenuItem icon={Package} text="Trocar Carga" onClick={() => onSwapCargo(shipment)} />}
                                                                       {onOpenEditScheduledDateTime && <ActionMenuItem icon={Clock} text="Alterar Data/Hora" onClick={() => onOpenEditScheduledDateTime(shipment)} />}
                                                                       {shipment.status === ShipmentStatus.Finalizado && onAttach && <ActionMenuItem icon={PaperclipIcon} text="Gestor de Anexos" onClick={() => onAttach(shipment)} />}
-                                                                      {isActionable && onCancel && (currentUser.profile !== UserProfile.Fiscal || shipment.status === ShipmentStatus.AguardandoSeguradora) && <ActionMenuItem icon={XIcon} text="Cancelar Embarque" onClick={() => onCancel(shipment)} isDestructive />}
+                                                                      {isActionable && onCancel && <ActionMenuItem icon={XIcon} text="Cancelar Embarque" onClick={() => onCancel(shipment)} isDestructive />}
                                                                   </>
                                                               )}
-                                                              {onRevertStatus && (statusHistoryCount > 1 || shipment.status !== ShipmentStatus.AguardandoSeguradora) && (currentUser.profile === UserProfile.Admin || currentUser.profile === UserProfile.Diretor) && (
+                                                              {onRevertStatus && (statusHistoryCount > 1 || shipment.status !== ShipmentStatus.AguardandoSeguradora) && [UserProfile.Admin, UserProfile.Diretor, UserProfile.Fiscal, UserProfile.Supervisor].includes(currentUser.profile) && (
                                                                   <ActionMenuItem 
                                                                       icon={RotateCcw} 
                                                                       text="Voltar Status Anterior" 
