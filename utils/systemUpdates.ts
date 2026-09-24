@@ -20,6 +20,59 @@ export interface SystemRelease {
  */
 export const SYSTEM_RELEASES: SystemRelease[] = [
   {
+    id: 'rel_2026_09_23_v2_8_4',
+    version: 'v2.8.4',
+    date: '23/09/2026',
+    title: 'Gestão Avançada de Embarques, Tabela Interativa e Anexos',
+    summary: 'Nova tabela unificada de embarques com filtros multicritério, modal dedicado para comprovantes e anexos, flexibilidade em adiantamentos e relatórios de embarcadores.',
+    items: [
+      {
+        category: 'feature',
+        title: 'Tabela Completa de Embarques (ShipmentTable)',
+        description: 'Visualização abrangente de todos os embarques com filtros por status, pesquisa instantânea, ordenação personalizada e acesso rápido aos detalhes operacionais.'
+      },
+      {
+        category: 'feature',
+        title: 'Gestão de Anexos e Comprovantes (AttachmentModal)',
+        description: 'Novo modal para upload, conferência e download de comprovantes de pagamento e documentos de transporte diretamente nos registros de embarque.'
+      },
+      {
+        category: 'improvement',
+        title: 'Flexibilidade de Adiantamento e Reversão de Status',
+        description: 'Suporte a adiantamento com 0% e transição contínua entre etapas, além de reversão segura de status no dashboard e na tabela.'
+      },
+      {
+        category: 'improvement',
+        title: 'Ranking de Embarcadores e Relatórios Analíticos',
+        description: 'Cálculos unificados de faturamento e volume de cargas por cliente embarcador nos relatórios e nos painéis do dashboard.'
+      },
+      {
+        category: 'improvement',
+        title: 'Otimização de Desempenho e Bundle Splitting',
+        description: 'Divisão otimizada de pacotes no Vite para carregamento ultrarrápido dos módulos e painéis de embarque.'
+      }
+    ]
+  },
+  {
+    id: 'rel_2026_09_21_v2_8_3',
+    version: 'v2.8.3',
+    date: '21/09/2026',
+    title: 'Instalação PWA, Download do App e Acesso Offline',
+    summary: 'Aprimoramento do fluxo de instalação do aplicativo Web/PWA, correção no direcionamento de download e implementação de Service Worker com Workbox.',
+    items: [
+      {
+        category: 'fix',
+        title: 'Correção de 404 e Fluxo de Instalação do App',
+        description: 'Ajuste nas rotas e redirecionamentos da página de download do aplicativo para dispositivos móveis (Android/iOS) e desktop.'
+      },
+      {
+        category: 'feature',
+        title: 'Service Worker com Precaching Workbox',
+        description: 'Estratégia avançada de cache e roteamento para permitir carregamento instantâneo e estabilidade em conexões móveis.'
+      }
+    ]
+  },
+  {
     id: 'rel_2026_09_19_v2_8_2',
     version: 'v2.8.2',
     date: '19/09/2026',
