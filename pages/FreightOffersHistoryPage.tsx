@@ -66,6 +66,56 @@ const FreightOffersHistoryPage: React.FC<FreightOffersHistoryPageProps> = ({
   const safeCurrentPage = Math.min(currentPage, totalPages);
   const paginatedOffers = filteredOffers.slice((safeCurrentPage - 1) * itemsPerPage, safeCurrentPage * itemsPerPage);
 
+  const addOfferHistory = (offer: FreightOffer, description: string) => {
+    const newLog = {
+      id: `log_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+      userId: currentUser?.id || '',
+      timestamp: new Date().toISOString(),
+      description
+    };
+    return [...(offer.history || []), newLog];
+  };
+
+  const handleAccept = async (offer: FreightOffer) => {
+    if (onSaveFreightOffer) {
+      const isClient = currentUser?.profile === UserProfile.Cliente;
+      const actor = isClient ? 'Cliente' : 'Transportadora';
+      const history = addOfferHistory(offer, `Oferta/Preço aceito pelo ${actor}.`);
+      await onSaveFreightOffer({ ...offer, status: FreightOfferStatus.Aceita, history });
+    }
+  };
+
+  const handleRefuse = async (offer: FreightOffer) => {
+    if (onSaveFreightOffer) {
+      const isClient = currentUser?.profile === UserProfile.Cliente;
+      const actor = isClient ? 'Cliente' : 'Transportadora';
+      const history = addOfferHistory(offer, `Oferta recusada pelo ${actor}.`);
+      await onSaveFreightOffer({ ...offer, status: FreightOfferStatus.Recusada, history });
+    }
+  };
+
+  const handleCounterOffer = async (offer: FreightOffer, newValue: number) => {
+    if (onSaveFreightOffer) {
+      const isClient = currentUser?.profile === UserProfile.Cliente;
+      if (isClient) {
+        const history = addOfferHistory(offer, `Contraproposta de R$ ${newValue.toFixed(2)} enviada pelo Cliente.`);
+        await onSaveFreightOffer({ ...offer, status: FreightOfferStatus.Contraproposta, counterOfferValue: newValue, history });
+      } else {
+        if (offer.status === FreightOfferStatus.AguardandoPreco) {
+          const history = addOfferHistory(offer, `Preço inicial de R$ ${newValue.toFixed(2)} enviado pela Transportadora.`);
+          await onSaveFreightOffer({ ...offer, status: FreightOfferStatus.AnaliseCliente, freightValuePerTon: newValue, history });
+        } else if (offer.status === FreightOfferStatus.AnaliseCliente) {
+          const oldPrice = offer.freightValuePerTon ? ` (era R$ ${offer.freightValuePerTon.toFixed(2)})` : '';
+          const history = addOfferHistory(offer, `Preço inicial editado para R$ ${newValue.toFixed(2)} pela Transportadora${oldPrice}.`);
+          await onSaveFreightOffer({ ...offer, status: FreightOfferStatus.AnaliseCliente, freightValuePerTon: newValue, history });
+        } else {
+          const history = addOfferHistory(offer, `Contraproposta de R$ ${newValue.toFixed(2)} enviada pela Transportadora.`);
+          await onSaveFreightOffer({ ...offer, status: FreightOfferStatus.Contraproposta, counterOfferValue: newValue, history });
+        }
+      }
+    }
+  };
+
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
       <Header title="Histórico de Ofertas de Frete" />
@@ -177,9 +227,9 @@ const FreightOffersHistoryPage: React.FC<FreightOffersHistoryPageProps> = ({
           isClientProfile={currentUser?.profile === UserProfile.Cliente}
           currentUser={currentUser || undefined}
           onSaveOffer={onSaveFreightOffer}
-          onAccept={async () => {}} // Disabled actions for history
-          onRefuse={async () => {}} // Disabled actions for history
-          onCounterOffer={async () => {}} // Disabled actions for history
+          onAccept={handleAccept}
+          onRefuse={handleRefuse}
+          onCounterOffer={handleCounterOffer}
           onDelete={onDeleteFreightOffer}
           onConvertToCargo={onConvertToCargo}
         />

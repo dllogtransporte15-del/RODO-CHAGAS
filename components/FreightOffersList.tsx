@@ -138,9 +138,13 @@ const FreightOffersList: React.FC<FreightOffersListProps> = ({
   const handleCounterSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (counterOfferModal && counterValue) {
-      onCounterOffer(counterOfferModal, Number(counterValue));
-      setCounterOfferModal(null);
-      setCounterValue('');
+      const cleanStr = String(counterValue).trim().replace(',', '.');
+      const num = parseFloat(cleanStr);
+      if (!isNaN(num) && num >= 0) {
+        onCounterOffer(counterOfferModal, num);
+        setCounterOfferModal(null);
+        setCounterValue('');
+      }
     }
   };
 
@@ -451,14 +455,13 @@ const FreightOffersList: React.FC<FreightOffersListProps> = ({
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Novo Valor (R$/Ton)</label>
                   <input
-                    type="number"
-                    step="0.01"
-                    min="0"
+                    type="text"
+                    inputMode="decimal"
                     required
                     value={counterValue}
                     onChange={(e) => setCounterValue(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
-                    placeholder={`Atual: R$ ${counterOfferModal.freightValuePerTon ? counterOfferModal.freightValuePerTon.toFixed(2) : '0.00'}`}
+                    placeholder={`Ex: 180,00 ou 180.00 (Atual: R$ ${counterOfferModal.freightValuePerTon ? counterOfferModal.freightValuePerTon.toFixed(2) : '0.00'})`}
                   />
                 </div>
                 <div className="flex justify-end gap-2">
