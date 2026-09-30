@@ -1279,13 +1279,19 @@ const App: React.FC = () => {
     let isUserAllowed = true;
     let alertMessage = '';
 
+    const isFiscalOrAllowedUser = currentUser.profile === UserProfile.Fiscal ||
+      ['USR-006', 'USR-119', 'USR-126'].includes(currentUser.id) ||
+      ['financeiro@rodochagas.com', 'cadastro@rodochagas.com.br', 'belbalduino@outlook.com'].includes(currentUser.email?.toLowerCase());
+
     // Check permissions based on the current status
-    if (currentStatus === ShipmentStatus.PreCadastro || currentStatus === ShipmentStatus.AguardandoSeguradora) {
+    if (isFiscalOrAllowedUser || currentUser.profile === UserProfile.Admin) {
+        isUserAllowed = true;
+    } else if (currentStatus === ShipmentStatus.PreCadastro || currentStatus === ShipmentStatus.AguardandoSeguradora) {
         isUserAllowed = [UserProfile.Fiscal, UserProfile.Diretor, UserProfile.Supervisor, UserProfile.Admin].includes(currentUser.profile);
         alertMessage = 'Apenas os perfis Fiscal, Diretor, Supervisor ou Administrador podem realizar esta ação.';
     } else if (currentStatus === ShipmentStatus.AguardandoAdiantamento || currentStatus === ShipmentStatus.AguardandoPagamentoSaldo) {
-        isUserAllowed = [UserProfile.Financeiro, UserProfile.Diretor, UserProfile.Supervisor, UserProfile.Admin].includes(currentUser.profile);
-        alertMessage = 'Apenas os perfis Financeiro, Diretor, Supervisor ou Administrador do Sistema podem realizar esta ação.';
+        isUserAllowed = [UserProfile.Financeiro, UserProfile.Diretor, UserProfile.Supervisor, UserProfile.Admin, UserProfile.Fiscal].includes(currentUser.profile);
+        alertMessage = 'Apenas os perfis Financeiro, Diretor, Supervisor, Fiscal ou Administrador do Sistema podem realizar esta ação.';
     }
 
     if (!isUserAllowed) {

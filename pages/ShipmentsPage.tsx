@@ -112,11 +112,17 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({
 
 
 
-  const canUpdate = can('update', currentUser, 'shipments', profilePermissions);
+  const isFiscalOrAllowedUser = Boolean(currentUser && (
+    currentUser.profile === UserProfile.Fiscal ||
+    ['USR-006', 'USR-119', 'USR-126'].includes(currentUser.id) ||
+    ['financeiro@rodochagas.com', 'cadastro@rodochagas.com.br', 'belbalduino@outlook.com'].includes(currentUser.email?.toLowerCase())
+  ));
+
+  const canUpdate = can('update', currentUser, 'shipments', profilePermissions) || isFiscalOrAllowedUser;
   const canDelete = can('delete', currentUser, 'shipments', profilePermissions);
 
   const allowedProfilesForActions = [UserProfile.Comercial, UserProfile.Supervisor, UserProfile.Admin, UserProfile.Diretor, UserProfile.Fiscal];
-  const canPerformSpecialActions = currentUser && allowedProfilesForActions.includes(currentUser.profile);
+  const canPerformSpecialActions = currentUser && (allowedProfilesForActions.includes(currentUser.profile) || isFiscalOrAllowedUser);
   
   const canEditPrice = canUpdate && canPerformSpecialActions;
   const canCancelShipment = canPerformSpecialActions && (canDelete || currentUser.profile === UserProfile.Fiscal || currentUser.profile === UserProfile.Supervisor);
@@ -241,7 +247,10 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({
     const currentStatus = shipment.status;
     const userProfile = currentUser.profile;
 
-    if (userProfile === UserProfile.Admin) return defaultResponse;
+    const isFiscalOrAllowed = userProfile === UserProfile.Fiscal || isFiscalOrAllowedUser;
+
+    // Administrador ou perfil Fiscal (e usuários autorizados) podem anexar e avançar em todos os status de embarque
+    if (userProfile === UserProfile.Admin || isFiscalOrAllowed) return defaultResponse;
 
     if (currentStatus === ShipmentStatus.PreCadastro || currentStatus === ShipmentStatus.AguardandoSeguradora) {
         if ([UserProfile.Fiscal, UserProfile.Diretor, UserProfile.Supervisor].includes(userProfile)) return defaultResponse;
@@ -249,8 +258,8 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({
     }
 
     if (currentStatus === ShipmentStatus.AguardandoAdiantamento || currentStatus === ShipmentStatus.AguardandoPagamentoSaldo) {
-        if ([UserProfile.Financeiro, UserProfile.Diretor, UserProfile.Supervisor].includes(userProfile)) return defaultResponse;
-        return { allowed: false, reason: 'Apenas Financeiro, Diretor, Supervisor ou Admin podem avançar.' };
+        if ([UserProfile.Financeiro, UserProfile.Diretor, UserProfile.Supervisor, UserProfile.Fiscal].includes(userProfile)) return defaultResponse;
+        return { allowed: false, reason: 'Apenas Financeiro, Diretor, Supervisor, Fiscal ou Admin podem avançar.' };
     }
 
 
@@ -274,7 +283,7 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({
         drivers={drivers}
         users={users}
         vehicles={vehicles}
-        onAttach={(canUpdate || isClient) ? handleOpenAttachmentModal : undefined}
+        onAttach={(canUpdate || isClient || isFiscalOrAllowedUser) ? handleOpenAttachmentModal : undefined}
         onAddAttachments={onAddAttachments}
         onEditPrice={canEditPrice ? handleEditPrice : undefined}
         onCancel={canCancelShipment ? handleCancelShipment : undefined}

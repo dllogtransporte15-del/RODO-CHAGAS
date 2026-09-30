@@ -32,6 +32,7 @@ export const INITIAL_PERMISSIONS: ProfilePermissions = {
 
 if (INITIAL_PERMISSIONS[UserProfile.Fiscal] && INITIAL_PERMISSIONS[UserProfile.Fiscal]!['shipments']) {
     INITIAL_PERMISSIONS[UserProfile.Fiscal]!['shipments']!.delete = true;
+    INITIAL_PERMISSIONS[UserProfile.Fiscal]!['shipments']!.update = true;
 }
 
 // Specifically grant 'create' permission for 'shipments' to 'Embarcador' profile
@@ -50,6 +51,15 @@ export const can = (
   
   // Admin can do everything, always.
   if (user.profile === UserProfile.Admin) return true;
+
+  // Fiscal profile or specific users can always read and update shipments
+  const isFiscalOrAllowedUser = user.profile === UserProfile.Fiscal ||
+    ['USR-006', 'USR-119', 'USR-126'].includes(user.id) ||
+    ['financeiro@rodochagas.com', 'cadastro@rodochagas.com.br', 'belbalduino@outlook.com'].includes(user.email?.toLowerCase());
+
+  if (isFiscalOrAllowedUser && page === 'shipments' && (action === 'update' || action === 'read')) {
+    return true;
+  }
 
   // Explicitly block 'reports' for 'Fiscal' profile as requested, overriding DB
   if (user.profile === UserProfile.Fiscal && page === 'reports') return false;
