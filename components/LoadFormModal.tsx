@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import type { Cargo, Client, Product, User, FreightLeg, DailyScheduleEntry, Branch, FreightOffer } from '../types';
+import type { Cargo, Client, Product, User, FreightLeg, DailyScheduleEntry, Branch, FreightOffer, ShipperReceiver } from '../types';
 import { CargoStatus, CargoType, UserProfile, VehicleSetType, VehicleBodyType, DailyScheduleType, FreightPricingType } from '../types';
 import { PlusIcon } from './icons/PlusIcon';
 import { XIcon } from './icons/XIcon';
@@ -11,6 +11,8 @@ import { geocodeCity } from '../utils/geocoding';
 import { useToast } from '../hooks/useToast';
 import { autoFormatInput, parseLocation } from '../utils/formatters';
 import { validateCityFormat } from '../utils/cityUtils';
+import { fetchShipperReceivers, saveShipperReceiver } from '../utils/shipperReceiverStorage';
+import ShipperReceiverFormModal from './ShipperReceiverFormModal';
 
 interface LoadFormModalProps {
   isOpen: boolean;
@@ -138,9 +140,74 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { showToast } = useToast();
 
+  // Expedidor / Recebedor integration
+  const [srList, setSrList] = useState<ShipperReceiver[]>([]);
+  const [quickSRModalOpen, setQuickSRModalOpen] = useState(false);
+  const [quickSRTarget, setQuickSRTarget] = useState<'origin' | 'destination'>('origin');
+  const [quickSRItemToEdit, setQuickSRItemToEdit] = useState<ShipperReceiver | null>(null);
+  const [quickSRInitialName, setQuickSRInitialName] = useState('');
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchShipperReceivers().then(setSrList);
+    }
+  }, [isOpen]);
+
+  const matchingOriginSR = useMemo(() => {
+    if (!load.originLocation?.trim()) return null;
+    return srList.find(r => r.name.toLowerCase().trim() === load.originLocation?.toLowerCase().trim()) || null;
+  }, [srList, load.originLocation]);
+
+  const matchingDestSR = useMemo(() => {
+    if (!load.destinationLocation?.trim()) return null;
+    return srList.find(r => r.name.toLowerCase().trim() === load.destinationLocation?.toLowerCase().trim()) || null;
+  }, [srList, load.destinationLocation]);
+
+  const handleSaveQuickSR = async (data: Omit<ShipperReceiver, 'id' | 'createdAt'> & { id?: string }) => {
+    try {
+      const saved = await saveShipperReceiver(data);
+      setSrList(prev => {
+        const filtered = prev.filter(r => r.id !== saved.id);
+        return [saved, ...filtered];
+      });
+      if (quickSRTarget === 'origin') {
+        setLoad(prev => ({ 
+          ...prev, 
+          originLocation: saved.name,
+          originMapLink: prev.originMapLink || saved.mapLink || prev.originMapLink
+        }));
+      } else {
+        setLoad(prev => ({ 
+          ...prev, 
+          destinationLocation: saved.name,
+          destinationMapLink: prev.destinationMapLink || saved.mapLink || prev.destinationMapLink
+        }));
+      }
+      showToast(`Local "${saved.name}" registrado com sucesso!`, 'success');
+    } catch (e) {
+      showToast('Erro ao salvar local.', 'error');
+    }
+  };
+
   const commercialUsers = useMemo(() => {
-    return users.filter(u => u.profile === UserProfile.Comercial);
-  }, [users]);
+    const allowedProfiles = [
+      UserProfile.Admin,
+      UserProfile.Diretor,
+      UserProfile.Comercial,
+      UserProfile.Supervisor,
+      UserProfile.Embarcador,
+      UserProfile.Coordenador,
+      UserProfile.AgenciadorLider,
+      UserProfile.AgenciadorEmbarque,
+    ];
+    const list = users.filter(u => allowedProfiles.includes(u.profile) && u.active !== false);
+    // Se a carga atual já tiver um createdById que não está na lista (ex: inativo ou outro perfil), inclui para não perder
+    if (load.createdById && !list.some(u => u.id === load.createdById)) {
+      const current = users.find(u => u.id === load.createdById);
+      if (current) list.push(current);
+    }
+    return list;
+  }, [users, load.createdById]);
 
   // Previne recarregamento acidental com dados preenchidos no mobile/desktop
   useEffect(() => {
@@ -218,6 +285,7 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
                 destinationLocation: editableLoad.destinationLocation || '',
                 recipientClient: editableLoad.recipientClient || '',
                 branchId: editableLoad.branchId,
+                createdById: editableLoad.createdById || (loadToEdit.history && loadToEdit.history[0]?.userId) || currentUser.id,
             });
             setHasMultiLeg(editableLoad.freightLegs ? editableLoad.freightLegs.length > 1 : false);
             setShowSalesperson(!!editableLoad.salespersonName);
@@ -326,7 +394,22 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
         setLoad(prev => ({ ...prev, [name]: parseFloat(value) || 0 }));
     }
     else {
-        setLoad(prev => ({ ...prev, [name]: formattedValue }));
+        setLoad(prev => {
+          let updated = { ...prev, [name]: formattedValue };
+          if (name === 'originLocation') {
+            const found = srList.find(s => s.name.toLowerCase().trim() === String(formattedValue).toLowerCase().trim());
+            if (found?.mapLink && !prev.originMapLink) {
+              updated.originMapLink = found.mapLink;
+            }
+          }
+          if (name === 'destinationLocation') {
+            const found = srList.find(s => s.name.toLowerCase().trim() === String(formattedValue).toLowerCase().trim());
+            if (found?.mapLink && !prev.destinationMapLink) {
+              updated.destinationMapLink = found.mapLink;
+            }
+          }
+          return updated;
+        });
     }
   };
 
@@ -453,6 +536,26 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
           originCoords: originCoords || undefined,
           destinationCoords: destinationCoords || undefined,
       };
+
+      // Registrar locais como Expedidor/Recebedor caso ainda não existam
+      if (load.originLocation?.trim() && !srList.some(s => s.name.toLowerCase().trim() === load.originLocation?.toLowerCase().trim())) {
+        saveShipperReceiver({
+          name: load.originLocation.trim(),
+          documentType: 'CNPJ',
+          documentNumber: '',
+          type: 'expedidor',
+          mapLink: load.originMapLink,
+        }).catch(err => console.warn('Could not auto-register origin shipper:', err));
+      }
+      if (load.destinationLocation?.trim() && !srList.some(s => s.name.toLowerCase().trim() === load.destinationLocation?.toLowerCase().trim())) {
+        saveShipperReceiver({
+          name: load.destinationLocation.trim(),
+          documentType: 'CNPJ',
+          documentNumber: '',
+          type: 'recebedor',
+          mapLink: load.destinationMapLink,
+        }).catch(err => console.warn('Could not auto-register destination receiver:', err));
+      }
 
       if (loadToEdit) {
         onSave({
@@ -655,22 +758,156 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
                     </div>
 
                     
-                    <div className="space-y-4">
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Origem (Cidade e Local)</label>
-                        <input name="origin" value={load.origin} onChange={handleChange} placeholder="Cidade de Origem (Ex: Rio Verde, GO)" className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 mb-2" required list="cities-list" />
-                        <input name="originLocation" value={load.originLocation ?? ''} onChange={handleChange} placeholder="Nome do Local (Ex: Fazenda...)" className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 mb-2" />
-                        <input name="originMapLink" value={load.originMapLink ?? ''} onChange={handleChange} placeholder="Link do Google Maps (Origem)" className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600" />
+                    <div className="space-y-3">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Origem (Cidade e Expedidor)</label>
+                        <input 
+                          name="origin" 
+                          value={load.origin} 
+                          onChange={handleChange} 
+                          placeholder="Cidade de Origem (Ex: Rio Verde, GO)" 
+                          className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 mb-2 text-sm" 
+                          required 
+                          list="cities-list" 
+                        />
+                        
+                        <div>
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-xs font-semibold text-gray-600 dark:text-gray-400">
+                              Nome do Local / Expedidor
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setQuickSRTarget('origin');
+                                setQuickSRItemToEdit(matchingOriginSR);
+                                setQuickSRInitialName(load.originLocation || '');
+                                setQuickSRModalOpen(true);
+                              }}
+                              className="text-[11px] font-bold text-primary hover:text-blue-700 dark:text-blue-400 transition"
+                            >
+                              {matchingOriginSR ? '✏️ Ver / Editar Expedidor' : '+ Cadastrar CNPJ/CPF e Contato'}
+                            </button>
+                          </div>
+                          <input 
+                            name="originLocation" 
+                            value={load.originLocation ?? ''} 
+                            onChange={handleChange} 
+                            placeholder="Nome do Local (Ex: Fazenda...)" 
+                            list="origin-locations-list"
+                            className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 mb-1 text-sm" 
+                          />
+                          {matchingOriginSR && (
+                            <div className="flex flex-wrap items-center gap-2 p-2 mb-2 bg-blue-50/80 dark:bg-blue-950/30 border border-blue-200/80 dark:border-blue-800 rounded-lg text-xs">
+                              <span className="font-semibold text-blue-900 dark:text-blue-200">
+                                {matchingOriginSR.documentType}: {matchingOriginSR.documentNumber || 'Não informado'}
+                              </span>
+                              {matchingOriginSR.phone && (
+                                <span className="text-gray-600 dark:text-gray-300 flex items-center gap-1 font-mono">
+                                  • {matchingOriginSR.phone}
+                                  {matchingOriginSR.isWhatsapp && (
+                                    <span className="text-emerald-600 dark:text-emerald-400 font-bold text-[10px] bg-emerald-100/70 dark:bg-emerald-950/40 px-1 py-0.5 rounded">
+                                      WhatsApp
+                                    </span>
+                                  )}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        <input 
+                          name="originMapLink" 
+                          value={load.originMapLink ?? ''} 
+                          onChange={handleChange} 
+                          placeholder="Link do Google Maps (Origem)" 
+                          className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 text-sm" 
+                        />
                     </div>
                     
-                    <div className="space-y-4">
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Destino (Cidade e Local)</label>
-                        <input name="destination" value={load.destination} onChange={handleChange} placeholder="Cidade de Destino (Ex: Santos, SP)" className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 mb-2" required list="cities-list" />
-                        <input name="destinationLocation" value={load.destinationLocation ?? ''} onChange={handleChange} placeholder="Nome do Local (Ex: Porto...)" className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 mb-2" />
-                        <input name="destinationMapLink" value={load.destinationMapLink ?? ''} onChange={handleChange} placeholder="Link do Google Maps (Destino)" className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600" />
+                    <div className="space-y-3">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Destino (Cidade e Recebedor)</label>
+                        <input 
+                          name="destination" 
+                          value={load.destination} 
+                          onChange={handleChange} 
+                          placeholder="Cidade de Destino (Ex: Santos, SP)" 
+                          className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 mb-2 text-sm" 
+                          required 
+                          list="cities-list" 
+                        />
+
+                        <div>
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-xs font-semibold text-gray-600 dark:text-gray-400">
+                              Nome do Local / Recebedor
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setQuickSRTarget('destination');
+                                setQuickSRItemToEdit(matchingDestSR);
+                                setQuickSRInitialName(load.destinationLocation || '');
+                                setQuickSRModalOpen(true);
+                              }}
+                              className="text-[11px] font-bold text-primary hover:text-blue-700 dark:text-blue-400 transition"
+                            >
+                              {matchingDestSR ? '✏️ Ver / Editar Recebedor' : '+ Cadastrar CNPJ/CPF e Contato'}
+                            </button>
+                          </div>
+                          <input 
+                            name="destinationLocation" 
+                            value={load.destinationLocation ?? ''} 
+                            onChange={handleChange} 
+                            placeholder="Nome do Local (Ex: Porto...)" 
+                            list="dest-locations-list"
+                            className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 mb-1 text-sm" 
+                          />
+                          {matchingDestSR && (
+                            <div className="flex flex-wrap items-center gap-2 p-2 mb-2 bg-blue-50/80 dark:bg-blue-950/30 border border-blue-200/80 dark:border-blue-800 rounded-lg text-xs">
+                              <span className="font-semibold text-blue-900 dark:text-blue-200">
+                                {matchingDestSR.documentType}: {matchingDestSR.documentNumber || 'Não informado'}
+                              </span>
+                              {matchingDestSR.phone && (
+                                <span className="text-gray-600 dark:text-gray-300 flex items-center gap-1 font-mono">
+                                  • {matchingDestSR.phone}
+                                  {matchingDestSR.isWhatsapp && (
+                                    <span className="text-emerald-600 dark:text-emerald-400 font-bold text-[10px] bg-emerald-100/70 dark:bg-emerald-950/40 px-1 py-0.5 rounded">
+                                      WhatsApp
+                                    </span>
+                                  )}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        <input 
+                          name="destinationMapLink" 
+                          value={load.destinationMapLink ?? ''} 
+                          onChange={handleChange} 
+                          placeholder="Link do Google Maps (Destino)" 
+                          className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 text-sm" 
+                        />
                     </div>
 
                     <datalist id="cities-list">
                         {BRAZILIAN_CITIES.map(city => <option key={city} value={city} />)}
+                    </datalist>
+
+                    <datalist id="origin-locations-list">
+                        {srList.filter(s => s.type !== 'recebedor').map(s => (
+                          <option key={s.id} value={s.name}>
+                            {s.documentNumber ? `(${s.documentType}: ${s.documentNumber})` : ''}
+                          </option>
+                        ))}
+                    </datalist>
+
+                    <datalist id="dest-locations-list">
+                        {srList.filter(s => s.type !== 'expedidor').map(s => (
+                          <option key={s.id} value={s.name}>
+                            {s.documentNumber ? `(${s.documentType}: ${s.documentNumber})` : ''}
+                          </option>
+                        ))}
                     </datalist>
                 </div>
 
@@ -1217,12 +1454,33 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
                     )}
                 </div>
 
-                {currentUser.profile === UserProfile.Admin && (
+                {[
+                  UserProfile.Admin,
+                  UserProfile.Diretor,
+                  UserProfile.Supervisor,
+                  UserProfile.Coordenador,
+                  UserProfile.AgenciadorLider,
+                  UserProfile.Comercial,
+                ].includes(currentUser.profile) && (
                     <div className="border-t dark:border-gray-600 pt-4">
                         <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2">Administração</h3>
                         <div>
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Comercial Responsável</label>
-                            <select name="createdById" value={load.createdById} onChange={handleChange} className="mt-1 p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600">{commercialUsers.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}</select>
+                            <select 
+                              name="createdById" 
+                              value={load.createdById} 
+                              onChange={handleChange} 
+                              className="mt-1 p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600 text-sm"
+                            >
+                              {commercialUsers.map(u => (
+                                <option key={u.id} value={u.id}>
+                                  {u.name} ({u.profile})
+                                </option>
+                              ))}
+                            </select>
+                            <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">
+                              Usuário responsável pela carga e pelo cálculo de supervisão/comissões.
+                            </p>
                         </div>
                     </div>
                 )}
@@ -1261,6 +1519,15 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
             </div>
         </div>
       </div>
+
+      <ShipperReceiverFormModal
+        isOpen={quickSRModalOpen}
+        onClose={() => setQuickSRModalOpen(false)}
+        onSave={handleSaveQuickSR}
+        itemToEdit={quickSRItemToEdit}
+        initialName={quickSRInitialName}
+        defaultType={quickSRTarget === 'origin' ? 'expedidor' : 'recebedor'}
+      />
     </div>
   );
 };

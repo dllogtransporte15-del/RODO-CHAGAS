@@ -121,12 +121,13 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({
   const canUpdate = can('update', currentUser, 'shipments', profilePermissions) || isFiscalOrAllowedUser;
   const canDelete = can('delete', currentUser, 'shipments', profilePermissions);
 
-  const allowedProfilesForActions = [UserProfile.Comercial, UserProfile.Supervisor, UserProfile.Admin, UserProfile.Diretor, UserProfile.Fiscal];
+  const supervisorRoles = [UserProfile.Supervisor, UserProfile.Coordenador, UserProfile.AgenciadorLider, UserProfile.AgenciadorEmbarque];
+  const allowedProfilesForActions = [UserProfile.Comercial, ...supervisorRoles, UserProfile.Admin, UserProfile.Diretor, UserProfile.Fiscal];
   const canPerformSpecialActions = currentUser && (allowedProfilesForActions.includes(currentUser.profile) || isFiscalOrAllowedUser);
   
   const canEditPrice = canUpdate && canPerformSpecialActions;
-  const canCancelShipment = canPerformSpecialActions && (canDelete || currentUser.profile === UserProfile.Fiscal || currentUser.profile === UserProfile.Supervisor);
-  const canTransferShipment = (canUpdate || currentUser.profile === UserProfile.Supervisor) && canPerformSpecialActions;
+  const canCancelShipment = canPerformSpecialActions && (canDelete || currentUser.profile === UserProfile.Fiscal || supervisorRoles.includes(currentUser.profile));
+  const canTransferShipment = (canUpdate || supervisorRoles.includes(currentUser.profile)) && canPerformSpecialActions;
   const isClient = currentUser.profile === UserProfile.Cliente;
 
   const filteredShipments = useMemo(() => {
@@ -253,12 +254,12 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({
     if (userProfile === UserProfile.Admin || isFiscalOrAllowed) return defaultResponse;
 
     if (currentStatus === ShipmentStatus.PreCadastro || currentStatus === ShipmentStatus.AguardandoSeguradora) {
-        if ([UserProfile.Fiscal, UserProfile.Diretor, UserProfile.Supervisor].includes(userProfile)) return defaultResponse;
+        if ([UserProfile.Fiscal, UserProfile.Diretor, ...supervisorRoles].includes(userProfile)) return defaultResponse;
         return { allowed: false, reason: 'Apenas Fiscal, Diretor, Supervisor ou Admin podem avançar este status.' };
     }
 
     if (currentStatus === ShipmentStatus.AguardandoAdiantamento || currentStatus === ShipmentStatus.AguardandoPagamentoSaldo) {
-        if ([UserProfile.Financeiro, UserProfile.Diretor, UserProfile.Supervisor, UserProfile.Fiscal].includes(userProfile)) return defaultResponse;
+        if ([UserProfile.Financeiro, UserProfile.Diretor, UserProfile.Fiscal, ...supervisorRoles].includes(userProfile)) return defaultResponse;
         return { allowed: false, reason: 'Apenas Financeiro, Diretor, Supervisor, Fiscal ou Admin podem avançar.' };
     }
 

@@ -22,6 +22,7 @@ const OwnersPage = React.lazy(() => import('./pages/OwnersPage'));
 const DriversPage = React.lazy(() => import('./pages/DriversPage'));
 const VehiclesPage = React.lazy(() => import('./pages/VehiclesPage'));
 const ProductsPage = React.lazy(() => import('./pages/ProductsPage'));
+const ShippersReceiversPage = React.lazy(() => import('./pages/ShippersReceiversPage'));
 const OperationalMapPage = React.lazy(() => import('./pages/OperationalMapPage'));
 const CommissionsPage = React.lazy(() => import('./pages/CommissionsPage'));
 const ReportsPage = React.lazy(() => import('./pages/ReportsPage'));
@@ -1287,10 +1288,10 @@ const App: React.FC = () => {
     if (isFiscalOrAllowedUser || currentUser.profile === UserProfile.Admin) {
         isUserAllowed = true;
     } else if (currentStatus === ShipmentStatus.PreCadastro || currentStatus === ShipmentStatus.AguardandoSeguradora) {
-        isUserAllowed = [UserProfile.Fiscal, UserProfile.Diretor, UserProfile.Supervisor, UserProfile.Admin].includes(currentUser.profile);
+        isUserAllowed = [UserProfile.Fiscal, UserProfile.Diretor, UserProfile.Supervisor, UserProfile.Coordenador, UserProfile.AgenciadorLider, UserProfile.AgenciadorEmbarque, UserProfile.Admin].includes(currentUser.profile);
         alertMessage = 'Apenas os perfis Fiscal, Diretor, Supervisor ou Administrador podem realizar esta ação.';
     } else if (currentStatus === ShipmentStatus.AguardandoAdiantamento || currentStatus === ShipmentStatus.AguardandoPagamentoSaldo) {
-        isUserAllowed = [UserProfile.Financeiro, UserProfile.Diretor, UserProfile.Supervisor, UserProfile.Admin, UserProfile.Fiscal].includes(currentUser.profile);
+        isUserAllowed = [UserProfile.Financeiro, UserProfile.Diretor, UserProfile.Supervisor, UserProfile.Coordenador, UserProfile.AgenciadorLider, UserProfile.AgenciadorEmbarque, UserProfile.Admin, UserProfile.Fiscal].includes(currentUser.profile);
         alertMessage = 'Apenas os perfis Financeiro, Diretor, Supervisor, Fiscal ou Administrador do Sistema podem realizar esta ação.';
     }
 
@@ -2292,7 +2293,7 @@ const App: React.FC = () => {
     const shipment = shipments.find(s => s.id === shipmentId);
     if (!shipment || !currentUser) return;
     
-    if (![UserProfile.Admin, UserProfile.Diretor, UserProfile.Fiscal, UserProfile.Supervisor].includes(currentUser.profile)) {
+    if (![UserProfile.Admin, UserProfile.Diretor, UserProfile.Fiscal, UserProfile.Supervisor, UserProfile.Coordenador, UserProfile.AgenciadorLider, UserProfile.AgenciadorEmbarque].includes(currentUser.profile)) {
         showToast("Apenas administradores, diretores, fiscais ou supervisores podem reverter o status.", 'warning');
         return;
     }
@@ -2480,6 +2481,7 @@ const App: React.FC = () => {
           <Route path="/vehicles" element={<VehiclesPage vehicles={vehicles} setVehicles={setVehicles} onSaveVehicle={handleSaveVehicle} owners={owners} currentUser={currentUser} profilePermissions={profilePermissions} shipments={visibleShipments} cargos={cargos} />} />
           <Route path="/loads" element={<LoadsPage loads={activeLoads} setLoads={setCargos} clients={clients} products={products} onSaveLoad={handleSaveLoad} onReactivateLoad={handleReactivateLoad} onSuspendLoad={handleSuspendLoad} onUpdatePrice={handleUpdateShipmentPrice} currentUser={currentUser} profilePermissions={profilePermissions} users={users} shipments={visibleShipments} allShipments={shipments} onDeleteLoad={handleDeleteCargo} onModalStateChange={setIsAnyModalOpen} companyLogo={companyLogo} vehicles={vehicles} drivers={drivers} onDeleteAttachment={handleDeleteShipmentAttachment} branches={branches} stays={stays} tickets={tickets} offerToConvert={offerToConvert} setOfferToConvert={setOfferToConvert} onCreateShipment={handleCreateShipment} />} />
           <Route path="/products" element={<ProductsPage products={products} onSaveProduct={handleSaveProduct} onDeleteProduct={handleDeleteProduct} currentUser={currentUser} profilePermissions={profilePermissions} />} />
+          <Route path="/shippers-receivers" element={<ShippersReceiversPage currentUser={currentUser} profilePermissions={profilePermissions} />} />
           <Route path="/shipments" element={<ShipmentsPage shipments={visibleShipments} cargos={cargos} clients={clients} products={products} drivers={drivers} vehicles={vehicles} currentUser={currentUser} profilePermissions={profilePermissions} users={users} onUpdateAttachment={handleUpdateShipmentAttachment} onAddAttachments={handleAddShipmentAttachments} onUpdatePrice={handleUpdateShipmentPrice} onConfirmCancel={handleConfirmCancelShipment} onUpdateAnttAndBankDetails={handleUpdateShipmentAnttAndBankDetails} onMarkArrival={handleMarkArrival} onTransferShipment={handleTransferShipment} onDeleteShipment={handleDeleteShipment} onRevertStatus={handleRevertShipmentStatus} onUpdateScheduledDateTime={handleUpdateScheduledDateTime} onUpdateShipmentData={handleUpdateShipmentData} onDeleteAttachment={handleDeleteShipmentAttachment} onSwapCargo={handleSwapCargo} activeLocks={activeLocks} onModalStateChange={setIsAnyModalOpen} companyLogo={companyLogo} stays={stays} tickets={tickets} />} />
           <Route path="/operational-loads" element={<OperationalLoadsPage loads={inProgressLoads} clients={clients} products={products} drivers={drivers} vehicles={vehicles} onCreateShipment={handleCreateShipment} onSaveLoad={handleSaveLoad} onReactivateLoad={handleReactivateLoad} onSuspendLoad={handleSuspendLoad} currentUser={currentUser} profilePermissions={profilePermissions} shipments={visibleShipments} allShipments={shipments} users={users} onDeleteLoad={handleDeleteCargo} onUpdatePrice={handleUpdateShipmentPrice} onRequestLoadOrder={handleRequestLoadOrder} onModalStateChange={setIsAnyModalOpen} onDeleteAttachment={handleDeleteShipmentAttachment} branches={branches} stays={stays} tickets={tickets} onUpdateAttachment={handleUpdateShipmentAttachment} onAddAttachments={handleAddShipmentAttachments} onLogout={handleLogout} companyLogo={companyLogo} />} />
           <Route path="/operational-map" element={<OperationalMapPage cargos={cargos} shipments={shipments} clients={clients} products={products} drivers={drivers} vehicles={vehicles} onCreateShipment={handleCreateShipment} currentUser={currentUser} users={users} onModalStateChange={setIsAnyModalOpen} onDeleteAttachment={handleDeleteShipmentAttachment} companyLogo={companyLogo} />} />

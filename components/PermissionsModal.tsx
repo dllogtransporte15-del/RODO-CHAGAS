@@ -20,6 +20,7 @@ const PAGE_NAMES: Record<Page, string> = {
   'vehicles': 'Veículos',
   'loads': 'Cargas (Cadastro)',
   'products': 'Produtos',
+  'shippers-receivers': 'Expedidor/Recebedor',
   'shipments': 'Embarques',
   'shipment-history': 'Histórico de Embarques',
   'load-history': 'Histórico de Cargas',
@@ -44,7 +45,7 @@ const CATEGORIES = [
   { name: 'Operacional', pages: ['loads', 'shipments', 'operational-map', 'shipment-history', 'load-history', 'operational-loads'] as Page[] },
   { name: 'Financeiro', pages: ['financial', 'commissions'] as Page[] },
   { name: 'Relatórios', pages: ['reports'] as Page[] },
-  { name: 'Cadastros', pages: ['clients', 'owners', 'embarcadores', 'drivers', 'vehicles', 'products', 'users-register', 'branches'] as Page[] },
+  { name: 'Cadastros', pages: ['clients', 'owners', 'embarcadores', 'drivers', 'vehicles', 'products', 'shippers-receivers', 'users-register', 'branches'] as Page[] },
   { name: 'Configurações', pages: ['appearance'] as Page[] },
   { name: 'Ferramentas', pages: ['layover-calculator', 'freight-quote', 'ai-assistant', 'freight-offers-history', 'tools-history', 'system-monitor'] as Page[] }
 ];

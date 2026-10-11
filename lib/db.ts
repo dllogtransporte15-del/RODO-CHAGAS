@@ -507,6 +507,9 @@ export const toUser = (row: any): User => {
     else if (p === 'embarcador') profile = UserProfile.Embarcador;
     else if (p === 'cliente') profile = UserProfile.Cliente;
     else if (p === 'supervisor') profile = UserProfile.Supervisor;
+    else if (p === 'coordenador') profile = UserProfile.Coordenador;
+    else if (p.includes('lider') || p.includes('líder')) profile = UserProfile.AgenciadorLider;
+    else if (p.includes('agenciador embarque') || p.includes('embarque')) profile = UserProfile.AgenciadorEmbarque;
     else if (p === 'comercial') profile = UserProfile.Comercial;
     else if (p === 'financeiro') profile = UserProfile.Financeiro;
     else if (p === 'fiscal') profile = UserProfile.Fiscal;
@@ -522,6 +525,7 @@ export const toUser = (row: any): User => {
     phone: row.phone || '',
     password: row.password || '',
     clientId: row.client_id || undefined,
+    leaderId: row.leader_id || undefined,
     requirePasswordChange: row.require_password_change ?? false,
     authId: row.auth_id || undefined,
     passwordUpdatedAt: row.password_updated_at || undefined,
@@ -538,6 +542,7 @@ export const fromUser = (u: User | Omit<User, 'id'>) => {
     active: u.active !== undefined ? u.active : true,
     phone: u.phone?.trim() || null,
     client_id: u.clientId || null,
+    leader_id: (u as User).leaderId || null,
     require_password_change: u.requirePasswordChange ?? false,
     auth_id: u.authId || null,
     password_updated_at: u.passwordUpdatedAt || new Date().toISOString(),

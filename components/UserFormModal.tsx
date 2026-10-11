@@ -12,9 +12,10 @@ interface UserFormModalProps {
   userToEdit: User | null;
   clients: Client[];
   branches: Branch[];
+  users?: User[];
 }
 
-const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSave, userToEdit, clients, branches }) => {
+const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSave, userToEdit, clients, branches, users = [] }) => {
   const { showToast } = useToast();
   const getInitialState = (): Omit<User, 'id'> => ({
     name: '',
@@ -24,6 +25,7 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSave, 
     active: true,
     password: '',
     clientId: undefined,
+    leaderId: undefined,
     branchId: undefined,
   });
 
@@ -51,18 +53,35 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSave, 
     
     setUser(prev => {
       const newState = { ...prev, [name]: updatedValue };
-      if (name === 'profile' && value !== UserProfile.Cliente) {
-        delete newState.clientId;
+      if (name === 'profile') {
+        if (value !== UserProfile.Cliente) {
+          delete newState.clientId;
+        }
+        if (value !== UserProfile.AgenciadorEmbarque) {
+          delete newState.leaderId;
+        }
       }
       return newState;
     });
   };
+
+  const potentialLeaders = React.useMemo(() => {
+    const leaders = users.filter(u => u.profile === UserProfile.AgenciadorLider);
+    if (leaders.length > 0) return leaders;
+    // Fallback caso ainda não tenha nenhum perfil 'Agenciador Líder', permite selecionar Supervisor ou Coordenador
+    return users.filter(u => [UserProfile.Supervisor, UserProfile.Coordenador, UserProfile.Admin].includes(u.profile));
+  }, [users]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
     if (user.profile === UserProfile.Cliente && !user.clientId) {
       showToast('Por favor, selecione um cliente para associar a este usuário.', 'warning');
+      return;
+    }
+
+    if (user.profile === UserProfile.AgenciadorEmbarque && !user.leaderId) {
+      showToast('Por favor, vincule o Agenciador de Embarque a um Agenciador Líder.', 'warning');
       return;
     }
 
@@ -103,6 +122,31 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSave, 
               {Object.values(UserProfile).map(p => <option key={p} value={p}>{p}</option>)}
             </select>
           </div>
+
+          {user.profile === UserProfile.AgenciadorEmbarque && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Agenciador Líder Vinculado <span className="text-red-500">*</span>
+              </label>
+              <select 
+                name="leaderId" 
+                value={user.leaderId || ''} 
+                onChange={handleChange} 
+                className="mt-1 p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600" 
+                required
+              >
+                <option value="">Selecione o Agenciador Líder...</option>
+                {potentialLeaders.map(l => (
+                  <option key={l.id} value={l.id}>
+                    {l.name} ({l.profile})
+                  </option>
+                ))}
+              </select>
+              <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">
+                O Agenciador de Embarque responde diretamente a este Agenciador Líder.
+              </p>
+            </div>
+          )}
 
           {user.profile === UserProfile.Cliente && (
             <div>

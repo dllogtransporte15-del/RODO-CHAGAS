@@ -7,6 +7,7 @@ import { PaperclipIcon } from './icons/PaperclipIcon';
 import { StayRecord } from '../utils/toolStorage';
 import { parseLocation } from '../utils/locationUtils';
 import { getShipmentAttachmentUrl } from '../lib/db';
+import { findShipperReceiverByName } from '../utils/shipperReceiverStorage';
 
 interface CargoDetailsModalProps {
   isOpen: boolean;
@@ -182,8 +183,54 @@ const CargoDetailsModal: React.FC<CargoDetailsModalProps> = ({ isOpen, onClose, 
                 {cargo.recipientClient && <DetailItem label="Produto" value={product?.name} />}
                 <DetailItem label="Origem" value={cargo.origin} />
                 <DetailItem label="Destino" value={cargo.destination} />
-                {cargo.originLocation && <DetailItem label="Local de Coleta" value={cargo.originLocation} />}
-                {cargo.destinationLocation && <DetailItem label="Local de Entrega" value={cargo.destinationLocation} />}
+                {cargo.originLocation && (() => {
+                  const sr = findShipperReceiverByName(cargo.originLocation);
+                  return (
+                    <DetailItem label="Local de Coleta (Expedidor)">
+                      <div>
+                        <p className="font-semibold text-gray-800 dark:text-gray-200">{cargo.originLocation}</p>
+                        {sr && (
+                          <div className="flex flex-wrap items-center gap-2 mt-0.5 text-xs text-gray-600 dark:text-gray-400">
+                            {sr.documentNumber && (
+                              <span className="font-mono bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded text-[11px]">
+                                {sr.documentType}: {sr.documentNumber}
+                              </span>
+                            )}
+                            {sr.phone && (
+                              <span className="font-mono flex items-center gap-1">
+                                📞 {sr.phone} {sr.isWhatsapp && <span className="text-emerald-600 font-bold">(WhatsApp)</span>}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </DetailItem>
+                  );
+                })()}
+                {cargo.destinationLocation && (() => {
+                  const sr = findShipperReceiverByName(cargo.destinationLocation);
+                  return (
+                    <DetailItem label="Local de Entrega (Recebedor)">
+                      <div>
+                        <p className="font-semibold text-gray-800 dark:text-gray-200">{cargo.destinationLocation}</p>
+                        {sr && (
+                          <div className="flex flex-wrap items-center gap-2 mt-0.5 text-xs text-gray-600 dark:text-gray-400">
+                            {sr.documentNumber && (
+                              <span className="font-mono bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded text-[11px]">
+                                {sr.documentType}: {sr.documentNumber}
+                              </span>
+                            )}
+                            {sr.phone && (
+                              <span className="font-mono flex items-center gap-1">
+                                📞 {sr.phone} {sr.isWhatsapp && <span className="text-emerald-600 font-bold">(WhatsApp)</span>}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </DetailItem>
+                  );
+                })()}
                 {cargo.originMapLink && (
                   <DetailItem label="Link Mapa (Origem)">
                     <a 

@@ -23,7 +23,7 @@ import { ArchiveIcon } from './icons/ArchiveIcon';
 import { ToolIcon } from './icons/ToolIcon';
 import { CalculatorIcon } from './icons/CalculatorIcon';
 import { InfoIcon } from './icons/InfoIcon';
-import { Menu as MenuIcon, X as XIcon, Activity, Sun, Moon, Sparkles } from 'lucide-react';
+import { Menu as MenuIcon, X as XIcon, Activity, Sun, Moon, Sparkles, MapPin } from 'lucide-react';
 import DriverLocationTracker from './DriverLocationTracker';
 
 interface TopNavBarProps {
@@ -72,6 +72,7 @@ const navItems: NavItem[] = [
         { id: 'vehicles', label: 'Veículos', icon: TruckIcon },
         { id: 'loads', label: 'Cargas', icon: PackageIcon },
         { id: 'products', label: 'Produtos', icon: PackageIcon },
+        { id: 'shippers-receivers', label: 'Expedidor/Recebedor', icon: MapPin },
     ]
   },
   { id: 'reports', label: 'Relatórios', icon: ChartIcon },

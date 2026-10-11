@@ -178,7 +178,7 @@ const LoadsPage: React.FC<LoadsPageProps> = ({ loads, setLoads, clients, product
             dailyBalanceDate={dailyBalanceDate}
             onDailyBalanceDateChange={setDailyBalanceDate}
             onEdit={canUpdate ? handleEditLoad : undefined}
-            onClose={(canDelete || currentUser.profile === UserProfile.Supervisor) ? handleCloseLoad : undefined}
+            onClose={(canDelete || [UserProfile.Supervisor, UserProfile.Coordenador, UserProfile.AgenciadorLider, UserProfile.AgenciadorEmbarque].includes(currentUser.profile)) ? handleCloseLoad : undefined}
             onShowHistory={handleShowHistory}
             onReactivate={(currentUser.profile !== UserProfile.Embarcador && currentUser.profile !== UserProfile.Motorista) ? onReactivateLoad : undefined}
             onSuspend={(currentUser.profile !== UserProfile.Embarcador && currentUser.profile !== UserProfile.Motorista) ? onSuspendLoad : undefined}

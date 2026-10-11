@@ -238,6 +238,9 @@ export const UserTable: React.FC<UserTableProps> = ({ users, onEdit, onDelete })
               <option value={UserProfile.Financeiro}>Financeiro</option>
               <option value={UserProfile.Fiscal}>Fiscal</option>
               <option value={UserProfile.Supervisor}>Supervisor</option>
+              <option value={UserProfile.Coordenador}>Coordenador</option>
+              <option value={UserProfile.AgenciadorLider}>Agenciador Líder</option>
+              <option value={UserProfile.AgenciadorEmbarque}>Agenciador Embarque</option>
               <option value={UserProfile.Embarcador}>Embarcador</option>
               <option value={UserProfile.Diretor}>Diretor</option>
               <option value={UserProfile.Cliente}>Cliente</option>
@@ -337,7 +340,17 @@ export const UserTable: React.FC<UserTableProps> = ({ users, onEdit, onDelete })
 
                     {/* Perfil */}
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-700 dark:text-gray-300">
-                      {getProfileDisplayName(user.profile)}
+                      <div>
+                        <span>{getProfileDisplayName(user.profile)}</span>
+                        {user.profile === UserProfile.AgenciadorEmbarque && user.leaderId && (() => {
+                          const leader = users.find(u => u.id === user.leaderId);
+                          return (
+                            <span className="block text-[11px] text-blue-600 dark:text-blue-400 font-normal">
+                              Líder: {leader ? leader.name : 'Não localizado'}
+                            </span>
+                          );
+                        })()}
+                      </div>
                     </td>
 
                     {/* Status */}

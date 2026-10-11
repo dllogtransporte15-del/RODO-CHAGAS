@@ -1,10 +1,13 @@
 // FIX: Moved Page type definition from App.tsx to here so it can be shared across modules.
 // FIX: Added 'embarcadores' and 'operational-map' to the page list to resolve type errors.
-export type Page = 'dashboard' | 'clients' | 'owners' | 'embarcadores' | 'drivers' | 'vehicles' | 'loads' | 'products' | 'shipments' | 'financial' | 'reports' | 'operational-loads' | 'operational-map' | 'users-register' | 'commissions' | 'appearance' | 'shipment-history' | 'load-history' | 'layover-calculator' | 'freight-quote' | 'ai-assistant' | 'tools-history' | 'branches' | 'system-monitor' | 'freight-offers-history';
+export type Page = 'dashboard' | 'clients' | 'owners' | 'embarcadores' | 'drivers' | 'vehicles' | 'loads' | 'products' | 'shippers-receivers' | 'shipments' | 'financial' | 'reports' | 'operational-loads' | 'operational-map' | 'users-register' | 'commissions' | 'appearance' | 'shipment-history' | 'load-history' | 'layover-calculator' | 'freight-quote' | 'ai-assistant' | 'tools-history' | 'branches' | 'system-monitor' | 'freight-offers-history';
 
 export enum UserProfile {
   Embarcador = "Embarcador",
   Supervisor = "Supervisor",
+  Coordenador = "Coordenador",
+  AgenciadorLider = "Agenciador Líder",
+  AgenciadorEmbarque = "Agenciador Embarque",
   Comercial = "Comercial",
   Diretor = "Diretor",
   Fiscal = "Fiscal",
@@ -31,6 +34,7 @@ export interface User {
   phone?: string;
   password?: string;
   clientId?: string;
+  leaderId?: string; // Vinculação do Agenciador Embarque ao seu Agenciador Líder
   requirePasswordChange?: boolean;
   isFirstSetup?: boolean;
   authId?: string;
@@ -51,6 +55,22 @@ export interface RecipientClient {
   name: string;
   cpfCnpj: string;
   phone?: string;
+  createdAt?: string;
+}
+
+export interface ShipperReceiver {
+  id: string;
+  name: string; // Nome do Local (Ex: Fazenda, Porto, Armazém)
+  documentType: 'CNPJ' | 'CPF';
+  documentNumber: string; // CPF ou CNPJ formatado
+  phone?: string; // Número de telefone
+  isWhatsapp?: boolean; // Se é WhatsApp ou não
+  type?: 'expedidor' | 'recebedor' | 'ambos'; // Tipo do local
+  city?: string;
+  state?: string;
+  address?: string;
+  mapLink?: string;
+  notes?: string;
   createdAt?: string;
 }
 

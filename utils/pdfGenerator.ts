@@ -3,6 +3,7 @@ import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { Shipment, Cargo, Client, Product, Vehicle } from "../types";
 import { formatLocationForPrint } from "./locationUtils";
+import { findShipperReceiverByName } from "./shipperReceiverStorage";
 
 export const generateLoadingOrderPDF = (
   shipment: Shipment,
@@ -35,7 +36,6 @@ export const generateLoadingOrderPDF = (
   // Logo
   if (companyLogo) {
       try {
-          // Adjust logo width/height if needed to prevent squash, but keeping original dimension settings
           doc.addImage(companyLogo, 'PNG', margin, 5, 35, 20); 
       } catch (e) {
           console.warn("Could not add company logo to PDF", e);
@@ -77,6 +77,19 @@ export const generateLoadingOrderPDF = (
 
   const formattedOriginLoc = formatLocationForPrint(cargo.originLocation);
   const formattedDestLoc = formatLocationForPrint(cargo.destinationLocation);
+  const originShipper = findShipperReceiverByName(cargo.originLocation);
+  const destReceiver = findShipperReceiverByName(cargo.destinationLocation);
+
+  const originDoc = originShipper?.documentNumber ? ` (${originShipper.documentType || 'DOC'}: ${originShipper.documentNumber})` : '';
+  const destDoc = destReceiver?.documentNumber ? ` (${destReceiver.documentType || 'DOC'}: ${destReceiver.documentNumber})` : '';
+
+  const originFull = formattedOriginLoc 
+    ? `${cargo.origin} - ${formattedOriginLoc}${originDoc}`.toUpperCase()
+    : (originShipper?.name ? `${cargo.origin} - ${originShipper.name}${originDoc}`.toUpperCase() : cargo.origin.toUpperCase());
+
+  const destFull = formattedDestLoc 
+    ? `${cargo.destination} - ${formattedDestLoc}${destDoc}`.toUpperCase()
+    : (destReceiver?.name ? `${cargo.destination} - ${destReceiver.name}${destDoc}`.toUpperCase() : cargo.destination.toUpperCase());
 
   autoTable(doc, {
     startY: 71,
@@ -85,8 +98,8 @@ export const generateLoadingOrderPDF = (
       ["CLIENTE / EMBARCADOR", (client?.nomeFantasia || client?.razaoSocial || cargo.clientId).toUpperCase()],
       ["PRODUTO / MERCADORIA", (product?.name || cargo.productId).toUpperCase()],
       ["PESO / TONELAGEM", `${shipment.shipmentTonnage.toLocaleString("pt-BR")} TON`],
-      ["ORIGEM DO CARREGAMENTO", formattedOriginLoc ? `${cargo.origin} - ${formattedOriginLoc}`.toUpperCase() : cargo.origin.toUpperCase()],
-      ["DESTINO DA CARGA", formattedDestLoc ? `${cargo.destination} - ${formattedDestLoc}`.toUpperCase() : cargo.destination.toUpperCase()],
+      ["ORIGEM (EXPEDIDOR)", originFull],
+      ["DESTINO (RECEBEDOR)", destFull],
       ["DATA PROGRAMADA", shipment.scheduledDate ? new Date(`${shipment.scheduledDate}T00:00:00`).toLocaleDateString('pt-BR') : 'N/A'],
     ],
     theme: "striped",
