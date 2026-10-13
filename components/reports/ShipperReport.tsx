@@ -64,8 +64,34 @@ const ShipperReport: React.FC<ShipperReportProps> = ({ shipments, cargos, client
 
     const getEmbarcadorId = (s: Shipment) => resolveShipmentRequesterId(s, users);
 
+    // Identifica os IDs dos membros da equipe do usuário logado
+    const allowedTeamIds = useMemo(() => {
+      const set = new Set<string>();
+      if (!currentUser) return set;
+      set.add(currentUser.id);
+      if (currentUser.profile === UserProfile.AgenciadorLider) {
+        users.filter(u => u.leaderId === currentUser.id).forEach(u => set.add(u.id));
+      } else if (currentUser.profile === UserProfile.AgenciadorEmbarque) {
+        if (currentUser.leaderId) {
+          set.add(currentUser.leaderId);
+          users.filter(u => u.leaderId === currentUser.leaderId).forEach(u => set.add(u.id));
+        }
+      }
+      return set;
+    }, [currentUser, users]);
+
+    const isRestrictedAgent = useMemo(() => {
+      if (!currentUser) return false;
+      return ![UserProfile.Admin, UserProfile.Diretor].includes(currentUser.profile);
+    }, [currentUser]);
+
     const operatorStats = useMemo<OperatorStats[]>(() => {
-        const shipperIds = Array.from(new Set(shipments.map(s => resolveShipmentRequesterId(s, users)).filter(Boolean))) as string[];
+        let shipperIds = Array.from(new Set(shipments.map(s => resolveShipmentRequesterId(s, users)).filter(Boolean))) as string[];
+
+        // Escopo e Privacidade: Se não for Admin/Diretoria, restringe exclusivamente à equipe do usuário logado
+        if (isRestrictedAgent) {
+          shipperIds = shipperIds.filter(id => allowedTeamIds.has(id));
+        }
 
         return shipperIds.map(shipperId => {
             const shipperUser = users.find(u => u.id === shipperId);
@@ -108,11 +134,14 @@ const ShipperReport: React.FC<ShipperReportProps> = ({ shipments, cargos, client
             if (stat.name.trim().toLowerCase() === 'embarcador' && stat.total === 0) return false;
             return stat.total > 0;
         }).sort((a, b) => b.total - a.total);
-    }, [shipments, users]);
+    }, [shipments, users, isRestrictedAgent, allowedTeamIds]);
 
     const getShipmentsForPdfAndList = (embarcadorId?: string) => {
         if (embarcadorId && embarcadorId !== 'ALL') {
             return shipments.filter(s => resolveShipmentRequesterId(s, users) === embarcadorId);
+        }
+        if (isRestrictedAgent) {
+          return shipments.filter(s => allowedTeamIds.has(resolveShipmentRequesterId(s, users)));
         }
         return shipments;
     };
@@ -121,8 +150,11 @@ const ShipperReport: React.FC<ShipperReportProps> = ({ shipments, cargos, client
         if (selectedEmbarcadorId && selectedEmbarcadorId !== 'ALL') {
             return shipments.filter(s => resolveShipmentRequesterId(s, users) === selectedEmbarcadorId);
         }
+        if (isRestrictedAgent) {
+            return shipments.filter(s => allowedTeamIds.has(resolveShipmentRequesterId(s, users)));
+        }
         return shipments;
-    }, [shipments, selectedEmbarcadorId, users]);
+    }, [shipments, selectedEmbarcadorId, users, isRestrictedAgent, allowedTeamIds]);
 
     const modalStatusOptions = useMemo(() => Array.from(new Set(baseModalShipments.map(s => s.status))).filter(Boolean).sort(), [baseModalShipments]);
     const modalOriginOptions = useMemo(() => Array.from(new Set(baseModalShipments.map(s => cargoMap.get(s.cargoId)?.origin || ''))).filter(Boolean).sort(), [baseModalShipments, cargoMap]);

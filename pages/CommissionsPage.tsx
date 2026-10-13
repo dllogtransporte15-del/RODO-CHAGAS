@@ -15,21 +15,22 @@ interface CommissionsPageProps {
   shipments: Shipment[];
   cargos: Cargo[];
   users: User[];
+  currentUser?: User | null;
   stays?: StayRecord[];
   clients: Client[];
 }
 
 type ActiveTab = 'comercial' | 'embarcador' | 'vendedor-externo';
 
-const CommissionsPage: React.FC<CommissionsPageProps> = ({ shipments, cargos, users, stays = [], clients }) => {
+const CommissionsPage: React.FC<CommissionsPageProps> = ({ shipments, cargos, users, currentUser, stays = [], clients }) => {
   const [activeTab, setActiveTab] = useState<ActiveTab>('comercial');
 
   const renderContent = () => {
     switch(activeTab) {
       case 'comercial':
-        return <SupervisorReport shipments={shipments} cargos={cargos} users={users} stays={stays} />;
+        return <SupervisorReport shipments={shipments} cargos={cargos} users={users} stays={stays} currentUser={currentUser} />;
       case 'embarcador':
-        return <ShipperReport shipments={shipments} cargos={cargos} clients={clients} users={users} currentUser={null} />;
+        return <ShipperReport shipments={shipments} cargos={cargos} clients={clients} users={users} currentUser={currentUser ?? null} />;
       case 'vendedor-externo':
         return <ExternalSalespersonReport shipments={shipments} cargos={cargos} />;
       default:

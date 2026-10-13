@@ -29,6 +29,7 @@ interface SupervisorReportProps {
   cargos: Cargo[];
   users: User[];
   stays?: StayRecord[];
+  currentUser?: User | null;
 }
 
 export interface ShipmentCommissionDetail {
@@ -94,7 +95,7 @@ const COUNTABLE_STATUSES = [
   ShipmentStatus.Finalizado
 ];
 
-const SupervisorReport: React.FC<SupervisorReportProps> = ({ shipments, cargos, users, stays = [] }) => {
+const SupervisorReport: React.FC<SupervisorReportProps> = ({ shipments, cargos, users, stays = [], currentUser }) => {
   const [selectedUserId, setSelectedUserId] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
@@ -437,7 +438,7 @@ const SupervisorReport: React.FC<SupervisorReportProps> = ({ shipments, cargos, 
       });
     });
 
-    return Array.from(statsMap.values())
+    const allStats = Array.from(statsMap.values())
       .filter(stat => {
         const hasShipmentHistory = stat.shipments.length > 0;
         const hasActiveCargo = stat.cargos.some(c => 
@@ -445,9 +446,30 @@ const SupervisorReport: React.FC<SupervisorReportProps> = ({ shipments, cargos, 
           String(c.status).toLowerCase().includes('andamento')
         );
         return hasShipmentHistory || hasActiveCargo;
-      })
-      .sort((a, b) => b.commission - a.commission || b.netProfit - a.netProfit);
-  }, [cargos, shipments, users, cargoMap, usersMap, stays]);
+      });
+
+    // Escopo e Privacidade: Se o usuário logado for Agenciador Líder, Agenciador ou Embarcador (não Admin/Diretor)
+    // restringe os dados, métricas e listagem exclusivamente para a sua equipe
+    if (currentUser && ![UserProfile.Admin, UserProfile.Diretor].includes(currentUser.profile)) {
+      const allowedTeamIds = new Set<string>();
+      allowedTeamIds.add(currentUser.id);
+
+      if (currentUser.profile === UserProfile.AgenciadorLider) {
+        users.filter(u => u.leaderId === currentUser.id).forEach(u => allowedTeamIds.add(u.id));
+      } else if (currentUser.profile === UserProfile.AgenciadorEmbarque) {
+        if (currentUser.leaderId) {
+          allowedTeamIds.add(currentUser.leaderId);
+          users.filter(u => u.leaderId === currentUser.leaderId).forEach(u => allowedTeamIds.add(u.id));
+        }
+      }
+
+      return allStats
+        .filter(stat => allowedTeamIds.has(stat.user.id))
+        .sort((a, b) => b.commission - a.commission || b.netProfit - a.netProfit);
+    }
+
+    return allStats.sort((a, b) => b.commission - a.commission || b.netProfit - a.netProfit);
+  }, [cargos, shipments, users, cargoMap, usersMap, stays, currentUser]);
 
   // Filtros aplicados
   const filteredStats = useMemo(() => {

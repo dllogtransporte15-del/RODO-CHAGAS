@@ -658,6 +658,30 @@ const App: React.FC = () => {
     if ([UserProfile.Admin, UserProfile.Diretor, UserProfile.Fiscal].includes(currentUser.profile as UserProfile)) {
       return cargos;
     }
+
+    // Regra de escopo restrito por equipe para Agenciador Líder e Agenciador de Embarque
+    if (currentUser.profile === UserProfile.AgenciadorLider || currentUser.profile === UserProfile.AgenciadorEmbarque) {
+      const allowedTeamIds = new Set<string>([currentUser.id]);
+      if (currentUser.profile === UserProfile.AgenciadorLider) {
+        users.filter(u => u.leaderId === currentUser.id).forEach(u => allowedTeamIds.add(u.id));
+      } else if (currentUser.profile === UserProfile.AgenciadorEmbarque && currentUser.leaderId) {
+        allowedTeamIds.add(currentUser.leaderId);
+        users.filter(u => u.leaderId === currentUser.leaderId).forEach(u => allowedTeamIds.add(u.id));
+      }
+
+      return cargos.filter(c => {
+        if (c.createdById && allowedTeamIds.has(c.createdById)) return true;
+        if (c.history?.[0]?.userId && allowedTeamIds.has(c.history[0].userId)) return true;
+        if (currentUser.branchId && c.branchId === currentUser.branchId) return true;
+        const hasTeamShipment = shipments.some(s => 
+          s.cargoId === c.id && (
+            (s.embarcadorId && allowedTeamIds.has(s.embarcadorId)) ||
+            (s.createdById && allowedTeamIds.has(s.createdById))
+          )
+        );
+        return hasTeamShipment;
+      });
+    }
     
     // Branch filtering for other profiles
     if (currentUser.branchId) {
@@ -666,7 +690,7 @@ const App: React.FC = () => {
     }
 
     return cargos;
-  }, [currentUser, cargos, shipments]);
+  }, [currentUser, cargos, shipments, users]);
 
   const visibleShipments = useMemo(() => {
     if (!currentUser) return [];
@@ -690,6 +714,34 @@ const App: React.FC = () => {
       return shipments;
     }
 
+    // Regra de escopo restrito por equipe para Agenciador Líder e Agenciador de Embarque
+    if (currentUser.profile === UserProfile.AgenciadorLider || currentUser.profile === UserProfile.AgenciadorEmbarque) {
+      const allowedTeamIds = new Set<string>([currentUser.id]);
+      if (currentUser.profile === UserProfile.AgenciadorLider) {
+        users.filter(u => u.leaderId === currentUser.id).forEach(u => allowedTeamIds.add(u.id));
+      } else if (currentUser.profile === UserProfile.AgenciadorEmbarque && currentUser.leaderId) {
+        allowedTeamIds.add(currentUser.leaderId);
+        users.filter(u => u.leaderId === currentUser.leaderId).forEach(u => allowedTeamIds.add(u.id));
+      }
+
+      const teamCargoIds = new Set(
+        cargos.filter(c => 
+          (c.createdById && allowedTeamIds.has(c.createdById)) ||
+          (c.history?.[0]?.userId && allowedTeamIds.has(c.history[0].userId)) ||
+          (currentUser.branchId && c.branchId === currentUser.branchId)
+        ).map(c => c.id)
+      );
+
+      return shipments.filter(s => {
+        if (s.embarcadorId && allowedTeamIds.has(s.embarcadorId)) return true;
+        if (s.createdById && allowedTeamIds.has(s.createdById)) return true;
+        if (currentUser.branchId && s.branchId === currentUser.branchId) return true;
+        // Carga de sua responsabilidade com embarque externo (Cenário B)
+        if (teamCargoIds.has(s.cargoId)) return true;
+        return false;
+      });
+    }
+
     // Branch filtering for other profiles
     if (currentUser.branchId) {
       // Show data from their branch OR legacy data (no branch assigned)
@@ -697,13 +749,24 @@ const App: React.FC = () => {
     }
 
     return shipments;
-  }, [currentUser, shipments, cargos]);
+  }, [currentUser, shipments, cargos, users]);
   
   const visibleEmbarcadores = useMemo(() => {
     if (!currentUser) return [];
     const allEmbarcadorUsers = users.filter(u => u.profile === UserProfile.Embarcador);
 
     if (currentUser.profile === UserProfile.Embarcador) {
+        return allEmbarcadorUsers.filter(u => u.id === currentUser.id);
+    }
+
+    if (currentUser.profile === UserProfile.AgenciadorLider) {
+        return allEmbarcadorUsers.filter(u => u.leaderId === currentUser.id);
+    }
+
+    if (currentUser.profile === UserProfile.AgenciadorEmbarque) {
+        if (currentUser.leaderId) {
+            return allEmbarcadorUsers.filter(u => u.leaderId === currentUser.leaderId || u.id === currentUser.id);
+        }
         return allEmbarcadorUsers.filter(u => u.id === currentUser.id);
     }
     
@@ -2485,7 +2548,7 @@ const App: React.FC = () => {
           <Route path="/shipments" element={<ShipmentsPage shipments={visibleShipments} cargos={cargos} clients={clients} products={products} drivers={drivers} vehicles={vehicles} currentUser={currentUser} profilePermissions={profilePermissions} users={users} onUpdateAttachment={handleUpdateShipmentAttachment} onAddAttachments={handleAddShipmentAttachments} onUpdatePrice={handleUpdateShipmentPrice} onConfirmCancel={handleConfirmCancelShipment} onUpdateAnttAndBankDetails={handleUpdateShipmentAnttAndBankDetails} onMarkArrival={handleMarkArrival} onTransferShipment={handleTransferShipment} onDeleteShipment={handleDeleteShipment} onRevertStatus={handleRevertShipmentStatus} onUpdateScheduledDateTime={handleUpdateScheduledDateTime} onUpdateShipmentData={handleUpdateShipmentData} onDeleteAttachment={handleDeleteShipmentAttachment} onSwapCargo={handleSwapCargo} activeLocks={activeLocks} onModalStateChange={setIsAnyModalOpen} companyLogo={companyLogo} stays={stays} tickets={tickets} />} />
           <Route path="/operational-loads" element={<OperationalLoadsPage loads={inProgressLoads} clients={clients} products={products} drivers={drivers} vehicles={vehicles} onCreateShipment={handleCreateShipment} onSaveLoad={handleSaveLoad} onReactivateLoad={handleReactivateLoad} onSuspendLoad={handleSuspendLoad} currentUser={currentUser} profilePermissions={profilePermissions} shipments={visibleShipments} allShipments={shipments} users={users} onDeleteLoad={handleDeleteCargo} onUpdatePrice={handleUpdateShipmentPrice} onRequestLoadOrder={handleRequestLoadOrder} onModalStateChange={setIsAnyModalOpen} onDeleteAttachment={handleDeleteShipmentAttachment} branches={branches} stays={stays} tickets={tickets} onUpdateAttachment={handleUpdateShipmentAttachment} onAddAttachments={handleAddShipmentAttachments} onLogout={handleLogout} companyLogo={companyLogo} />} />
           <Route path="/operational-map" element={<OperationalMapPage cargos={cargos} shipments={shipments} clients={clients} products={products} drivers={drivers} vehicles={vehicles} onCreateShipment={handleCreateShipment} currentUser={currentUser} users={users} onModalStateChange={setIsAnyModalOpen} onDeleteAttachment={handleDeleteShipmentAttachment} companyLogo={companyLogo} />} />
-          <Route path="/financial" element={<CommissionsPage shipments={visibleShipments} cargos={cargos} users={users} stays={stays} clients={clients} />} />
+          <Route path="/financial" element={<CommissionsPage shipments={visibleShipments} cargos={cargos} users={users} stays={stays} clients={clients} currentUser={currentUser} />} />
           <Route path="/reports" element={!can('read', currentUser, 'reports', profilePermissions) ? <Navigate to="/" replace /> : <ReportsPage shipments={visibleShipments} embarcadores={visibleEmbarcadores} cargos={cargos} users={users} currentUser={currentUser} clients={clients} branches={branches} stays={stays} companyLogo={companyLogo} />} />
           <Route path="/users-register" element={<UsersPage users={users} setUsers={setUsers} onSaveUser={handleSaveUser} currentUser={currentUser} profilePermissions={profilePermissions} onSavePermissions={handleSavePermissions} clients={clients} onDeleteUser={handleDeleteUser} branches={branches} />} />
           <Route path="/appearance" element={<AppearancePage currentLogo={companyLogo} onSaveLogo={handleSaveLogo} currentTheme={themeImage} onSaveTheme={handleSaveThemeImage} themeMode={themeMode} onSaveThemeMode={handleSaveThemeMode} />} />
