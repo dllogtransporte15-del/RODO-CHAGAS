@@ -40,6 +40,8 @@ export interface User {
   authId?: string;
   passwordUpdatedAt?: string;
   branchId?: string;
+  leaderProfitCommissionRate?: number; // Percentual sobre Lucro Líquido (Equipe/Próprio) - padrão 25%
+  leaderRevenueCommissionRate?: number; // Percentual sobre Faturamento Líquido (Cargas de Terceiros) - padrão 1.5%
   customPermissions?: { [key in Page]?: CrudPermissions };
 }
 

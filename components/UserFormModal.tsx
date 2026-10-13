@@ -4,6 +4,7 @@ import type { User, Client, Branch } from '../types';
 import { UserProfile } from '../types';
 import { useToast } from '../hooks/useToast';
 import { autoFormatInput } from '../utils/formatters';
+import { Percent, ShieldAlert } from 'lucide-react';
 
 interface UserFormModalProps {
   isOpen: boolean;
@@ -13,10 +14,13 @@ interface UserFormModalProps {
   clients: Client[];
   branches: Branch[];
   users?: User[];
+  currentUser?: User;
 }
 
-const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSave, userToEdit, clients, branches, users = [] }) => {
+const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSave, userToEdit, clients, branches, users = [], currentUser }) => {
   const { showToast } = useToast();
+  const isAdmin = !currentUser || currentUser.profile === UserProfile.Admin || currentUser.profile === UserProfile.Diretor;
+
   const getInitialState = (): Omit<User, 'id'> => ({
     name: '',
     email: '',
@@ -27,6 +31,8 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSave, 
     clientId: undefined,
     leaderId: undefined,
     branchId: undefined,
+    leaderProfitCommissionRate: 25,
+    leaderRevenueCommissionRate: 1.5,
   });
 
   const [user, setUser] = useState<Omit<User, 'id' | 'password'> & { password?: string }>(getInitialState());
@@ -35,7 +41,12 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSave, 
     if (isOpen) {
         if(userToEdit) {
             const { password, ...userWithoutPass } = userToEdit;
-            setUser({ ...userWithoutPass, password: '' }); // Don't load existing password
+            setUser({
+              ...userWithoutPass,
+              password: '',
+              leaderProfitCommissionRate: userToEdit.leaderProfitCommissionRate ?? 25,
+              leaderRevenueCommissionRate: userToEdit.leaderRevenueCommissionRate ?? 1.5,
+            }); // Don't load existing password
         } else {
             setUser(getInitialState());
         }
@@ -45,6 +56,12 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSave, 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
     const formattedValue = autoFormatInput(name, value);
+
+    if (name === 'leaderProfitCommissionRate' || name === 'leaderRevenueCommissionRate') {
+      const num = value === '' ? 0 : Number(value);
+      setUser(prev => ({ ...prev, [name]: isNaN(num) ? 0 : num }));
+      return;
+    }
 
     let updatedValue: any = formattedValue;
     if (type === 'checkbox') {
@@ -59,6 +76,10 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSave, 
         }
         if (value !== UserProfile.AgenciadorEmbarque) {
           delete newState.leaderId;
+        }
+        if (value === UserProfile.AgenciadorLider) {
+          if (newState.leaderProfitCommissionRate === undefined) newState.leaderProfitCommissionRate = 25;
+          if (newState.leaderRevenueCommissionRate === undefined) newState.leaderRevenueCommissionRate = 1.5;
         }
       }
       return newState;
@@ -86,6 +107,15 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSave, 
     }
 
     const userToSave: any = { ...user };
+
+    if (user.profile === UserProfile.AgenciadorLider) {
+      userToSave.leaderProfitCommissionRate = user.leaderProfitCommissionRate !== undefined
+        ? Number(user.leaderProfitCommissionRate) 
+        : 25;
+      userToSave.leaderRevenueCommissionRate = user.leaderRevenueCommissionRate !== undefined
+        ? Number(user.leaderRevenueCommissionRate) 
+        : 1.5;
+    }
 
     if (userToEdit) {
       userToSave.id = userToEdit.id;
@@ -122,6 +152,84 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSave, 
               {Object.values(UserProfile).map(p => <option key={p} value={p}>{p}</option>)}
             </select>
           </div>
+
+          {/* Configurações de Comissionamento Híbrido para Agenciador Líder */}
+          {user.profile === UserProfile.AgenciadorLider && (
+            <div className="p-4 rounded-xl bg-gradient-to-br from-indigo-50/80 to-blue-50/50 dark:from-indigo-950/40 dark:to-blue-950/20 border border-indigo-200/80 dark:border-indigo-800/60 shadow-xs space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-bold shadow-xs">
+                    <Percent className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-gray-900 dark:text-white uppercase tracking-wider">
+                      Regra de Comissionamento Híbrida (Agenciador Líder)
+                    </h4>
+                    <p className="text-[11px] text-gray-500 dark:text-gray-400">
+                      Configuração das alíquotas de comissionamento individual do líder
+                    </p>
+                  </div>
+                </div>
+                {!isAdmin && (
+                  <span className="text-[10px] text-amber-700 dark:text-amber-400 font-semibold bg-amber-100/80 dark:bg-amber-900/40 px-2 py-0.5 rounded flex items-center gap-1">
+                    <ShieldAlert className="w-3 h-3" /> Apenas Admin edita
+                  </span>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                    Comissão s/ Lucro Líquido (Equipe/Próprio) <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      max="100"
+                      name="leaderProfitCommissionRate"
+                      disabled={!isAdmin}
+                      value={user.leaderProfitCommissionRate ?? 25}
+                      onChange={handleChange}
+                      className="p-2 pr-8 w-full border rounded-lg dark:bg-gray-700 dark:border-gray-600 font-bold text-sm text-gray-800 dark:text-white disabled:opacity-60 disabled:cursor-not-allowed focus:ring-2 focus:ring-indigo-500 outline-none"
+                      placeholder="25"
+                      required
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-400">%</span>
+                  </div>
+                  <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">
+                    Padrão: <strong>25%</strong> sobre o lucro líquido (fretes da equipe/próprios).
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                    Comissão s/ Faturamento (Cargas de Terceiros) <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      max="100"
+                      name="leaderRevenueCommissionRate"
+                      disabled={!isAdmin}
+                      value={user.leaderRevenueCommissionRate ?? 1.5}
+                      onChange={handleChange}
+                      className="p-2 pr-8 w-full border rounded-lg dark:bg-gray-700 dark:border-gray-600 font-bold text-sm text-gray-800 dark:text-white disabled:opacity-60 disabled:cursor-not-allowed focus:ring-2 focus:ring-indigo-500 outline-none"
+                      placeholder="1.5"
+                      required
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-400">%</span>
+                  </div>
+                  <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">
+                    Padrão: <strong>1,5%</strong> sobre o faturamento líquido (embarques externos).
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {user.profile === UserProfile.AgenciadorEmbarque && (
             <div>

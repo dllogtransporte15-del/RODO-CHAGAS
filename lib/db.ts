@@ -516,6 +516,17 @@ export const toUser = (row: any): User => {
     else if (p === 'diretor') profile = UserProfile.Diretor;
   }
 
+  const permissionsObj = typeof row.permissions === 'object' && row.permissions ? row.permissions : {};
+  const commSettings = permissionsObj.__commissionSettings || {};
+
+  const profitRate = row.leader_profit_commission_rate !== undefined && row.leader_profit_commission_rate !== null
+    ? Number(row.leader_profit_commission_rate)
+    : (commSettings.leaderProfitCommissionRate !== undefined ? Number(commSettings.leaderProfitCommissionRate) : (profile === UserProfile.AgenciadorLider ? 25 : undefined));
+
+  const revenueRate = row.leader_revenue_commission_rate !== undefined && row.leader_revenue_commission_rate !== null
+    ? Number(row.leader_revenue_commission_rate)
+    : (commSettings.leaderRevenueCommissionRate !== undefined ? Number(commSettings.leaderRevenueCommissionRate) : (profile === UserProfile.AgenciadorLider ? 1.5 : undefined));
+
   return {
     id: row.id,
     name: row.name || '',
@@ -526,6 +537,8 @@ export const toUser = (row: any): User => {
     password: row.password || '',
     clientId: row.client_id || undefined,
     leaderId: row.leader_id || undefined,
+    leaderProfitCommissionRate: profitRate,
+    leaderRevenueCommissionRate: revenueRate,
     requirePasswordChange: row.require_password_change ?? false,
     authId: row.auth_id || undefined,
     passwordUpdatedAt: row.password_updated_at || undefined,
@@ -535,6 +548,14 @@ export const toUser = (row: any): User => {
 };
 
 export const fromUser = (u: User | Omit<User, 'id'>) => {
+  const customPermissions = (u as any).customPermissions ? { ...(u as any).customPermissions } : {};
+  if (u.profile === UserProfile.AgenciadorLider || (u as User).leaderProfitCommissionRate !== undefined) {
+    customPermissions.__commissionSettings = {
+      leaderProfitCommissionRate: (u as User).leaderProfitCommissionRate !== undefined ? Number((u as User).leaderProfitCommissionRate) : 25,
+      leaderRevenueCommissionRate: (u as User).leaderRevenueCommissionRate !== undefined ? Number((u as User).leaderRevenueCommissionRate) : 1.5,
+    };
+  }
+
   const payload: any = {
     name: u.name?.trim() || '',
     email: (u.email || '').trim().toLowerCase(),
@@ -547,7 +568,7 @@ export const fromUser = (u: User | Omit<User, 'id'>) => {
     auth_id: u.authId || null,
     password_updated_at: u.passwordUpdatedAt || new Date().toISOString(),
     branch_id: u.branchId || null,
-    permissions: (u as User).customPermissions || null,
+    permissions: Object.keys(customPermissions).length > 0 ? customPermissions : null,
   };
   if ('id' in u && u.id) {
     payload.id = u.id;
@@ -916,10 +937,25 @@ export async function upsertShipment(shipment: Shipment): Promise<void> {
 
 export async function upsertUser(user: User): Promise<User> {
   const payload = fromUser(user);
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from('app_users')
     .upsert(payload)
     .select();
+
+  // Fallback: se a coluna leader_id ainda não existir no banco, salva sem ela
+  const isMissingLeaderCol = (e: any) =>
+    e && (e.code === 'PGRST204' || e.code === '42703') && String(e.message || '').includes('leader_id');
+  if (error && isMissingLeaderCol(error)) {
+    console.warn('[upsertUser] Coluna leader_id não existe em app_users. Salvando sem vínculo de líder. Execute a migração SQL.');
+    const { leader_id, ...payloadWithoutLeader } = payload;
+    ({ data, error } = await supabase
+      .from('app_users')
+      .upsert(payloadWithoutLeader)
+      .select());
+    if (!error && data && data[0]) {
+      return { ...toUser(data[0]), leaderId: user.leaderId };
+    }
+  }
 
   if (error) {
     console.error('[upsertUser] Erro ao salvar usuário no Supabase:', error);

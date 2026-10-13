@@ -342,6 +342,11 @@ export const UserTable: React.FC<UserTableProps> = ({ users, onEdit, onDelete })
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-700 dark:text-gray-300">
                       <div>
                         <span>{getProfileDisplayName(user.profile)}</span>
+                        {user.profile === UserProfile.AgenciadorLider && (
+                          <span className="block text-[11px] text-indigo-600 dark:text-indigo-400 font-semibold mt-0.5">
+                            {user.leaderProfitCommissionRate ?? 25}% Lucro | {user.leaderRevenueCommissionRate ?? 1.5}% Fat.
+                          </span>
+                        )}
                         {user.profile === UserProfile.AgenciadorEmbarque && user.leaderId && (() => {
                           const leader = users.find(u => u.id === user.leaderId);
                           return (

@@ -83,6 +83,7 @@ const UsersPage: React.FC<UsersPageProps> = ({ users, setUsers, onSaveUser, curr
         clients={clients}
         branches={branches}
         users={users}
+        currentUser={currentUser}
       />
       
       <PermissionsModal
