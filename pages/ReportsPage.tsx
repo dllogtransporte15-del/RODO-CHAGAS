@@ -229,6 +229,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, carg
     let totalEfetivado = 0;
 
     const programmedStatuses = [
+      ShipmentStatus.Pendente,
       ShipmentStatus.AguardandoSeguradora,
       ShipmentStatus.PreCadastro,
       ShipmentStatus.AguardandoCarregamento
@@ -272,6 +273,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, carg
     let totalProfitMargin = 0; 
 
     const profitMarginStatuses = [
+        ShipmentStatus.Pendente,
         ShipmentStatus.AguardandoSeguradora,
         ShipmentStatus.PreCadastro,
         ShipmentStatus.AguardandoCarregamento,

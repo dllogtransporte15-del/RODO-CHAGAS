@@ -977,6 +977,7 @@ const OperationalMapPage: React.FC<OperationalMapPageProps> = ({
         onClose={handleCloseShipmentModal}
         onSave={handleSaveShipment}
         cargo={selectedCargoForShipment}
+        cargos={cargos}
         drivers={drivers}
         clients={clients}
         vehicles={vehicles}

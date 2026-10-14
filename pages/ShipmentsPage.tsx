@@ -59,6 +59,7 @@ interface ShipmentsPageProps {
   companyLogo?: string | null;
   onDeleteAttachment?: (shipmentId: string, url: string) => Promise<void>;
   onSwapCargo: (shipmentId: string, newCargoId: string) => void;
+  onApproveShipment?: (shipmentId: string) => void;
   stays?: StayRecord[];
   tickets?: Ticket[];
 }
@@ -72,7 +73,7 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({
   profilePermissions, users, onUpdateAttachment, onAddAttachments, onUpdatePrice, onConfirmCancel, 
   onUpdateAnttAndBankDetails, onTransferShipment, onMarkArrival, onDeleteShipment,
   onRevertStatus, onUpdateScheduledDateTime, onUpdateShipmentData, activeLocks, onModalStateChange,
-  companyLogo, onDeleteAttachment, onSwapCargo, stays = [], tickets = []
+  companyLogo, onDeleteAttachment, onSwapCargo, onApproveShipment, stays = [], tickets = []
 }) => {
 
   const [activeStatus, setActiveStatus] = useState<ShipmentStatus | 'all'>(ShipmentStatus.AguardandoSeguradora);
@@ -248,6 +249,10 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({
     const currentStatus = shipment.status;
     const userProfile = currentUser.profile;
 
+    if (currentStatus === ShipmentStatus.Pendente) {
+      return { allowed: false, reason: 'Embarque pendente de aprovação. Necessário aprovação prévia de supervisor ou diretoria.' };
+    }
+
     const isFiscalOrAllowed = userProfile === UserProfile.Fiscal || isFiscalOrAllowedUser;
 
     // Administrador ou perfil Fiscal (e usuários autorizados) podem anexar e avançar em todos os status de embarque
@@ -309,6 +314,7 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({
         companyLogo={companyLogo}
         onDeleteAttachment={onDeleteAttachment}
         onSwapCargo={handleOpenSwapCargoModal}
+        onApproveShipment={onApproveShipment}
         tickets={tickets}
       />
 

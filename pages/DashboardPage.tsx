@@ -141,7 +141,7 @@ const ShipmentListCard: React.FC<ShipmentListCardProps> = ({ title, shipments, a
             const currentStatusEntry = shipment.statusHistory?.[shipment.statusHistory.length - 1];
             const requestTimestamp = currentStatusEntry?.timestamp || shipment.createdAt;
             const timeColorClass = getElapsedTimeColor(requestTimestamp);
-            const isInitialPhase = shipment.status === ShipmentStatus.AguardandoSeguradora || shipment.status === ShipmentStatus.PreCadastro;
+            const isInitialPhase = shipment.status === ShipmentStatus.Pendente || shipment.status === ShipmentStatus.AguardandoSeguradora || shipment.status === ShipmentStatus.PreCadastro;
             const isFirstDriver = isInitialPhase && !hasDriverEffectiveShipment(shipment.driverName, shipment.driverCpf, shipment.id, allShipmentsList);
             const isFirstPlate = isInitialPhase && !hasVehicleEffectiveShipment(shipment.horsePlate, shipment.id, allShipmentsList);
             
@@ -403,6 +403,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({
     let loadedAndFinishedVehicles = 0;
 
     const scheduledStatuses: ShipmentStatus[] = [
+        ShipmentStatus.Pendente,
         ShipmentStatus.AguardandoSeguradora,
         ShipmentStatus.PreCadastro,
         ShipmentStatus.AguardandoCarregamento,
@@ -549,6 +550,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({
               setOfferForNewShipment(null);
             }}
             cargo={cargos.find(c => c.id === offerForNewShipment.cargoId) || null}
+            cargos={cargos}
             drivers={drivers}
             clients={clients}
             vehicles={vehicles}

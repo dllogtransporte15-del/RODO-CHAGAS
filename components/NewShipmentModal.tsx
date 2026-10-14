@@ -11,6 +11,7 @@ interface NewShipmentModalProps {
   onClose: () => void;
   onSave: (shipmentData: any) => void;
   cargo: Cargo | null;
+  cargos?: Cargo[];
   drivers: Driver[];
   clients: Client[];
   vehicles: Vehicle[];
@@ -20,7 +21,7 @@ interface NewShipmentModalProps {
   offer?: any;
 }
 
-const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, onSave, cargo, drivers, clients, vehicles, currentUser, shipments, users, offer }) => {
+const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, onSave, cargo, cargos, drivers, clients, vehicles, currentUser, shipments, users, offer }) => {
   const [driverName, setDriverName] = useState('');
   const [driverCpf, setDriverCpf] = useState('');
   const [ownerContact, setOwnerContact] = useState('');
@@ -42,6 +43,7 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
   const [driverReferences, setDriverReferences] = useState('');
   const [isScanning, setIsScanning] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [pendingVehicleWarning, setPendingVehicleWarning] = useState<{ plate: string; cargoIdentifier: string } | null>(null);
   const { showToast } = useToast();
 
   // Previne perda de dados por recarregamento acidental
@@ -165,6 +167,9 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
       setEmbarcadorId(
           currentUser?.id || (embarcadores.length > 0 ? embarcadores[0].id : '')
       );
+      setPendingVehicleWarning(null);
+    } else if (!isOpen) {
+      setPendingVehicleWarning(null);
     }
     prevIsOpen.current = isOpen;
   }, [isOpen, currentUser, embarcadores]);
@@ -273,6 +278,41 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
   };
 
+  const executeSave = (statusToSet: ShipmentStatus) => {
+    if (!cargo) return;
+    setIsSubmitting(true);
+    try {
+      onSave({
+        cargoId: cargo.id,
+        driverName,
+        driverCpf,
+        driverContact,
+        ownerContact: ownerContact || undefined,
+        horsePlate,
+        trailer1Plate,
+        trailer2Plate,
+        trailer3Plate,
+        shipmentTonnage,
+        driverFreightValue: calculatedFreight,
+        embarcadorId: embarcadorId,
+        scheduledDate,
+        scheduledTime,
+        vehicleSetType: vehicleSetType || undefined,
+        vehicleBodyType: vehicleBodyType || undefined,
+        bankDetails: bankDetails || undefined,
+        vehicleTag: vehicleTag || undefined,
+        filesToAttach: filesToAttach.length > 0 ? filesToAttach : undefined,
+        driverReferences: driverReferences || undefined,
+        status: statusToSet,
+      });
+    } catch (err) {
+      console.error('Erro ao salvar solicitação de embarque:', err);
+    } finally {
+      setIsSubmitting(false);
+      setPendingVehicleWarning(null);
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!cargo) {
@@ -324,6 +364,7 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
         }
     }
 
+    let isScheduleVerificar = false;
     if (cargo?.dailySchedule) {
         const scheduleRule = cargo.dailySchedule.find(rule => rule.date === scheduledDate);
         if (!scheduleRule) {
@@ -331,8 +372,9 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
             return;
         }
 
-        if (scheduleRule.type === DailyScheduleType.Verificar) {
-            showToast('Atenção: A programação para este dia exige verificação com o comercial antes de marcar.', 'warning');
+        if (scheduleRule.type === DailyScheduleType.Verificar || String(scheduleRule.type).toLowerCase().includes('verificar')) {
+            isScheduleVerificar = true;
+            showToast('Atenção: A programação para este dia está como "Verificar". O embarque entrará como Pendente de aprovação.', 'warning');
         } else if (scheduleRule.type === DailyScheduleType.Fixo && scheduleRule.tonnage) {
             const alreadyScheduledTonnage = shipments
                 .filter(s => s.cargoId === cargo.id && s.scheduledDate === scheduledDate)
@@ -364,36 +406,45 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
         return;
     }
 
+    // Regra A: Bloqueio Total (Mesmo Motorista na Mesma Carga)
+    const cleanDriverCpf = driverCpf.replace(/\D/g, '');
+    const cleanDriverName = driverName.trim().toLowerCase();
+    const driverHasActiveOnSameCargo = shipments.some(s => {
+      if (s.cargoId !== cargo.id) return false;
+      if (s.status === ShipmentStatus.Cancelado || s.status === ShipmentStatus.Finalizado) return false;
+      const sCpf = (s.driverCpf || '').replace(/\D/g, '');
+      const sName = (s.driverName || '').trim().toLowerCase();
+      if (cleanDriverCpf && sCpf && cleanDriverCpf === sCpf) return true;
+      if (cleanDriverName && sName && cleanDriverName === sName) return true;
+      return false;
+    });
 
-    setIsSubmitting(true);
-    try {
-      onSave({
-        cargoId: cargo.id,
-        driverName,
-        driverCpf,
-        driverContact,
-        ownerContact: ownerContact || undefined,
-        horsePlate,
-        trailer1Plate,
-        trailer2Plate,
-        trailer3Plate,
-        shipmentTonnage,
-        driverFreightValue: calculatedFreight,
-        embarcadorId: embarcadorId,
-        scheduledDate,
-        scheduledTime,
-        vehicleSetType: vehicleSetType || undefined,
-        vehicleBodyType: vehicleBodyType || undefined,
-        bankDetails: bankDetails || undefined,
-        vehicleTag: vehicleTag || undefined,
-        filesToAttach: filesToAttach.length > 0 ? filesToAttach : undefined,
-        driverReferences: driverReferences || undefined,
-      });
-    } catch (err) {
-      console.error('Erro ao salvar solicitação de embarque:', err);
-    } finally {
-      setIsSubmitting(false);
+    if (driverHasActiveOnSameCargo) {
+      showToast('Não é permitido gerar mais de uma ordem para o mesmo motorista na mesma carga.', 'error');
+      return;
     }
+
+    // Regra B: Alerta e Trava de Veículo em Outra Carga Ativa
+    const cleanHorsePlate = horsePlate.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+    const activeShipmentWithSameVehicle = shipments.find(s => {
+      if (s.cargoId === cargo.id) return false;
+      if (s.status === ShipmentStatus.Cancelado || s.status === ShipmentStatus.Finalizado) return false;
+      const sHorsePlate = (s.horsePlate || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+      return sHorsePlate && sHorsePlate === cleanHorsePlate;
+    });
+
+    if (activeShipmentWithSameVehicle) {
+      const otherCargo = cargos?.find(c => c.id === activeShipmentWithSameVehicle.cargoId);
+      const cargoIdentifier = otherCargo?.sequenceId ? `#${otherCargo.sequenceId}` : (otherCargo?.id || activeShipmentWithSameVehicle.cargoId);
+      setPendingVehicleWarning({
+        plate: horsePlate.trim().toUpperCase(),
+        cargoIdentifier: String(cargoIdentifier),
+      });
+      return;
+    }
+
+    const targetInitialStatus = isScheduleVerificar ? ShipmentStatus.Pendente : ShipmentStatus.AguardandoSeguradora;
+    executeSave(targetInitialStatus);
   };
 
   if (!isOpen) return null;
@@ -664,6 +715,45 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
             </div>
         </form>
       </div>
+
+      {pendingVehicleWarning && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[70] flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full p-6 border border-amber-200 dark:border-amber-700/50">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center text-amber-600 dark:text-amber-400 flex-shrink-0">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+                  Atenção: Veículo Vinculado a Outra Carga
+                </h3>
+                <p className="mt-2 text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
+                  Atenção: O veículo <strong className="text-amber-700 dark:text-amber-300 font-mono font-bold">{pendingVehicleWarning.plate}</strong> já consta vinculado à carga <strong className="text-gray-900 dark:text-white font-bold">{pendingVehicleWarning.cargoIdentifier}</strong>. O embarque entrará como Pendente de aprovação.
+                </p>
+                <div className="mt-6 flex items-center justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setPendingVehicleWarning(null)}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
+                  >
+                    Voltar / Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isSubmitting}
+                    onClick={() => executeSave(ShipmentStatus.Pendente)}
+                    className="px-4 py-2 text-sm font-bold text-white bg-amber-600 hover:bg-amber-700 rounded-lg shadow-sm transition-colors flex items-center gap-2"
+                  >
+                    {isSubmitting ? 'Salvando...' : 'Confirmar e Salvar como Pendente'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

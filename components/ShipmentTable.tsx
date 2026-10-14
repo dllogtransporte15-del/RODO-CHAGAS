@@ -12,7 +12,7 @@ import { ExternalLinkIcon } from './icons/ExternalLinkIcon';
 import { InfoIcon } from './icons/InfoIcon';
 import { TransferIcon } from './icons/TransferIcon';
 import { MoreVerticalIcon } from './icons/MoreVerticalIcon';
-import { Search, Filter, X, Trash2, RotateCcw, Clock, Package, AlertCircle, Smartphone, MapPin, ChevronLeft, ChevronRight, ArrowUpDown } from 'lucide-react';
+import { Search, Filter, X, Trash2, RotateCcw, Clock, Package, AlertCircle, Smartphone, MapPin, ChevronLeft, ChevronRight, ArrowUpDown, CheckCircle2 } from 'lucide-react';
 import { StayRecord } from '../utils/toolStorage';
 import type { Ticket, Driver } from '../types';
 import { TicketStatus } from '../types';
@@ -54,15 +54,16 @@ interface ShipmentTableProps {
   companyLogo?: string | null;
   onDeleteAttachment?: (shipmentId: string, url: string) => Promise<void>;
   onSwapCargo?: (shipment: Shipment) => void;
+  onApproveShipment?: (shipmentId: string) => void;
   tickets?: Ticket[];
 }
 
-const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, allShipments, drivers, cargos, users, vehicles, onAttach, onEditPrice, onCancel, onTransfer, onShowHistory, onShowCargoDetails, canUserAdvanceStatus, onMarkArrival, onDelete, onRevertStatus, onOpenCadastroAntt, onUpdatePrice, onUpdateShipmentData, onAddAttachments, onOpenEditScheduledDateTime, currentUser, activeStatus, clients, products, stays = [], companyLogo, onDeleteAttachment, onSwapCargo, tickets = [] }) => {
+const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, allShipments, drivers, cargos, users, vehicles, onAttach, onEditPrice, onCancel, onTransfer, onShowHistory, onShowCargoDetails, canUserAdvanceStatus, onMarkArrival, onDelete, onRevertStatus, onOpenCadastroAntt, onUpdatePrice, onUpdateShipmentData, onAddAttachments, onOpenEditScheduledDateTime, currentUser, activeStatus, clients, products, stays = [], companyLogo, onDeleteAttachment, onSwapCargo, onApproveShipment, tickets = [] }) => {
   const allShipmentsList = allShipments || shipments;
 
 
   const [openActionMenu, setOpenActionMenu] = useState<string | null>(null);
-  const [menuPosition, setMenuPosition] = useState<{ top: number, left: number, isUp: boolean } | null>(null);
+  const [menuPosition, setMenuPosition] = useState<{ top: number, left: number, isUp: boolean, maxHeight?: number } | null>(null);
   const [detailsModalShipment, setDetailsModalShipment] = useState<Shipment | null>(null);
   const [activeDriverMap, setActiveDriverMap] = useState<{
     driverName: string;
@@ -112,13 +113,17 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, allShipments, 
       setMenuPosition(null);
     } else {
       const rect = event.currentTarget.getBoundingClientRect();
-      const menuHeight = 250; // Estimated height
-      const isUp = rect.bottom + menuHeight > window.innerHeight;
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const spaceAbove = rect.top;
+      // Real menu height with all action items is ~310px. If spaceBelow < 310 and spaceAbove > spaceBelow, open upwards.
+      const isUp = spaceBelow < 310 && spaceAbove > spaceBelow;
+      const maxH = isUp ? Math.max(150, spaceAbove - 16) : Math.max(150, spaceBelow - 16);
       
       setMenuPosition({
         top: isUp ? rect.top : rect.bottom,
         left: rect.right,
-        isUp: isUp
+        isUp: isUp,
+        maxHeight: Math.min(340, maxH),
       });
       setOpenActionMenu(shipmentId);
     }
@@ -250,7 +255,7 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, allShipments, 
       }}
       disabled={disabled}
       title={title}
-      className={`w-full text-left flex items-center gap-3 px-4 py-2 text-sm ${
+      className={`w-full text-left flex items-center gap-2 px-2.5 py-1.5 text-xs whitespace-nowrap transition-colors ${
         disabled 
           ? 'text-gray-400 dark:text-gray-500 cursor-not-allowed' 
           : isDestructive 
@@ -259,7 +264,7 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, allShipments, 
       }`}
       role="menuitem"
     >
-      <Icon className="w-4 h-4" />
+      <Icon className="w-3.5 h-3.5 flex-shrink-0" />
       <span>{text}</span>
     </button>
   );
@@ -347,7 +352,7 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, allShipments, 
             const canAdvance = advanceStatusCheck.allowed;
             const disabledReason = advanceStatusCheck.reason;
             const isActionable = shipment.status !== ShipmentStatus.Finalizado && shipment.status !== ShipmentStatus.Cancelado;
-            const isInitialPhase = shipment.status === ShipmentStatus.AguardandoSeguradora || shipment.status === ShipmentStatus.PreCadastro;
+            const isInitialPhase = shipment.status === ShipmentStatus.Pendente || shipment.status === ShipmentStatus.AguardandoSeguradora || shipment.status === ShipmentStatus.PreCadastro;
             const isFirstDriver = isInitialPhase && !hasDriverEffectiveShipment(shipment.driverName, shipment.driverCpf, shipment.id, allShipmentsList);
             const isFirstPlate = isInitialPhase && !hasVehicleEffectiveShipment(shipment.horsePlate, shipment.id, allShipmentsList);
 
@@ -381,9 +386,31 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, allShipments, 
                     )}
                   </div>
                   <div className="text-right">
-                    <span className="text-xs font-bold px-2 py-1 rounded-full bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
-                      {shipment.status}
-                    </span>
+                    {shipment.status === ShipmentStatus.Pendente ? (
+                      <div className="flex flex-col items-end gap-1">
+                        <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 border border-amber-300 dark:border-amber-700 flex items-center gap-1 shadow-xs">
+                          <AlertCircle className="w-3 h-3 text-amber-600 dark:text-amber-400" />
+                          Pendente
+                        </span>
+                        {onApproveShipment && [UserProfile.Admin, UserProfile.Diretor, UserProfile.Supervisor, UserProfile.Coordenador].includes(currentUser.profile) && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (confirm(`Deseja APROVAR o embarque ${shipment.id}? Ele será liberado para consulta da Seguradora.`)) {
+                                onApproveShipment(shipment.id);
+                              }
+                            }}
+                            className="px-2 py-0.5 text-[11px] font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded shadow-xs"
+                          >
+                            Aprovar
+                          </button>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-xs font-bold px-2 py-1 rounded-full bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                        {shipment.status}
+                      </span>
+                    )}
                     {shipment.status === ShipmentStatus.Cancelado && shipment.cancellationReason && (
                         <div className="text-[10px] text-red-500 font-semibold mt-1 max-w-[120px] break-words">
                           Motivo: {shipment.cancellationReason}
@@ -627,7 +654,7 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, allShipments, 
                 const canAdvance = advanceStatusCheck.allowed;
                 const disabledReason = advanceStatusCheck.reason;
                 const statusHistoryCount = shipment.statusHistory?.length || 0;
-                const isInitialPhase = shipment.status === ShipmentStatus.AguardandoSeguradora || shipment.status === ShipmentStatus.PreCadastro;
+                const isInitialPhase = shipment.status === ShipmentStatus.Pendente || shipment.status === ShipmentStatus.AguardandoSeguradora || shipment.status === ShipmentStatus.PreCadastro;
                 const isFirstDriver = isInitialPhase && !hasDriverEffectiveShipment(shipment.driverName, shipment.driverCpf, shipment.id, allShipmentsList);
                 const isFirstPlate = isInitialPhase && !hasVehicleEffectiveShipment(shipment.horsePlate, shipment.id, allShipmentsList);
 
@@ -862,7 +889,44 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, allShipments, 
                       </div>
                     </td>
                     <td className="px-6 py-[11px] whitespace-nowrap">
-                      <p className="text-sm font-medium text-gray-900 dark:text-white">{shipment.status}</p>
+                      {shipment.status === ShipmentStatus.Pendente ? (
+                        <div>
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 border border-amber-300 dark:border-amber-700 shadow-xs">
+                            <AlertCircle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                            Pendente de Aprovação
+                          </span>
+                          {onApproveShipment && [UserProfile.Admin, UserProfile.Diretor, UserProfile.Supervisor, UserProfile.Coordenador].includes(currentUser.profile) && (
+                            <div className="mt-2 flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (confirm(`Deseja APROVAR o embarque ${shipment.id}? Ele será liberado para consulta da Seguradora.`)) {
+                                    onApproveShipment(shipment.id);
+                                  }
+                                }}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-md shadow-xs transition-colors"
+                                title="Aprovar embarque e enviar para a Seguradora"
+                              >
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                Aprovar
+                              </button>
+                              {onCancel && (
+                                <button
+                                  type="button"
+                                  onClick={() => onCancel(shipment)}
+                                  className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-red-100 hover:bg-red-200 text-red-700 dark:bg-red-900/30 dark:hover:bg-red-900/50 dark:text-red-400 rounded-md transition-colors"
+                                  title="Recusar / Cancelar embarque"
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                  Recusar
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <p className="text-sm font-medium text-gray-900 dark:text-white">{shipment.status}</p>
+                      )}
                       {shipment.status === ShipmentStatus.Cancelado && shipment.cancellationReason && (
                         <p className="text-[11px] text-red-600 dark:text-red-400 font-medium mt-1 max-w-[150px] whitespace-normal italic">
                           Motivo: {shipment.cancellationReason}
@@ -994,21 +1058,34 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, allShipments, 
                                                         ref={actionMenuRef}
                                                         style={{
                                                           position: 'fixed',
-                                                          top: menuPosition.isUp ? 'auto' : `${menuPosition.top + 8}px`,
-                                                          bottom: menuPosition.isUp ? `${window.innerHeight - menuPosition.top + 8}px` : 'auto',
-                                                          left: `${menuPosition.left - 224}px`, // 224 is w-56 (14rem * 16px)
+                                                          top: menuPosition.isUp ? 'auto' : `${menuPosition.top + 4}px`,
+                                                          bottom: menuPosition.isUp ? `${window.innerHeight - menuPosition.top + 4}px` : 'auto',
+                                                          left: `${Math.max(8, Math.min(window.innerWidth - 175, menuPosition.left - 165))}px`,
+                                                          maxHeight: menuPosition.maxHeight ? `${menuPosition.maxHeight}px` : '340px',
                                                           zIndex: 9999
                                                         }}
-                                                        className="w-56 bg-white dark:bg-gray-800 rounded-md shadow-lg ring-1 ring-black ring-opacity-5 animate-in fade-in zoom-in duration-100"
+                                                        className="w-[165px] bg-white dark:bg-gray-800 rounded-md shadow-lg ring-1 ring-black ring-opacity-5 animate-in fade-in zoom-in duration-100 py-0.5 overflow-y-auto overflow-x-hidden custom-scrollbar"
                                                       >
-                                                          <div className="py-1" role="menu" aria-orientation="vertical">
+                                                          <div className="py-0.5" role="menu" aria-orientation="vertical">
                                                               {onShowHistory && <ActionMenuItem icon={HistoryIcon} text="Ver Histórico" onClick={() => onShowHistory(shipment)} />}
                                                               {shipment.status !== ShipmentStatus.Cancelado && (
                                                                   <>
-                                                                      {isActionable && onAttach && (
+                                                                      {shipment.status === ShipmentStatus.Pendente && [UserProfile.Admin, UserProfile.Diretor, UserProfile.Supervisor, UserProfile.Coordenador].includes(currentUser.profile) && onApproveShipment && (
+                                                                          <ActionMenuItem 
+                                                                              icon={CheckCircle2} 
+                                                                              text="Aprovar Embarque" 
+                                                                              onClick={() => {
+                                                                                  setOpenActionMenu(null);
+                                                                                  if (confirm(`Deseja APROVAR o embarque ${shipment.id}? Ele será liberado para consulta da Seguradora.`)) {
+                                                                                      onApproveShipment(shipment.id);
+                                                                                  }
+                                                                              }} 
+                                                                          />
+                                                                      )}
+                                                                      {isActionable && onAttach && shipment.status !== ShipmentStatus.Pendente && (
                                                                         <ActionMenuItem 
                                                                             icon={PaperclipIcon} 
-                                                                            text="Anexa e Avançar" 
+                                                                            text="Anexar e Avançar" 
                                                                             onClick={() => onAttach(shipment)} 
                                                                             disabled={!canAdvance && shipment.status !== ShipmentStatus.AguardandoAdiantamento} 
                                                                             title={(!canAdvance && shipment.status !== ShipmentStatus.AguardandoAdiantamento) ? disabledReason : undefined} 
@@ -1023,7 +1100,7 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, allShipments, 
                                                                       {isActionable && onCancel && <ActionMenuItem icon={XIcon} text="Cancelar Embarque" onClick={() => onCancel(shipment)} isDestructive />}
                                                                   </>
                                                               )}
-                                                              {onRevertStatus && (statusHistoryCount > 1 || shipment.status !== ShipmentStatus.AguardandoSeguradora) && [UserProfile.Admin, UserProfile.Diretor, UserProfile.Fiscal, UserProfile.Supervisor].includes(currentUser.profile) && (
+                                                              {onRevertStatus && (statusHistoryCount > 1 || (shipment.status !== ShipmentStatus.AguardandoSeguradora && shipment.status !== ShipmentStatus.Pendente)) && [UserProfile.Admin, UserProfile.Diretor, UserProfile.Fiscal, UserProfile.Supervisor].includes(currentUser.profile) && (
                                                                   <ActionMenuItem 
                                                                       icon={RotateCcw} 
                                                                       text="Voltar Status Anterior" 

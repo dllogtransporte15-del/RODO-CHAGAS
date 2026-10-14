@@ -4,7 +4,7 @@ import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-
 import { supabase } from './supabase';
 import { useDatabase } from './hooks/useDatabase';
 import type { Client, Owner, Driver, Vehicle, Product, Cargo, Shipment, User, Page, ProfilePermissions, HistoryLog, Ticket, TicketHistory, ShipmentLock, Branch, FreightOffer } from './types';
-import { CargoStatus, ShipmentStatus, UserProfile, TicketStatus, TicketPriority, DriverClassification, VehicleSetType, VehicleBodyType, REQUIRED_DOCUMENT_MAP, OwnerType, FreightOfferStatus, FreightPricingType } from './types';
+import { CargoStatus, ShipmentStatus, UserProfile, TicketStatus, TicketPriority, DriverClassification, VehicleSetType, VehicleBodyType, REQUIRED_DOCUMENT_MAP, OwnerType, FreightOfferStatus, FreightPricingType, DailyScheduleType } from './types';
 import { formatId } from './utils';
 import { INITIAL_PERMISSIONS, can } from './auth';
 import { useToast } from './hooks/useToast';
@@ -106,6 +106,7 @@ interface NewShipmentRequestData extends Omit<Shipment, 'id' | 'orderId' | 'stat
   vehicleSetType?: VehicleSetType;
   vehicleBodyType?: VehicleBodyType;
   filesToAttach?: File[];
+  status?: ShipmentStatus;
 }
 
 import { useAuthSession } from './hooks/useAuthSession';
@@ -405,6 +406,7 @@ const App: React.FC = () => {
   }, [themeImage]);
 
   const nextStatusMap: Partial<Record<ShipmentStatus, ShipmentStatus>> = {
+    [ShipmentStatus.Pendente]: ShipmentStatus.AguardandoSeguradora,
     [ShipmentStatus.AguardandoSeguradora]: ShipmentStatus.PreCadastro,
     [ShipmentStatus.PreCadastro]: ShipmentStatus.AguardandoCarregamento,
     [ShipmentStatus.AguardandoCarregamento]: ShipmentStatus.AguardandoNota,
@@ -424,6 +426,7 @@ const App: React.FC = () => {
     [ShipmentStatus.AguardandoNota]: ShipmentStatus.AguardandoCarregamento,
     [ShipmentStatus.AguardandoCarregamento]: ShipmentStatus.PreCadastro,
     [ShipmentStatus.PreCadastro]: ShipmentStatus.AguardandoSeguradora,
+    [ShipmentStatus.AguardandoSeguradora]: ShipmentStatus.Pendente,
   };
 
   const hasDriverEffectiveShipment = (
@@ -1071,15 +1074,70 @@ const App: React.FC = () => {
       }
     }
     
-    let historyMsg = `Embarque ${newShipmentId} criado.`;
-    if (attachedFileNames.length > 0) historyMsg += ` Anexo(s): ${attachedFileNames.join(', ')}.`;
-    if (data.bankDetails) historyMsg += ` Dados bancários preenchidos.`;
-
     const cargo = cargos.find(c => c.id === data.cargoId);
     if (!cargo) {
       showToast('Carga não encontrada para este embarque.', 'error');
       return;
     }
+
+    // Regra A: Bloqueio Total (Mesmo Motorista na Mesma Carga)
+    const cleanDriverCpf = (data.driverCpf || '').replace(/\D/g, '');
+    const cleanDriverName = (data.driverName || '').trim().toLowerCase();
+    const driverHasActiveOnSameCargo = shipments.some(s =>
+      s.cargoId === data.cargoId &&
+      s.status !== ShipmentStatus.Cancelado &&
+      s.status !== ShipmentStatus.Finalizado &&
+      (
+        (cleanDriverCpf && s.driverCpf && s.driverCpf.replace(/\D/g, '') === cleanDriverCpf) ||
+        (s.driverName && s.driverName.trim().toLowerCase() === cleanDriverName)
+      )
+    );
+    if (driverHasActiveOnSameCargo) {
+      showToast('Não é permitido gerar mais de uma ordem para o mesmo motorista na mesma carga.', 'error');
+      return;
+    }
+
+    // Regra B: Alerta e Trava de Veículo em Outra Carga Ativa
+    const cleanHorsePlate = (data.horsePlate || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+    const activeShipmentWithSameVehicle = shipments.find(s =>
+      s.cargoId !== data.cargoId &&
+      s.status !== ShipmentStatus.Cancelado &&
+      s.status !== ShipmentStatus.Finalizado &&
+      s.horsePlate &&
+      s.horsePlate.trim().toUpperCase().replace(/[^A-Z0-9]/g, '') === cleanHorsePlate
+    );
+
+    // Regra C: Programação "Verificar" (Demanda a Verificar) deve entrar como Pendente
+    const scheduleRule = cargo?.dailySchedule?.find(rule => rule.date === data.scheduledDate);
+    const isScheduleVerificar = !!(
+      scheduleRule && (
+        scheduleRule.type === DailyScheduleType.Verificar ||
+        String(scheduleRule.type).toLowerCase().includes('verificar')
+      )
+    );
+
+    const isPending = !!activeShipmentWithSameVehicle || data.status === ShipmentStatus.Pendente || isScheduleVerificar;
+    const initialStatus = isPending ? ShipmentStatus.Pendente : (data.status || ShipmentStatus.AguardandoSeguradora);
+
+    const otherCargoForLog = activeShipmentWithSameVehicle 
+      ? cargos.find(c => c.id === activeShipmentWithSameVehicle.cargoId) 
+      : null;
+    const otherCargoDesc = otherCargoForLog?.sequenceId 
+      ? `#${otherCargoForLog.sequenceId}` 
+      : (activeShipmentWithSameVehicle?.cargoId || '');
+
+    let historyMsg = `Embarque ${newShipmentId} criado.`;
+    if (isPending) {
+      if (isScheduleVerificar) {
+        historyMsg += ` Status: Pendente de aprovação (Programação da data ${data.scheduledDate} está como Demanda a Verificar).`;
+      } else if (activeShipmentWithSameVehicle) {
+        historyMsg += ` Status: Pendente de aprovação (veículo ${data.horsePlate} já vinculado à carga ${otherCargoDesc}).`;
+      } else {
+        historyMsg += ` Status: Pendente de aprovação.`;
+      }
+    }
+    if (attachedFileNames.length > 0) historyMsg += ` Anexo(s): ${attachedFileNames.join(', ')}.`;
+    if (data.bankDetails) historyMsg += ` Dados bancários preenchidos.`;
 
     const activeShipments = shipments.filter(s => s.cargoId === data.cargoId && s.status !== ShipmentStatus.Cancelado);
     const currentScheduled = activeShipments.reduce((sum, s) => sum + (Number(s.shipmentTonnage) || 0), 0);
@@ -1111,7 +1169,7 @@ const App: React.FC = () => {
       driverFreightValue: data.driverFreightValue,
       driverFreightRateSnapshot: cargo.driverFreightValuePerTon,
       companyFreightRateSnapshot: cargo.companyFreightValuePerTon,
-      status: ShipmentStatus.AguardandoSeguradora,
+      status: initialStatus,
       scheduledDate: data.scheduledDate,
       scheduledTime: data.scheduledTime,
       bankDetails: data.bankDetails,
@@ -1122,7 +1180,7 @@ const App: React.FC = () => {
       driverReferences: data.driverReferences,
       ownerContact: data.ownerContact,
       statusHistory: [{
-        status: ShipmentStatus.AguardandoSeguradora,
+        status: initialStatus,
         timestamp: new Date().toISOString(),
         userId: currentUser.id,
       }],
@@ -1166,11 +1224,72 @@ const App: React.FC = () => {
       setNextIds(currentNextIds);
 
       setCurrentPage('shipments');
-      showToast(`Novo embarque ${newShipmentId} criado com sucesso! Motoristas/Veículos não cadastrados foram adicionados automaticamente.`, 'success');
+      if (isPending) {
+        if (isScheduleVerificar) {
+          showToast(`Novo embarque ${newShipmentId} criado como Pendente de aprovação (Programação da carga em Demanda a Verificar).`, 'info');
+        } else if (activeShipmentWithSameVehicle) {
+          showToast(`Novo embarque ${newShipmentId} criado como Pendente de aprovação devido ao veículo já constar em outra carga ativa.`, 'info');
+        } else {
+          showToast(`Novo embarque ${newShipmentId} criado como Pendente de aprovação.`, 'info');
+        }
+      } else {
+        showToast(`Novo embarque ${newShipmentId} criado com sucesso! Motoristas/Veículos não cadastrados foram adicionados automaticamente.`, 'success');
+      }
     } catch (err: any) {
       console.error('Erro ao salvar embarque no Supabase:', err);
       const errorMessage = err?.message || 'Erro desconhecido ao salvar no banco de dados.';
       showToast(`[ERRO CRÍTICO] O embarque não pôde ser salvo: ${errorMessage}. Nenhuma alteração foi aplicada. Verifique sua conexão ou contate o suporte.`, 'error');
+    }
+  };
+
+  const handleApproveShipment = async (shipmentId: string) => {
+    if (!currentUser) return;
+    const allowedProfiles = [UserProfile.Admin, UserProfile.Diretor, UserProfile.Supervisor, UserProfile.Coordenador];
+    if (!allowedProfiles.includes(currentUser.profile)) {
+      showToast('Apenas Administrador, Diretor ou Supervisor podem aprovar este embarque.', 'error');
+      return;
+    }
+
+    const shipment = shipments.find(s => s.id === shipmentId);
+    if (!shipment) return;
+    if (shipment.status !== ShipmentStatus.Pendente) {
+      showToast('Este embarque não está com status Pendente.', 'warning');
+      return;
+    }
+
+    let currentNextIds = { ...nextIds };
+    const historyId = currentNextIds.history;
+    const now = new Date().toISOString();
+    const newHistoryLog: HistoryLog = {
+      id: `log_${historyId}`,
+      userId: currentUser.id,
+      timestamp: now,
+      description: `Embarque aprovado por ${currentUser.name} (${currentUser.profile}). Liberado para consulta da Seguradora.`,
+    };
+    currentNextIds.history++;
+
+    const updatedShipment: Shipment = {
+      ...shipment,
+      status: ShipmentStatus.AguardandoSeguradora,
+      history: [...shipment.history, newHistoryLog],
+      statusHistory: [
+        ...(shipment.statusHistory || []),
+        {
+          status: ShipmentStatus.AguardandoSeguradora,
+          timestamp: now,
+          userId: currentUser.id,
+        }
+      ],
+    };
+
+    try {
+      await upsertShipment(updatedShipment);
+      setShipments(prev => prev.map(s => s.id === shipmentId ? updatedShipment : s));
+      setNextIds(currentNextIds);
+      showToast(`Embarque ${shipmentId} aprovado com sucesso! Liberado para a Seguradora.`, 'success');
+    } catch (err: any) {
+      console.error('Erro ao aprovar embarque:', err);
+      showToast(`Erro ao aprovar embarque: ${err?.message || 'Erro desconhecido'}`, 'error');
     }
   };
 
@@ -1308,6 +1427,11 @@ const App: React.FC = () => {
     if (!currentUser) {
       showToast('Usuário não autenticado.', 'error');
       throw new Error('Usuário não autenticado');
+    }
+
+    if (originalShipment.status === ShipmentStatus.Pendente) {
+      showToast('Embarques com status Pendente devem ser aprovados antes de prosseguir.', 'warning');
+      return;
     }
 
     // Validation for "Aguardando Nota" transition
@@ -2545,7 +2669,7 @@ const App: React.FC = () => {
           <Route path="/loads" element={<LoadsPage loads={activeLoads} setLoads={setCargos} clients={clients} products={products} onSaveLoad={handleSaveLoad} onReactivateLoad={handleReactivateLoad} onSuspendLoad={handleSuspendLoad} onUpdatePrice={handleUpdateShipmentPrice} currentUser={currentUser} profilePermissions={profilePermissions} users={users} shipments={visibleShipments} allShipments={shipments} onDeleteLoad={handleDeleteCargo} onModalStateChange={setIsAnyModalOpen} companyLogo={companyLogo} vehicles={vehicles} drivers={drivers} onDeleteAttachment={handleDeleteShipmentAttachment} branches={branches} stays={stays} tickets={tickets} offerToConvert={offerToConvert} setOfferToConvert={setOfferToConvert} onCreateShipment={handleCreateShipment} />} />
           <Route path="/products" element={<ProductsPage products={products} onSaveProduct={handleSaveProduct} onDeleteProduct={handleDeleteProduct} currentUser={currentUser} profilePermissions={profilePermissions} />} />
           <Route path="/shippers-receivers" element={<ShippersReceiversPage currentUser={currentUser} profilePermissions={profilePermissions} />} />
-          <Route path="/shipments" element={<ShipmentsPage shipments={visibleShipments} cargos={cargos} clients={clients} products={products} drivers={drivers} vehicles={vehicles} currentUser={currentUser} profilePermissions={profilePermissions} users={users} onUpdateAttachment={handleUpdateShipmentAttachment} onAddAttachments={handleAddShipmentAttachments} onUpdatePrice={handleUpdateShipmentPrice} onConfirmCancel={handleConfirmCancelShipment} onUpdateAnttAndBankDetails={handleUpdateShipmentAnttAndBankDetails} onMarkArrival={handleMarkArrival} onTransferShipment={handleTransferShipment} onDeleteShipment={handleDeleteShipment} onRevertStatus={handleRevertShipmentStatus} onUpdateScheduledDateTime={handleUpdateScheduledDateTime} onUpdateShipmentData={handleUpdateShipmentData} onDeleteAttachment={handleDeleteShipmentAttachment} onSwapCargo={handleSwapCargo} activeLocks={activeLocks} onModalStateChange={setIsAnyModalOpen} companyLogo={companyLogo} stays={stays} tickets={tickets} />} />
+          <Route path="/shipments" element={<ShipmentsPage shipments={visibleShipments} cargos={cargos} clients={clients} products={products} drivers={drivers} vehicles={vehicles} currentUser={currentUser} profilePermissions={profilePermissions} users={users} onUpdateAttachment={handleUpdateShipmentAttachment} onAddAttachments={handleAddShipmentAttachments} onUpdatePrice={handleUpdateShipmentPrice} onConfirmCancel={handleConfirmCancelShipment} onUpdateAnttAndBankDetails={handleUpdateShipmentAnttAndBankDetails} onMarkArrival={handleMarkArrival} onTransferShipment={handleTransferShipment} onDeleteShipment={handleDeleteShipment} onRevertStatus={handleRevertShipmentStatus} onUpdateScheduledDateTime={handleUpdateScheduledDateTime} onUpdateShipmentData={handleUpdateShipmentData} onDeleteAttachment={handleDeleteShipmentAttachment} onSwapCargo={handleSwapCargo} onApproveShipment={handleApproveShipment} activeLocks={activeLocks} onModalStateChange={setIsAnyModalOpen} companyLogo={companyLogo} stays={stays} tickets={tickets} />} />
           <Route path="/operational-loads" element={<OperationalLoadsPage loads={inProgressLoads} clients={clients} products={products} drivers={drivers} vehicles={vehicles} onCreateShipment={handleCreateShipment} onSaveLoad={handleSaveLoad} onReactivateLoad={handleReactivateLoad} onSuspendLoad={handleSuspendLoad} currentUser={currentUser} profilePermissions={profilePermissions} shipments={visibleShipments} allShipments={shipments} users={users} onDeleteLoad={handleDeleteCargo} onUpdatePrice={handleUpdateShipmentPrice} onRequestLoadOrder={handleRequestLoadOrder} onModalStateChange={setIsAnyModalOpen} onDeleteAttachment={handleDeleteShipmentAttachment} branches={branches} stays={stays} tickets={tickets} onUpdateAttachment={handleUpdateShipmentAttachment} onAddAttachments={handleAddShipmentAttachments} onLogout={handleLogout} companyLogo={companyLogo} />} />
           <Route path="/operational-map" element={<OperationalMapPage cargos={cargos} shipments={shipments} clients={clients} products={products} drivers={drivers} vehicles={vehicles} onCreateShipment={handleCreateShipment} currentUser={currentUser} users={users} onModalStateChange={setIsAnyModalOpen} onDeleteAttachment={handleDeleteShipmentAttachment} companyLogo={companyLogo} />} />
           <Route path="/financial" element={<CommissionsPage shipments={visibleShipments} cargos={cargos} users={users} stays={stays} clients={clients} currentUser={currentUser} />} />

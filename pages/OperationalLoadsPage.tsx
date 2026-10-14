@@ -427,6 +427,7 @@ const OperationalLoadsPage: React.FC<OperationalLoadsPageProps> = ({
         onClose={handleCloseShipmentModal}
         onSave={handleSaveShipment}
         cargo={selectedCargo}
+        cargos={loads}
         drivers={drivers}
         clients={clients}
         vehicles={vehicles}

@@ -292,6 +292,7 @@ export interface LoadingOrder {
 }
 
 export enum ShipmentStatus {
+  Pendente = "Pendente",
   AguardandoSeguradora = "Ag. Seguradora",
   PreCadastro = "Pré-cadastro",
   AguardandoCarregamento = "Ag. Carregamento",

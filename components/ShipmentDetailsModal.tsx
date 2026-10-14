@@ -132,7 +132,7 @@ const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
             <div>
                 <div className="flex items-center gap-3">
                     <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Detalhes do Embarque</h2>
-                    {shipment && ![ShipmentStatus.AguardandoSeguradora, ShipmentStatus.PreCadastro, ShipmentStatus.Cancelado].includes(shipment.status) && (
+                    {shipment && ![ShipmentStatus.Pendente, ShipmentStatus.AguardandoSeguradora, ShipmentStatus.PreCadastro, ShipmentStatus.Cancelado].includes(shipment.status) && (
                         <button
                             onClick={() => cargo && generateLoadingOrderPDF(shipment, cargo, clients, products, vehicles, companyLogo)}
                             title="Gerar Ordem de Carregamento (PDF)"
