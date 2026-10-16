@@ -664,8 +664,14 @@ const App: React.FC = () => {
 
     // Regra de escopo restrito por equipe para Agenciador Líder e Agenciador de Embarque
     if (currentUser.profile === UserProfile.AgenciadorLider || currentUser.profile === UserProfile.AgenciadorEmbarque) {
+      const isAgenciadorLider = currentUser.profile === UserProfile.AgenciadorLider ||
+        String(currentUser.profile).toLowerCase().includes('lider') ||
+        String(currentUser.profile).toLowerCase().includes('líder') ||
+        (currentUser.name && currentUser.name.toLowerCase().includes('agenciador lider')) ||
+        (currentUser.name && currentUser.name.toLowerCase().includes('agenciador líder'));
+
       const allowedTeamIds = new Set<string>([currentUser.id]);
-      if (currentUser.profile === UserProfile.AgenciadorLider) {
+      if (currentUser.profile === UserProfile.AgenciadorLider || isAgenciadorLider) {
         users.filter(u => u.leaderId === currentUser.id).forEach(u => allowedTeamIds.add(u.id));
       } else if (currentUser.profile === UserProfile.AgenciadorEmbarque && currentUser.leaderId) {
         allowedTeamIds.add(currentUser.leaderId);
@@ -673,6 +679,11 @@ const App: React.FC = () => {
       }
 
       return cargos.filter(c => {
+        // Agenciador Líder pode ver todas as cargas em andamento
+        if (isAgenciadorLider && (c.status === CargoStatus.EmAndamento || String(c.status).toLowerCase().includes('andamento'))) {
+          return true;
+        }
+
         if (c.createdById && allowedTeamIds.has(c.createdById)) return true;
         if (c.history?.[0]?.userId && allowedTeamIds.has(c.history[0].userId)) return true;
         if (currentUser.branchId && c.branchId === currentUser.branchId) return true;

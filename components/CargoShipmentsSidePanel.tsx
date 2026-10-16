@@ -62,6 +62,8 @@ const CargoShipmentsSidePanel: React.FC<CargoShipmentsSidePanelProps> = ({
     UserProfile.Diretor,
     UserProfile.Fiscal,
     UserProfile.Supervisor,
+    UserProfile.Coordenador,
+    UserProfile.AgenciadorLider,
     UserProfile.Financeiro,
     UserProfile.Comercial
   ].includes(currentUser.profile as UserProfile);
