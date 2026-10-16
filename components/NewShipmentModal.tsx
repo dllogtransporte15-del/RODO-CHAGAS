@@ -483,7 +483,7 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex justify-center items-center p-4 overscroll-contain modal-container">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-6 md:p-8 max-w-3xl w-full max-h-[92vh] overflow-y-auto border border-gray-100 dark:border-gray-700 overscroll-contain">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-6 md:p-8 max-w-4xl w-full max-h-[92vh] overflow-y-auto border border-gray-100 dark:border-gray-700 overscroll-contain">
         <h2 className="text-2xl font-bold mb-2 text-gray-800 dark:text-white">Solicitação de Embarque</h2>
         <div className="mb-6 p-3 bg-gray-100 dark:bg-gray-700 rounded-md">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">

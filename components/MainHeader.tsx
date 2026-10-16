@@ -21,7 +21,7 @@ const MainHeader: React.FC<MainHeaderProps> = ({ onOpenTickets, tickets, current
 
   return (
     <header className="bg-white dark:bg-gray-800 shadow-sm z-10 border-b dark:border-gray-700">
-      <div className="container mx-auto px-6 py-3">
+      <div className="w-full px-6 py-3">
         <div className="flex items-center justify-end">
           <div className="relative">
             <button

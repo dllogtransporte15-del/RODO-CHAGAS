@@ -415,7 +415,7 @@ const AttachmentModal: React.FC<AttachmentModalProps> = ({ isOpen, onClose, onSa
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-8 max-w-4xl w-full max-h-[90vh] overflow-y-auto text-gray-800 dark:text-gray-200 relative">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-8 max-w-5xl w-full max-h-[90vh] overflow-y-auto text-gray-800 dark:text-gray-200 relative">
         <button 
             onClick={onClose}
             className="absolute top-6 right-6 p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"

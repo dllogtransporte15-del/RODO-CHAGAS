@@ -791,7 +791,7 @@ const OperationalMapPage: React.FC<OperationalMapPageProps> = ({
   // ADMINISTRATIVE / STAFF VIEW (Standard Light/Dark Desktop Layout)
   // ─────────────────────────────────────────────────────────────────────────
   return (
-    <div className="flex flex-col h-full space-y-4 max-w-[1500px] mx-auto w-full">
+    <div className="flex flex-col h-full space-y-4 w-full">
       <div className="flex items-center justify-between">
         <Header title="Mapa Operacional Logístico" />
       </div>

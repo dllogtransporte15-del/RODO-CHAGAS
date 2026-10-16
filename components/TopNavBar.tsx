@@ -195,7 +195,7 @@ const TopNavBar: React.FC<TopNavBarProps> = ({
 
   return (
     <header className="bg-white/90 dark:bg-[#0A1128]/90 backdrop-blur-2xl border-b border-slate-200 dark:border-white/10 shadow-sm dark:shadow-2xl sticky top-0 z-40 transition-colors duration-200">
-      <div className="container mx-auto px-6">
+      <div className="w-full px-6">
         <div className="flex items-center justify-between min-h-16 md:min-h-20 py-1.5">
           {/* Logo e Nome da Empresa + Status Online */}
           <div className="flex items-center flex-shrink-0 mr-4">

@@ -117,7 +117,7 @@ const FreightOffersHistoryPage: React.FC<FreightOffersHistoryPageProps> = ({
   };
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto">
+    <div className="space-y-6 w-full">
       <Header title="Histórico de Ofertas de Frete" />
       
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">

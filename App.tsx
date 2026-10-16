@@ -2725,8 +2725,6 @@ const App: React.FC = () => {
   }
 
   const isDriverUser = currentUser.profile === UserProfile.Motorista || String(currentUser.profile).toLowerCase() === 'motorista';
-  const operationalPages: Page[] = ['loads', 'shipments', 'shipment-history', 'load-history', 'operational-loads', 'operational-map'];
-  const isOperationalPage = operationalPages.includes(currentPage);
 
   return (
     <div 
@@ -2773,7 +2771,7 @@ const App: React.FC = () => {
           />
         )}
         <main className="flex-1 overflow-y-auto" style={{ zoom: isDriverUser ? 0.8 : 0.8 }}>
-          <div className={isDriverUser ? "w-full" : (isOperationalPage ? "px-6 py-8" : "container mx-auto px-6 py-8")}>
+          <div className={isDriverUser ? "w-full" : "w-full px-6 py-8"}>
               {renderPage()}
           </div>
         </main>

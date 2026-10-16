@@ -127,7 +127,7 @@ const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 max-w-2xl w-full max-h-[90vh] flex flex-col">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 max-w-3xl w-full max-h-[90vh] flex flex-col">
         <div className="flex justify-between items-start mb-4 border-b pb-4 dark:border-gray-700">
             <div>
                 <div className="flex items-center gap-3">
