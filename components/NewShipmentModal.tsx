@@ -43,7 +43,7 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
   const [driverReferences, setDriverReferences] = useState('');
   const [isScanning, setIsScanning] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [pendingVehicleWarning, setPendingVehicleWarning] = useState<{ plate: string; cargoIdentifier: string } | null>(null);
+  const [pendingVehicleWarning, setPendingVehicleWarning] = useState<{ plate: string; cargoIdentifier: string; driverName?: string; isPlateConflict?: boolean } | null>(null);
   const { showToast } = useToast();
 
   // Previne perda de dados por recarregamento acidental
@@ -407,11 +407,16 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
     }
 
     // Regra A: Bloqueio Total (Mesmo Motorista na Mesma Carga)
+    // Se o embarque anterior na mesma carga já estiver em Aguardando Saldo, Finalizado ou Cancelado, o motorista está liberado
     const cleanDriverCpf = driverCpf.replace(/\D/g, '');
     const cleanDriverName = driverName.trim().toLowerCase();
     const driverHasActiveOnSameCargo = shipments.some(s => {
       if (s.cargoId !== cargo.id) return false;
-      if (s.status === ShipmentStatus.Cancelado || s.status === ShipmentStatus.Finalizado) return false;
+      if (
+        s.status === ShipmentStatus.Cancelado || 
+        s.status === ShipmentStatus.Finalizado || 
+        s.status === ShipmentStatus.AguardandoPagamentoSaldo
+      ) return false;
       const sCpf = (s.driverCpf || '').replace(/\D/g, '');
       const sName = (s.driverName || '').trim().toLowerCase();
       if (cleanDriverCpf && sCpf && cleanDriverCpf === sCpf) return true;
@@ -420,25 +425,41 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
     });
 
     if (driverHasActiveOnSameCargo) {
-      showToast('Não é permitido gerar mais de uma ordem para o mesmo motorista na mesma carga.', 'error');
+      showToast('Não é permitido gerar mais de uma ordem para o mesmo motorista na mesma carga enquanto houver viagem ativa em andamento.', 'error');
       return;
     }
 
-    // Regra B: Alerta e Trava de Veículo em Outra Carga Ativa
+    // Regra B: Alerta e Trava de Veículo / Motorista em Outra Carga Ativa
+    // Veículo ou motorista no status 'Ag. Saldo' (Aguardando Pagamento Saldo) já concluiu a viagem física e pode gerar nova ordem diretamente sem ir para Pendente
     const cleanHorsePlate = horsePlate.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
     const activeShipmentWithSameVehicle = shipments.find(s => {
       if (s.cargoId === cargo.id) return false;
-      if (s.status === ShipmentStatus.Cancelado || s.status === ShipmentStatus.Finalizado) return false;
+      if (
+        s.status === ShipmentStatus.Cancelado || 
+        s.status === ShipmentStatus.Finalizado || 
+        s.status === ShipmentStatus.AguardandoPagamentoSaldo
+      ) return false;
+
       const sHorsePlate = (s.horsePlate || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
-      return sHorsePlate && sHorsePlate === cleanHorsePlate;
+      const isPlateConflict = cleanHorsePlate && sHorsePlate && sHorsePlate === cleanHorsePlate;
+
+      const sCpf = (s.driverCpf || '').replace(/\D/g, '');
+      const sName = (s.driverName || '').trim().toLowerCase();
+      const isDriverConflict = (cleanDriverCpf && sCpf && cleanDriverCpf === sCpf) ||
+                               (cleanDriverName && sName && cleanDriverName === sName);
+
+      return isPlateConflict || isDriverConflict;
     });
 
     if (activeShipmentWithSameVehicle) {
       const otherCargo = cargos?.find(c => c.id === activeShipmentWithSameVehicle.cargoId);
       const cargoIdentifier = otherCargo?.sequenceId ? `#${otherCargo.sequenceId}` : (otherCargo?.id || activeShipmentWithSameVehicle.cargoId);
+      const isPlateConflict = Boolean(cleanHorsePlate && (activeShipmentWithSameVehicle.horsePlate || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '') === cleanHorsePlate);
       setPendingVehicleWarning({
         plate: horsePlate.trim().toUpperCase(),
+        driverName: driverName.trim(),
         cargoIdentifier: String(cargoIdentifier),
+        isPlateConflict,
       });
       return;
     }
@@ -727,10 +748,13 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
               </div>
               <div className="flex-1">
                 <h3 className="text-lg font-bold text-gray-900 dark:text-white">
-                  Atenção: Veículo Vinculado a Outra Carga
+                  Atenção: {pendingVehicleWarning.isPlateConflict ? 'Veículo' : 'Motorista'} Vinculado a Outra Carga
                 </h3>
                 <p className="mt-2 text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
-                  Atenção: O veículo <strong className="text-amber-700 dark:text-amber-300 font-mono font-bold">{pendingVehicleWarning.plate}</strong> já consta vinculado à carga <strong className="text-gray-900 dark:text-white font-bold">{pendingVehicleWarning.cargoIdentifier}</strong>. O embarque entrará como Pendente de aprovação.
+                  Atenção: O {pendingVehicleWarning.isPlateConflict ? 'veículo ' : 'motorista '}
+                  <strong className="text-amber-700 dark:text-amber-300 font-mono font-bold">
+                    {pendingVehicleWarning.isPlateConflict ? pendingVehicleWarning.plate : (pendingVehicleWarning.driverName || pendingVehicleWarning.plate)}
+                  </strong> já consta vinculado à carga <strong className="text-gray-900 dark:text-white font-bold">{pendingVehicleWarning.cargoIdentifier}</strong> (viagem ativa anterior a 'Ag. Saldo'). O embarque entrará como Pendente de aprovação.
                 </p>
                 <div className="mt-6 flex items-center justify-end gap-3">
                   <button

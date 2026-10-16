@@ -1092,31 +1092,45 @@ const App: React.FC = () => {
     }
 
     // Regra A: Bloqueio Total (Mesmo Motorista na Mesma Carga)
+    // Permite nova ordem se o embarque anterior na mesma carga já estiver Cancelado, Finalizado ou em Aguardando Saldo
     const cleanDriverCpf = (data.driverCpf || '').replace(/\D/g, '');
     const cleanDriverName = (data.driverName || '').trim().toLowerCase();
     const driverHasActiveOnSameCargo = shipments.some(s =>
       s.cargoId === data.cargoId &&
       s.status !== ShipmentStatus.Cancelado &&
       s.status !== ShipmentStatus.Finalizado &&
+      s.status !== ShipmentStatus.AguardandoPagamentoSaldo &&
       (
         (cleanDriverCpf && s.driverCpf && s.driverCpf.replace(/\D/g, '') === cleanDriverCpf) ||
         (s.driverName && s.driverName.trim().toLowerCase() === cleanDriverName)
       )
     );
     if (driverHasActiveOnSameCargo) {
-      showToast('Não é permitido gerar mais de uma ordem para o mesmo motorista na mesma carga.', 'error');
+      showToast('Não é permitido gerar mais de uma ordem para o mesmo motorista na mesma carga enquanto houver viagem ativa em andamento.', 'error');
       return;
     }
 
-    // Regra B: Alerta e Trava de Veículo em Outra Carga Ativa
+    // Regra B: Alerta e Trava de Veículo / Motorista em Outra Carga Ativa
+    // Veículos/motoristas no status 'Ag. Saldo' (Aguardando Pagamento Saldo) já descarregaram e estão liberados para gerar nova ordem sem passar por Pendente
     const cleanHorsePlate = (data.horsePlate || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
-    const activeShipmentWithSameVehicle = shipments.find(s =>
-      s.cargoId !== data.cargoId &&
-      s.status !== ShipmentStatus.Cancelado &&
-      s.status !== ShipmentStatus.Finalizado &&
-      s.horsePlate &&
-      s.horsePlate.trim().toUpperCase().replace(/[^A-Z0-9]/g, '') === cleanHorsePlate
-    );
+    const activeShipmentWithSameVehicle = shipments.find(s => {
+      if (s.cargoId === data.cargoId) return false;
+      if (
+        s.status === ShipmentStatus.Cancelado ||
+        s.status === ShipmentStatus.Finalizado ||
+        s.status === ShipmentStatus.AguardandoPagamentoSaldo
+      ) return false;
+
+      const sHorsePlate = (s.horsePlate || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+      const isPlateConflict = cleanHorsePlate && sHorsePlate && sHorsePlate === cleanHorsePlate;
+
+      const sCpf = (s.driverCpf || '').replace(/\D/g, '');
+      const sName = (s.driverName || '').trim().toLowerCase();
+      const isDriverConflict = (cleanDriverCpf && sCpf && cleanDriverCpf === sCpf) ||
+                               (cleanDriverName && sName && cleanDriverName === sName);
+
+      return isPlateConflict || isDriverConflict;
+    });
 
     // Regra C: Programação "Verificar" (Demanda a Verificar) deve entrar como Pendente
     const scheduleRule = cargo?.dailySchedule?.find(rule => rule.date === data.scheduledDate);
@@ -1142,7 +1156,7 @@ const App: React.FC = () => {
       if (isScheduleVerificar) {
         historyMsg += ` Status: Pendente de aprovação (Programação da data ${data.scheduledDate} está como Demanda a Verificar).`;
       } else if (activeShipmentWithSameVehicle) {
-        historyMsg += ` Status: Pendente de aprovação (veículo ${data.horsePlate} já vinculado à carga ${otherCargoDesc}).`;
+        historyMsg += ` Status: Pendente de aprovação (veículo ${data.horsePlate || ''} / motorista ${data.driverName || ''} já vinculado à carga ${otherCargoDesc}).`;
       } else {
         historyMsg += ` Status: Pendente de aprovação.`;
       }
@@ -1239,7 +1253,7 @@ const App: React.FC = () => {
         if (isScheduleVerificar) {
           showToast(`Novo embarque ${newShipmentId} criado como Pendente de aprovação (Programação da carga em Demanda a Verificar).`, 'info');
         } else if (activeShipmentWithSameVehicle) {
-          showToast(`Novo embarque ${newShipmentId} criado como Pendente de aprovação devido ao veículo já constar em outra carga ativa.`, 'info');
+          showToast(`Novo embarque ${newShipmentId} criado como Pendente de aprovação devido ao veículo/motorista já constar em outra carga ativa.`, 'info');
         } else {
           showToast(`Novo embarque ${newShipmentId} criado como Pendente de aprovação.`, 'info');
         }
