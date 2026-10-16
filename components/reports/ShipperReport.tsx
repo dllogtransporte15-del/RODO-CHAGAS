@@ -1,12 +1,23 @@
 import React, { useState, useMemo } from 'react';
 import type { Shipment, User, Cargo, Client } from '../../types';
 import { ShipmentStatus, UserProfile } from '../../types';
-import { TruckIcon } from '../icons/TruckIcon';
-import { ClockIcon } from '../icons/ClockIcon';
-import { CheckCircleIcon } from '../icons/CheckCircleIcon';
-import { XCircleIcon } from '../icons/XCircleIcon';
-import { DollarSignIcon } from '../icons/DollarSignIcon';
-import { Download, List, X, Filter } from 'lucide-react';
+import { 
+    Download, 
+    List, 
+    X, 
+    Filter, 
+    Search, 
+    ShieldCheck, 
+    Truck, 
+    Clock, 
+    CheckCircle2, 
+    XCircle, 
+    TrendingUp, 
+    DollarSign,
+    Users,
+    Percent,
+    Sparkles
+} from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import MultiSelectDropdown from '../MultiSelectDropdown';
@@ -22,11 +33,27 @@ interface ShipperReportProps {
   companyLogo?: string | null;
 }
 
+export const EFFECTIVE_SHIPMENT_STATUSES: ShipmentStatus[] = [
+  ShipmentStatus.AguardandoNota,
+  ShipmentStatus.AguardandoAdiantamento,
+  ShipmentStatus.AguardandoAgendamento,
+  ShipmentStatus.AguardandoDescarga,
+  ShipmentStatus.AguardandoPagamentoSaldo,
+  ShipmentStatus.Finalizado
+];
+
+export const isShipmentEffective = (s: Shipment): boolean => {
+  if (s.status === ShipmentStatus.Cancelado) return false;
+  if (EFFECTIVE_SHIPMENT_STATUSES.includes(s.status)) return true;
+  return !!s.statusHistory?.some(h => EFFECTIVE_SHIPMENT_STATUSES.includes(h.status));
+};
+
 interface OperatorStats {
   id: string;
   name: string;
   profile?: UserProfile;
   total: number;
+  efetivados: number; // Veículos efetivados (Ag. Nota em diante)
   finalizado: number;
   emAndamento: number;
   cancelado: number;
@@ -34,16 +61,85 @@ interface OperatorStats {
   commission: number;
 }
 
-const StatCard: React.FC<{ title: string, value: string | number, icon: React.ReactElement }> = ({ title, value, icon }) => {
-    return (
-        <div className="flex items-center p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-            {icon}
-            <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{title}</p>
-                <p className="text-xl font-bold text-gray-900 dark:text-white">{value}</p>
-            </div>
+interface MetricCardProps {
+  title: string;
+  value: string | number;
+  subtitle?: string;
+  icon: React.ReactNode;
+  variant?: 'emerald' | 'blue' | 'amber' | 'cyan' | 'rose' | 'purple' | 'default';
+  highlight?: boolean;
+}
+
+const MetricCard: React.FC<MetricCardProps> = ({ 
+  title, 
+  value, 
+  subtitle, 
+  icon, 
+  variant = 'default',
+  highlight = false 
+}) => {
+  const styles = {
+    emerald: {
+      card: highlight
+        ? 'bg-gradient-to-br from-emerald-500/10 via-emerald-500/5 to-transparent border-emerald-500/40 dark:border-emerald-500/30 ring-1 ring-emerald-500/20 shadow-sm shadow-emerald-500/5'
+        : 'bg-white dark:bg-slate-800/90 border-slate-200/80 dark:border-slate-700/60',
+      iconBox: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 ring-1 ring-emerald-500/20',
+      value: 'text-emerald-700 dark:text-emerald-300',
+    },
+    blue: {
+      card: 'bg-white dark:bg-slate-800/90 border-slate-200/80 dark:border-slate-700/60',
+      iconBox: 'bg-blue-500/15 text-blue-600 dark:text-blue-400 ring-1 ring-blue-500/20',
+      value: 'text-slate-900 dark:text-white',
+    },
+    amber: {
+      card: 'bg-white dark:bg-slate-800/90 border-slate-200/80 dark:border-slate-700/60',
+      iconBox: 'bg-amber-500/15 text-amber-600 dark:text-amber-400 ring-1 ring-amber-500/20',
+      value: 'text-slate-900 dark:text-white',
+    },
+    cyan: {
+      card: 'bg-white dark:bg-slate-800/90 border-slate-200/80 dark:border-slate-700/60',
+      iconBox: 'bg-cyan-500/15 text-cyan-600 dark:text-cyan-400 ring-1 ring-cyan-500/20',
+      value: 'text-slate-900 dark:text-white',
+    },
+    rose: {
+      card: 'bg-white dark:bg-slate-800/90 border-slate-200/80 dark:border-slate-700/60',
+      iconBox: 'bg-rose-500/15 text-rose-600 dark:text-rose-400 ring-1 ring-rose-500/20',
+      value: 'text-slate-900 dark:text-white',
+    },
+    purple: {
+      card: 'bg-white dark:bg-slate-800/90 border-slate-200/80 dark:border-slate-700/60',
+      iconBox: 'bg-purple-500/15 text-purple-600 dark:text-purple-400 ring-1 ring-purple-500/20',
+      value: 'text-slate-900 dark:text-white',
+    },
+    default: {
+      card: 'bg-white dark:bg-slate-800/90 border-slate-200/80 dark:border-slate-700/60',
+      iconBox: 'bg-slate-500/15 text-slate-600 dark:text-slate-400 ring-1 ring-slate-500/20',
+      value: 'text-slate-900 dark:text-white',
+    }
+  }[variant];
+
+  return (
+    <div className={`relative p-3.5 sm:p-4 rounded-xl border transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md flex flex-col justify-between ${styles.card}`}>
+      <div className="flex items-center justify-between mb-2 gap-2">
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate">
+          {title}
+        </span>
+        <div className={`p-2 rounded-lg shrink-0 ${styles.iconBox}`}>
+          {icon}
         </div>
-    );
+      </div>
+      <div>
+        <p className={`text-xl sm:text-2xl font-bold tracking-tight ${styles.value} truncate`}>
+          {value}
+        </p>
+        {subtitle && (
+          <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5 truncate">
+            {subtitle}
+          </p>
+        )}
+      </div>
+    </div>
+  );
 };
 
 const ShipperReport: React.FC<ShipperReportProps> = ({ shipments, cargos, clients, users, currentUser, companyLogo }) => {
@@ -54,6 +150,7 @@ const ShipperReport: React.FC<ShipperReportProps> = ({ shipments, cargos, client
     const [filterModalDest, setFilterModalDest] = useState<string[]>([]);
     const [filterModalDriver, setFilterModalDriver] = useState<string[]>([]);
     const [showModalFilters, setShowModalFilters] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
 
     const canViewCommission = useMemo(() => {
         if (!currentUser) return false;
@@ -106,20 +203,15 @@ const ShipperReport: React.FC<ShipperReportProps> = ({ shipments, cargos, client
                   acc.emAndamento += 1;
                 }
 
-                const isEffective = [
-                    ShipmentStatus.AguardandoNota,
-                    ShipmentStatus.AguardandoAdiantamento,
-                    ShipmentStatus.AguardandoAgendamento,
-                    ShipmentStatus.AguardandoDescarga,
-                    ShipmentStatus.AguardandoPagamentoSaldo,
-                    ShipmentStatus.Finalizado
-                ].includes(shipment.status);
+                // Veículos Efetivados: todos aqueles que passaram do status de 'Ag. Nota' em diante (documentação fiscal anexada)
+                const isEffective = isShipmentEffective(shipment);
                 if (isEffective) {
+                    acc.efetivados += 1;
                     acc.effectiveTonnage += shipment.shipmentTonnage || 0;
                 }
 
                 return acc;
-            }, { finalizado: 0, cancelado: 0, emAndamento: 0, effectiveTonnage: 0, commission: 0 });
+            }, { efetivados: 0, finalizado: 0, cancelado: 0, emAndamento: 0, effectiveTonnage: 0, commission: 0 });
             
             stats.commission = stats.effectiveTonnage * 2;
     
@@ -135,6 +227,35 @@ const ShipperReport: React.FC<ShipperReportProps> = ({ shipments, cargos, client
             return stat.total > 0;
         }).sort((a, b) => b.total - a.total);
     }, [shipments, users, isRestrictedAgent, allowedTeamIds]);
+
+    const filteredOperatorStats = useMemo(() => {
+        if (!searchTerm.trim()) return operatorStats;
+        const term = searchTerm.toLowerCase().trim();
+        return operatorStats.filter(stat => 
+            stat.name.toLowerCase().includes(term) ||
+            (stat.profile && stat.profile.toLowerCase().includes(term))
+        );
+    }, [operatorStats, searchTerm]);
+
+    const overallTotals = useMemo(() => {
+        return filteredOperatorStats.reduce((acc, curr) => ({
+            total: acc.total + curr.total,
+            efetivados: acc.efetivados + curr.efetivados,
+            finalizado: acc.finalizado + curr.finalizado,
+            emAndamento: acc.emAndamento + curr.emAndamento,
+            cancelado: acc.cancelado + curr.cancelado,
+            effectiveTonnage: acc.effectiveTonnage + curr.effectiveTonnage,
+            commission: acc.commission + curr.commission
+        }), {
+            total: 0,
+            efetivados: 0,
+            finalizado: 0,
+            emAndamento: 0,
+            cancelado: 0,
+            effectiveTonnage: 0,
+            commission: 0
+        });
+    }, [filteredOperatorStats]);
 
     const getShipmentsForPdfAndList = (embarcadorId?: string) => {
         if (embarcadorId && embarcadorId !== 'ALL') {
@@ -515,74 +636,295 @@ const ShipperReport: React.FC<ShipperReportProps> = ({ shipments, cargos, client
     const formatCurrency = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 
     return (
-        <div>
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-                <h2 className="text-2xl font-semibold text-gray-800 dark:text-white">Desempenho por Embarcador / Solicitante</h2>
-                <div className="flex gap-2">
+        <div className="space-y-6">
+            {/* Top Toolbar: Title, Search, and Global Action Buttons */}
+            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+                <div>
+                    <div className="flex items-center gap-3 flex-wrap">
+                        <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
+                            Desempenho por Embarcador / Solicitante
+                        </h2>
+                        <span className="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-blue-100 text-blue-700 dark:bg-blue-950/60 dark:text-blue-400 border border-blue-200 dark:border-blue-800">
+                            {filteredOperatorStats.length} {filteredOperatorStats.length === 1 ? 'operador' : 'operadores'}
+                        </span>
+                    </div>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                        Métricas operacionais, veículos efetivados (Ag. Nota em diante) e comissionamento por solicitante
+                    </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2.5 w-full lg:w-auto">
+                    {/* Live Search */}
+                    <div className="relative flex-1 sm:w-64 sm:flex-initial">
+                        <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        <input
+                            type="text"
+                            placeholder="Buscar operador por nome..."
+                            value={searchTerm}
+                            onChange={e => setSearchTerm(e.target.value)}
+                            className="w-full pl-9 pr-8 py-2 text-xs rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all shadow-sm"
+                        />
+                        {searchTerm && (
+                            <button
+                                onClick={() => setSearchTerm('')}
+                                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5"
+                                title="Limpar busca"
+                            >
+                                <X className="w-3.5 h-3.5" />
+                            </button>
+                        )}
+                    </div>
+
                     <button 
                         onClick={() => generatePDF('ALL')}
-                        className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-sm text-sm"
+                        className="inline-flex items-center gap-2 bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-700 hover:to-red-700 text-white px-4 py-2 rounded-xl font-medium transition-all shadow-sm hover:shadow text-xs"
                     >
                         <Download className="w-4 h-4" /> Baixar PDF Geral
                     </button>
                     <button 
                         onClick={() => openListModal('ALL')}
-                        className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-sm text-sm"
+                        className="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-xl font-medium transition-all shadow-sm hover:shadow text-xs"
                     >
                         <List className="w-4 h-4" /> Listagem Geral
                     </button>
                 </div>
             </div>
+
+            {/* Overview Totals Ribbon */}
+            {filteredOperatorStats.length > 0 && (
+                <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-slate-900 via-slate-900/95 to-slate-800 border border-slate-700/80 shadow-md text-white">
+                    <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-800">
+                        <div className="flex items-center gap-2 text-xs font-semibold text-slate-300">
+                            <Sparkles className="w-4 h-4 text-emerald-400" />
+                            <span>Visão Consolidada ({filteredOperatorStats.length} {filteredOperatorStats.length === 1 ? 'operador' : 'operadores'})</span>
+                        </div>
+                        <span className="text-[11px] text-slate-400">
+                            Base: Período e filtros ativos
+                        </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4 divide-y sm:divide-y-0 sm:divide-x divide-slate-800/80">
+                        {/* 1. Veículos Efetivados Geral (FIRST) */}
+                        <div className="pt-2 sm:pt-0 sm:px-3 first:pl-0">
+                            <span className="text-[11px] font-semibold text-emerald-400 uppercase tracking-wider block">
+                                Veículos Efetivados
+                            </span>
+                            <span className="text-xl sm:text-2xl font-black text-emerald-300 block tracking-tight">
+                                {overallTotals.efetivados.toLocaleString('pt-BR')}
+                            </span>
+                            <span className="text-[10px] text-emerald-400/80 block mt-0.5">Ag. Nota em diante</span>
+                        </div>
+
+                        {/* 2. Total de Embarques */}
+                        <div className="pt-2 sm:pt-0 sm:px-3">
+                            <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">
+                                Total Embarques
+                            </span>
+                            <span className="text-xl sm:text-2xl font-black text-white block tracking-tight">
+                                {overallTotals.total.toLocaleString('pt-BR')}
+                            </span>
+                            <span className="text-[10px] text-slate-400 block mt-0.5">Todos status</span>
+                        </div>
+
+                        {/* 3. Taxa de Efetivação */}
+                        <div className="pt-2 sm:pt-0 sm:px-3">
+                            <span className="text-[11px] font-semibold text-cyan-400 uppercase tracking-wider block">
+                                Taxa Efetivação
+                            </span>
+                            <span className="text-xl sm:text-2xl font-black text-cyan-300 block tracking-tight">
+                                {overallTotals.total > 0 ? ((overallTotals.efetivados / overallTotals.total) * 100).toFixed(1) : 0}%
+                            </span>
+                            <span className="text-[10px] text-slate-400 block mt-0.5">Efetivados / Total</span>
+                        </div>
+
+                        {/* 4. Toneladas Efetivadas */}
+                        <div className="pt-2 sm:pt-0 sm:px-3">
+                            <span className="text-[11px] font-semibold text-purple-400 uppercase tracking-wider block">
+                                Volume Efetivado
+                            </span>
+                            <span className="text-xl sm:text-2xl font-black text-purple-300 block tracking-tight">
+                                {overallTotals.effectiveTonnage.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} t
+                            </span>
+                            <span className="text-[10px] text-slate-400 block mt-0.5">Cargas carregadas</span>
+                        </div>
+
+                        {/* 5. Finalizados e Em Andamento */}
+                        <div className="pt-2 sm:pt-0 sm:px-3">
+                            <span className="text-[11px] font-semibold text-amber-400 uppercase tracking-wider block">
+                                Concluídos / Rota
+                            </span>
+                            <span className="text-xl sm:text-2xl font-black text-amber-300 block tracking-tight">
+                                {overallTotals.finalizado} <span className="text-xs text-slate-400 font-normal">/ {overallTotals.emAndamento}</span>
+                            </span>
+                            <span className="text-[10px] text-slate-400 block mt-0.5">Finalizados vs Em Andamento</span>
+                        </div>
+
+                        {/* 6. Comissão ou Cancelados */}
+                        {canViewCommission ? (
+                            <div className="pt-2 sm:pt-0 sm:px-3">
+                                <span className="text-[11px] font-semibold text-emerald-400 uppercase tracking-wider block">
+                                    Comissão Total
+                                </span>
+                                <span className="text-xl sm:text-2xl font-black text-emerald-400 block tracking-tight">
+                                    {formatCurrency(overallTotals.commission)}
+                                </span>
+                                <span className="text-[10px] text-slate-400 block mt-0.5">R$ 2,00 / ton efetivada</span>
+                            </div>
+                        ) : (
+                            <div className="pt-2 sm:pt-0 sm:px-3">
+                                <span className="text-[11px] font-semibold text-rose-400 uppercase tracking-wider block">
+                                    Cancelados
+                                </span>
+                                <span className="text-xl sm:text-2xl font-black text-rose-400 block tracking-tight">
+                                    {overallTotals.cancelado}
+                                </span>
+                                <span className="text-[10px] text-slate-400 block mt-0.5">{overallTotals.total > 0 ? ((overallTotals.cancelado / overallTotals.total) * 100).toFixed(1) : 0}% do total</span>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
             
-            {operatorStats.length === 0 ? (
-                <div className="bg-white dark:bg-gray-800 rounded-lg p-8 text-center text-gray-500 dark:text-gray-400 shadow-sm border border-gray-100 dark:border-gray-700">
-                    Nenhum embarque encontrado para os filtros selecionados.
+            {filteredOperatorStats.length === 0 ? (
+                <div className="bg-white dark:bg-slate-800/80 rounded-2xl p-10 text-center text-slate-500 dark:text-slate-400 shadow-sm border border-slate-200/80 dark:border-slate-700/60">
+                    <p className="text-base font-semibold text-slate-700 dark:text-slate-200">Nenhum solicitante ou embarque encontrado.</p>
+                    <p className="text-xs text-slate-400 mt-1">Verifique os filtros de período acima ou o termo de busca pesquisado.</p>
                 </div>
             ) : (
-                <div className="space-y-6">
-                {operatorStats.map(stats => (
-                    <div key={stats.id} className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700">
-                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-4">
-                            <div className="flex items-center gap-2 flex-wrap">
-                                <h3 className="text-xl font-bold text-primary dark:text-blue-400">{stats.name}</h3>
-                                {stats.profile && (
-                                    <span className="text-xs px-2.5 py-0.5 rounded-full font-semibold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-600">
-                                        {stats.profile}
-                                    </span>
+                <div className="space-y-4">
+                {filteredOperatorStats.map(stats => {
+                    const effRate = stats.total > 0 ? Math.round((stats.efetivados / stats.total) * 100) : 0;
+                    const initials = stats.name
+                        .split(' ')
+                        .filter(Boolean)
+                        .map(n => n[0])
+                        .slice(0, 2)
+                        .join('')
+                        .toUpperCase() || 'OP';
+
+                    return (
+                        <div 
+                            key={stats.id} 
+                            className="bg-white dark:bg-slate-800/90 p-4 sm:p-5 rounded-2xl shadow-sm hover:shadow-md border border-slate-200/80 dark:border-slate-700/70 transition-all duration-200"
+                        >
+                            {/* Card Header: Avatar, Name, Badges, and Action Buttons */}
+                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-3.5 mb-3.5 border-b border-slate-100 dark:border-slate-700/60">
+                                <div className="flex items-center gap-3 flex-wrap">
+                                    <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-primary flex items-center justify-center text-white font-bold text-xs shadow-sm ring-2 ring-white dark:ring-slate-800 shrink-0">
+                                        {initials}
+                                    </div>
+                                    <div>
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white tracking-tight">
+                                                {stats.name}
+                                            </h3>
+                                            {stats.profile && (
+                                                <span className="text-[11px] px-2.5 py-0.5 rounded-full font-medium bg-slate-100 dark:bg-slate-700/80 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-600">
+                                                    {stats.profile}
+                                                </span>
+                                            )}
+                                            <span className={`text-[11px] px-2.5 py-0.5 rounded-full font-semibold border ${
+                                                effRate >= 70 
+                                                    ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/60'
+                                                    : effRate >= 40
+                                                    ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 border-amber-200 dark:border-amber-800/60'
+                                                    : 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-600'
+                                            }`}>
+                                                {effRate}% Efetivação ({stats.efetivados}/{stats.total})
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center gap-2 self-end sm:self-auto">
+                                    <button 
+                                        onClick={() => generatePDF(stats.id)}
+                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-rose-700 dark:text-rose-300 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-950/70 border border-rose-200 dark:border-rose-900/60 transition-colors shadow-sm"
+                                        title="Baixar PDF de finalizados deste embarcador"
+                                    >
+                                        <Download className="w-3.5 h-3.5" /> PDF
+                                    </button>
+                                    <button 
+                                        onClick={() => openListModal(stats.id)}
+                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-blue-700 dark:text-blue-300 bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/40 dark:hover:bg-blue-950/70 border border-blue-200 dark:border-blue-900/60 transition-colors shadow-sm"
+                                        title="Ver listagem detalhada de todos os embarques deste solicitante"
+                                    >
+                                        <List className="w-3.5 h-3.5" /> Listagem
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Responsive Metrics Grid - VEÍCULOS EFETIVADOS IS FIRST */}
+                            <div className={`grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 ${canViewCommission ? 'xl:grid-cols-7' : 'xl:grid-cols-6'} gap-3`}>
+                                {/* 1. VEÍCULOS EFETIVADOS (PRIMEIRO, CONFORME SOLICITADO) */}
+                                <MetricCard 
+                                    title="Veículos Efetivados" 
+                                    value={stats.efetivados} 
+                                    subtitle="Ag. Nota em diante" 
+                                    variant="emerald" 
+                                    highlight={true}
+                                    icon={<ShieldCheck className="w-4 h-4" />} 
+                                />
+
+                                {/* 2. TOTAL EMBARQUES */}
+                                <MetricCard 
+                                    title="Total Embarques" 
+                                    value={stats.total} 
+                                    subtitle="Programados" 
+                                    variant="blue" 
+                                    icon={<Truck className="w-4 h-4" />} 
+                                />
+
+                                {/* 3. EM ANDAMENTO */}
+                                <MetricCard 
+                                    title="Em Andamento" 
+                                    value={stats.emAndamento} 
+                                    subtitle="Em trânsito / pátio" 
+                                    variant="amber" 
+                                    icon={<Clock className="w-4 h-4" />} 
+                                />
+
+                                {/* 4. FINALIZADOS */}
+                                <MetricCard 
+                                    title="Finalizados" 
+                                    value={stats.finalizado} 
+                                    subtitle="Concluídos" 
+                                    variant="cyan" 
+                                    icon={<CheckCircle2 className="w-4 h-4" />} 
+                                />
+
+                                {/* 5. CANCELADOS */}
+                                <MetricCard 
+                                    title="Cancelados" 
+                                    value={stats.cancelado} 
+                                    subtitle={stats.total > 0 ? `${((stats.cancelado / stats.total) * 100).toFixed(0)}% do total` : '0%'} 
+                                    variant="rose" 
+                                    icon={<XCircle className="w-4 h-4" />} 
+                                />
+
+                                {/* 6. TONELADAS EFETIVADAS */}
+                                <MetricCard 
+                                    title="Toneladas Efetivadas" 
+                                    value={`${stats.effectiveTonnage.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} t`} 
+                                    subtitle="Volume transportado" 
+                                    variant="purple" 
+                                    icon={<TrendingUp className="w-4 h-4" />} 
+                                />
+
+                                {/* 7. COMISSÃO (SE VISÍVEL) */}
+                                {canViewCommission && (
+                                    <MetricCard 
+                                        title="Comissão (R$ 2/t)" 
+                                        value={formatCurrency(stats.commission)} 
+                                        subtitle="R$ 2,00 / t efetivada" 
+                                        variant="emerald" 
+                                        icon={<DollarSign className="w-4 h-4" />} 
+                                    />
                                 )}
                             </div>
-                            <div className="flex gap-2">
-                                <button 
-                                    onClick={() => generatePDF(stats.id)}
-                                    className="flex items-center gap-1.5 bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/40 px-3 py-1.5 rounded-md font-medium transition-colors text-xs border border-red-200 dark:border-red-800"
-                                >
-                                    <Download className="w-3.5 h-3.5" /> PDF
-                                </button>
-                                <button 
-                                    onClick={() => openListModal(stats.id)}
-                                    className="flex items-center gap-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-400 dark:hover:bg-blue-900/40 px-3 py-1.5 rounded-md font-medium transition-colors text-xs border border-blue-200 dark:border-blue-800"
-                                >
-                                    <List className="w-3.5 h-3.5" /> Listagem
-                                </button>
-                            </div>
                         </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
-                            <StatCard title="Total Embarques" value={stats.total} icon={<TruckIcon className="w-8 h-8 text-blue-500"/>} />
-                            <StatCard title="Finalizados" value={stats.finalizado} icon={<CheckCircleIcon className="w-8 h-8 text-gray-500"/>} />
-                            <StatCard title="Em Andamento" value={stats.emAndamento} icon={<ClockIcon className="w-8 h-8 text-blue-400"/>} />
-                            <StatCard title="Cancelados" value={stats.cancelado} icon={<XCircleIcon className="w-8 h-8 text-black"/>} />
-                            <StatCard title="Toneladas Efetivadas" value={`${stats.effectiveTonnage.toLocaleString('pt-BR')} t`} icon={<TruckIcon className="w-8 h-8 text-green-500"/>} />
-                            {canViewCommission && (
-                                <StatCard 
-                                    title="Comissão (R$ 2/t)" 
-                                    value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(stats.commission)} 
-                                    icon={<DollarSignIcon className="w-8 h-8 text-emerald-500"/>} 
-                                
-                                />
-                            )}
-                        </div>
-                    </div>
-                ))}
+                    );
+                })}
                 </div>
             )}
 
@@ -742,9 +1084,23 @@ const ShipperReport: React.FC<ShipperReportProps> = ({ shipments, cargos, client
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                                    <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-50 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">
-                                                        {shipment.status}
-                                                    </span>
+                                                    <div className="flex flex-col gap-1 items-start">
+                                                        <span className={`px-2.5 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                                            shipment.status === ShipmentStatus.Finalizado
+                                                                ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60'
+                                                                : shipment.status === ShipmentStatus.Cancelado
+                                                                ? 'bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300 border border-rose-200 dark:border-rose-800/60'
+                                                                : 'bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800/60'
+                                                        }`}>
+                                                            {shipment.status}
+                                                        </span>
+                                                        {isShipmentEffective(shipment) && (
+                                                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                                                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                                                Efetivado
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 </td>
                                             </tr>
                                         );
