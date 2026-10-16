@@ -167,11 +167,15 @@ const ShipperReport: React.FC<ShipperReportProps> = ({ shipments, cargos, client
       if (!currentUser) return set;
       set.add(currentUser.id);
       if (currentUser.profile === UserProfile.AgenciadorLider) {
-        users.filter(u => u.leaderId === currentUser.id).forEach(u => set.add(u.id));
+        users
+          .filter(u => u.leaderId === currentUser.id && u.profile === UserProfile.AgenciadorEmbarque)
+          .forEach(u => set.add(u.id));
       } else if (currentUser.profile === UserProfile.AgenciadorEmbarque) {
         if (currentUser.leaderId) {
           set.add(currentUser.leaderId);
-          users.filter(u => u.leaderId === currentUser.leaderId).forEach(u => set.add(u.id));
+          users
+            .filter(u => u.leaderId === currentUser.leaderId && u.profile === UserProfile.AgenciadorEmbarque)
+            .forEach(u => set.add(u.id));
         }
       }
       return set;

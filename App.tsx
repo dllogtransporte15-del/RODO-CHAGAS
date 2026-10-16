@@ -672,10 +672,14 @@ const App: React.FC = () => {
 
       const allowedTeamIds = new Set<string>([currentUser.id]);
       if (currentUser.profile === UserProfile.AgenciadorLider || isAgenciadorLider) {
-        users.filter(u => u.leaderId === currentUser.id).forEach(u => allowedTeamIds.add(u.id));
+        users
+          .filter(u => u.leaderId === currentUser.id && u.profile === UserProfile.AgenciadorEmbarque)
+          .forEach(u => allowedTeamIds.add(u.id));
       } else if (currentUser.profile === UserProfile.AgenciadorEmbarque && currentUser.leaderId) {
         allowedTeamIds.add(currentUser.leaderId);
-        users.filter(u => u.leaderId === currentUser.leaderId).forEach(u => allowedTeamIds.add(u.id));
+        users
+          .filter(u => u.leaderId === currentUser.leaderId && u.profile === UserProfile.AgenciadorEmbarque)
+          .forEach(u => allowedTeamIds.add(u.id));
       }
 
       return cargos.filter(c => {
@@ -732,10 +736,14 @@ const App: React.FC = () => {
     if (currentUser.profile === UserProfile.AgenciadorLider || currentUser.profile === UserProfile.AgenciadorEmbarque) {
       const allowedTeamIds = new Set<string>([currentUser.id]);
       if (currentUser.profile === UserProfile.AgenciadorLider) {
-        users.filter(u => u.leaderId === currentUser.id).forEach(u => allowedTeamIds.add(u.id));
+        users
+          .filter(u => u.leaderId === currentUser.id && u.profile === UserProfile.AgenciadorEmbarque)
+          .forEach(u => allowedTeamIds.add(u.id));
       } else if (currentUser.profile === UserProfile.AgenciadorEmbarque && currentUser.leaderId) {
         allowedTeamIds.add(currentUser.leaderId);
-        users.filter(u => u.leaderId === currentUser.leaderId).forEach(u => allowedTeamIds.add(u.id));
+        users
+          .filter(u => u.leaderId === currentUser.leaderId && u.profile === UserProfile.AgenciadorEmbarque)
+          .forEach(u => allowedTeamIds.add(u.id));
       }
 
       const teamCargoIds = new Set(

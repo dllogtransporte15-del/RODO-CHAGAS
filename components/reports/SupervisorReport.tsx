@@ -40,8 +40,8 @@ export interface ShipmentCommissionDetail {
   grossDriverFreight: number;
   netRevenue: number;
   netProfit: number;
-  scenario: 'equipe' | 'terceiros' | 'padrao';
-  scenarioTag: string; // Ex: '[Equipe - 25% s/ Lucro]' ou '[Terceiros - 1.5% s/ Fat.]'
+  scenario: 'equipe' | 'terceiros' | 'padrao' | 'proprio';
+  scenarioTag: string; // Ex: '[Próprio - 25% s/ Lucro]' ou '[Equipe - 25% s/ Lucro]' ou '[Terceiros - 1.5% s/ Fat.]'
   rate: number;
   calculationBase: number;
   calculationBaseLabel: string;
@@ -49,6 +49,7 @@ export interface ShipmentCommissionDetail {
   operatorId: string;
   operatorName: string;
   isTeamOperator: boolean;
+  operatorRoleType?: 'lider' | 'equipe' | 'externo';
 }
 
 export interface ResponsibleStats {
@@ -231,15 +232,14 @@ const SupervisorReport: React.FC<SupervisorReportProps> = ({ shipments, cargos, 
       }
     });
 
-    // Mapeamento de equipes por Líder
+    // Mapeamento de equipes por Líder: APENAS quando for "Agenciador Embarque" vinculado ao Agenciador Líder
     const leaderTeamMap = new Map<string, Set<string>>();
     users
       .filter(u => u.profile === UserProfile.AgenciadorLider)
       .forEach(leader => {
         const memberIds = new Set<string>();
-        memberIds.add(leader.id);
         users
-          .filter(u => u.leaderId === leader.id)
+          .filter(u => u.leaderId === leader.id && u.profile === UserProfile.AgenciadorEmbarque)
           .forEach(member => memberIds.add(member.id));
         leaderTeamMap.set(leader.id, memberIds);
       });
@@ -291,19 +291,32 @@ const SupervisorReport: React.FC<SupervisorReportProps> = ({ shipments, cargos, 
         respStats.netRevenue += netRevenue;
 
         if (respStats.isLeader) {
-          const leaderTeam = leaderTeamMap.get(responsible.id) || new Set([responsible.id]);
-          const isTeamOperator = leaderTeam.has(operatorId) || 
-            (shipment.embarcadorId ? leaderTeam.has(shipment.embarcadorId) : false) || 
-            (shipment.createdById ? leaderTeam.has(shipment.createdById) : false);
+          const leaderTeam = leaderTeamMap.get(responsible.id) || new Set<string>();
 
-          if (isTeamOperator) {
-            // CENÁRIO A: Operação da Equipe / Própria -> % sobre Lucro Líquido
+          // O próprio Agenciador Líder
+          const isLeaderOperator = operatorId === responsible.id || 
+            (!operatorId && (shipment.embarcadorId === responsible.id || shipment.createdById === responsible.id));
+
+          // Apenas quando for "Agenciador embarque" vinculado ao agenciador líder
+          const isTeamOperator = !isLeaderOperator && (
+            leaderTeam.has(operatorId) || 
+            (shipment.embarcadorId ? leaderTeam.has(shipment.embarcadorId) : false) || 
+            (shipment.createdById ? leaderTeam.has(shipment.createdById) : false)
+          );
+
+          if (isLeaderOperator || isTeamOperator) {
+            // CENÁRIO A: Operação Própria do Líder ou da Equipe (Agenciador Embarque) -> % sobre Lucro Líquido
             const rate = respStats.teamRate;
             const commVal = netProfit > 0 ? netProfit * (rate / 100) : 0;
             respStats.teamShipmentsCount += 1;
             respStats.teamTonnage += tonnage;
             respStats.teamNetProfit += netProfit;
             respStats.teamCommission += commVal;
+
+            const roleType: 'lider' | 'equipe' | 'externo' = isLeaderOperator ? 'lider' : 'equipe';
+            const scenarioTag = isLeaderOperator 
+              ? `[Próprio - ${rate}% s/ Lucro]` 
+              : `[Equipe - ${rate}% s/ Lucro]`;
 
             respStats.shipmentDetails.push({
               shipment,
@@ -313,15 +326,16 @@ const SupervisorReport: React.FC<SupervisorReportProps> = ({ shipments, cargos, 
               grossDriverFreight: driverVal,
               netRevenue,
               netProfit,
-              scenario: 'equipe',
-              scenarioTag: `[Equipe - ${rate}% s/ Lucro]`,
+              scenario: isLeaderOperator ? 'proprio' : 'equipe',
+              scenarioTag,
               rate,
               calculationBase: netProfit,
               calculationBaseLabel: 'Lucro Líquido',
               commissionValue: commVal,
               operatorId,
               operatorName,
-              isTeamOperator: true,
+              isTeamOperator: isTeamOperator, // Apenas true se for membro da equipe (Agenciador Embarque vinculado)
+              operatorRoleType: roleType,
             });
           } else {
             // CENÁRIO B: Cargas Sob Responsabilidade do Líder com Embarque Externo -> % sobre Faturamento Líquido
@@ -349,6 +363,7 @@ const SupervisorReport: React.FC<SupervisorReportProps> = ({ shipments, cargos, 
               operatorId,
               operatorName,
               isTeamOperator: false,
+              operatorRoleType: 'externo',
             });
           }
 
@@ -375,20 +390,26 @@ const SupervisorReport: React.FC<SupervisorReportProps> = ({ shipments, cargos, 
             commissionValue: commVal,
             operatorId,
             operatorName,
-            isTeamOperator: true,
+            isTeamOperator: false,
+            operatorRoleType: 'lider',
           });
         }
       }
 
-      // 2. Cenário A Adicional: Carga de terceiros embarcada por equipe de um Agenciador Líder
+      // 2. Cenário A Adicional: Carga de terceiros embarcada pelo próprio Líder ou por Agenciador Embarque da sua equipe
       leaderTeamMap.forEach((teamSet, leaderId) => {
         if (leaderId === responsible.id) return; // Já foi contabilizado acima
 
-        const isTeamOperator = teamSet.has(operatorId) || 
-          (shipment.embarcadorId ? teamSet.has(shipment.embarcadorId) : false) ||
-          (shipment.createdById ? teamSet.has(shipment.createdById) : false);
+        const isLeaderOperator = operatorId === leaderId ||
+          (!operatorId && (shipment.embarcadorId === leaderId || shipment.createdById === leaderId));
 
-        if (isTeamOperator) {
+        const isTeamOperator = !isLeaderOperator && (
+          teamSet.has(operatorId) || 
+          (shipment.embarcadorId ? teamSet.has(shipment.embarcadorId) : false) ||
+          (shipment.createdById ? teamSet.has(shipment.createdById) : false)
+        );
+
+        if (isLeaderOperator || isTeamOperator) {
           const leaderStat = statsMap.get(leaderId);
           if (leaderStat) {
             // Adiciona a carga à lista do líder se não estiver lá
@@ -415,6 +436,11 @@ const SupervisorReport: React.FC<SupervisorReportProps> = ({ shipments, cargos, 
             leaderStat.teamCommission += commVal;
             leaderStat.commission = leaderStat.teamCommission + leaderStat.externalCommission;
 
+            const roleType: 'lider' | 'equipe' | 'externo' = isLeaderOperator ? 'lider' : 'equipe';
+            const scenarioTag = isLeaderOperator 
+              ? `[Próprio - ${rate}% s/ Lucro]` 
+              : `[Equipe - ${rate}% s/ Lucro]`;
+
             leaderStat.shipmentDetails.push({
               shipment,
               cargo,
@@ -423,15 +449,16 @@ const SupervisorReport: React.FC<SupervisorReportProps> = ({ shipments, cargos, 
               grossDriverFreight: driverVal,
               netRevenue,
               netProfit,
-              scenario: 'equipe',
-              scenarioTag: `[Equipe - ${rate}% s/ Lucro]`,
+              scenario: isLeaderOperator ? 'proprio' : 'equipe',
+              scenarioTag,
               rate,
               calculationBase: netProfit,
               calculationBaseLabel: 'Lucro Líquido',
               commissionValue: commVal,
               operatorId,
               operatorName,
-              isTeamOperator: true,
+              isTeamOperator: isTeamOperator,
+              operatorRoleType: roleType,
             });
           }
         }
@@ -455,11 +482,15 @@ const SupervisorReport: React.FC<SupervisorReportProps> = ({ shipments, cargos, 
       allowedTeamIds.add(currentUser.id);
 
       if (currentUser.profile === UserProfile.AgenciadorLider) {
-        users.filter(u => u.leaderId === currentUser.id).forEach(u => allowedTeamIds.add(u.id));
+        users
+          .filter(u => u.leaderId === currentUser.id && u.profile === UserProfile.AgenciadorEmbarque)
+          .forEach(u => allowedTeamIds.add(u.id));
       } else if (currentUser.profile === UserProfile.AgenciadorEmbarque) {
         if (currentUser.leaderId) {
           allowedTeamIds.add(currentUser.leaderId);
-          users.filter(u => u.leaderId === currentUser.leaderId).forEach(u => allowedTeamIds.add(u.id));
+          users
+            .filter(u => u.leaderId === currentUser.leaderId && u.profile === UserProfile.AgenciadorEmbarque)
+            .forEach(u => allowedTeamIds.add(u.id));
         }
       }
 
@@ -961,13 +992,19 @@ const SupervisorReport: React.FC<SupervisorReportProps> = ({ shipments, cargos, 
                                                 <span className="font-semibold text-gray-800 dark:text-gray-200">
                                                   {detail.operatorName}
                                                 </span>
-                                                <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded ${
-                                                  detail.isTeamOperator 
-                                                    ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300' 
-                                                    : 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300'
-                                                }`}>
-                                                  {detail.isTeamOperator ? 'Equipe' : 'Externo'}
-                                                </span>
+                                                {detail.operatorRoleType === 'lider' ? (
+                                                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+                                                    Líder
+                                                  </span>
+                                                ) : detail.operatorRoleType === 'equipe' ? (
+                                                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                                                    Equipe
+                                                  </span>
+                                                ) : (
+                                                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                                                    Externo
+                                                  </span>
+                                                )}
                                               </div>
                                             </td>
 
@@ -987,7 +1024,9 @@ const SupervisorReport: React.FC<SupervisorReportProps> = ({ shipments, cargos, 
                                             {/* Tag / Regra Conforme Especificação */}
                                             <td className="py-2.5 px-3 text-center whitespace-nowrap">
                                               <span className={`inline-block px-2.5 py-1 rounded-md text-[11px] font-black border ${
-                                                detail.scenario === 'equipe'
+                                                detail.scenario === 'proprio'
+                                                  ? 'bg-purple-50 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 border-purple-200 dark:border-purple-800'
+                                                  : detail.scenario === 'equipe'
                                                   ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800'
                                                   : detail.scenario === 'terceiros'
                                                   ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border-blue-200 dark:border-blue-800'
@@ -1222,7 +1261,9 @@ const SupervisorReport: React.FC<SupervisorReportProps> = ({ shipments, cargos, 
                                 <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400">#{detail.cargo.sequenceId}</span>
                                 <span className="font-semibold text-gray-800 dark:text-gray-200 truncate">{detail.cargo.origin} → {detail.cargo.destination}</span>
                                 <span className={`text-[9px] font-black px-1.5 py-0.2 rounded ${
-                                  detail.scenario === 'equipe'
+                                  detail.scenario === 'proprio'
+                                    ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300'
+                                    : detail.scenario === 'equipe'
                                     ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300'
                                     : detail.scenario === 'terceiros'
                                     ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300'
@@ -1231,8 +1272,17 @@ const SupervisorReport: React.FC<SupervisorReportProps> = ({ shipments, cargos, 
                                   {detail.scenarioTag}
                                 </span>
                               </div>
-                              <div className="text-[10px] text-gray-400 truncate mt-0.5">
-                                Operador: <strong className="text-gray-600 dark:text-gray-300">{detail.operatorName}</strong> • {detail.tonnage.toLocaleString('pt-BR')} ton • Base ({detail.calculationBaseLabel}): {formatCurrency(detail.calculationBase)}
+                              <div className="text-[10px] text-gray-400 truncate mt-0.5 flex items-center gap-1.5 flex-wrap">
+                                <span>Operador: <strong className="text-gray-600 dark:text-gray-300">{detail.operatorName}</strong></span>
+                                {detail.operatorRoleType === 'lider' ? (
+                                  <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300 border border-purple-200 dark:border-purple-800">Líder</span>
+                                ) : detail.operatorRoleType === 'equipe' ? (
+                                  <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">Equipe</span>
+                                ) : (
+                                  <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 border border-amber-200 dark:border-amber-800">Externo</span>
+                                )}
+                                <span>• {detail.tonnage.toLocaleString('pt-BR')} ton</span>
+                                <span>• Base ({detail.calculationBaseLabel}): {formatCurrency(detail.calculationBase)}</span>
                               </div>
                             </div>
                             <div className="text-right shrink-0">
