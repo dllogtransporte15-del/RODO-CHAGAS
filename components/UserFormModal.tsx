@@ -89,7 +89,7 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSave, 
   const potentialLeaders = React.useMemo(() => {
     const leaders = users.filter(u => u.profile === UserProfile.AgenciadorLider);
     if (leaders.length > 0) return leaders;
-    // Fallback caso ainda não tenha nenhum perfil 'Agenciador Líder', permite selecionar Supervisor ou Coordenador
+    // Fallback caso ainda não tenha nenhum perfil 'Gestor GO', permite selecionar Supervisor ou Coordenador
     return users.filter(u => [UserProfile.Supervisor, UserProfile.Coordenador, UserProfile.Admin].includes(u.profile));
   }, [users]);
 
@@ -102,7 +102,7 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSave, 
     }
 
     if (user.profile === UserProfile.AgenciadorEmbarque && !user.leaderId) {
-      showToast('Por favor, vincule o Agenciador de Embarque a um Agenciador Líder.', 'warning');
+      showToast('Por favor, vincule o Embarcador GO a um Gestor GO.', 'warning');
       return;
     }
 
@@ -153,7 +153,7 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSave, 
             </select>
           </div>
 
-          {/* Configurações de Comissionamento Híbrido para Agenciador Líder */}
+          {/* Configurações de Comissionamento Híbrido para Gestor GO */}
           {user.profile === UserProfile.AgenciadorLider && (
             <div className="p-4 rounded-xl bg-gradient-to-br from-indigo-50/80 to-blue-50/50 dark:from-indigo-950/40 dark:to-blue-950/20 border border-indigo-200/80 dark:border-indigo-800/60 shadow-xs space-y-3">
               <div className="flex items-center justify-between">
@@ -163,10 +163,10 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSave, 
                   </div>
                   <div>
                     <h4 className="text-xs font-bold text-gray-900 dark:text-white uppercase tracking-wider">
-                      Regra de Comissionamento Híbrida (Agenciador Líder)
+                      Regra de Comissionamento Híbrida (Gestor GO)
                     </h4>
                     <p className="text-[11px] text-gray-500 dark:text-gray-400">
-                      Configuração das alíquotas de comissionamento individual do líder
+                      Configuração das alíquotas de comissionamento individual do gestor
                     </p>
                   </div>
                 </div>
@@ -205,7 +205,7 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSave, 
 
                 <div>
                   <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
-                    Comissão s/ Faturamento (Cargas de Terceiros) <span className="text-red-500">*</span>
+                    Comissão Cargas de Terceiros (% s/ Lucro Líquido) <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
                     <input
@@ -224,7 +224,7 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSave, 
                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-400">%</span>
                   </div>
                   <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">
-                    Padrão: <strong>1,5%</strong> sobre o faturamento líquido (embarques externos).
+                    Padrão: <strong>1,5%</strong> sobre o lucro líquido (embarques externos).
                   </p>
                 </div>
               </div>
@@ -234,7 +234,7 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSave, 
           {user.profile === UserProfile.AgenciadorEmbarque && (
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Agenciador Líder Vinculado <span className="text-red-500">*</span>
+                Gestor GO Vinculado <span className="text-red-500">*</span>
               </label>
               <select 
                 name="leaderId" 
@@ -243,7 +243,7 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSave, 
                 className="mt-1 p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600" 
                 required
               >
-                <option value="">Selecione o Agenciador Líder...</option>
+                <option value="">Selecione o Gestor GO...</option>
                 {potentialLeaders.map(l => (
                   <option key={l.id} value={l.id}>
                     {l.name} ({l.profile})
@@ -251,7 +251,7 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSave, 
                 ))}
               </select>
               <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">
-                O Agenciador de Embarque responde diretamente a este Agenciador Líder.
+                O Embarcador GO responde diretamente a este Gestor GO.
               </p>
             </div>
           )}

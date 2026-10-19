@@ -5,7 +5,7 @@ import { useToast } from '../hooks/useToast';
 interface EditScheduledDateTimeModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (data: { scheduledDate: string, scheduledTime: string }) => void;
+  onSave: (data: { scheduledDate: string, scheduledTime: string }) => Promise<void> | void;
   shipment: Shipment;
 }
 
@@ -15,6 +15,7 @@ const EditScheduledDateTimeModal: React.FC<EditScheduledDateTimeModalProps> = ({
   const { showToast } = useToast();
   const [scheduledDate, setScheduledDate] = useState('');
   const [scheduledTime, setScheduledTime] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (shipment && isOpen) {
@@ -23,12 +24,21 @@ const EditScheduledDateTimeModal: React.FC<EditScheduledDateTimeModalProps> = ({
     }
   }, [shipment, isOpen]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    if (isSaving) return;
     if (!scheduledDate) {
       showToast('A data programada é obrigatória.', 'warning');
       return;
     }
-    onSave({ scheduledDate, scheduledTime });
+    setIsSaving(true);
+    try {
+      await onSave({ scheduledDate, scheduledTime });
+      onClose();
+    } catch (err) {
+      console.error('Erro ao atualizar data/hora programada:', err);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   if (!isOpen) return null;
@@ -92,16 +102,28 @@ const EditScheduledDateTimeModal: React.FC<EditScheduledDateTimeModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 py-3 px-4 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-bold rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-all active:scale-95"
+            disabled={isSaving}
+            className="flex-1 py-3 px-4 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-bold rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-all active:scale-95 disabled:opacity-50"
           >
             Cancelar
           </button>
           <button
             type="button"
             onClick={handleSave}
-            className="flex-1 py-3 px-4 bg-primary text-white font-bold rounded-lg hover:bg-primary-dark shadow-lg shadow-primary/25 transition-all active:scale-95"
+            disabled={isSaving}
+            className="flex-1 py-3 px-4 bg-primary text-white font-bold rounded-lg hover:bg-primary-dark shadow-lg shadow-primary/25 transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50"
           >
-            Salvar
+            {isSaving ? (
+              <>
+                <svg className="animate-spin h-4 w-4 text-white" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                </svg>
+                <span>Salvando...</span>
+              </>
+            ) : (
+              'Salvar'
+            )}
           </button>
         </div>
       </div>

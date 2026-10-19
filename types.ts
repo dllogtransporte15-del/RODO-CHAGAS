@@ -6,8 +6,8 @@ export enum UserProfile {
   Embarcador = "Embarcador",
   Supervisor = "Supervisor",
   Coordenador = "Coordenador",
-  AgenciadorLider = "Agenciador Líder",
-  AgenciadorEmbarque = "Agenciador Embarque",
+  AgenciadorLider = "Gestor GO",
+  AgenciadorEmbarque = "Embarcador GO",
   Comercial = "Comercial",
   Diretor = "Diretor",
   Fiscal = "Fiscal",
@@ -34,14 +34,14 @@ export interface User {
   phone?: string;
   password?: string;
   clientId?: string;
-  leaderId?: string; // Vinculação do Agenciador Embarque ao seu Agenciador Líder
+  leaderId?: string; // Vinculação do Embarcador GO ao seu Gestor GO
   requirePasswordChange?: boolean;
   isFirstSetup?: boolean;
   authId?: string;
   passwordUpdatedAt?: string;
   branchId?: string;
   leaderProfitCommissionRate?: number; // Percentual sobre Lucro Líquido (Equipe/Próprio) - padrão 25%
-  leaderRevenueCommissionRate?: number; // Percentual sobre Faturamento Líquido (Cargas de Terceiros) - padrão 1.5%
+  leaderRevenueCommissionRate?: number; // Percentual sobre Lucro Líquido (Cargas de Terceiros) - padrão 1.5%
   customPermissions?: { [key in Page]?: CrudPermissions };
 }
 

@@ -4,12 +4,13 @@ import type { Cargo, Driver, Shipment, Client, Vehicle, User } from '../types';
 import { UserProfile, DailyScheduleType, VehicleSetType, VehicleBodyType, FreightPricingType, ShipmentStatus } from '../types';
 import { supabase } from '../supabase';
 import { useToast } from '../hooks/useToast';
+import { isValidCPF, isValidPlate } from '../utils/formatters';
 
 
 interface NewShipmentModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (shipmentData: any) => void;
+  onSave: (shipmentData: any) => Promise<void> | void;
   cargo: Cargo | null;
   cargos?: Cargo[];
   drivers: Driver[];
@@ -278,11 +279,11 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
   };
 
-  const executeSave = (statusToSet: ShipmentStatus) => {
-    if (!cargo) return;
+  const executeSave = async (statusToSet: ShipmentStatus) => {
+    if (!cargo || isSubmitting) return;
     setIsSubmitting(true);
     try {
-      onSave({
+      await onSave({
         cargoId: cargo.id,
         driverName,
         driverCpf,
@@ -305,11 +306,11 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
         driverReferences: driverReferences || undefined,
         status: statusToSet,
       });
+      setPendingVehicleWarning(null);
     } catch (err) {
       console.error('Erro ao salvar solicitação de embarque:', err);
     } finally {
       setIsSubmitting(false);
-      setPendingVehicleWarning(null);
     }
   };
 
@@ -333,6 +334,16 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
 
     if (!driverName || !horsePlate || shipmentTonnage <= 0 || !scheduledDate || !embarcadorId || !scheduledTime) {
         showToast('Por favor, preencha todos os campos obrigatórios do formulário.', 'warning');
+        return;
+    }
+
+    if (horsePlate && !isValidPlate(horsePlate)) {
+        showToast('Placa do cavalo mecânico inválida. Utilize o padrão Mercosul (ex: ABC1D23) ou antigo (ex: ABC1234 / ABC-1234).', 'warning');
+        return;
+    }
+
+    if (driverCpf && !isValidCPF(driverCpf)) {
+        showToast('CPF do motorista inválido. Verifique os dígitos informados.', 'warning');
         return;
     }
     

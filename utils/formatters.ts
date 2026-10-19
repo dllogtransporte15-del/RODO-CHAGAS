@@ -110,4 +110,82 @@ export const formatFretebrasVehicleTypes = (allowed?: { setType: string }[]): st
   return [...new Set(mapped)].join(', ');
 };
 
+export const isValidCPF = (cpf: string): boolean => {
+  const clean = cpf.replace(/\D/g, '');
+  if (clean.length !== 11) return false;
+  if (/^(\d)\1{10}$/.test(clean)) return false;
+
+  let sum = 0;
+  for (let i = 0; i < 9; i++) {
+    sum += parseInt(clean.charAt(i), 10) * (10 - i);
+  }
+  let rev = (sum * 10) % 11;
+  if (rev === 10 || rev === 11) rev = 0;
+  if (rev !== parseInt(clean.charAt(9), 10)) return false;
+
+  sum = 0;
+  for (let i = 0; i < 10; i++) {
+    sum += parseInt(clean.charAt(i), 10) * (11 - i);
+  }
+  rev = (sum * 10) % 11;
+  if (rev === 10 || rev === 11) rev = 0;
+  if (rev !== parseInt(clean.charAt(10), 10)) return false;
+
+  return true;
+};
+
+export const isValidCNPJ = (cnpj: string): boolean => {
+  const clean = cnpj.replace(/\D/g, '');
+  if (clean.length !== 14) return false;
+  if (/^(\d)\1{13}$/.test(clean)) return false;
+
+  const weights1 = [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+  let sum = 0;
+  for (let i = 0; i < 12; i++) {
+    sum += parseInt(clean.charAt(i), 10) * weights1[i];
+  }
+  let rev = sum % 11;
+  const digit1 = rev < 2 ? 0 : 11 - rev;
+  if (digit1 !== parseInt(clean.charAt(12), 10)) return false;
+
+  const weights2 = [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+  sum = 0;
+  for (let i = 0; i < 13; i++) {
+    sum += parseInt(clean.charAt(i), 10) * weights2[i];
+  }
+  rev = sum % 11;
+  const digit2 = rev < 2 ? 0 : 11 - rev;
+  if (digit2 !== parseInt(clean.charAt(13), 10)) return false;
+
+  return true;
+};
+
+export const isValidCpfCnpj = (val: string): boolean => {
+  const clean = val.replace(/\D/g, '');
+  if (clean.length === 11) return isValidCPF(clean);
+  if (clean.length === 14) return isValidCNPJ(clean);
+  return false;
+};
+
+export const isValidPlate = (plate: string): boolean => {
+  const clean = plate.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+  if (clean.length !== 7) return false;
+  // Traditional (AAA9999) or Mercosul (AAA9A99)
+  const traditionalRegex = /^[A-Z]{3}[0-9]{4}$/;
+  const mercosulRegex = /^[A-Z]{3}[0-9][A-Z][0-9]{2}$/;
+  return traditionalRegex.test(clean) || mercosulRegex.test(clean);
+};
+
+export const formatPlate = (plate: string): string => {
+  const clean = plate.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 7);
+  if (clean.length <= 3) return clean;
+  // If it matches traditional pattern format with hyphen: AAA-9999
+  if (/^[A-Z]{3}[0-9]{1,4}$/.test(clean)) {
+    return `${clean.slice(0, 3)}-${clean.slice(3)}`;
+  }
+  // Otherwise Mercosul (keep as AAA9A99 or formatted)
+  return clean;
+};
+
+
 

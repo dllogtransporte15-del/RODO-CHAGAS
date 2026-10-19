@@ -207,6 +207,43 @@ export function useDatabase(currentUser: User | null) {
   }, [currentUser, loadAllData]);
 
   // Real-time integration com Atualizações Cirúrgicas (Surgical Updates)
+  const shipmentsRef = useRef<Shipment[]>([]);
+  const cargosRef = useRef<Cargo[]>([]);
+
+  useEffect(() => {
+    shipmentsRef.current = shipments;
+  }, [shipments]);
+
+  useEffect(() => {
+    cargosRef.current = cargos;
+  }, [cargos]);
+
+  // Sincronização automática em background ao retornar à aba ou reconectar à rede (Zero F5)
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        console.log('[useDatabase] Aba visível novamente. Sincronizando dados em background...');
+        loadAllData(true);
+      }
+    };
+
+    const handleOnline = () => {
+      console.log('[useDatabase] Conexão restabelecida. Sincronizando dados em background...');
+      loadAllData(true);
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('online', handleOnline);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('online', handleOnline);
+    };
+  }, [currentUser, loadAllData]);
+
+  // Real-time integration com Atualizações Imediatas e Sincronização Cruzada (Cross-Entity Sync)
   useEffect(() => {
     if (!currentUser) return;
 
@@ -214,21 +251,36 @@ export function useDatabase(currentUser: User | null) {
       const { table, eventType, new: newRow, old: oldRow } = payload;
       console.log(`[useDatabase] Realtime ${eventType} em ${table}`);
 
-      // Permite atualizações em tempo real mesmo com modais abertos para tabelas principais
-      const alwaysUpdateTables = ['tickets', 'cargos', 'shipments', 'freight_offers', 'drivers', 'app_users'];
-      if (isAnyModalActiveRef.current && !alwaysUpdateTables.includes(table)) return;
-
       try {
         switch (table) {
           case 'cargos': {
             if (eventType === 'INSERT' && newRow) {
               const item = toCargo(newRow);
-              setCargos(prev => [item, ...prev.filter(c => c.id !== item.id && c.id !== `TEMP-${item.sequenceId}`)]);
+              setCargos(prev => {
+                const combined = [item, ...prev.filter(c => c.id !== item.id && c.id !== `TEMP-${item.sequenceId}`)];
+                const synced = syncCargosWithShipments(combined, shipmentsRef.current);
+                cargosRef.current = synced;
+                return synced;
+              });
+              const m = item.id?.match(/-(\d+)$/);
+              const num = item.sequenceId || (m ? parseInt(m[1], 10) : 0);
+              if (num && !isNaN(num)) {
+                setNextIds((prev: any) => ({ ...prev, cargo: Math.max(prev.cargo || 0, num + 1) }));
+              }
             } else if (eventType === 'UPDATE' && newRow) {
               const item = toCargo(newRow);
-              setCargos(prev => prev.map(c => c.id === item.id ? { ...c, ...item } : c));
+              setCargos(prev => {
+                const combined = prev.map(c => c.id === item.id ? { ...c, ...item } : c);
+                const synced = syncCargosWithShipments(combined, shipmentsRef.current);
+                cargosRef.current = synced;
+                return synced;
+              });
             } else if (eventType === 'DELETE' && oldRow?.id) {
-              setCargos(prev => prev.filter(c => c.id !== oldRow.id));
+              setCargos(prev => {
+                const filtered = prev.filter(c => c.id !== oldRow.id);
+                cargosRef.current = filtered;
+                return filtered;
+              });
             }
             break;
           }
@@ -236,19 +288,57 @@ export function useDatabase(currentUser: User | null) {
           case 'shipments': {
             if (eventType === 'INSERT' && newRow) {
               const item = toShipment(newRow);
-              setShipments(prev => [item, ...prev.filter(s => s.id !== item.id)]);
+              setShipments(prev => {
+                const updated = [item, ...prev.filter(s => s.id !== item.id)];
+                shipmentsRef.current = updated;
+                // Sincroniza imediatamente o volume agendado/carregado de todas as cargas na tela de todos os usuários
+                setCargos(prevCargos => {
+                  const synced = syncCargosWithShipments(prevCargos, updated);
+                  cargosRef.current = synced;
+                  return synced;
+                });
+                return updated;
+              });
+              // Atualiza o contador de IDs de embarques para todos os usuários imediatamente
+              const m = item.id?.match(/-(\d+)$/);
+              if (m) {
+                const num = parseInt(m[1], 10);
+                if (!isNaN(num)) {
+                  setNextIds((prev: any) => ({ ...prev, shipment: Math.max(prev.shipment || 0, num + 1) }));
+                }
+              }
             } else if (eventType === 'UPDATE' && newRow) {
               const item = toShipment(newRow);
-              setShipments(prev => prev.map(s => {
-                if (s.id !== item.id) return s;
-                // Preserva estado local se houver histórico mais recente ainda não replicado
-                if (s.history && item.history && s.history.length > item.history.length) {
-                  return { ...item, history: s.history, documents: s.documents || item.documents };
-                }
-                return item;
-              }));
+              setShipments(prev => {
+                const updated = prev.map(s => {
+                  if (s.id !== item.id) return s;
+                  return {
+                    ...s,
+                    ...item,
+                    documents: item.documents || s.documents,
+                    history: (item.history && item.history.length > 0) ? item.history : s.history,
+                  };
+                });
+                shipmentsRef.current = updated;
+                // Sincroniza imediatamente o volume agendado/carregado de todas as cargas na tela de todos os usuários
+                setCargos(prevCargos => {
+                  const synced = syncCargosWithShipments(prevCargos, updated);
+                  cargosRef.current = synced;
+                  return synced;
+                });
+                return updated;
+              });
             } else if (eventType === 'DELETE' && oldRow?.id) {
-              setShipments(prev => prev.filter(s => s.id !== oldRow.id));
+              setShipments(prev => {
+                const updated = prev.filter(s => s.id !== oldRow.id);
+                shipmentsRef.current = updated;
+                setCargos(prevCargos => {
+                  const synced = syncCargosWithShipments(prevCargos, updated);
+                  cargosRef.current = synced;
+                  return synced;
+                });
+                return updated;
+              });
             }
             break;
           }
@@ -266,6 +356,11 @@ export function useDatabase(currentUser: User | null) {
                 }
                 return [item, ...prev.filter(f => f.id !== item.id)];
               });
+              const m = (item.displayId || item.id || '').match(/-(\d+)$/);
+              if (m) {
+                const num = parseInt(m[1], 10);
+                if (!isNaN(num)) setNextIds((prev: any) => ({ ...prev, freightOffer: Math.max(prev.freightOffer || 0, num + 1) }));
+              }
             } else if (eventType === 'UPDATE' && newRow) {
               const item = toFreightOffer(newRow);
               setFreightOffers(prev => prev.map(f => {
@@ -285,6 +380,11 @@ export function useDatabase(currentUser: User | null) {
             if (eventType === 'INSERT' && newRow) {
               const item = toTicket(newRow);
               setTickets(prev => [item, ...prev.filter(t => t.id !== item.id)]);
+              const m = item.id?.match(/-(\d+)$/);
+              if (m) {
+                const num = parseInt(m[1], 10);
+                if (!isNaN(num)) setNextIds((prev: any) => ({ ...prev, ticket: Math.max(prev.ticket || 0, num + 1) }));
+              }
             } else if (eventType === 'UPDATE' && newRow) {
               const item = toTicket(newRow);
               setTickets(prev => prev.map(t => t.id === item.id ? item : t));
@@ -298,6 +398,11 @@ export function useDatabase(currentUser: User | null) {
             if (eventType === 'INSERT' && newRow) {
               const item = toDriver(newRow);
               setDrivers(prev => [item, ...prev.filter(d => d.id !== item.id)]);
+              const m = item.id?.match(/-(\d+)$/);
+              if (m) {
+                const num = parseInt(m[1], 10);
+                if (!isNaN(num)) setNextIds((prev: any) => ({ ...prev, driver: Math.max(prev.driver || 0, num + 1) }));
+              }
             } else if (eventType === 'UPDATE' && newRow) {
               const item = toDriver(newRow);
               setDrivers(prev => prev.map(d => d.id === item.id ? item : d));
@@ -311,6 +416,11 @@ export function useDatabase(currentUser: User | null) {
             if (eventType === 'INSERT' && newRow) {
               const item = toVehicle(newRow);
               setVehicles(prev => [item, ...prev.filter(v => v.id !== item.id)]);
+              const m = item.id?.match(/-(\d+)$/);
+              if (m) {
+                const num = parseInt(m[1], 10);
+                if (!isNaN(num)) setNextIds((prev: any) => ({ ...prev, vehicle: Math.max(prev.vehicle || 0, num + 1) }));
+              }
             } else if (eventType === 'UPDATE' && newRow) {
               const item = toVehicle(newRow);
               setVehicles(prev => prev.map(v => v.id === item.id ? item : v));
@@ -324,6 +434,11 @@ export function useDatabase(currentUser: User | null) {
             if (eventType === 'INSERT' && newRow) {
               const item = toClient(newRow);
               setClients(prev => [item, ...prev.filter(c => c.id !== item.id)]);
+              const m = item.id?.match(/-(\d+)$/);
+              if (m) {
+                const num = parseInt(m[1], 10);
+                if (!isNaN(num)) setNextIds((prev: any) => ({ ...prev, client: Math.max(prev.client || 0, num + 1) }));
+              }
             } else if (eventType === 'UPDATE' && newRow) {
               const item = toClient(newRow);
               setClients(prev => prev.map(c => c.id === item.id ? item : c));
@@ -337,6 +452,11 @@ export function useDatabase(currentUser: User | null) {
             if (eventType === 'INSERT' && newRow) {
               const item = toOwner(newRow);
               setOwners(prev => [item, ...prev.filter(o => o.id !== item.id)]);
+              const m = item.id?.match(/-(\d+)$/);
+              if (m) {
+                const num = parseInt(m[1], 10);
+                if (!isNaN(num)) setNextIds((prev: any) => ({ ...prev, owner: Math.max(prev.owner || 0, num + 1) }));
+              }
             } else if (eventType === 'UPDATE' && newRow) {
               const item = toOwner(newRow);
               setOwners(prev => prev.map(o => o.id === item.id ? item : o));
@@ -350,6 +470,11 @@ export function useDatabase(currentUser: User | null) {
             if (eventType === 'INSERT' && newRow) {
               const item = toProduct(newRow);
               setProducts(prev => [item, ...prev.filter(p => p.id !== item.id)]);
+              const m = item.id?.match(/-(\d+)$/);
+              if (m) {
+                const num = parseInt(m[1], 10);
+                if (!isNaN(num)) setNextIds((prev: any) => ({ ...prev, product: Math.max(prev.product || 0, num + 1) }));
+              }
             } else if (eventType === 'UPDATE' && newRow) {
               const item = toProduct(newRow);
               setProducts(prev => prev.map(p => p.id === item.id ? item : p));
@@ -363,6 +488,11 @@ export function useDatabase(currentUser: User | null) {
             if (eventType === 'INSERT' && newRow) {
               const item = toBranch(newRow);
               setBranches(prev => [item, ...prev.filter(b => b.id !== item.id)]);
+              const m = item.id?.match(/-(\d+)$/);
+              if (m) {
+                const num = parseInt(m[1], 10);
+                if (!isNaN(num)) setNextIds((prev: any) => ({ ...prev, branch: Math.max(prev.branch || 0, num + 1) }));
+              }
             } else if (eventType === 'UPDATE' && newRow) {
               const item = toBranch(newRow);
               setBranches(prev => prev.map(b => b.id === item.id ? item : b));
@@ -376,6 +506,11 @@ export function useDatabase(currentUser: User | null) {
             if (eventType === 'INSERT' && newRow) {
               const item = toUser(newRow);
               setUsers(prev => [item, ...prev.filter(u => u.id !== item.id)]);
+              const m = item.id?.match(/-(\d+)$/);
+              if (m) {
+                const num = parseInt(m[1], 10);
+                if (!isNaN(num)) setNextIds((prev: any) => ({ ...prev, user: Math.max(prev.user || 0, num + 1) }));
+              }
             } else if (eventType === 'UPDATE' && newRow) {
               const item = toUser(newRow);
               setUsers(prev => prev.map(u => u.id === item.id ? item : u));
@@ -425,10 +560,17 @@ export function useDatabase(currentUser: User | null) {
       }
     };
 
+    const channelId = `db_changes_${Math.random().toString(36).substring(2, 9)}`;
     const channel = supabase
-      .channel('db_changes')
+      .channel(channelId)
       .on('postgres_changes', { event: '*', schema: 'public' }, handlePostgresChange)
-      .subscribe();
+      .subscribe((status, err) => {
+        console.log(`[useDatabase] Realtime status: ${status}`, err || '');
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          console.warn('[useDatabase] Conexão Realtime interrompida. Executando sincronização em background...');
+          loadAllData(true);
+        }
+      });
 
     return () => {
       supabase.removeChannel(channel);

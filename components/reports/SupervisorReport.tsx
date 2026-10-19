@@ -81,6 +81,7 @@ export interface ResponsibleStats {
   externalShipmentsCount: number;
   externalTonnage: number;
   externalNetRevenue: number;
+  externalNetProfit: number;
   externalCommission: number;
 
   // Detalhes por embarque
@@ -184,6 +185,7 @@ const SupervisorReport: React.FC<SupervisorReportProps> = ({ shipments, cargos, 
           externalShipmentsCount: 0,
           externalTonnage: 0,
           externalNetRevenue: 0,
+          externalNetProfit: 0,
           externalCommission: 0,
           shipmentDetails: [],
         });
@@ -221,6 +223,7 @@ const SupervisorReport: React.FC<SupervisorReportProps> = ({ shipments, cargos, 
           externalShipmentsCount: 0,
           externalTonnage: 0,
           externalNetRevenue: 0,
+          externalNetProfit: 0,
           externalCommission: 0,
           shipmentDetails: [],
         });
@@ -338,12 +341,13 @@ const SupervisorReport: React.FC<SupervisorReportProps> = ({ shipments, cargos, 
               operatorRoleType: roleType,
             });
           } else {
-            // CENÁRIO B: Cargas Sob Responsabilidade do Líder com Embarque Externo -> % sobre Faturamento Líquido
+            // CENÁRIO B: Cargas Sob Responsabilidade do Líder com Embarque Externo -> % sobre Lucro Líquido
             const rate = respStats.externalRate;
-            const commVal = netRevenue > 0 ? netRevenue * (rate / 100) : 0;
+            const commVal = netProfit > 0 ? netProfit * (rate / 100) : 0;
             respStats.externalShipmentsCount += 1;
             respStats.externalTonnage += tonnage;
             respStats.externalNetRevenue += netRevenue;
+            respStats.externalNetProfit += netProfit;
             respStats.externalCommission += commVal;
 
             respStats.shipmentDetails.push({
@@ -355,10 +359,10 @@ const SupervisorReport: React.FC<SupervisorReportProps> = ({ shipments, cargos, 
               netRevenue,
               netProfit,
               scenario: 'terceiros',
-              scenarioTag: `[Terceiros - ${rate}% s/ Fat.]`,
+              scenarioTag: `[Terceiros - ${rate}% s/ Lucro]`,
               rate,
-              calculationBase: netRevenue,
-              calculationBaseLabel: 'Faturamento Líquido',
+              calculationBase: netProfit,
+              calculationBaseLabel: 'Lucro Líquido',
               commissionValue: commVal,
               operatorId,
               operatorName,
@@ -531,6 +535,7 @@ const SupervisorReport: React.FC<SupervisorReportProps> = ({ shipments, cargos, 
 
       externalShipmentsCount: acc.externalShipmentsCount + curr.externalShipmentsCount,
       externalNetRevenue: acc.externalNetRevenue + curr.externalNetRevenue,
+      externalNetProfit: acc.externalNetProfit + curr.externalNetProfit,
       externalCommission: acc.externalCommission + curr.externalCommission,
     }), {
       cargosCount: 0,
@@ -546,6 +551,7 @@ const SupervisorReport: React.FC<SupervisorReportProps> = ({ shipments, cargos, 
       teamCommission: 0,
       externalShipmentsCount: 0,
       externalNetRevenue: 0,
+      externalNetProfit: 0,
       externalCommission: 0,
     });
   }, [filteredStats]);
@@ -593,7 +599,7 @@ const SupervisorReport: React.FC<SupervisorReportProps> = ({ shipments, cargos, 
           <div>
             <div className="flex items-center gap-2 flex-wrap">
               <h2 className="text-xl font-black text-gray-900 dark:text-white tracking-tight">
-                Relatório Supervisão & Líderes
+                Relatório Supervisão & Gestores GO
               </h2>
               <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 border border-indigo-300/40 flex items-center gap-1">
                 <Percent className="w-3 h-3" /> Regra Híbrida Ativa
@@ -729,21 +735,21 @@ const SupervisorReport: React.FC<SupervisorReportProps> = ({ shipments, cargos, 
           </p>
         </div>
 
-        {/* Card 5: Comissão Cargas Externas (Faturamento) */}
+        {/* Card 5: Comissão Cargas Externas (Lucro Líquido) */}
         <div className="p-3.5 rounded-xl bg-gradient-to-br from-blue-50 via-white to-blue-50/30 dark:from-blue-950/40 dark:via-gray-800 dark:to-blue-950/20 border border-blue-200/80 dark:border-blue-800/60 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between mb-1">
             <span className="text-[10px] font-bold uppercase tracking-wider text-blue-700 dark:text-blue-300">
               Comissão Cargas Externas
             </span>
             <span className="text-[9px] font-black bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-300 px-1.5 py-0.2 rounded">
-              {selectedLeaderStat ? `${selectedLeaderStat.externalRate}% s/ Fat.` : '1,5% s/ Fat.'}
+              {selectedLeaderStat ? `${selectedLeaderStat.externalRate}% s/ Lucro` : '1,5% s/ Lucro'}
             </span>
           </div>
           <p className="text-lg font-black text-blue-600 dark:text-blue-400 truncate">
             {formatCurrency(selectedLeaderStat ? selectedLeaderStat.externalCommission : totals.externalCommission)}
           </p>
           <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate mt-1">
-            {selectedLeaderStat ? selectedLeaderStat.externalShipmentsCount : totals.externalShipmentsCount} fretes terc. • Fat. {formatCurrency(selectedLeaderStat ? selectedLeaderStat.externalNetRevenue : totals.externalNetRevenue)}
+            {selectedLeaderStat ? selectedLeaderStat.externalShipmentsCount : totals.externalShipmentsCount} fretes terc. • Lucro {formatCurrency(selectedLeaderStat ? selectedLeaderStat.externalNetProfit : totals.externalNetProfit)}
           </p>
         </div>
 
@@ -872,7 +878,7 @@ const SupervisorReport: React.FC<SupervisorReportProps> = ({ shipments, cargos, 
                               {/* Cenário B: Terceiros */}
                               <div className="flex items-center justify-between text-[11px] gap-2">
                                 <span className="inline-flex items-center gap-1 font-bold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/40 px-1.5 py-0.5 rounded border border-blue-200/60 dark:border-blue-800/40">
-                                  <span>Terceiros ({stat.externalRate}% s/ Fat.):</span>
+                                  <span>Terceiros ({stat.externalRate}% s/ Lucro):</span>
                                   <span className="text-[10px] opacity-75">{stat.externalShipmentsCount} fretes</span>
                                 </span>
                                 <span className="font-black text-blue-700 dark:text-blue-300">
@@ -994,7 +1000,7 @@ const SupervisorReport: React.FC<SupervisorReportProps> = ({ shipments, cargos, 
                                                 </span>
                                                 {detail.operatorRoleType === 'lider' ? (
                                                   <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
-                                                    Líder
+                                                    Gestor GO
                                                   </span>
                                                 ) : detail.operatorRoleType === 'equipe' ? (
                                                   <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
@@ -1198,7 +1204,7 @@ const SupervisorReport: React.FC<SupervisorReportProps> = ({ shipments, cargos, 
                         {formatCurrency(stat.externalCommission)}
                       </p>
                       <p className="text-[10px] text-gray-400 mt-0.5 truncate">
-                        {stat.externalShipmentsCount} fretes • Fat {formatCurrency(stat.externalNetRevenue)}
+                        {stat.externalShipmentsCount} fretes • Lucro {formatCurrency(stat.externalNetProfit)}
                       </p>
                     </div>
                   </div>
@@ -1275,7 +1281,7 @@ const SupervisorReport: React.FC<SupervisorReportProps> = ({ shipments, cargos, 
                               <div className="text-[10px] text-gray-400 truncate mt-0.5 flex items-center gap-1.5 flex-wrap">
                                 <span>Operador: <strong className="text-gray-600 dark:text-gray-300">{detail.operatorName}</strong></span>
                                 {detail.operatorRoleType === 'lider' ? (
-                                  <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300 border border-purple-200 dark:border-purple-800">Líder</span>
+                                  <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300 border border-purple-200 dark:border-purple-800">Gestor GO</span>
                                 ) : detail.operatorRoleType === 'equipe' ? (
                                   <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">Equipe</span>
                                 ) : (
@@ -1323,10 +1329,10 @@ const SupervisorReport: React.FC<SupervisorReportProps> = ({ shipments, cargos, 
             <div className="py-4 text-xs text-gray-600 dark:text-gray-300 space-y-3.5 leading-relaxed">
               <div className="p-3 rounded-xl bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-200/60 dark:border-indigo-800/40">
                 <p className="font-bold text-indigo-900 dark:text-indigo-200 text-sm mb-1">
-                  1. Regra Híbrida para Agenciador Líder
+                  1. Regra Híbrida para Gestor GO
                 </p>
                 <p className="text-[11px] text-indigo-800/90 dark:text-indigo-300/90">
-                  O Agenciador Líder tem seu ganho dividido de forma transparente em duas categorias:
+                  O Gestor GO tem seu ganho dividido de forma transparente em duas categorias:
                 </p>
                 <div className="mt-2 space-y-2">
                   <div className="p-2 bg-white dark:bg-gray-800 rounded-lg border border-indigo-100 dark:border-indigo-900/40">
@@ -1334,17 +1340,17 @@ const SupervisorReport: React.FC<SupervisorReportProps> = ({ shipments, cargos, 
                       • Cenário A: Operações da Equipe / Próprias (Padrão: 25% s/ Lucro Líquido)
                     </strong>
                     <span className="text-[11px] text-gray-500 dark:text-gray-400">
-                      Cargas cadastradas e/ou embarcadas pelo próprio líder ou por agenciadores vinculados à equipe dele. 
+                      Cargas cadastradas e/ou embarcadas pelo próprio Gestor GO ou por Embarcadores GO vinculados à equipe dele. 
                       Base de Cálculo: Margem líquida de lucro do frete.
                     </span>
                   </div>
                   <div className="p-2 bg-white dark:bg-gray-800 rounded-lg border border-blue-100 dark:border-blue-900/40">
                     <strong className="text-blue-600 dark:text-blue-400 block">
-                      • Cenário B: Cargas do Líder com Embarque Externo (Padrão: 1,5% s/ Faturamento)
+                      • Cenário B: Cargas do Gestor GO com Embarque Externo (Padrão: 1,5% s/ Lucro Líquido)
                     </strong>
                     <span className="text-[11px] text-gray-500 dark:text-gray-400">
-                      Cargas sob responsabilidade do líder que foram embarcadas por um agenciador que NÃO faz parte da sua equipe.
-                      Base de Cálculo: Faturamento líquido da carga.
+                      Cargas sob responsabilidade do Gestor GO que foram embarcadas por um operador que NÃO faz parte da sua equipe.
+                      Base de Cálculo: Margem líquida de lucro do frete.
                     </span>
                   </div>
                 </div>

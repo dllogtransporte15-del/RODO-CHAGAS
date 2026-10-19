@@ -239,8 +239,8 @@ export const UserTable: React.FC<UserTableProps> = ({ users, onEdit, onDelete })
               <option value={UserProfile.Fiscal}>Fiscal</option>
               <option value={UserProfile.Supervisor}>Supervisor</option>
               <option value={UserProfile.Coordenador}>Coordenador</option>
-              <option value={UserProfile.AgenciadorLider}>Agenciador Líder</option>
-              <option value={UserProfile.AgenciadorEmbarque}>Agenciador Embarque</option>
+              <option value={UserProfile.AgenciadorLider}>Gestor GO</option>
+              <option value={UserProfile.AgenciadorEmbarque}>Embarcador GO</option>
               <option value={UserProfile.Embarcador}>Embarcador</option>
               <option value={UserProfile.Diretor}>Diretor</option>
               <option value={UserProfile.Cliente}>Cliente</option>
@@ -344,14 +344,14 @@ export const UserTable: React.FC<UserTableProps> = ({ users, onEdit, onDelete })
                         <span>{getProfileDisplayName(user.profile)}</span>
                         {user.profile === UserProfile.AgenciadorLider && (
                           <span className="block text-[11px] text-indigo-600 dark:text-indigo-400 font-semibold mt-0.5">
-                            {user.leaderProfitCommissionRate ?? 25}% Lucro | {user.leaderRevenueCommissionRate ?? 1.5}% Fat.
+                            {user.leaderProfitCommissionRate ?? 25}% Lucro | {user.leaderRevenueCommissionRate ?? 1.5}% Lucro (Terc.)
                           </span>
                         )}
                         {user.profile === UserProfile.AgenciadorEmbarque && user.leaderId && (() => {
                           const leader = users.find(u => u.id === user.leaderId);
                           return (
                             <span className="block text-[11px] text-blue-600 dark:text-blue-400 font-normal">
-                              Líder: {leader ? leader.name : 'Não localizado'}
+                              Gestor GO: {leader ? leader.name : 'Não localizado'}
                             </span>
                           );
                         })()}

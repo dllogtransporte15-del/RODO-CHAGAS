@@ -4,12 +4,12 @@ import { History } from 'lucide-react';
 import type { Driver, Owner } from '../types';
 import { DriverClassification } from '../types';
 import { useToast } from '../hooks/useToast';
-import { autoFormatInput } from '../utils/formatters';
+import { autoFormatInput, isValidCPF } from '../utils/formatters';
 
 interface DriverFormModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (driver: Driver | Omit<Driver, 'id'>) => void;
+  onSave: (driver: Driver | Omit<Driver, 'id'>) => Promise<void> | void;
   driverToEdit: Driver | null;
   owners: Owner[];
   onShowHistory?: (driver: Driver) => void;
@@ -36,6 +36,7 @@ const DriverFormModal: React.FC<DriverFormModalProps> = ({
   });
 
   const [driver, setDriver] = useState<Omit<Driver, 'id'>>(getInitialState());
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const isOwnerRelevant = useMemo(() => {
     return driver.classification !== DriverClassification.Terceiro;
@@ -61,19 +62,35 @@ const DriverFormModal: React.FC<DriverFormModalProps> = ({
     });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
+
+    if (driver.cpf && !isValidCPF(driver.cpf)) {
+      showToast('CPF do motorista inválido. Verifique os dígitos informados.', 'warning');
+      return;
+    }
+
     if (isOwnerRelevant && !driver.ownerId) {
       showToast('Para esta classificação, o campo Proprietário é obrigatório.', 'warning');
       return;
     }
-    if (driverToEdit) {
-      onSave({
-        ...driver,
-        id: driverToEdit.id
-      });
-    } else {
-      onSave(driver);
+
+    setIsSubmitting(true);
+    try {
+      if (driverToEdit) {
+        await onSave({
+          ...driver,
+          id: driverToEdit.id
+        });
+      } else {
+        await onSave(driver);
+      }
+      onClose();
+    } catch (err) {
+      console.error('Erro ao salvar motorista:', err);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -161,11 +178,30 @@ const DriverFormModal: React.FC<DriverFormModalProps> = ({
           )}
 
           <div className="mt-8 flex justify-end space-x-4">
-            <button type="button" onClick={onClose} className="py-2 px-4 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-200 dark:hover:bg-gray-500 font-bold">
+            <button 
+              type="button" 
+              onClick={onClose} 
+              disabled={isSubmitting}
+              className="py-2 px-4 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-200 dark:hover:bg-gray-500 font-bold disabled:opacity-50"
+            >
               Cancelar
             </button>
-            <button type="submit" className="py-2 px-4 bg-primary text-white rounded-lg hover:bg-primary-dark font-bold shadow-md">
-              Salvar
+            <button 
+              type="submit" 
+              disabled={isSubmitting}
+              className="py-2 px-6 bg-primary text-white rounded-lg hover:bg-primary-dark font-bold shadow-md flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              {isSubmitting ? (
+                <>
+                  <svg className="animate-spin h-4 w-4 text-white" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                  </svg>
+                  <span>Salvando...</span>
+                </>
+              ) : (
+                'Salvar'
+              )}
             </button>
           </div>
         </form>

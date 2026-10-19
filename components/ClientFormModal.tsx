@@ -2,16 +2,18 @@
 import React, { useState, useEffect } from 'react';
 import type { Client } from '../types';
 import { PaymentMethod } from '../types';
-import { autoFormatInput } from '../utils/formatters';
+import { autoFormatInput, isValidCNPJ } from '../utils/formatters';
+import { useToast } from '../hooks/useToast';
 
 interface ClientFormModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (client: Client | Omit<Client, 'id'>) => void;
+  onSave: (client: Client | Omit<Client, 'id'>) => Promise<void> | void;
   clientToEdit: Client | null;
 }
 
 const ClientFormModal: React.FC<ClientFormModalProps> = ({ isOpen, onClose, onSave, clientToEdit }) => {
+  const { showToast } = useToast();
   const [client, setClient] = useState<Omit<Client, 'id'>>({
     razaoSocial: '',
     nomeFantasia: '',
@@ -26,6 +28,7 @@ const ClientFormModal: React.FC<ClientFormModalProps> = ({ isOpen, onClose, onSa
     requiresExternalOrder: false,
     requiresScheduling: false,
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (clientToEdit) {
@@ -59,15 +62,30 @@ const ClientFormModal: React.FC<ClientFormModalProps> = ({ isOpen, onClose, onSa
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (clientToEdit) {
-      onSave({
-        ...client,
-        id: clientToEdit.id,
-      });
-    } else {
-      onSave(client);
+    if (isSubmitting) return;
+
+    if (client.cnpj && !isValidCNPJ(client.cnpj)) {
+      showToast('CNPJ do cliente inválido. Verifique os dígitos informados.', 'warning');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      if (clientToEdit) {
+        await onSave({
+          ...client,
+          id: clientToEdit.id,
+        });
+      } else {
+        await onSave(client);
+      }
+      onClose();
+    } catch (err) {
+      console.error('Erro ao salvar cliente:', err);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -107,11 +125,30 @@ const ClientFormModal: React.FC<ClientFormModalProps> = ({ isOpen, onClose, onSa
             </div>
           </div>
           <div className="mt-8 flex justify-end space-x-4">
-            <button type="button" onClick={onClose} className="py-2 px-4 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-200 dark:hover:bg-gray-500">
+            <button 
+              type="button" 
+              onClick={onClose} 
+              disabled={isSubmitting}
+              className="py-2 px-4 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-200 dark:hover:bg-gray-500 font-bold disabled:opacity-50"
+            >
               Cancelar
             </button>
-            <button type="submit" className="py-2 px-4 bg-primary text-white rounded-lg hover:bg-primary-dark">
-              Salvar
+            <button 
+              type="submit" 
+              disabled={isSubmitting}
+              className="py-2 px-6 bg-primary text-white rounded-lg hover:bg-primary-dark font-bold shadow-md flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              {isSubmitting ? (
+                <>
+                  <svg className="animate-spin h-4 w-4 text-white" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                  </svg>
+                  <span>Salvando...</span>
+                </>
+              ) : (
+                'Salvar'
+              )}
             </button>
           </div>
         </form>

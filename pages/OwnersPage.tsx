@@ -11,12 +11,13 @@ import { can } from '../auth';
 interface OwnersPageProps {
   owners: Owner[];
   setOwners: React.Dispatch<React.SetStateAction<Owner[]>>;
-  onSaveOwner: (ownerData: Owner | Omit<Owner, 'id'>) => void;
+  onSaveOwner: (ownerData: Owner | Omit<Owner, 'id'>) => Promise<void> | void;
+  onDeleteOwner?: (ownerId: string) => Promise<void> | void;
   currentUser: User;
   profilePermissions: ProfilePermissions;
 }
 
-const OwnersPage: React.FC<OwnersPageProps> = ({ owners, setOwners, onSaveOwner, currentUser, profilePermissions }) => {
+const OwnersPage: React.FC<OwnersPageProps> = ({ owners, setOwners, onSaveOwner, onDeleteOwner, currentUser, profilePermissions }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [ownerToEdit, setOwnerToEdit] = useState<Owner | null>(null);
   const [filters, setFilters] = useState<OwnerFilters>({
@@ -56,14 +57,18 @@ const OwnersPage: React.FC<OwnersPageProps> = ({ owners, setOwners, onSaveOwner,
     setIsModalOpen(true);
   };
   
-  const handleDeleteOwner = (ownerId: string) => {
-    if (window.confirm('Tem certeza que deseja excluir este proprietário?')) {
-        setOwners(prev => prev.filter(o => o.id !== ownerId));
+  const handleDeleteOwner = async (ownerId: string) => {
+    if (window.confirm('Tem certeza que deseja excluir este proprietário permanentemente?')) {
+        if (onDeleteOwner) {
+          await onDeleteOwner(ownerId);
+        } else {
+          setOwners(prev => prev.filter(o => o.id !== ownerId));
+        }
     }
   };
 
-  const handleSaveOwner = (owner: Owner | Omit<Owner, 'id'>) => {
-    onSaveOwner(owner);
+  const handleSaveOwner = async (owner: Owner | Omit<Owner, 'id'>) => {
+    await onSaveOwner(owner);
     handleCloseModal();
   };
 

@@ -5,7 +5,7 @@ import type { Shipment, User } from '../types';
 interface EditPriceModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (data: { newTotal: number, newRate?: number, newCompanyRate?: number }) => void;
+  onSave: (data: { newTotal: number, newRate?: number, newCompanyRate?: number }) => Promise<void> | void;
   shipment: Shipment;
   currentUser: User;
 }
@@ -14,6 +14,7 @@ const EditPriceModal: React.FC<EditPriceModalProps> = ({ isOpen, onClose, onSave
   const [totalPrice, setTotalPrice] = useState(0);
   const [pricePerTon, setPricePerTon] = useState(0);
   const [companyPricePerTon, setCompanyPricePerTon] = useState(0);
+  const [isSaving, setIsSaving] = useState(false);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
@@ -44,12 +45,21 @@ const EditPriceModal: React.FC<EditPriceModalProps> = ({ isOpen, onClose, onSave
     }
   };
 
-  const handleSave = () => {
-    onSave({ 
-      newTotal: totalPrice, 
-      newRate: pricePerTon, 
-      newCompanyRate: canEditCompanyPrice ? companyPricePerTon : undefined 
-    });
+  const handleSave = async () => {
+    if (isSaving) return;
+    setIsSaving(true);
+    try {
+      await onSave({ 
+        newTotal: totalPrice, 
+        newRate: pricePerTon, 
+        newCompanyRate: canEditCompanyPrice ? companyPricePerTon : undefined 
+      });
+      onClose();
+    } catch (err) {
+      console.error('Erro ao salvar alteração de preço:', err);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const canEditCompanyPrice = [UserProfile.Admin, UserProfile.Diretor].includes(currentUser.profile as UserProfile);
@@ -159,11 +169,31 @@ const EditPriceModal: React.FC<EditPriceModalProps> = ({ isOpen, onClose, onSave
         </div>
         
         <div className="mt-8 flex flex-col-reverse sm:flex-row justify-end gap-3">
-          <button type="button" onClick={onClose} className="py-2.5 px-6 bg-gray-100 text-gray-700 font-medium rounded-lg hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600 transition-all">
+          <button 
+            type="button" 
+            onClick={onClose} 
+            disabled={isSaving}
+            className="py-2.5 px-6 bg-gray-100 text-gray-700 font-medium rounded-lg hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600 transition-all disabled:opacity-50"
+          >
             Cancelar
           </button>
-          <button type="button" onClick={handleSave} className="py-2.5 px-6 bg-primary text-white font-bold rounded-lg hover:bg-primary-dark shadow-md shadow-primary/20 transition-all">
-            Salvar Alteração
+          <button 
+            type="button" 
+            onClick={handleSave} 
+            disabled={isSaving}
+            className="py-2.5 px-6 bg-primary text-white font-bold rounded-lg hover:bg-primary-dark shadow-md shadow-primary/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+          >
+            {isSaving ? (
+              <>
+                <svg className="animate-spin h-4 w-4 text-white" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                </svg>
+                <span>Salvando...</span>
+              </>
+            ) : (
+              'Salvar Alteração'
+            )}
           </button>
         </div>
       </div>

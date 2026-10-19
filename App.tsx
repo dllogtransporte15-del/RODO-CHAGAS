@@ -48,11 +48,12 @@ import { shouldShowUpdateModal } from './utils/systemUpdates';
 
 import {
   upsertClient, upsertOwner, upsertDriver, upsertVehicle, upsertCargo, insertCargo,
-  upsertShipment, insertShipment, upsertUser, upsertTicket, saveProfilePermissions,
+  upsertShipment, insertShipment, getNextShipmentIdentifiers, upsertUser, upsertTicket, saveProfilePermissions,
   upsertManyDrivers, upsertManyVehicles, upsertManyShipments, upsertManyCargos,
   uploadShipmentAttachment, getShipmentAttachmentUrl,
   saveAppSettings,
   deleteCargo, deleteShipment, deleteUser, upsertProduct, deleteProduct,
+  deleteClient, deleteOwner, deleteDriver, deleteVehicle,
   tryAcquireShipmentLock, releaseShipmentLock, toUser,
   deleteShipmentAttachmentFromStorage, upsertBranch, deleteBranch, deleteTicket,
   upsertFreightOffer, deleteFreightOffer, fetchFreightOffers
@@ -662,11 +663,13 @@ const App: React.FC = () => {
       return cargos;
     }
 
-    // Regra de escopo restrito por equipe para Agenciador Líder e Agenciador de Embarque
+    // Regra de escopo restrito por equipe para Gestor GO e Embarcador GO
     if (currentUser.profile === UserProfile.AgenciadorLider || currentUser.profile === UserProfile.AgenciadorEmbarque) {
       const isAgenciadorLider = currentUser.profile === UserProfile.AgenciadorLider ||
+        String(currentUser.profile).toLowerCase().includes('gestor') ||
         String(currentUser.profile).toLowerCase().includes('lider') ||
         String(currentUser.profile).toLowerCase().includes('líder') ||
+        (currentUser.name && currentUser.name.toLowerCase().includes('gestor')) ||
         (currentUser.name && currentUser.name.toLowerCase().includes('agenciador lider')) ||
         (currentUser.name && currentUser.name.toLowerCase().includes('agenciador líder'));
 
@@ -1073,7 +1076,10 @@ const App: React.FC = () => {
     processVehicle(data.trailer3Plate || '', false);
 
     const prefix = currentUser?.name ? currentUser.name.substring(0, 3).toUpperCase() : 'SHP';
-    const newShipmentId = formatId(currentNextIds.shipment, prefix);
+    // Obter identificador único livre garantido diretamente do Supabase antes do upload de anexos
+    const freshIdent = await getNextShipmentIdentifiers(prefix);
+    const newShipmentId = freshIdent.nextId;
+    currentNextIds.shipment = Math.max(currentNextIds.shipment, freshIdent.nextNum + 1);
     
     const documentsUrlMap: { [key: string]: string[] } = {};
     const attachedFileNames: string[] = [];
@@ -1245,33 +1251,41 @@ const App: React.FC = () => {
       if (addedOwner) await upsertOwner(addedOwner);
       await upsertManyDrivers(addedDrivers);
       await upsertManyVehicles(addedVehicles);
-      await insertShipment(newShipment);
+      const savedShipment = await insertShipment(newShipment);
       if (updatedCargo) await upsertCargo(updatedCargo);
+
+      const definitiveId = savedShipment?.id || newShipmentId;
+      const definitiveShipment = savedShipment || newShipment;
 
       // Only update local state and navigate after successful persistence
       setDrivers(newDrivers);
       setVehicles(newVehicles);
-      setShipments(newShipments);
+      setShipments(prev => [definitiveShipment, ...prev.filter(s => s.id !== definitiveId)]);
       setCargos(newCargos);
       if (addedOwner) setOwners(newOwners);
+
+      const m = definitiveId.match(/-(\d+)$/);
+      const finalNum = m ? parseInt(m[1], 10) : freshIdent.nextNum;
+      currentNextIds.shipment = Math.max(currentNextIds.shipment, finalNum + 1);
       setNextIds(currentNextIds);
 
       setCurrentPage('shipments');
       if (isPending) {
         if (isScheduleVerificar) {
-          showToast(`Novo embarque ${newShipmentId} criado como Pendente de aprovação (Programação da carga em Demanda a Verificar).`, 'info');
+          showToast(`Novo embarque ${definitiveId} criado como Pendente de aprovação (Programação da carga em Demanda a Verificar).`, 'info');
         } else if (activeShipmentWithSameVehicle) {
-          showToast(`Novo embarque ${newShipmentId} criado como Pendente de aprovação devido ao veículo/motorista já constar em outra carga ativa.`, 'info');
+          showToast(`Novo embarque ${definitiveId} criado como Pendente de aprovação devido ao veículo/motorista já constar em outra carga ativa.`, 'info');
         } else {
-          showToast(`Novo embarque ${newShipmentId} criado como Pendente de aprovação.`, 'info');
+          showToast(`Novo embarque ${definitiveId} criado como Pendente de aprovação.`, 'info');
         }
       } else {
-        showToast(`Novo embarque ${newShipmentId} criado com sucesso! Motoristas/Veículos não cadastrados foram adicionados automaticamente.`, 'success');
+        showToast(`Novo embarque ${definitiveId} criado com sucesso! Motoristas/Veículos não cadastrados foram adicionados automaticamente.`, 'success');
       }
     } catch (err: any) {
       console.error('Erro ao salvar embarque no Supabase:', err);
       const errorMessage = err?.message || 'Erro desconhecido ao salvar no banco de dados.';
       showToast(`[ERRO CRÍTICO] O embarque não pôde ser salvo: ${errorMessage}. Nenhuma alteração foi aplicada. Verifique sua conexão ou contate o suporte.`, 'error');
+      throw err;
     }
   };
 
@@ -1874,8 +1888,12 @@ const App: React.FC = () => {
     setShipments((prev: Shipment[]) => prev.map(s => s.id === shipmentId ? updatedShipment : s));
     try {
       await upsertShipment(updatedShipment);
-    } catch (err) {
+      showToast('Preço do frete atualizado com sucesso!', 'success');
+    } catch (err: any) {
       console.error('Erro ao atualizar preço:', err);
+      // Rollback para o valor original
+      setShipments((prev: Shipment[]) => prev.map(s => s.id === shipmentId ? shipmentToUpdate : s));
+      showToast(`Erro ao atualizar preço no banco de dados: ${err?.message || 'Falha de conexão'}. Valor restaurado.`, 'error');
     }
   };
 
@@ -1903,8 +1921,12 @@ const App: React.FC = () => {
     setShipments((prev: Shipment[]) => prev.map(s => s.id === shipmentId ? updatedShipment : s));
     try {
       await upsertShipment(updatedShipment);
-    } catch (err) {
+      showToast('Agendamento do embarque atualizado com sucesso!', 'success');
+    } catch (err: any) {
       console.error('Erro ao atualizar agendamento:', err);
+      // Rollback
+      setShipments((prev: Shipment[]) => prev.map(s => s.id === shipmentId ? shipmentToUpdate : s));
+      showToast(`Erro ao atualizar agendamento: ${err?.message || 'Falha de conexão'}. Data original restaurada.`, 'error');
     }
   };
 
@@ -1953,25 +1975,38 @@ const App: React.FC = () => {
       await upsertShipment(cancelledShipment);
       if (updatedCargo) await upsertCargo(updatedCargo);
       showToast(`Embarque ${shipmentId} cancelado. Saldo de ${shipmentToCancel.shipmentTonnage.toLocaleString('pt-BR')} ton estornado para a carga!`, 'success');
-    } catch (err) {
+    } catch (err: any) {
       console.error('Erro ao cancelar embarque:', err);
-      showToast('Erro ao cancelar embarque no banco de dados.', 'error');
+      // Rollback
+      setShipments((prev: Shipment[]) => prev.map(s => s.id === shipmentId ? shipmentToCancel : s));
+      if (relatedCargo) {
+        setCargos(prevCargos => prevCargos.map(cargo => cargo.id === relatedCargo.id ? relatedCargo : cargo));
+      }
+      showToast(`Erro ao cancelar embarque no banco de dados: ${err?.message || 'Falha de conexão'}. Operação revertida.`, 'error');
     }
   };
 
   const handleTransferShipment = async (shipmentId: string, newEmbarcadorId: string) => {
-    let updated: Shipment | undefined;
-    setShipments((prev: Shipment[]) => prev.map(s => {
-        if (s.id === shipmentId) {
-            const oldEmbarcadorName = users.find(u => u.id === s.embarcadorId)?.name || 'N/A';
-            const newEmbarcadorName = users.find(u => u.id === newEmbarcadorId)?.name || 'N/A';
-            updated = { ...s, embarcadorId: newEmbarcadorId, history: [...s.history, createHistoryLog(`Embarcador responsável alterado de "${oldEmbarcadorName}" para "${newEmbarcadorName}".`)] };
-            return updated;
-        }
-        return s;
-    }));
-    if (updated) {
-      try { await upsertShipment(updated); } catch(err) { console.error('Erro ao transferir embarque:', err); }
+    const originalShipment = shipments.find(s => s.id === shipmentId);
+    if (!originalShipment) return;
+
+    const oldEmbarcadorName = users.find(u => u.id === originalShipment.embarcadorId)?.name || 'N/A';
+    const newEmbarcadorName = users.find(u => u.id === newEmbarcadorId)?.name || 'N/A';
+    const updated: Shipment = { 
+      ...originalShipment, 
+      embarcadorId: newEmbarcadorId, 
+      history: [...originalShipment.history, createHistoryLog(`Embarcador responsável alterado de "${oldEmbarcadorName}" para "${newEmbarcadorName}".`)] 
+    };
+
+    setShipments((prev: Shipment[]) => prev.map(s => s.id === shipmentId ? updated : s));
+    try { 
+      await upsertShipment(updated); 
+      showToast(`Embarque transferido para ${newEmbarcadorName} com sucesso!`, 'success');
+    } catch(err: any) { 
+      console.error('Erro ao transferir embarque:', err);
+      // Rollback
+      setShipments((prev: Shipment[]) => prev.map(s => s.id === shipmentId ? originalShipment : s));
+      showToast(`Erro ao transferir embarque: ${err?.message || 'Falha de conexão'}.`, 'error');
     }
   };
 
@@ -2075,9 +2110,16 @@ const App: React.FC = () => {
       
       await Promise.all(promises);
       showToast(`Embarque ${shipmentId} transferido para a carga #${newCargo.sequenceId} com sucesso!`, 'success');
-    } catch (err) {
+    } catch (err: any) {
       console.error('Erro ao trocar carga:', err);
-      showToast('Erro ao persistir a troca de carga no banco de dados.', 'error');
+      // Rollback para os estados anteriores
+      setShipments(prev => prev.map(s => s.id === shipmentId ? shipment : s));
+      setCargos(prev => prev.map(c => {
+        if (c.id === oldCargoId && oldCargo) return oldCargo;
+        if (c.id === newCargoId && newCargo) return newCargo;
+        return c;
+      }));
+      showToast(`Erro ao persistir a troca de carga: ${err?.message || 'Falha no banco'}. Alterações revertidas.`, 'error');
     }
   };
 
@@ -2092,7 +2134,32 @@ const App: React.FC = () => {
       setClients(prev => [saved, ...prev]);
       setNextIds((prev: any) => ({ ...prev, client: prev.client + 1 }));
     }
-    try { await upsertClient(saved); } catch(err) { console.error('Erro ao salvar cliente:', err); }
+    try { 
+      await upsertClient(saved); 
+      showToast('Cliente salvo com sucesso!', 'success');
+    } catch(err: any) { 
+      console.error('Erro ao salvar cliente:', err);
+      if ('id' in clientData) {
+        const originalClient = clients.find(c => c.id === clientData.id);
+        if (originalClient) setClients(prev => prev.map(c => c.id === clientData.id ? originalClient : c));
+      } else {
+        setClients(prev => prev.filter(c => c.id !== saved.id));
+      }
+      showToast(`Erro ao salvar cliente no banco: ${err?.message || 'Falha de conexão'}`, 'error');
+    }
+  };
+
+  const handleDeleteClient = async (clientId: string) => {
+    const originalClients = [...clients];
+    setClients(prev => prev.filter(c => c.id !== clientId));
+    try {
+      await deleteClient(clientId);
+      showToast('Cliente excluído com sucesso do banco de dados.', 'success');
+    } catch (err: any) {
+      console.error('Erro ao excluir cliente:', err);
+      setClients(originalClients);
+      showToast(`Erro ao excluir cliente: ${err?.message || 'Falha de conexão'}. Operação revertida.`, 'error');
+    }
   };
   
   const handleDeleteCargo = async (cargoId: string) => {
@@ -2169,7 +2236,32 @@ const App: React.FC = () => {
       setOwners(prev => [saved, ...prev]);
       setNextIds((prev: any) => ({ ...prev, owner: prev.owner + 1 }));
     }
-    try { await upsertOwner(saved); } catch(err) { console.error('Erro ao salvar proprietário:', err); }
+    try { 
+      await upsertOwner(saved); 
+      showToast('Proprietário salvo com sucesso!', 'success');
+    } catch(err: any) { 
+      console.error('Erro ao salvar proprietário:', err);
+      if ('id' in ownerData) {
+        const originalOwner = owners.find(o => o.id === ownerData.id);
+        if (originalOwner) setOwners(prev => prev.map(o => o.id === ownerData.id ? originalOwner : o));
+      } else {
+        setOwners(prev => prev.filter(o => o.id !== saved.id));
+      }
+      showToast(`Erro ao salvar proprietário: ${err?.message || 'Falha de conexão'}`, 'error');
+    }
+  };
+
+  const handleDeleteOwner = async (ownerId: string) => {
+    const originalOwners = [...owners];
+    setOwners(prev => prev.filter(o => o.id !== ownerId));
+    try {
+      await deleteOwner(ownerId);
+      showToast('Proprietário excluído com sucesso do banco de dados.', 'success');
+    } catch (err: any) {
+      console.error('Erro ao excluir proprietário:', err);
+      setOwners(originalOwners);
+      showToast(`Erro ao excluir proprietário: ${err?.message || 'Falha de conexão'}. Operação revertida.`, 'error');
+    }
   };
 
   const handleSaveDriver = async (driverData: Driver | Omit<Driver, 'id'>) => {
@@ -2188,7 +2280,26 @@ const App: React.FC = () => {
       showToast('Motorista salvo com sucesso!', 'success');
     } catch(err: any) { 
       console.error('Erro ao salvar motorista:', err); 
+      if ('id' in driverData) {
+        const originalDriver = drivers.find(d => d.id === driverData.id);
+        if (originalDriver) setDrivers(prev => prev.map(d => d.id === driverData.id ? originalDriver : d));
+      } else {
+        setDrivers(prev => prev.filter(d => d.id !== saved.id));
+      }
       showToast(`Erro ao salvar motorista: ${err.message || 'Erro desconhecido'}`, 'error');
+    }
+  };
+
+  const handleDeleteDriver = async (driverId: string) => {
+    const originalDrivers = [...drivers];
+    setDrivers(prev => prev.filter(d => d.id !== driverId));
+    try {
+      await deleteDriver(driverId);
+      showToast('Motorista excluído com sucesso do banco de dados.', 'success');
+    } catch (err: any) {
+      console.error('Erro ao excluir motorista:', err);
+      setDrivers(originalDrivers);
+      showToast(`Erro ao excluir motorista: ${err?.message || 'Falha de conexão'}. Operação revertida.`, 'error');
     }
   };
 
@@ -2208,7 +2319,26 @@ const App: React.FC = () => {
       showToast('Veículo salvo com sucesso!', 'success');
     } catch(err: any) { 
       console.error('Erro ao salvar veículo:', err); 
+      if ('id' in vehicleData) {
+        const originalVehicle = vehicles.find(v => v.id === vehicleData.id);
+        if (originalVehicle) setVehicles(prev => prev.map(v => v.id === vehicleData.id ? originalVehicle : v));
+      } else {
+        setVehicles(prev => prev.filter(v => v.id !== saved.id));
+      }
       showToast(`Erro ao salvar veículo: ${err.message || 'Erro desconhecido'}`, 'error');
+    }
+  };
+
+  const handleDeleteVehicle = async (vehicleId: string) => {
+    const originalVehicles = [...vehicles];
+    setVehicles(prev => prev.filter(v => v.id !== vehicleId));
+    try {
+      await deleteVehicle(vehicleId);
+      showToast('Veículo excluído com sucesso do banco de dados.', 'success');
+    } catch (err: any) {
+      console.error('Erro ao excluir veículo:', err);
+      setVehicles(originalVehicles);
+      showToast(`Erro ao excluir veículo: ${err?.message || 'Falha de conexão'}. Operação revertida.`, 'error');
     }
   };
 
@@ -2490,8 +2620,19 @@ const App: React.FC = () => {
       setBranches(prev => [saved, ...prev]);
       setNextIds((prev: any) => ({ ...prev, branch: prev.branch + 1 }));
     }
-    try { await upsertBranch(saved); } catch(err) { console.error('Erro ao salvar filial:', err); }
-    showToast('Filial salva com sucesso!', 'success');
+    try { 
+      await upsertBranch(saved); 
+      showToast('Filial salva com sucesso!', 'success');
+    } catch(err: any) { 
+      console.error('Erro ao salvar filial:', err);
+      if ('id' in branchData) {
+        const originalBranch = branches.find(b => b.id === branchData.id);
+        if (originalBranch) setBranches(prev => prev.map(b => b.id === branchData.id ? originalBranch : b));
+      } else {
+        setBranches(prev => prev.filter(b => b.id !== saved.id));
+      }
+      showToast(`Erro ao salvar filial: ${err?.message || 'Falha no banco de dados'}`, 'error');
+    }
   };
 
   const handleDeleteBranch = async (branchId: string) => {
@@ -2695,10 +2836,10 @@ const App: React.FC = () => {
         <Routes>
           <Route path="/" element={<DashboardPage cargos={visibleLoads} shipments={visibleShipments} users={users} currentUser={currentUser} clients={clients} products={products} companyLogo={companyLogo} vehicles={vehicles} drivers={drivers} onDeleteAttachment={handleDeleteShipmentAttachment} onUpdatePrice={handleUpdateShipmentPrice} onUpdateAttachment={handleUpdateShipmentAttachment} onUpdateShipmentData={handleUpdateShipmentData} onAddAttachments={handleAddShipmentAttachments} freightOffers={freightOffers} onSaveFreightOffer={handleSaveFreightOffer} onAcceptFreightOffer={handleAcceptFreightOffer} onConvertToCargo={(offer) => { setOfferToConvert(offer); setCurrentPage('loads'); }} onCreateShipment={handleCreateShipment} allShipments={shipments} />} />
           <Route path="/dashboard" element={<Navigate to="/" replace />} />
-          <Route path="/clients" element={<ClientsPage clients={clients} setClients={setClients} onSaveClient={handleSaveClient} currentUser={currentUser} profilePermissions={profilePermissions} />} />
-          <Route path="/owners" element={<OwnersPage owners={owners} setOwners={setOwners} onSaveOwner={handleSaveOwner} currentUser={currentUser} profilePermissions={profilePermissions} />} />
-          <Route path="/drivers" element={<DriversPage drivers={drivers} setDrivers={setDrivers} onSaveDriver={handleSaveDriver} owners={owners} currentUser={currentUser} profilePermissions={profilePermissions} shipments={visibleShipments} cargos={cargos} />} />
-          <Route path="/vehicles" element={<VehiclesPage vehicles={vehicles} setVehicles={setVehicles} onSaveVehicle={handleSaveVehicle} owners={owners} currentUser={currentUser} profilePermissions={profilePermissions} shipments={visibleShipments} cargos={cargos} />} />
+          <Route path="/clients" element={<ClientsPage clients={clients} setClients={setClients} onSaveClient={handleSaveClient} onDeleteClient={handleDeleteClient} currentUser={currentUser} profilePermissions={profilePermissions} />} />
+          <Route path="/owners" element={<OwnersPage owners={owners} setOwners={setOwners} onSaveOwner={handleSaveOwner} onDeleteOwner={handleDeleteOwner} currentUser={currentUser} profilePermissions={profilePermissions} />} />
+          <Route path="/drivers" element={<DriversPage drivers={drivers} setDrivers={setDrivers} onSaveDriver={handleSaveDriver} onDeleteDriver={handleDeleteDriver} owners={owners} currentUser={currentUser} profilePermissions={profilePermissions} shipments={visibleShipments} cargos={cargos} />} />
+          <Route path="/vehicles" element={<VehiclesPage vehicles={vehicles} setVehicles={setVehicles} onSaveVehicle={handleSaveVehicle} onDeleteVehicle={handleDeleteVehicle} owners={owners} currentUser={currentUser} profilePermissions={profilePermissions} shipments={visibleShipments} cargos={cargos} />} />
           <Route path="/loads" element={<LoadsPage loads={activeLoads} setLoads={setCargos} clients={clients} products={products} onSaveLoad={handleSaveLoad} onReactivateLoad={handleReactivateLoad} onSuspendLoad={handleSuspendLoad} onUpdatePrice={handleUpdateShipmentPrice} currentUser={currentUser} profilePermissions={profilePermissions} users={users} shipments={visibleShipments} allShipments={shipments} onDeleteLoad={handleDeleteCargo} onModalStateChange={setIsAnyModalOpen} companyLogo={companyLogo} vehicles={vehicles} drivers={drivers} onDeleteAttachment={handleDeleteShipmentAttachment} branches={branches} stays={stays} tickets={tickets} offerToConvert={offerToConvert} setOfferToConvert={setOfferToConvert} onCreateShipment={handleCreateShipment} />} />
           <Route path="/products" element={<ProductsPage products={products} onSaveProduct={handleSaveProduct} onDeleteProduct={handleDeleteProduct} currentUser={currentUser} profilePermissions={profilePermissions} />} />
           <Route path="/shippers-receivers" element={<ShippersReceiversPage currentUser={currentUser} profilePermissions={profilePermissions} />} />

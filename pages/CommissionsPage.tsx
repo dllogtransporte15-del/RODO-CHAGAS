@@ -39,7 +39,7 @@ const CommissionsPage: React.FC<CommissionsPageProps> = ({ shipments, cargos, us
   };
   
   const navItems = [
-      { id: 'comercial', label: 'Supervisão & Agenciador Líder', icon: BriefcaseIcon },
+      { id: 'comercial', label: 'Supervisão & Gestor GO', icon: BriefcaseIcon },
       { id: 'embarcador', label: 'Embarcadores', icon: ShipIcon },
       { id: 'vendedor-externo', label: 'Vendedor Externo', icon: UsersIcon },
   ];

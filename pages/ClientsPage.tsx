@@ -11,12 +11,13 @@ import { can } from '../auth';
 interface ClientsPageProps {
   clients: Client[];
   setClients: React.Dispatch<React.SetStateAction<Client[]>>;
-  onSaveClient: (clientData: Client | Omit<Client, 'id'>) => void;
+  onSaveClient: (clientData: Client | Omit<Client, 'id'>) => Promise<void> | void;
+  onDeleteClient?: (clientId: string) => Promise<void> | void;
   currentUser: User;
   profilePermissions: ProfilePermissions;
 }
 
-const ClientsPage: React.FC<ClientsPageProps> = ({ clients, setClients, onSaveClient, currentUser, profilePermissions }) => {
+const ClientsPage: React.FC<ClientsPageProps> = ({ clients, setClients, onSaveClient, onDeleteClient, currentUser, profilePermissions }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [clientToEdit, setClientToEdit] = useState<Client | null>(null);
   const [filters, setFilters] = useState<ClientFilters>({
@@ -64,14 +65,18 @@ const ClientsPage: React.FC<ClientsPageProps> = ({ clients, setClients, onSaveCl
     setIsModalOpen(true);
   };
   
-  const handleDeleteClient = (clientId: string) => {
-    if (window.confirm('Tem certeza que deseja excluir este cliente?')) {
-        setClients(prevClients => prevClients.filter(c => c.id !== clientId));
+  const handleDeleteClient = async (clientId: string) => {
+    if (window.confirm('Tem certeza que deseja excluir este cliente permanentemente?')) {
+        if (onDeleteClient) {
+          await onDeleteClient(clientId);
+        } else {
+          setClients(prevClients => prevClients.filter(c => c.id !== clientId));
+        }
     }
   };
 
-  const handleSaveClient = (client: Client | Omit<Client, 'id'>) => {
-    onSaveClient(client);
+  const handleSaveClient = async (client: Client | Omit<Client, 'id'>) => {
+    await onSaveClient(client);
     handleCloseModal();
   };
 

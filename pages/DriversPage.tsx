@@ -15,7 +15,8 @@ declare const XLSX: any;
 interface DriversPageProps {
   drivers: Driver[];
   setDrivers: React.Dispatch<React.SetStateAction<Driver[]>>;
-  onSaveDriver: (driverData: Driver | Omit<Driver, 'id'>) => void;
+  onSaveDriver: (driverData: Driver | Omit<Driver, 'id'>) => Promise<void> | void;
+  onDeleteDriver?: (driverId: string) => Promise<void> | void;
   owners: Owner[];
   currentUser: User;
   profilePermissions: ProfilePermissions;
@@ -27,6 +28,7 @@ const DriversPage: React.FC<DriversPageProps> = ({
   drivers, 
   setDrivers, 
   onSaveDriver, 
+  onDeleteDriver,
   owners, 
   currentUser, 
   profilePermissions,
@@ -106,14 +108,18 @@ const DriversPage: React.FC<DriversPageProps> = ({
     );
   }, [selectedDriverForHistory, shipments]);
   
-  const handleDeleteDriver = (driverId: string) => {
-    if (window.confirm('Tem certeza que deseja excluir este motorista?')) {
-        setDrivers(prev => prev.filter(d => d.id !== driverId));
+  const handleDeleteDriver = async (driverId: string) => {
+    if (window.confirm('Tem certeza que deseja excluir este motorista permanentemente?')) {
+        if (onDeleteDriver) {
+          await onDeleteDriver(driverId);
+        } else {
+          setDrivers(prev => prev.filter(d => d.id !== driverId));
+        }
     }
   };
 
-  const handleSaveDriver = (driver: Driver | Omit<Driver, 'id'>) => {
-    onSaveDriver(driver);
+  const handleSaveDriver = async (driver: Driver | Omit<Driver, 'id'>) => {
+    await onSaveDriver(driver);
     handleCloseModal();
   };
   

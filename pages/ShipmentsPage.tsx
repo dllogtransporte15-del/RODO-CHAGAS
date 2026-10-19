@@ -45,20 +45,20 @@ interface ShipmentsPageProps {
     route?: string 
   }) => Promise<void>;
   onAddAttachments?: (shipmentId: string, files: File[]) => Promise<void>;
-  onUpdatePrice: (shipmentId: string, data: { newTotal: number, newRate?: number, newCompanyRate?: number }) => void;
-  onConfirmCancel: (shipmentId: string, reason: string) => void;
-  onUpdateAnttAndBankDetails: (shipmentId: string, data: { anttOwnerIdentifier: string; bankDetails?: string }) => void;
-  onTransferShipment: (shipmentId: string, newEmbarcadorId: string) => void;
+  onUpdatePrice: (shipmentId: string, data: { newTotal: number, newRate?: number, newCompanyRate?: number }) => Promise<void> | void;
+  onConfirmCancel: (shipmentId: string, reason: string) => Promise<void> | void;
+  onUpdateAnttAndBankDetails: (shipmentId: string, data: { anttOwnerIdentifier: string; bankDetails?: string }) => Promise<void> | void;
+  onTransferShipment: (shipmentId: string, newEmbarcadorId: string) => Promise<void> | void;
   onMarkArrival: (shipmentId: string) => void;
   onDeleteShipment: (shipmentId: string) => void;
   onRevertStatus: (shipmentId: string) => void;
-  onUpdateScheduledDateTime: (shipmentId: string, data: { scheduledDate: string, scheduledTime?: string }) => void;
+  onUpdateScheduledDateTime: (shipmentId: string, data: { scheduledDate: string, scheduledTime?: string }) => Promise<void> | void;
   onUpdateShipmentData: (shipmentId: string, data: Partial<Shipment>) => void;
   activeLocks: ShipmentLock[];
   onModalStateChange: (isOpen: boolean) => void;
   companyLogo?: string | null;
   onDeleteAttachment?: (shipmentId: string, url: string) => Promise<void>;
-  onSwapCargo: (shipmentId: string, newCargoId: string) => void;
+  onSwapCargo: (shipmentId: string, newCargoId: string) => Promise<void> | void;
   onApproveShipment?: (shipmentId: string) => void;
   stays?: StayRecord[];
   tickets?: Ticket[];
@@ -178,10 +178,9 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({
     handleCloseAttachmentModal();
   };
   
-  const handleSaveAnttData = (data: { anttOwnerIdentifier: string; bankDetails?: string }) => {
+  const handleSaveAnttData = async (data: { anttOwnerIdentifier: string; bankDetails?: string }) => {
     if (!selectedShipment) return;
-    onUpdateAnttAndBankDetails(selectedShipment.id, data);
-    setCadastroAnttModalOpen(false);
+    await onUpdateAnttAndBankDetails(selectedShipment.id, data);
     setSelectedShipment(null);
   };
 
@@ -200,25 +199,22 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({
     setIsTransferModalOpen(true);
   };
 
-  const handleSavePrice = (data: { newTotal: number, newRate?: number, newCompanyRate?: number }) => {
+  const handleSavePrice = async (data: { newTotal: number, newRate?: number, newCompanyRate?: number }) => {
     if (!selectedShipment) return;
-    onUpdatePrice(selectedShipment.id, data);
-    setEditPriceModalOpen(false);
+    await onUpdatePrice(selectedShipment.id, data);
     setSelectedShipment(null);
   };
 
-  const handleConfirmCancel = (reason: string) => {
+  const handleConfirmCancel = async (reason: string) => {
     if (!selectedShipment) return;
-    onConfirmCancel(selectedShipment.id, reason);
-    setCancelModalOpen(false);
+    await onConfirmCancel(selectedShipment.id, reason);
     setSelectedShipment(null);
   };
   
-  const handleSaveTransfer = (newEmbarcadorId: string) => {
+  const handleSaveTransfer = async (newEmbarcadorId: string) => {
     if (selectedShipment) {
-      onTransferShipment(selectedShipment.id, newEmbarcadorId);
+      await onTransferShipment(selectedShipment.id, newEmbarcadorId);
     }
-    setIsTransferModalOpen(false);
     setSelectedShipment(null);
   };
 
@@ -236,9 +232,8 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({
     setSwapCargoModalOpen(true);
   };
 
-  const handleSwapCargo = (shipmentId: string, newCargoId: string) => {
-    onSwapCargo(shipmentId, newCargoId);
-    setSwapCargoModalOpen(false);
+  const handleSwapCargo = async (shipmentId: string, newCargoId: string) => {
+    await onSwapCargo(shipmentId, newCargoId);
     setSelectedShipment(null);
   };
 
@@ -333,7 +328,10 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({
       {selectedShipment && (
         <CadastroAnttModal
           isOpen={isCadastroAnttModalOpen}
-          onClose={() => setCadastroAnttModalOpen(false)}
+          onClose={() => {
+            setCadastroAnttModalOpen(false);
+            setSelectedShipment(null);
+          }}
           onSave={handleSaveAnttData}
           shipment={selectedShipment}
         />
@@ -341,7 +339,10 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({
       {selectedShipment && (
         <EditPriceModal
             isOpen={isEditPriceModalOpen}
-            onClose={() => setEditPriceModalOpen(false)}
+            onClose={() => {
+              setEditPriceModalOpen(false);
+              setSelectedShipment(null);
+            }}
             onSave={handleSavePrice}
             shipment={selectedShipment}
             currentUser={currentUser}
@@ -350,7 +351,10 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({
       {selectedShipment && (
         <CancelShipmentModal
             isOpen={isCancelModalOpen}
-            onClose={() => setCancelModalOpen(false)}
+            onClose={() => {
+              setCancelModalOpen(false);
+              setSelectedShipment(null);
+            }}
             onConfirm={handleConfirmCancel}
             shipmentId={selectedShipment.id}
         />
@@ -358,7 +362,10 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({
       {selectedShipment && (
         <HistoryModal
             isOpen={isHistoryModalOpen}
-            onClose={() => setIsHistoryModalOpen(false)}
+            onClose={() => {
+              setIsHistoryModalOpen(false);
+              setSelectedShipment(null);
+            }}
             history={selectedShipment.history}
             users={users}
             title={`Histórico do Embarque ${selectedShipment.id}`}
@@ -367,7 +374,10 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({
       {selectedShipment && (
         <TransferShipmentModal
           isOpen={isTransferModalOpen}
-          onClose={() => setIsTransferModalOpen(false)}
+          onClose={() => {
+            setIsTransferModalOpen(false);
+            setSelectedShipment(null);
+          }}
           onSave={handleSaveTransfer}
           shipment={selectedShipment}
           users={users}
@@ -381,9 +391,8 @@ const ShipmentsPage: React.FC<ShipmentsPageProps> = ({
             setEditScheduledDateTimeModalOpen(false);
             setSelectedShipment(null);
           }}
-          onSave={(data) => {
-            onUpdateScheduledDateTime(selectedShipment.id, data);
-            setEditScheduledDateTimeModalOpen(false);
+          onSave={async (data) => {
+            await onUpdateScheduledDateTime(selectedShipment.id, data);
             setSelectedShipment(null);
           }}
           shipment={selectedShipment}

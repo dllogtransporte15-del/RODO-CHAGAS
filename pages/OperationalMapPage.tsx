@@ -22,7 +22,7 @@ interface OperationalMapPageProps {
   products: Product[];
   drivers: Driver[];
   vehicles: Vehicle[];
-  onCreateShipment: (data: Omit<Shipment, 'id' | 'orderId' | 'status' | 'documents' | 'history' | 'createdAt' | 'createdById' | 'statusHistory'>) => void;
+  onCreateShipment: (data: Omit<Shipment, 'id' | 'orderId' | 'status' | 'documents' | 'history' | 'createdAt' | 'createdById' | 'statusHistory'>) => Promise<void> | void;
   currentUser: User | null;
   users: User[];
   onModalStateChange: (isOpen: boolean) => void;
@@ -111,14 +111,14 @@ const OperationalMapPage: React.FC<OperationalMapPageProps> = ({
     setSelectedCargoForShipment(null);
   };
 
-  const handleSaveShipment = (shipmentData: Omit<Shipment, 'id' | 'orderId' | 'cargoId' | 'status' | 'documents' | 'history' | 'createdAt' | 'createdById' | 'statusHistory'>) => {
+  const handleSaveShipment = async (shipmentData: any) => {
     if (selectedCargoForShipment) {
-      onCreateShipment({
+      await onCreateShipment({
         cargoId: selectedCargoForShipment.id,
         ...shipmentData,
       });
+      handleCloseShipmentModal();
     }
-    handleCloseShipmentModal();
   };
 
   const loadsWithCoords = useMemo(() => {

@@ -3,12 +3,13 @@ import React, { useState, useEffect } from 'react';
 import { History } from 'lucide-react';
 import type { Vehicle, Owner } from '../types';
 import { VehicleSetType, VehicleBodyType, DriverClassification } from '../types';
-import { autoFormatInput } from '../utils/formatters';
+import { autoFormatInput, isValidPlate, formatPlate } from '../utils/formatters';
+import { useToast } from '../hooks/useToast';
 
 interface VehicleFormModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (vehicle: Vehicle | Omit<Vehicle, 'id'>) => void;
+  onSave: (vehicle: Vehicle | Omit<Vehicle, 'id'>) => Promise<void> | void;
   vehicleToEdit: Vehicle | null;
   owners: Owner[];
   onShowHistory?: (vehicle: Vehicle) => void;
@@ -22,6 +23,7 @@ const VehicleFormModal: React.FC<VehicleFormModalProps> = ({
   owners,
   onShowHistory 
 }) => {
+  const { showToast } = useToast();
   const getInitialState = (): Omit<Vehicle, 'id'> => ({
     plate: '',
     setType: VehicleSetType.LSSimples,
@@ -32,6 +34,7 @@ const VehicleFormModal: React.FC<VehicleFormModalProps> = ({
   });
 
   const [vehicle, setVehicle] = useState<Omit<Vehicle, 'id'>>(getInitialState());
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -53,15 +56,36 @@ const VehicleFormModal: React.FC<VehicleFormModalProps> = ({
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (vehicleToEdit) {
-        onSave({
-            ...vehicle,
-            id: vehicleToEdit.id,
+    if (isSubmitting) return;
+
+    const trimmedPlate = vehicle.plate.trim().toUpperCase();
+    if (!isValidPlate(trimmedPlate)) {
+      showToast('Placa inválida. Utilize o padrão Mercosul (ex: ABC1D23) ou antigo (ex: ABC1234 / ABC-1234).', 'warning');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const formatted = formatPlate(trimmedPlate);
+      if (vehicleToEdit) {
+        await onSave({
+          ...vehicle,
+          plate: formatted,
+          id: vehicleToEdit.id,
         });
-    } else {
-        onSave(vehicle);
+      } else {
+        await onSave({
+          ...vehicle,
+          plate: formatted,
+        });
+      }
+      onClose();
+    } catch (err) {
+      console.error('Erro ao salvar veículo:', err);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -119,11 +143,30 @@ const VehicleFormModal: React.FC<VehicleFormModalProps> = ({
           </div>
 
           <div className="mt-8 flex justify-end space-x-4">
-            <button type="button" onClick={onClose} className="py-2 px-4 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-200 dark:hover:bg-gray-500 font-bold">
+            <button 
+              type="button" 
+              onClick={onClose} 
+              disabled={isSubmitting}
+              className="py-2 px-4 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-200 dark:hover:bg-gray-500 font-bold disabled:opacity-50"
+            >
               Cancelar
             </button>
-            <button type="submit" className="py-2 px-4 bg-primary text-white rounded-lg hover:bg-primary-dark font-bold shadow-md">
-              Salvar
+            <button 
+              type="submit" 
+              disabled={isSubmitting}
+              className="py-2 px-6 bg-primary text-white rounded-lg hover:bg-primary-dark font-bold shadow-md flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              {isSubmitting ? (
+                <>
+                  <svg className="animate-spin h-4 w-4 text-white" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                  </svg>
+                  <span>Salvando...</span>
+                </>
+              ) : (
+                'Salvar'
+              )}
             </button>
           </div>
         </form>

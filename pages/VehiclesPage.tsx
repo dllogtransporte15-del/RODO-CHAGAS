@@ -12,7 +12,8 @@ import { can } from '../auth';
 interface VehiclesPageProps {
   vehicles: Vehicle[];
   setVehicles: React.Dispatch<React.SetStateAction<Vehicle[]>>;
-  onSaveVehicle: (vehicleData: Vehicle | Omit<Vehicle, 'id'>) => void;
+  onSaveVehicle: (vehicleData: Vehicle | Omit<Vehicle, 'id'>) => Promise<void> | void;
+  onDeleteVehicle?: (vehicleId: string) => Promise<void> | void;
   owners: Owner[];
   currentUser: User;
   profilePermissions: ProfilePermissions;
@@ -24,6 +25,7 @@ const VehiclesPage: React.FC<VehiclesPageProps> = ({
   vehicles, 
   setVehicles, 
   onSaveVehicle, 
+  onDeleteVehicle,
   owners, 
   currentUser, 
   profilePermissions,
@@ -84,14 +86,18 @@ const VehiclesPage: React.FC<VehiclesPageProps> = ({
     return shipments.filter(s => s.horsePlate === selectedVehicleForHistory.plate);
   }, [selectedVehicleForHistory, shipments]);
   
-  const handleDeleteVehicle = (vehicleId: string) => {
-    if (window.confirm('Tem certeza que deseja excluir este veículo?')) {
-        setVehicles(prev => prev.filter(v => v.id !== vehicleId));
+  const handleDeleteVehicle = async (vehicleId: string) => {
+    if (window.confirm('Tem certeza que deseja excluir este veículo permanentemente?')) {
+        if (onDeleteVehicle) {
+          await onDeleteVehicle(vehicleId);
+        } else {
+          setVehicles(prev => prev.filter(v => v.id !== vehicleId));
+        }
     }
   };
 
-  const handleSaveVehicle = (vehicle: Vehicle | Omit<Vehicle, 'id'>) => {
-    onSaveVehicle(vehicle);
+  const handleSaveVehicle = async (vehicle: Vehicle | Omit<Vehicle, 'id'>) => {
+    await onSaveVehicle(vehicle);
     handleCloseModal();
   };
   

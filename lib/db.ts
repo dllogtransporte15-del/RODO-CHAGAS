@@ -1,5 +1,6 @@
 import { supabase } from '../supabase';
 import { cleanOrShortenLocationInput } from '../utils/locationUtils';
+import { formatId } from '../utils';
 import { UserProfile, FreightPricingType } from '../types';
 import type {
   Client, Owner, Driver, Vehicle, Product, Cargo, Shipment, User, Ticket, ProfilePermissions, ShipmentLock, Branch, FreightOffer
@@ -504,12 +505,12 @@ export const toUser = (row: any): User => {
     const p = profile.trim().toLowerCase();
     if (p === 'motorista') profile = UserProfile.Motorista;
     else if (p === 'admin' || p === 'administrador' || p === 'administrador do sistema') profile = UserProfile.Admin;
+    else if (p.includes('embarcador go') || p === 'embarcador go' || p.includes('agenciador embarque')) profile = UserProfile.AgenciadorEmbarque;
     else if (p === 'embarcador') profile = UserProfile.Embarcador;
     else if (p === 'cliente') profile = UserProfile.Cliente;
     else if (p === 'supervisor') profile = UserProfile.Supervisor;
     else if (p === 'coordenador') profile = UserProfile.Coordenador;
-    else if (p.includes('lider') || p.includes('líder')) profile = UserProfile.AgenciadorLider;
-    else if (p.includes('agenciador embarque') || p.includes('embarque')) profile = UserProfile.AgenciadorEmbarque;
+    else if (p.includes('gestor') || p.includes('lider') || p.includes('líder')) profile = UserProfile.AgenciadorLider;
     else if (p === 'comercial') profile = UserProfile.Comercial;
     else if (p === 'financeiro') profile = UserProfile.Financeiro;
     else if (p === 'fiscal') profile = UserProfile.Fiscal;
@@ -1030,13 +1031,89 @@ export async function insertCargo(cargo: Cargo | Omit<Cargo, 'id'>): Promise<Car
   throw lastError;
 }
 
-export async function insertShipment(shipment: Shipment): Promise<void> {
-  const payload = fromShipment(shipment);
-  const { error } = await supabase.from('shipments').insert(payload);
-  if (error) {
-    console.error('[insertShipment] Error:', error);
-    throw error;
+export async function getNextShipmentIdentifiers(prefix: string = 'SHP'): Promise<{ nextId: string; nextNum: number }> {
+  const cleanPrefix = (prefix || 'SHP').trim().toUpperCase().substring(0, 3) || 'SHP';
+
+  const { data } = await supabase
+    .from('shipments')
+    .select('id')
+    .order('created_at', { ascending: false })
+    .limit(100);
+
+  let maxNum = 0;
+  if (data) {
+    for (const row of data) {
+      if (row.id) {
+        const m = row.id.match(/-(\d+)$/);
+        if (m) {
+          const num = parseInt(m[1], 10);
+          if (!isNaN(num) && num > maxNum) maxNum = num;
+        }
+      }
+    }
   }
+
+  let nextNum = Math.max(maxNum + 1, 100);
+
+  // Guarantee no collision for this prefix
+  while (true) {
+    const candidateId = formatId(nextNum, cleanPrefix);
+    const { data: existing, error: checkErr } = await supabase
+      .from('shipments')
+      .select('id')
+      .eq('id', candidateId)
+      .maybeSingle();
+
+    if (!existing || checkErr) {
+      return { nextId: candidateId, nextNum };
+    }
+    nextNum++;
+  }
+}
+
+export async function insertShipment(shipment: Shipment): Promise<Shipment> {
+  const prefix = shipment.id ? shipment.id.split('-')[0] : 'SHP';
+  let currentId = shipment.id;
+  let currentOrderId = shipment.orderId || `ord_${currentId}`;
+
+  if (!currentId || currentId.startsWith('TEMP-')) {
+    const fresh = await getNextShipmentIdentifiers(prefix);
+    currentId = fresh.nextId;
+    currentOrderId = `ord_${currentId}`;
+  }
+
+  let attempts = 0;
+  let lastError: any = null;
+
+  while (attempts < 10) {
+    const payload = fromShipment({
+      ...shipment,
+      id: currentId,
+      orderId: currentOrderId,
+    });
+
+    const { data, error } = await supabase.from('shipments').insert(payload).select().single();
+
+    if (!error && data) {
+      console.log('[insertShipment] Success for shipment:', data.id);
+      return toShipment(data);
+    }
+
+    lastError = error;
+    if (error && (error.code === '23505' || error.message?.includes('unique constraint') || error.message?.includes('duplicate key') || error.message?.includes('shipments_pkey'))) {
+      console.warn(`[insertShipment] Conflict on ID ${currentId}. Retrying with next increment...`);
+      attempts++;
+      const fresh = await getNextShipmentIdentifiers(prefix);
+      currentId = fresh.nextId;
+      currentOrderId = `ord_${currentId}`;
+    } else {
+      console.error('[insertShipment] Error:', error);
+      throw error;
+    }
+  }
+
+  console.error('[insertShipment] Error after retries:', lastError);
+  throw lastError;
 }
 
 export async function saveProfilePermissions(permissions: ProfilePermissions): Promise<void> {
@@ -1143,6 +1220,26 @@ export async function deleteShipmentAttachmentFromStorage(url: string): Promise<
 
 export async function deleteCargo(id: string): Promise<void> {
   const { error } = await supabase.from('cargos').delete().eq('id', id);
+  if (error) throw error;
+}
+
+export async function deleteClient(id: string): Promise<void> {
+  const { error } = await supabase.from('clients').delete().eq('id', id);
+  if (error) throw error;
+}
+
+export async function deleteOwner(id: string): Promise<void> {
+  const { error } = await supabase.from('owners').delete().eq('id', id);
+  if (error) throw error;
+}
+
+export async function deleteDriver(id: string): Promise<void> {
+  const { error } = await supabase.from('drivers').delete().eq('id', id);
+  if (error) throw error;
+}
+
+export async function deleteVehicle(id: string): Promise<void> {
+  const { error } = await supabase.from('vehicles').delete().eq('id', id);
   if (error) throw error;
 }
 

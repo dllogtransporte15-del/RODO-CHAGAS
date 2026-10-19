@@ -8,7 +8,7 @@ import { Search, Info, Package, MapPin, DollarSign, Weight } from 'lucide-react'
 interface SwapCargoModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (shipmentId: string, newCargoId: string) => void;
+  onConfirm: (shipmentId: string, newCargoId: string) => Promise<void> | void;
   shipment: Shipment | null;
   cargos: Cargo[];
   clients: Client[];
@@ -29,6 +29,7 @@ const SwapCargoModal: React.FC<SwapCargoModalProps> = ({
   const { showToast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCargoId, setSelectedCargoId] = useState<string>('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const getCargoAvailableVolume = (c: Cargo) => {
     if (shipments && shipments.length > 0) {
@@ -70,14 +71,21 @@ const SwapCargoModal: React.FC<SwapCargoModalProps> = ({
     }).sort((a, b) => b.sequenceId - a.sequenceId);
   }, [cargos, shipment, searchTerm, clients, products, shipments]);
 
-  const handleConfirm = () => {
-    if (!shipment) return;
+  const handleConfirm = async () => {
+    if (!shipment || isSubmitting) return;
     if (!selectedCargoId) {
       showToast('Por favor, selecione uma nova carga.', 'warning');
       return;
     }
-    onConfirm(shipment.id, selectedCargoId);
-    onClose();
+    setIsSubmitting(true);
+    try {
+      await onConfirm(shipment.id, selectedCargoId);
+      onClose();
+    } catch (err: any) {
+      console.error('Erro ao transferir carga:', err);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (!isOpen || !shipment) return null;
@@ -182,21 +190,32 @@ const SwapCargoModal: React.FC<SwapCargoModalProps> = ({
           <button 
             type="button" 
             onClick={onClose} 
-            className="py-2 px-6 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors"
+            disabled={isSubmitting}
+            className="py-2 px-6 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors disabled:opacity-50"
           >
             Cancelar
           </button>
           <button 
             type="button" 
             onClick={handleConfirm}
-            disabled={!selectedCargoId}
-            className={`py-2 px-8 text-sm font-bold rounded-lg transition-all shadow-md ${
-              selectedCargoId 
+            disabled={!selectedCargoId || isSubmitting}
+            className={`py-2 px-8 text-sm font-bold rounded-lg transition-all shadow-md flex items-center justify-center gap-2 ${
+              selectedCargoId && !isSubmitting
                 ? 'bg-primary text-white hover:bg-primary-dark scale-100' 
                 : 'bg-gray-300 text-gray-500 cursor-not-allowed scale-95 opacity-50'
             }`}
           >
-            Confirmar Troca
+            {isSubmitting ? (
+              <>
+                <svg className="animate-spin h-4 w-4 text-white" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                </svg>
+                <span>Transferindo...</span>
+              </>
+            ) : (
+              'Confirmar Troca'
+            )}
           </button>
         </div>
       </div>
