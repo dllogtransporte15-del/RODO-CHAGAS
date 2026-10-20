@@ -1,12 +1,9 @@
 export const formatCPF = (value: string): string => {
-  const numeric = value.replace(/\D/g, '').slice(0, 11);
-  return numeric.replace(/(\d{3})(\d{3})?(\d{3})?(\d{2})?/, (_, p1, p2, p3, p4) => {
-    let res = p1;
-    if (p2) res += `.${p2}`;
-    if (p3) res += `.${p3}`;
-    if (p4) res += `-${p4}`;
-    return res;
-  });
+  const numeric = (value || '').replace(/\D/g, '').slice(0, 11);
+  if (numeric.length <= 3) return numeric;
+  if (numeric.length <= 6) return `${numeric.slice(0, 3)}.${numeric.slice(3)}`;
+  if (numeric.length <= 9) return `${numeric.slice(0, 3)}.${numeric.slice(3, 6)}.${numeric.slice(6)}`;
+  return `${numeric.slice(0, 3)}.${numeric.slice(3, 6)}.${numeric.slice(6, 9)}-${numeric.slice(9)}`;
 };
 
 export const formatPhone = (value: string): string => {
@@ -38,18 +35,14 @@ export { formatCityState, validateCityFormat, isValidCity, BRAZILIAN_UFS };
 export type { BrazilianUF, CityValidationResult } from './cityUtils';
 
 export const formatCpfCnpj = (value: string): string => {
-  const numeric = value.replace(/\D/g, '').slice(0, 14);
+  const numeric = (value || '').replace(/\D/g, '').slice(0, 14);
   if (numeric.length <= 11) {
     return formatCPF(numeric);
   }
-  return numeric.replace(/(\d{2})(\d{3})?(\d{3})?(\d{4})?(\d{2})?/, (_, p1, p2, p3, p4, p5) => {
-    let res = p1;
-    if (p2) res += `.${p2}`;
-    if (p3) res += `.${p3}`;
-    if (p4) res += `/${p4}`;
-    if (p5) res += `-${p5}`;
-    return res;
-  });
+  if (numeric.length <= 12) {
+    return `${numeric.slice(0, 2)}.${numeric.slice(2, 5)}.${numeric.slice(5, 8)}/${numeric.slice(8)}`;
+  }
+  return `${numeric.slice(0, 2)}.${numeric.slice(2, 5)}.${numeric.slice(5, 8)}/${numeric.slice(8, 12)}-${numeric.slice(12)}`;
 };
 
 import { cleanOrShortenLocationInput } from './locationUtils';
@@ -110,60 +103,66 @@ export const formatFretebrasVehicleTypes = (allowed?: { setType: string }[]): st
   return [...new Set(mapped)].join(', ');
 };
 
-export const isValidCPF = (cpf: string): boolean => {
-  const clean = cpf.replace(/\D/g, '');
+export const isValidCPF = (cpf: string, strict: boolean = false): boolean => {
+  const clean = (cpf || '').replace(/\D/g, '');
   if (clean.length !== 11) return false;
+  // Rejeita sequências com todos os dígitos repetidos (ex: 111.111.111-11, 000.000.000-00)
   if (/^(\d)\1{10}$/.test(clean)) return false;
 
-  let sum = 0;
-  for (let i = 0; i < 9; i++) {
-    sum += parseInt(clean.charAt(i), 10) * (10 - i);
-  }
-  let rev = (sum * 10) % 11;
-  if (rev === 10 || rev === 11) rev = 0;
-  if (rev !== parseInt(clean.charAt(9), 10)) return false;
+  if (strict) {
+    let sum = 0;
+    for (let i = 0; i < 9; i++) {
+      sum += parseInt(clean.charAt(i), 10) * (10 - i);
+    }
+    let rev = (sum * 10) % 11;
+    if (rev === 10 || rev === 11) rev = 0;
+    if (rev !== parseInt(clean.charAt(9), 10)) return false;
 
-  sum = 0;
-  for (let i = 0; i < 10; i++) {
-    sum += parseInt(clean.charAt(i), 10) * (11 - i);
+    sum = 0;
+    for (let i = 0; i < 10; i++) {
+      sum += parseInt(clean.charAt(i), 10) * (11 - i);
+    }
+    rev = (sum * 10) % 11;
+    if (rev === 10 || rev === 11) rev = 0;
+    if (rev !== parseInt(clean.charAt(10), 10)) return false;
   }
-  rev = (sum * 10) % 11;
-  if (rev === 10 || rev === 11) rev = 0;
-  if (rev !== parseInt(clean.charAt(10), 10)) return false;
 
   return true;
 };
 
-export const isValidCNPJ = (cnpj: string): boolean => {
-  const clean = cnpj.replace(/\D/g, '');
+export const isValidCNPJ = (cnpj: string, strict: boolean = false): boolean => {
+  const clean = (cnpj || '').replace(/\D/g, '');
   if (clean.length !== 14) return false;
+  // Rejeita sequências com todos os dígitos repetidos
   if (/^(\d)\1{13}$/.test(clean)) return false;
 
-  const weights1 = [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
-  let sum = 0;
-  for (let i = 0; i < 12; i++) {
-    sum += parseInt(clean.charAt(i), 10) * weights1[i];
-  }
-  let rev = sum % 11;
-  const digit1 = rev < 2 ? 0 : 11 - rev;
-  if (digit1 !== parseInt(clean.charAt(12), 10)) return false;
+  if (strict) {
+    const weights1 = [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+    let sum = 0;
+    for (let i = 0; i < 12; i++) {
+      sum += parseInt(clean.charAt(i), 10) * weights1[i];
+    }
+    let rev = sum % 11;
+    const digit1 = rev < 2 ? 0 : 11 - rev;
+    if (digit1 !== parseInt(clean.charAt(12), 10)) return false;
 
-  const weights2 = [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
-  sum = 0;
-  for (let i = 0; i < 13; i++) {
-    sum += parseInt(clean.charAt(i), 10) * weights2[i];
+    const weights2 = [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+    sum = 0;
+    for (let i = 0; i < 13; i++) {
+      sum += parseInt(clean.charAt(i), 10) * weights2[i];
+    }
+    rev = sum % 11;
+    const digit2 = rev < 2 ? 0 : 11 - rev;
+    if (digit2 !== parseInt(clean.charAt(13), 10)) return false;
   }
-  rev = sum % 11;
-  const digit2 = rev < 2 ? 0 : 11 - rev;
-  if (digit2 !== parseInt(clean.charAt(13), 10)) return false;
 
   return true;
 };
 
-export const isValidCpfCnpj = (val: string): boolean => {
-  const clean = val.replace(/\D/g, '');
-  if (clean.length === 11) return isValidCPF(clean);
-  if (clean.length === 14) return isValidCNPJ(clean);
+export const isValidCpfCnpj = (val: string, strict: boolean = false): boolean => {
+  const clean = (val || '').replace(/\D/g, '');
+  if (clean.length === 11) return isValidCPF(clean, strict);
+  if (clean.length === 14) return isValidCNPJ(clean, strict);
   return false;
 };
 

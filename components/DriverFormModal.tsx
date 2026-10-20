@@ -66,9 +66,16 @@ const DriverFormModal: React.FC<DriverFormModalProps> = ({
     e.preventDefault();
     if (isSubmitting) return;
 
-    if (driver.cpf && !isValidCPF(driver.cpf)) {
-      showToast('CPF do motorista inválido. Verifique os dígitos informados.', 'warning');
-      return;
+    const cleanCpf = (driver.cpf || '').replace(/\D/g, '');
+    if (cleanCpf) {
+      if (cleanCpf.length < 11) {
+        showToast('CPF incompleto. O CPF do motorista deve conter 11 dígitos.', 'warning');
+        return;
+      }
+      if (!isValidCPF(cleanCpf)) {
+        showToast('CPF do motorista inválido. Verifique os dígitos informados.', 'warning');
+        return;
+      }
     }
 
     if (isOwnerRelevant && !driver.ownerId) {

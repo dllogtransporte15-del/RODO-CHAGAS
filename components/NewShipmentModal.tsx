@@ -158,7 +158,8 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
       }
 
       const initialCpf = driverInDb?.cpf || lastShipment?.driverCpf || '';
-      setDriverCpf(initialCpf ? formatCPF(initialCpf) : '');
+      const cleanInitialCpf = initialCpf ? initialCpf.replace(/\D/g, '') : '';
+      setDriverCpf(cleanInitialCpf ? formatCPF(cleanInitialCpf) : '');
       setOwnerContact(lastShipment?.ownerContact || '');
       setHorsePlate(lastShipment?.horsePlate || '');
       setTrailer1Plate(lastShipment?.trailer1Plate || '');
@@ -179,72 +180,175 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
           currentUser?.id || (embarcadores.length > 0 ? embarcadores[0].id : '')
       );
       setPendingVehicleWarning(null);
+      setLastAutofilledDriverId(driverInDb?.id || (lastShipment ? 'shipment-' + lastShipment.id : ''));
+      setLastAutofilledCpf(cleanInitialCpf);
+      lastSelectedDriverNameRef.current = initialDriverName;
     } else if (!isOpen) {
       setPendingVehicleWarning(null);
+      setLastAutofilledDriverId('');
+      setLastAutofilledCpf('');
+      setLastAlertedDriverId('');
+      lastSelectedDriverNameRef.current = '';
     }
     prevIsOpen.current = isOpen;
   }, [isOpen, currentUser, embarcadores]);
 
-    // Driver selection & Autofill logic
+  // Driver selection & Autofill logic
   const [lastAlertedDriverId, setLastAlertedDriverId] = useState<string>('');
   const [lastAutofilledDriverId, setLastAutofilledDriverId] = useState<string>('');
+  const [lastAutofilledCpf, setLastAutofilledCpf] = useState<string>('');
   const [lastAutofilledPlate, setLastAutofilledPlate] = useState<string>('');
+  const lastSelectedDriverNameRef = React.useRef<string>('');
 
+  // 1. Sincronização e Autofill ao alterar o CPF do Motorista (digitação, correção ou remoção)
   useEffect(() => {
-    const cleanName = driverName.trim().toLowerCase();
     const cleanCpf = driverCpf.replace(/\D/g, '');
 
-    const driverByName = cleanName ? drivers.find(d => d.name.trim().toLowerCase() === cleanName) : undefined;
-    const driverByCpf = cleanCpf.length === 11 ? drivers.find(d => d.cpf.replace(/\D/g, '') === cleanCpf) : undefined;
-
-    const selectedDriver = driverByName || driverByCpf;
-
-    if (selectedDriver) {
-        // Sync Fields
-        if (driverByName && selectedDriver.cpf && selectedDriver.cpf.replace(/\D/g, '') !== cleanCpf && !driverCpf) {
-            setDriverCpf(formatCPF(selectedDriver.cpf));
-        } else if (driverByCpf && selectedDriver.name.trim().toLowerCase() !== cleanName && !driverName) {
-            setDriverName(selectedDriver.name);
-        }
-
-        setDriverContact(selectedDriver.phone || '');
-
-        // Instant Restriction Alert
-        if (!selectedDriver.active && lastAlertedDriverId !== selectedDriver.id) {
-            showToast(`ATENÇÃO: Este motorista encontra-se RESTRITO! Motivo: ${selectedDriver.restrictionReason || 'Sem motivo especificado'}. O sistema impedirá a criação desta ordem.`, 'error', 10000);
-            setLastAlertedDriverId(selectedDriver.id);
-        } else if (selectedDriver.active) {
-            setLastAlertedDriverId(''); 
-        }
-
-        // History Autofill
-        if (lastAutofilledDriverId !== selectedDriver.id && selectedDriver.active) {
-            const selectedCleanCpf = selectedDriver.cpf ? selectedDriver.cpf.replace(/\D/g, '') : '';
-            const lastShipment = shipments
-                .filter(s => 
-                    (s.driverCpf && s.driverCpf.replace(/\D/g, '') === selectedCleanCpf) || 
-                    (s.driverName.trim().toLowerCase() === selectedDriver.name.trim().toLowerCase())
-                )
-                .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
-
-            if (lastShipment) {
-                setHorsePlate(lastShipment.horsePlate || '');
-                setTrailer1Plate(lastShipment.trailer1Plate || '');
-                setTrailer2Plate(lastShipment.trailer2Plate || '');
-                setTrailer3Plate(lastShipment.trailer3Plate || '');
-                setOwnerContact(lastShipment.ownerContact || '');
-                setBankDetails(lastShipment.bankDetails || '');
-                setVehicleTag(lastShipment.vehicleTag || '');
-            }
-            setLastAutofilledDriverId(selectedDriver.id);
-        } else if (!selectedDriver.active) {
-            setLastAutofilledDriverId(selectedDriver.id); // Prevent repeated alerts/lookups if restricted
-        }
-    } else {
+    // Se o usuário está apagando ou editando o CPF (menos de 11 dígitos):
+    // Limpa o preenchimento automático anterior de histórico para permitir editar livremente sem travar dados antigos
+    if (cleanCpf.length < 11) {
+      if (lastAutofilledCpf || lastAutofilledDriverId) {
+        setHorsePlate('');
+        setTrailer1Plate('');
+        setTrailer2Plate('');
+        setTrailer3Plate('');
+        setOwnerContact('');
+        setBankDetails('');
+        setVehicleTag('');
+        setDriverReferences('');
+        setLastAutofilledCpf('');
         setLastAutofilledDriverId('');
-        setLastAlertedDriverId('');
+      }
+      return;
     }
-  }, [driverName, driverCpf, drivers, shipments, lastAlertedDriverId, lastAutofilledDriverId]);
+
+    // Quando atinge exatamente os 11 dígitos do CPF:
+    if (cleanCpf.length === 11 && cleanCpf !== lastAutofilledCpf) {
+      const driverByCpf = drivers.find(d => (d.cpf || '').replace(/\D/g, '') === cleanCpf);
+      const lastShipmentByCpf = shipments
+        .filter(s => (s.driverCpf || '').replace(/\D/g, '') === cleanCpf)
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+
+      if (driverByCpf) {
+        setDriverName(driverByCpf.name);
+        lastSelectedDriverNameRef.current = driverByCpf.name;
+        setDriverContact(driverByCpf.phone || lastShipmentByCpf?.driverContact || '');
+
+        if (!driverByCpf.active && lastAlertedDriverId !== driverByCpf.id) {
+          showToast(`ATENÇÃO: Este motorista encontra-se RESTRITO! Motivo: ${driverByCpf.restrictionReason || 'Sem motivo especificado'}. O sistema impedirá a criação desta ordem.`, 'error', 10000);
+          setLastAlertedDriverId(driverByCpf.id);
+        } else if (driverByCpf.active) {
+          setLastAlertedDriverId('');
+        }
+
+        const lastShipment = lastShipmentByCpf || shipments
+          .filter(s => s.driverName.trim().toLowerCase() === driverByCpf.name.trim().toLowerCase())
+          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+
+        if (lastShipment && driverByCpf.active) {
+          setHorsePlate(lastShipment.horsePlate || '');
+          setTrailer1Plate(lastShipment.trailer1Plate || '');
+          setTrailer2Plate(lastShipment.trailer2Plate || '');
+          setTrailer3Plate(lastShipment.trailer3Plate || '');
+          setOwnerContact(lastShipment.ownerContact || '');
+          setBankDetails(lastShipment.bankDetails || '');
+          setVehicleTag(lastShipment.vehicleTag || '');
+          setDriverReferences(lastShipment.driverReferences || '');
+        }
+
+        setLastAutofilledDriverId(driverByCpf.id);
+        setLastAutofilledCpf(cleanCpf);
+      } else if (lastShipmentByCpf) {
+        setDriverName(lastShipmentByCpf.driverName);
+        lastSelectedDriverNameRef.current = lastShipmentByCpf.driverName;
+        setDriverContact(lastShipmentByCpf.driverContact || '');
+        setHorsePlate(lastShipmentByCpf.horsePlate || '');
+        setTrailer1Plate(lastShipmentByCpf.trailer1Plate || '');
+        setTrailer2Plate(lastShipmentByCpf.trailer2Plate || '');
+        setTrailer3Plate(lastShipmentByCpf.trailer3Plate || '');
+        setOwnerContact(lastShipmentByCpf.ownerContact || '');
+        setBankDetails(lastShipmentByCpf.bankDetails || '');
+        setVehicleTag(lastShipmentByCpf.vehicleTag || '');
+        setDriverReferences(lastShipmentByCpf.driverReferences || '');
+        setLastAutofilledDriverId('shipment-' + lastShipmentByCpf.id);
+        setLastAutofilledCpf(cleanCpf);
+      } else {
+        // CPF novo não encontrado em histórico
+        setLastAutofilledCpf(cleanCpf);
+      }
+    }
+  }, [driverCpf, drivers, shipments, lastAutofilledCpf, lastAutofilledDriverId, lastAlertedDriverId]);
+
+  // 2. Sincronização ao alterar ou selecionar o Nome do Motorista
+  useEffect(() => {
+    const cleanName = driverName.trim().toLowerCase();
+
+    // Se o nome não foi alterado desde a última seleção, não faz nada
+    if (cleanName === lastSelectedDriverNameRef.current.trim().toLowerCase()) {
+      return;
+    }
+    lastSelectedDriverNameRef.current = driverName;
+
+    if (!cleanName) {
+      const cleanCpf = driverCpf.replace(/\D/g, '');
+      if (cleanCpf.length < 11 && (lastAutofilledDriverId || lastAutofilledCpf)) {
+        setHorsePlate('');
+        setTrailer1Plate('');
+        setTrailer2Plate('');
+        setTrailer3Plate('');
+        setOwnerContact('');
+        setBankDetails('');
+        setVehicleTag('');
+        setDriverReferences('');
+        setLastAutofilledDriverId('');
+        setLastAutofilledCpf('');
+      }
+      return;
+    }
+
+    const driverByName = drivers.find(d => d.name.trim().toLowerCase() === cleanName);
+    if (driverByName) {
+      const driverCleanCpf = (driverByName.cpf || '').replace(/\D/g, '');
+      const currentCleanCpf = driverCpf.replace(/\D/g, '');
+
+      // Sincroniza o CPF apenas se estiver vazio ou diferente
+      if (currentCleanCpf.length === 0 || currentCleanCpf !== driverCleanCpf) {
+        if (driverCleanCpf) {
+          setDriverCpf(formatCPF(driverCleanCpf));
+        }
+      }
+
+      setDriverContact(driverByName.phone || '');
+
+      if (!driverByName.active && lastAlertedDriverId !== driverByName.id) {
+        showToast(`ATENÇÃO: Este motorista encontra-se RESTRITO! Motivo: ${driverByName.restrictionReason || 'Sem motivo especificado'}. O sistema impedirá a criação desta ordem.`, 'error', 10000);
+        setLastAlertedDriverId(driverByName.id);
+      } else if (driverByName.active) {
+        setLastAlertedDriverId('');
+      }
+
+      const lastShipment = shipments
+        .filter(s => 
+          (driverCleanCpf && (s.driverCpf || '').replace(/\D/g, '') === driverCleanCpf) || 
+          (s.driverName.trim().toLowerCase() === cleanName)
+        )
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+
+      if (lastShipment && driverByName.active) {
+        setHorsePlate(lastShipment.horsePlate || '');
+        setTrailer1Plate(lastShipment.trailer1Plate || '');
+        setTrailer2Plate(lastShipment.trailer2Plate || '');
+        setTrailer3Plate(lastShipment.trailer3Plate || '');
+        setOwnerContact(lastShipment.ownerContact || '');
+        setBankDetails(lastShipment.bankDetails || '');
+        setVehicleTag(lastShipment.vehicleTag || '');
+        setDriverReferences(lastShipment.driverReferences || '');
+      }
+
+      setLastAutofilledDriverId(driverByName.id);
+      setLastAutofilledCpf(driverCleanCpf);
+    }
+  }, [driverName, drivers, shipments, driverCpf, lastAutofilledDriverId, lastAutofilledCpf, lastAlertedDriverId]);
   
   useEffect(() => {
     const cleanPlate = horsePlate.trim().toLowerCase();
@@ -353,16 +457,20 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
         return;
     }
 
-    if (driverCpf && !isValidCPF(driverCpf)) {
-        showToast('CPF do motorista inválido. Verifique os dígitos informados.', 'warning');
-        return;
-    }
     if (cleanDriverCpf) {
+        if (cleanDriverCpf.length < 11) {
+            showToast('CPF incompleto. O CPF do motorista deve conter 11 dígitos.', 'warning');
+            return;
+        }
+        if (!isValidCPF(cleanDriverCpf)) {
+            showToast('CPF do motorista inválido. Verifique os dígitos informados.', 'warning');
+            return;
+        }
         setDriverCpf(formatCPF(cleanDriverCpf));
     }
     
     const isNewDriver = !drivers.find(d => d.name.trim().toLowerCase() === driverName.trim().toLowerCase());
-    if (isNewDriver && !driverCpf) {
+    if (isNewDriver && !cleanDriverCpf) {
         showToast('Para novos motoristas, o CPF é obrigatório.', 'warning');
         return;
     }
@@ -581,51 +689,9 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
                   placeholder="000.000.000-00" 
                   className="mt-1 p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600 font-mono" 
                   required 
-                  onKeyDown={(e) => {
-                    // Permitir teclas de navegação, edição e atalhos de controle (Ctrl/Cmd)
-                    if (
-                      e.key === 'Backspace' ||
-                      e.key === 'Delete' ||
-                      e.key === 'Tab' ||
-                      e.key === 'Escape' ||
-                      e.key === 'Enter' ||
-                      e.key === 'ArrowLeft' ||
-                      e.key === 'ArrowRight' ||
-                      e.key === 'ArrowUp' ||
-                      e.key === 'ArrowDown' ||
-                      e.key === 'Home' ||
-                      e.key === 'End' ||
-                      e.ctrlKey ||
-                      e.metaKey
-                    ) {
-                      if (e.key === 'Tab') {
-                        const clean = driverCpf.replace(/\D/g, '');
-                        if (clean.length > 0) {
-                          setDriverCpf(formatCPF(clean));
-                        }
-                      }
-                      return;
-                    }
-                    // Permitir estritamente apenas números (0-9)
-                    if (!/^\d$/.test(e.key)) {
-                      e.preventDefault();
-                    }
-                  }}
                   onChange={(e) => {
-                    // Permite escrever apenas números, com limite de 11 dígitos
                     const numbersOnly = e.target.value.replace(/\D/g, '').slice(0, 11);
-                    setDriverCpf(numbersOnly);
-                  }}
-                  onFocus={() => {
-                    // Ao focar para digitar/editar, remove pontuações para permitir escrever apenas números
-                    setDriverCpf(prev => prev.replace(/\D/g, ''));
-                  }}
-                  onBlur={() => {
-                    // Ao sair do campo (via TAB ou clique fora), formata automaticamente para o padrão 000.000.000-00
-                    const clean = driverCpf.replace(/\D/g, '');
-                    if (clean.length > 0) {
-                      setDriverCpf(formatCPF(clean));
-                    }
+                    setDriverCpf(numbersOnly ? formatCPF(numbersOnly) : '');
                   }}
                 />
               </div>
