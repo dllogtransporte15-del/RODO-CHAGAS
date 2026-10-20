@@ -1,5 +1,6 @@
 import { supabase } from '../supabase';
 import { cleanOrShortenLocationInput } from '../utils/locationUtils';
+import { formatCPF } from '../utils/formatters';
 import { formatId } from '../utils';
 import { UserProfile, FreightPricingType } from '../types';
 import type {
@@ -214,7 +215,7 @@ const fromOwner = (o: Owner | Omit<Owner, 'id'>) => ({
 export const toDriver = (row: any): Driver => ({
   id: row.id,
   name: row.name,
-  cpf: row.cpf,
+  cpf: row.cpf ? formatCPF(row.cpf) : row.cpf,
   cnh: row.cnh,
   phone: row.phone,
   classification: row.classification,
@@ -230,7 +231,7 @@ export const toDriver = (row: any): Driver => ({
 const fromDriver = (d: Driver | Omit<Driver, 'id'>) => ({
   id: (d as Driver).id,
   name: d.name,
-  cpf: d.cpf,
+  cpf: d.cpf ? formatCPF(d.cpf) : d.cpf,
   cnh: d.cnh,
   phone: d.phone,
   classification: d.classification,
@@ -417,7 +418,7 @@ export const toShipment = (row: any): Shipment => ({
   cargoId: row.cargo_id,
   driverName: row.driver_name,
   driverContact: row.driver_contact,
-  driverCpf: row.driver_cpf,
+  driverCpf: row.driver_cpf ? formatCPF(row.driver_cpf) : row.driver_cpf,
   embarcadorId: row.embarcador_id,
   horsePlate: row.horse_plate,
   trailer1Plate: row.trailer1_plate,
@@ -461,7 +462,7 @@ const fromShipment = (s: Shipment) => ({
   cargo_id: s.cargoId,
   driver_name: s.driverName,
   driver_contact: s.driverContact,
-  driver_cpf: s.driverCpf,
+  driver_cpf: s.driverCpf ? formatCPF(s.driverCpf) : s.driverCpf,
   embarcador_id: s.embarcadorId,
   horse_plate: s.horsePlate,
   trailer1_plate: s.trailer1Plate,

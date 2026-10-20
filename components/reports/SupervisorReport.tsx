@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import type { Shipment, User, Cargo } from '../../types';
 import { ShipmentStatus, UserProfile, CargoStatus } from '../../types';
 import { DollarSignIcon } from '../icons/DollarSignIcon';
@@ -119,6 +119,31 @@ const SupervisorReport: React.FC<SupervisorReportProps> = ({ shipments, cargos, 
     }));
   };
 
+  const isRestricted = useMemo(() => {
+    if (!currentUser) return false;
+    return ![UserProfile.Admin, UserProfile.Diretor].includes(currentUser.profile);
+  }, [currentUser]);
+
+  const allowedTeamIds = useMemo(() => {
+    const set = new Set<string>();
+    if (!currentUser) return set;
+    set.add(currentUser.id);
+
+    if (currentUser.profile === UserProfile.AgenciadorLider) {
+      users
+        .filter(u => u.leaderId === currentUser.id && u.profile === UserProfile.AgenciadorEmbarque)
+        .forEach(u => set.add(u.id));
+    } else if (currentUser.profile === UserProfile.AgenciadorEmbarque) {
+      if (currentUser.leaderId) {
+        set.add(currentUser.leaderId);
+        users
+          .filter(u => u.leaderId === currentUser.leaderId && u.profile === UserProfile.AgenciadorEmbarque)
+          .forEach(u => set.add(u.id));
+      }
+    }
+    return set;
+  }, [currentUser, users]);
+
   const usersMap = useMemo(() => new Map(users.map(u => [u.id, u])), [users]);
   const cargoMap = useMemo(() => new Map(cargos.map(c => [c.id, c])), [cargos]);
 
@@ -149,14 +174,19 @@ const SupervisorReport: React.FC<SupervisorReportProps> = ({ shipments, cargos, 
   const responsibleStats = useMemo(() => {
     const statsMap = new Map<string, ResponsibleStats>();
 
-    // Pré-popula usuários elegíveis: Supervisor, Coordenador, Agenciador Líder e Diretor
+    // Pré-popula usuários elegíveis:
     users
-      .filter(u => 
-        u.profile === UserProfile.Supervisor || 
-        u.profile === UserProfile.Coordenador ||
-        u.profile === UserProfile.AgenciadorLider ||
-        u.profile === UserProfile.Diretor
-      )
+      .filter(u => {
+        if (isRestricted) {
+          return allowedTeamIds.has(u.id);
+        }
+        return (
+          u.profile === UserProfile.Supervisor || 
+          u.profile === UserProfile.Coordenador ||
+          u.profile === UserProfile.AgenciadorLider ||
+          u.profile === UserProfile.Diretor
+        );
+      })
       .forEach(u => {
         const isLeader = u.profile === UserProfile.AgenciadorLider;
         const teamRate = u.leaderProfitCommissionRate !== undefined ? Number(u.leaderProfitCommissionRate) : 25;
@@ -195,6 +225,11 @@ const SupervisorReport: React.FC<SupervisorReportProps> = ({ shipments, cargos, 
     cargos.forEach(cargo => {
       const { user: responsible, isFallback } = getCargoResponsible(cargo);
       
+      // Se for usuário restrito (Gestor GO), não mapeia cargas de terceiros
+      if (isRestricted && !allowedTeamIds.has(responsible.id)) {
+        return;
+      }
+
       if (!statsMap.has(responsible.id)) {
         const isLeader = responsible.profile === UserProfile.AgenciadorLider;
         const teamRate = responsible.leaderProfitCommissionRate !== undefined ? Number(responsible.leaderProfitCommissionRate) : 25;
@@ -258,6 +293,18 @@ const SupervisorReport: React.FC<SupervisorReportProps> = ({ shipments, cargos, 
       const operatorId = resolveShipmentRequesterId(shipment, users);
       const operatorUser = usersMap.get(operatorId);
       const operatorName = operatorUser ? operatorUser.name : (shipment.driverName || 'Operador');
+
+      // Se for usuário restrito (Gestor GO), só processa fretes operados pela equipe ou em cargas da equipe
+      if (isRestricted) {
+        const isTeamCargo = allowedTeamIds.has(responsible.id);
+        const isTeamOp = allowedTeamIds.has(operatorId) ||
+          (shipment.embarcadorId ? allowedTeamIds.has(shipment.embarcadorId) : false) ||
+          (shipment.createdById ? allowedTeamIds.has(shipment.createdById) : false);
+
+        if (!isTeamCargo && !isTeamOp) {
+          return;
+        }
+      }
 
       // Métricas financeiras do frete
       const grossRate = shipment.companyFreightRateSnapshot || cargo.companyFreightValuePerTon;
@@ -479,32 +526,22 @@ const SupervisorReport: React.FC<SupervisorReportProps> = ({ shipments, cargos, 
         return hasShipmentHistory || hasActiveCargo;
       });
 
-    // Escopo e Privacidade: Se o usuário logado for Agenciador Líder, Agenciador ou Embarcador (não Admin/Diretor)
-    // restringe os dados, métricas e listagem exclusivamente para a sua equipe
-    if (currentUser && ![UserProfile.Admin, UserProfile.Diretor].includes(currentUser.profile)) {
-      const allowedTeamIds = new Set<string>();
-      allowedTeamIds.add(currentUser.id);
-
-      if (currentUser.profile === UserProfile.AgenciadorLider) {
-        users
-          .filter(u => u.leaderId === currentUser.id && u.profile === UserProfile.AgenciadorEmbarque)
-          .forEach(u => allowedTeamIds.add(u.id));
-      } else if (currentUser.profile === UserProfile.AgenciadorEmbarque) {
-        if (currentUser.leaderId) {
-          allowedTeamIds.add(currentUser.leaderId);
-          users
-            .filter(u => u.leaderId === currentUser.leaderId && u.profile === UserProfile.AgenciadorEmbarque)
-            .forEach(u => allowedTeamIds.add(u.id));
-        }
-      }
-
+    if (isRestricted) {
       return allStats
         .filter(stat => allowedTeamIds.has(stat.user.id))
         .sort((a, b) => b.commission - a.commission || b.netProfit - a.netProfit);
     }
 
     return allStats.sort((a, b) => b.commission - a.commission || b.netProfit - a.netProfit);
-  }, [cargos, shipments, users, cargoMap, usersMap, stays, currentUser]);
+  }, [cargos, shipments, users, cargoMap, usersMap, stays, currentUser, isRestricted, allowedTeamIds]);
+
+  useEffect(() => {
+    if (isRestricted && currentUser) {
+      if (responsibleStats.length === 1) {
+        setSelectedUserId(currentUser.id);
+      }
+    }
+  }, [isRestricted, currentUser, responsibleStats]);
 
   // Filtros aplicados
   const filteredStats = useMemo(() => {
@@ -665,20 +702,44 @@ const SupervisorReport: React.FC<SupervisorReportProps> = ({ shipments, cargos, 
           </div>
 
           {/* Seletor de Responsável */}
-          <div className="min-w-[190px]">
-            <select
-              value={selectedUserId}
-              onChange={e => setSelectedUserId(e.target.value)}
-              className="w-full px-3 py-1.5 text-xs bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-gray-800 dark:text-gray-200 font-medium"
-            >
-              <option value="all">Todos os Responsáveis ({responsibleStats.length})</option>
-              {responsibleStats.map(s => (
-                <option key={s.user.id} value={s.user.id}>
-                  {s.user.name} ({s.user.profile})
-                </option>
-              ))}
-            </select>
-          </div>
+          {isRestricted ? (
+            responsibleStats.length <= 1 ? (
+              <div className="flex items-center gap-2 px-3.5 py-1.5 text-xs bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800/60 rounded-xl font-bold shadow-xs">
+                <Award className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                <span className="truncate">{responsibleStats[0]?.user.name || currentUser?.name} ({responsibleStats[0]?.user.profile || currentUser?.profile})</span>
+              </div>
+            ) : (
+              <div className="min-w-[190px]">
+                <select
+                  value={selectedUserId}
+                  onChange={e => setSelectedUserId(e.target.value)}
+                  className="w-full px-3 py-1.5 text-xs bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-gray-800 dark:text-gray-200 font-medium"
+                >
+                  <option value="all">Minha Equipe ({responsibleStats.length})</option>
+                  {responsibleStats.map(s => (
+                    <option key={s.user.id} value={s.user.id}>
+                      {s.user.name} ({s.user.profile})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )
+          ) : (
+            <div className="min-w-[190px]">
+              <select
+                value={selectedUserId}
+                onChange={e => setSelectedUserId(e.target.value)}
+                className="w-full px-3 py-1.5 text-xs bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-gray-800 dark:text-gray-200 font-medium"
+              >
+                <option value="all">Todos os Responsáveis ({responsibleStats.length})</option>
+                {responsibleStats.map(s => (
+                  <option key={s.user.id} value={s.user.id}>
+                    {s.user.name} ({s.user.profile})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
       </div>
 

@@ -100,6 +100,11 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, carg
     return branches.filter(b => b.id === currentUser.branchId);
   }, [branches, isRestrictedAgent, currentUser]);
 
+  const isAgentOrLeader = useMemo(() => {
+    if (!currentUser) return false;
+    return [UserProfile.AgenciadorLider, UserProfile.AgenciadorEmbarque].includes(currentUser.profile);
+  }, [currentUser]);
+
   // Cargas com escopo restrito (equipe, filial ou cargas com embarques da equipe)
   const scopedCargos = useMemo(() => {
     if (!isRestrictedAgent) return cargos;
@@ -107,17 +112,18 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, carg
       // Cargas criadas pela equipe
       if (c.createdById && allowedTeamIds.has(c.createdById)) return true;
       if (c.history?.[0]?.userId && allowedTeamIds.has(c.history[0].userId)) return true;
-      // Cargas vinculadas à própria filial
-      if (currentUser?.branchId && c.branchId === currentUser.branchId) return true;
       // Cargas com embarques operados pela equipe
       const hasTeamShipment = shipments.some(s => {
         if (s.cargoId !== c.id) return false;
         const opId = resolveShipmentRequesterId(s, users);
         return allowedTeamIds.has(opId) || (s.createdById && allowedTeamIds.has(s.createdById)) || (s.embarcadorId && allowedTeamIds.has(s.embarcadorId));
       });
-      return hasTeamShipment;
+      if (hasTeamShipment) return true;
+      // Para perfis convencionais de filial (não Gestor GO/Agenciador), mantém vínculo por filial
+      if (!isAgentOrLeader && currentUser?.branchId && c.branchId === currentUser.branchId) return true;
+      return false;
     });
-  }, [cargos, isRestrictedAgent, allowedTeamIds, currentUser, shipments, users]);
+  }, [cargos, isRestrictedAgent, allowedTeamIds, currentUser, shipments, users, isAgentOrLeader]);
 
   const scopedCargoIds = useMemo(() => new Set(scopedCargos.map(c => c.id)), [scopedCargos]);
 
@@ -129,12 +135,13 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, carg
       if (opId && allowedTeamIds.has(opId)) return true;
       if (s.createdById && allowedTeamIds.has(s.createdById)) return true;
       if (s.embarcadorId && allowedTeamIds.has(s.embarcadorId)) return true;
-      if (currentUser?.branchId && s.branchId === currentUser.branchId) return true;
       // Cargas sob responsabilidade do Agenciador Líder com embarque externo (Cenário B)
       if (scopedCargoIds.has(s.cargoId)) return true;
+      // Para outros perfis de filial (não Gestor GO/Agenciador), mantém filial
+      if (!isAgentOrLeader && currentUser?.branchId && s.branchId === currentUser.branchId) return true;
       return false;
     });
-  }, [shipments, isRestrictedAgent, users, allowedTeamIds, currentUser, scopedCargoIds]);
+  }, [shipments, isRestrictedAgent, users, allowedTeamIds, currentUser, scopedCargoIds, isAgentOrLeader]);
 
   const cargoMap = useMemo(() => new Map(cargos.map(c => [c.id, c])), [cargos]);
   
@@ -357,7 +364,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, carg
   const renderReport = () => {
     switch(activeReport) {
       case 'comercial':
-        return <SupervisorReport shipments={filteredShipments} cargos={scopedCargos} users={scopedUsers} stays={stays} currentUser={currentUser} />;
+        return <SupervisorReport shipments={filteredShipments} cargos={scopedCargos} users={users} stays={stays} currentUser={currentUser} />;
       case 'embarcadores':
         return <ShipperReport shipments={filteredShipments} cargos={scopedCargos} clients={clients} users={scopedUsers} currentUser={currentUser} companyLogo={companyLogo} />;
       case 'clientes':
@@ -387,7 +394,12 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, carg
   
   const isEmbarcador = currentUser?.profile === UserProfile.Embarcador;
 
-  const navItems = [
+  const navItems = useMemo(() => {
+    // Para Gestor GO / Embarcador GO: acesso exclusivo ao Relatório Supervisão
+    if (isAgentOrLeader) {
+      return [{ id: 'comercial', label: 'Relatório Supervisão', icon: BriefcaseIcon }];
+    }
+    return [
       ...(canViewCommercialReport ? [{ id: 'comercial', label: 'Relatório Supervisão', icon: BriefcaseIcon }] : []),
       { id: 'embarcadores', label: 'Embarcadores', icon: ShipIcon },
       ...(!isEmbarcador ? [
@@ -398,11 +410,14 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, carg
       ] : []),
       { id: 'tempo-operacao', label: 'Tempo de Operação', icon: ClockIcon },
       { id: 'previsao-demandas', label: 'Previsão de Demandas', icon: TrendingUp },
-  ];
+    ];
+  }, [isAgentOrLeader, canViewCommercialReport, isEmbarcador]);
 
   /* Ensure initial tab is permissible */
   useState(() => {
-    if (!canViewCommercialReport && activeReport === 'comercial') {
+    if (isAgentOrLeader) {
+      setActiveReport('comercial');
+    } else if (!canViewCommercialReport && activeReport === 'comercial') {
       setActiveReport('embarcadores');
     }
   });

@@ -6,6 +6,7 @@ import { useDatabase } from './hooks/useDatabase';
 import type { Client, Owner, Driver, Vehicle, Product, Cargo, Shipment, User, Page, ProfilePermissions, HistoryLog, Ticket, TicketHistory, ShipmentLock, Branch, FreightOffer } from './types';
 import { CargoStatus, ShipmentStatus, UserProfile, TicketStatus, TicketPriority, DriverClassification, VehicleSetType, VehicleBodyType, REQUIRED_DOCUMENT_MAP, OwnerType, FreightOfferStatus, FreightPricingType, DailyScheduleType } from './types';
 import { formatId } from './utils';
+import { formatCPF } from './utils/formatters';
 import { INITIAL_PERMISSIONS, can } from './auth';
 import { useToast } from './hooks/useToast';
 
@@ -778,14 +779,16 @@ const App: React.FC = () => {
   
   const visibleEmbarcadores = useMemo(() => {
     if (!currentUser) return [];
-    const allEmbarcadorUsers = users.filter(u => u.profile === UserProfile.Embarcador);
+    const allEmbarcadorUsers = users.filter(u => 
+      [UserProfile.Embarcador, UserProfile.AgenciadorEmbarque, UserProfile.AgenciadorLider].includes(u.profile)
+    );
 
     if (currentUser.profile === UserProfile.Embarcador) {
         return allEmbarcadorUsers.filter(u => u.id === currentUser.id);
     }
 
     if (currentUser.profile === UserProfile.AgenciadorLider) {
-        return allEmbarcadorUsers.filter(u => u.leaderId === currentUser.id);
+        return allEmbarcadorUsers.filter(u => u.leaderId === currentUser.id || u.id === currentUser.id);
     }
 
     if (currentUser.profile === UserProfile.AgenciadorEmbarque) {
@@ -1011,16 +1014,21 @@ const App: React.FC = () => {
 
     let newDrivers = [...drivers];
     let addedDrivers: Driver[] = [];
-    let driverToUse = drivers.find(d => 
-        (d.name.trim().toLowerCase() === data.driverName.trim().toLowerCase() && data.driverName.trim() !== '') || 
-        (d.cpf.replace(/\D/g, '') === (data.driverCpf || '').replace(/\D/g, '') && (data.driverCpf || '').trim() !== '')
-    );
+    const cleanDataCpf = (data.driverCpf || '').replace(/\D/g, '');
+    const cleanDataName = (data.driverName || '').trim().toLowerCase();
+    let driverToUse = drivers.find(d => {
+        const dCpfClean = (d.cpf || '').replace(/\D/g, '');
+        const dNameClean = (d.name || '').trim().toLowerCase();
+        const matchesCpf = cleanDataCpf && dCpfClean && cleanDataCpf === dCpfClean;
+        const matchesName = cleanDataName && dNameClean && cleanDataName === dNameClean;
+        return matchesCpf || matchesName;
+    });
     if (!driverToUse) {
       const newDriverId = formatId(currentNextIds.driver, 'DRV');
       driverToUse = {
         id: newDriverId,
         name: data.driverName,
-        cpf: data.driverCpf || '',
+        cpf: data.driverCpf ? formatCPF(data.driverCpf) : '',
         cnh: data.driverCnh || '',
         phone: data.driverContact || '',
         classification: DriverClassification.Terceiro,
@@ -1029,6 +1037,12 @@ const App: React.FC = () => {
       newDrivers.unshift(driverToUse);
       addedDrivers.push(driverToUse);
       currentNextIds.driver++;
+    } else if (data.driverCpf && (!driverToUse.cpf || driverToUse.cpf.replace(/\D/g, '') !== cleanDataCpf)) {
+      driverToUse = {
+        ...driverToUse,
+        cpf: formatCPF(data.driverCpf)
+      };
+      newDrivers = newDrivers.map(d => d.id === driverToUse!.id ? driverToUse! : d);
     }
 
     let newVehicles = [...vehicles];
@@ -1198,7 +1212,7 @@ const App: React.FC = () => {
       cargoId: data.cargoId,
       driverName: data.driverName,
       driverContact: data.driverContact,
-      driverCpf: data.driverCpf,
+      driverCpf: data.driverCpf ? formatCPF(data.driverCpf) : undefined,
       embarcadorId: data.embarcadorId,
       horsePlate: data.horsePlate,
       trailer1Plate: data.trailer1Plate,
@@ -1768,6 +1782,10 @@ const App: React.FC = () => {
   const handleUpdateShipmentData = async (shipmentId: string, data: Partial<Shipment>) => {
     const shipmentToUpdate = shipments.find(s => s.id === shipmentId);
     if (!shipmentToUpdate) return;
+
+    if (data.driverCpf) {
+      data.driverCpf = formatCPF(data.driverCpf);
+    }
 
     const changes: string[] = [];
     const fieldsToTrack: (keyof Shipment)[] = [

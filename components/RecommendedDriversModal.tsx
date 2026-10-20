@@ -56,7 +56,13 @@ const RecommendedDriversModal: React.FC<RecommendedDriversModalProps> = ({
 
       // 2. Check past shipments distance (200km radius)
       if (originCoords || destCoords) {
-        const driverShipments = shipments.filter(s => s.driverCpf === driver.cpf || s.driverName === driver.name);
+        const dCpfClean = driver.cpf ? driver.cpf.replace(/\D/g, '') : '';
+        const dNameClean = driver.name.trim().toLowerCase();
+        const driverShipments = shipments.filter(s => {
+          const sCpfClean = s.driverCpf ? s.driverCpf.replace(/\D/g, '') : '';
+          const sNameClean = (s.driverName || '').trim().toLowerCase();
+          return (dCpfClean && sCpfClean && dCpfClean === sCpfClean) || (dNameClean && sNameClean && dNameClean === sNameClean);
+        });
         
         let foundNearby = false;
         for (const shipment of driverShipments) {
@@ -198,7 +204,13 @@ const RecommendedDriversModal: React.FC<RecommendedDriversModalProps> = ({
       <ShipmentHistoryModal
         isOpen={!!selectedDriverForHistory}
         onClose={() => setSelectedDriverForHistory(null)}
-        shipments={selectedDriverForHistory ? shipments.filter(s => s.driverCpf === selectedDriverForHistory.cpf || s.driverName === selectedDriverForHistory.name) : []}
+        shipments={selectedDriverForHistory ? shipments.filter(s => {
+          const selCpfClean = (selectedDriverForHistory.cpf || '').replace(/\D/g, '');
+          const selNameClean = (selectedDriverForHistory.name || '').trim().toLowerCase();
+          const sCpfClean = (s.driverCpf || '').replace(/\D/g, '');
+          const sNameClean = (s.driverName || '').trim().toLowerCase();
+          return (selCpfClean && sCpfClean && selCpfClean === sCpfClean) || (selNameClean && sNameClean && selNameClean === sNameClean);
+        }) : []}
         cargos={cargos}
         title={`Histórico de Embarques - ${selectedDriverForHistory?.name}`}
       />

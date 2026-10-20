@@ -54,7 +54,12 @@ const ShipperRankingCard: React.FC<ShipperRankingCardProps> = ({ shipments, carg
     const userMap = new Map<string, { id: string; name: string; profile?: string; phone?: string }>();
     
     users.forEach(u => {
-      if (u.profile === UserProfile.Embarcador || activeShipperIds.has(u.id)) {
+      if (
+        u.profile === UserProfile.Embarcador ||
+        u.profile === UserProfile.AgenciadorLider ||
+        u.profile === UserProfile.AgenciadorEmbarque ||
+        activeShipperIds.has(u.id)
+      ) {
         userMap.set(u.id, {
           id: u.id,
           name: u.name,
@@ -144,7 +149,11 @@ const ShipperRankingCard: React.FC<ShipperRankingCardProps> = ({ shipments, carg
       if (stat.name.trim().toLowerCase() === 'embarcador' && stat.shipmentCount === 0 && stat.effectiveTonnage === 0) {
         return false;
       }
-      if (stat.profile === UserProfile.Embarcador) return true;
+      if (
+        stat.profile === UserProfile.Embarcador ||
+        stat.profile === UserProfile.AgenciadorLider ||
+        stat.profile === UserProfile.AgenciadorEmbarque
+      ) return true;
       return stat.shipmentCount > 0 || stat.effectiveTonnage > 0 || stat.netMargin !== 0;
     });
 

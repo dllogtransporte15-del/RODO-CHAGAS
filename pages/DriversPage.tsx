@@ -102,10 +102,14 @@ const DriversPage: React.FC<DriversPageProps> = ({
 
   const driverShipmentHistory = useMemo(() => {
     if (!selectedDriverForHistory) return [];
-    return shipments.filter(s => 
-      s.driverCpf === selectedDriverForHistory.cpf || 
-      s.driverName === selectedDriverForHistory.name
-    );
+    const cleanHistoryCpf = (selectedDriverForHistory.cpf || '').replace(/\D/g, '');
+    const cleanHistoryName = (selectedDriverForHistory.name || '').trim().toLowerCase();
+    return shipments.filter(s => {
+      const sCpf = (s.driverCpf || '').replace(/\D/g, '');
+      const sName = (s.driverName || '').trim().toLowerCase();
+      return (cleanHistoryCpf && sCpf && cleanHistoryCpf === sCpf) || 
+             (cleanHistoryName && sName && cleanHistoryName === sName);
+    });
   }, [selectedDriverForHistory, shipments]);
   
   const handleDeleteDriver = async (driverId: string) => {

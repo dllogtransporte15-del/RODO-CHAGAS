@@ -4,6 +4,7 @@ import Header from '../components/Header';
 import type { Shipment, User, Cargo, Client } from '../types';
 import { BriefcaseIcon } from '../components/icons/BriefcaseIcon';
 import { ShipIcon } from '../components/icons/ShipIcon';
+import { UserProfile } from '../types';
 import SalespersonReport from '../components/reports/SalespersonReport';
 import SupervisorReport from '../components/reports/SupervisorReport';
 import ShipperReport from '../components/reports/ShipperReport';
@@ -25,6 +26,14 @@ type ActiveTab = 'comercial' | 'embarcador' | 'vendedor-externo';
 const CommissionsPage: React.FC<CommissionsPageProps> = ({ shipments, cargos, users, currentUser, stays = [], clients }) => {
   const [activeTab, setActiveTab] = useState<ActiveTab>('comercial');
 
+  const isAgentOrLeader = currentUser && [UserProfile.AgenciadorLider, UserProfile.AgenciadorEmbarque].includes(currentUser.profile);
+
+  React.useEffect(() => {
+    if (isAgentOrLeader && activeTab !== 'comercial') {
+      setActiveTab('comercial');
+    }
+  }, [isAgentOrLeader, activeTab]);
+
   const renderContent = () => {
     switch(activeTab) {
       case 'comercial':
@@ -40,8 +49,10 @@ const CommissionsPage: React.FC<CommissionsPageProps> = ({ shipments, cargos, us
   
   const navItems = [
       { id: 'comercial', label: 'Supervisão & Gestor GO', icon: BriefcaseIcon },
-      { id: 'embarcador', label: 'Embarcadores', icon: ShipIcon },
-      { id: 'vendedor-externo', label: 'Vendedor Externo', icon: UsersIcon },
+      ...(!isAgentOrLeader ? [
+        { id: 'embarcador', label: 'Embarcadores', icon: ShipIcon },
+        { id: 'vendedor-externo', label: 'Vendedor Externo', icon: UsersIcon },
+      ] : []),
   ];
 
   return (

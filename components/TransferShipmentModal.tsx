@@ -19,7 +19,16 @@ const TransferShipmentModal: React.FC<TransferShipmentModalProps> = ({ isOpen, o
 
   const embarcadores = useMemo(() => {
     return users.filter(u => 
-      [UserProfile.Embarcador, UserProfile.Admin, UserProfile.Diretor, UserProfile.Comercial, UserProfile.Supervisor].includes(u.profile) &&
+      [
+        UserProfile.Embarcador,
+        UserProfile.AgenciadorLider,
+        UserProfile.AgenciadorEmbarque,
+        UserProfile.Supervisor,
+        UserProfile.Coordenador,
+        UserProfile.Admin,
+        UserProfile.Diretor,
+        UserProfile.Comercial,
+      ].includes(u.profile) &&
       u.active !== false
     );
   }, [users]);

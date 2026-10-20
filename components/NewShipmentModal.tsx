@@ -4,7 +4,7 @@ import type { Cargo, Driver, Shipment, Client, Vehicle, User } from '../types';
 import { UserProfile, DailyScheduleType, VehicleSetType, VehicleBodyType, FreightPricingType, ShipmentStatus } from '../types';
 import { supabase } from '../supabase';
 import { useToast } from '../hooks/useToast';
-import { isValidCPF, isValidPlate } from '../utils/formatters';
+import { isValidCPF, isValidPlate, formatCPF } from '../utils/formatters';
 
 
 interface NewShipmentModalProps {
@@ -98,7 +98,7 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
 
             if (data) {
                 if (data.driverName) setDriverName(data.driverName);
-                if (data.driverCpf) setDriverCpf(data.driverCpf);
+                if (data.driverCpf) setDriverCpf(formatCPF(data.driverCpf));
                 if (data.horsePlate) setHorsePlate(data.horsePlate.toUpperCase());
                 if (data.trailerPlates && Array.isArray(data.trailerPlates)) {
                     if (data.trailerPlates[0]) setTrailer1Plate(data.trailerPlates[0].toUpperCase());
@@ -124,7 +124,16 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
 
   const embarcadores = useMemo(() => {
     return users.filter(u => 
-      [UserProfile.Embarcador, UserProfile.Admin, UserProfile.Diretor, UserProfile.Comercial, UserProfile.Supervisor].includes(u.profile) &&
+      [
+        UserProfile.Embarcador,
+        UserProfile.AgenciadorLider,
+        UserProfile.AgenciadorEmbarque,
+        UserProfile.Supervisor,
+        UserProfile.Coordenador,
+        UserProfile.Admin,
+        UserProfile.Diretor,
+        UserProfile.Comercial,
+      ].includes(u.profile) &&
       u.active !== false
     );
   }, [users]);
@@ -148,7 +157,8 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
             .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
       }
 
-      setDriverCpf(driverInDb?.cpf || lastShipment?.driverCpf || '');
+      const initialCpf = driverInDb?.cpf || lastShipment?.driverCpf || '';
+      setDriverCpf(initialCpf ? formatCPF(initialCpf) : '');
       setOwnerContact(lastShipment?.ownerContact || '');
       setHorsePlate(lastShipment?.horsePlate || '');
       setTrailer1Plate(lastShipment?.trailer1Plate || '');
@@ -192,7 +202,7 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
     if (selectedDriver) {
         // Sync Fields
         if (driverByName && selectedDriver.cpf && selectedDriver.cpf.replace(/\D/g, '') !== cleanCpf && !driverCpf) {
-            setDriverCpf(selectedDriver.cpf);
+            setDriverCpf(formatCPF(selectedDriver.cpf));
         } else if (driverByCpf && selectedDriver.name.trim().toLowerCase() !== cleanName && !driverName) {
             setDriverName(selectedDriver.name);
         }
@@ -286,7 +296,7 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
       await onSave({
         cargoId: cargo.id,
         driverName,
-        driverCpf,
+        driverCpf: driverCpf ? formatCPF(driverCpf) : undefined,
         driverContact,
         ownerContact: ownerContact || undefined,
         horsePlate,
@@ -322,9 +332,10 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
     }
 
     // Check for Restricted Driver
+    const cleanDriverCpf = driverCpf.replace(/\D/g, '');
     const selectedDriverObj = drivers.find(d => 
         (d.name.trim().toLowerCase() === driverName.trim().toLowerCase() && driverName.trim() !== '') || 
-        (d.cpf.replace(/\D/g, '') === driverCpf.replace(/\D/g, '') && driverCpf.trim() !== '')
+        (cleanDriverCpf && (d.cpf || '').replace(/\D/g, '') === cleanDriverCpf)
     );
 
     if (selectedDriverObj && !selectedDriverObj.active) {
@@ -345,6 +356,9 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
     if (driverCpf && !isValidCPF(driverCpf)) {
         showToast('CPF do motorista inválido. Verifique os dígitos informados.', 'warning');
         return;
+    }
+    if (cleanDriverCpf) {
+        setDriverCpf(formatCPF(cleanDriverCpf));
     }
     
     const isNewDriver = !drivers.find(d => d.name.trim().toLowerCase() === driverName.trim().toLowerCase());
@@ -419,7 +433,6 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
 
     // Regra A: Bloqueio Total (Mesmo Motorista na Mesma Carga)
     // Se o embarque anterior na mesma carga já estiver em Aguardando Saldo, Finalizado ou Cancelado, o motorista está liberado
-    const cleanDriverCpf = driverCpf.replace(/\D/g, '');
     const cleanDriverName = driverName.trim().toLowerCase();
     const driverHasActiveOnSameCargo = shipments.some(s => {
       if (s.cargoId !== cargo.id) return false;
@@ -560,7 +573,61 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">CPF do Motorista</label>
-                <input type="text" value={driverCpf} onChange={(e) => setDriverCpf(e.target.value)} placeholder="Digite o CPF do motorista" className="mt-1 p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600" required />
+                <input 
+                  type="text" 
+                  value={driverCpf} 
+                  inputMode="numeric"
+                  maxLength={14}
+                  placeholder="000.000.000-00" 
+                  className="mt-1 p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600 font-mono" 
+                  required 
+                  onKeyDown={(e) => {
+                    // Permitir teclas de navegação, edição e atalhos de controle (Ctrl/Cmd)
+                    if (
+                      e.key === 'Backspace' ||
+                      e.key === 'Delete' ||
+                      e.key === 'Tab' ||
+                      e.key === 'Escape' ||
+                      e.key === 'Enter' ||
+                      e.key === 'ArrowLeft' ||
+                      e.key === 'ArrowRight' ||
+                      e.key === 'ArrowUp' ||
+                      e.key === 'ArrowDown' ||
+                      e.key === 'Home' ||
+                      e.key === 'End' ||
+                      e.ctrlKey ||
+                      e.metaKey
+                    ) {
+                      if (e.key === 'Tab') {
+                        const clean = driverCpf.replace(/\D/g, '');
+                        if (clean.length > 0) {
+                          setDriverCpf(formatCPF(clean));
+                        }
+                      }
+                      return;
+                    }
+                    // Permitir estritamente apenas números (0-9)
+                    if (!/^\d$/.test(e.key)) {
+                      e.preventDefault();
+                    }
+                  }}
+                  onChange={(e) => {
+                    // Permite escrever apenas números, com limite de 11 dígitos
+                    const numbersOnly = e.target.value.replace(/\D/g, '').slice(0, 11);
+                    setDriverCpf(numbersOnly);
+                  }}
+                  onFocus={() => {
+                    // Ao focar para digitar/editar, remove pontuações para permitir escrever apenas números
+                    setDriverCpf(prev => prev.replace(/\D/g, ''));
+                  }}
+                  onBlur={() => {
+                    // Ao sair do campo (via TAB ou clique fora), formata automaticamente para o padrão 000.000.000-00
+                    const clean = driverCpf.replace(/\D/g, '');
+                    if (clean.length > 0) {
+                      setDriverCpf(formatCPF(clean));
+                    }
+                  }}
+                />
               </div>
               <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Contato (WhatsApp)</label>
