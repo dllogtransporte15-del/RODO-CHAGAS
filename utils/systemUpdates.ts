@@ -20,6 +20,35 @@ export interface SystemRelease {
  */
 export const SYSTEM_RELEASES: SystemRelease[] = [
   {
+    id: 'rel_2026_10_30_v2_9_0',
+    version: 'v2.9.0',
+    date: '30/10/2026',
+    title: 'Upgrade de Infraestrutura Supabase & Otimização de Performance',
+    summary: 'Preparação do sistema para a transição ao plano corporativo Supabase, garantindo alta escalabilidade, maior limite de conexões simultâneas (Connection Pooling), maior taxa de eventos em tempo real (Realtime WebSockets) e estabilidade operacional.',
+    items: [
+      {
+        category: 'improvement',
+        title: 'Upgrade de Infraestrutura e Capacidade de Conexões',
+        description: 'Otimização das conexões com o banco de dados Supabase para suportar pool expandido de conexões (Connection Pooling), maior cota de requisições por segundo e backups contínuos de segurança.'
+      },
+      {
+        category: 'improvement',
+        title: 'Alta Performance em Tempo Real (Realtime WebSockets)',
+        description: 'Expansão da taxa de processamento de eventos simultâneos por segundo via WebSockets, garantindo sincronização imediata de status de cargas, embarques e rastreamento entre todos os operadores.'
+      },
+      {
+        category: 'security',
+        title: 'Resiliência e Tolerância a Janelas de Migração',
+        description: 'Implementado mecanismo de tentativas automáticas (retry com backoff exponencial) para manter a operação contínua e sem falhas durante manutenções ou escalonamento de servidores em nuvem.'
+      },
+      {
+        category: 'feature',
+        title: 'Visualização Limpa de Clientes no Dashboard',
+        description: 'O gráfico e a lista de volumes por cliente agora exibem os 15 principais clientes com maior volume carregado e botão "Exibir mais" para ver os demais de forma organizada.'
+      }
+    ]
+  },
+  {
     id: 'rel_2026_09_23_v2_8_4',
     version: 'v2.8.4',
     date: '23/09/2026',

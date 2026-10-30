@@ -15,10 +15,26 @@ if (!SUPABASE_URL || !SUPABASE_KEY) {
   );
 }
 
+// Configuração avançada de cliente preparada para upgrade de plano (Pro/Compute Upgrade)
+// Inclui maior vazão de eventos Realtime, cabeçalhos de identificação de cliente e persistência segura
 export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: {
     storage: typeof window !== 'undefined' ? window.localStorage : undefined,
     autoRefreshToken: true,
     persistSession: true,
-  }
+    detectSessionInUrl: true,
+  },
+  realtime: {
+    params: {
+      eventsPerSecond: 20,
+    },
+  },
+  global: {
+    headers: {
+      'x-client-info': 'rodochagas-web/2.9.0',
+    },
+  },
+  db: {
+    schema: 'public',
+  },
 });

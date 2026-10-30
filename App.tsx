@@ -660,26 +660,14 @@ const App: React.FC = () => {
       return cargos.filter(c => c.clientId === currentUser.clientId);
     }
     // Profiles that see everything
-    if ([UserProfile.Admin, UserProfile.Diretor, UserProfile.Fiscal].includes(currentUser.profile as UserProfile)) {
+    if ([UserProfile.Admin, UserProfile.Diretor, UserProfile.Fiscal, UserProfile.Supervisor, UserProfile.AgenciadorLider].includes(currentUser.profile as UserProfile)) {
       return cargos;
     }
 
-    // Regra de escopo restrito por equipe para Gestor GO e Embarcador GO
-    if (currentUser.profile === UserProfile.AgenciadorLider || currentUser.profile === UserProfile.AgenciadorEmbarque) {
-      const isAgenciadorLider = currentUser.profile === UserProfile.AgenciadorLider ||
-        String(currentUser.profile).toLowerCase().includes('gestor') ||
-        String(currentUser.profile).toLowerCase().includes('lider') ||
-        String(currentUser.profile).toLowerCase().includes('líder') ||
-        (currentUser.name && currentUser.name.toLowerCase().includes('gestor')) ||
-        (currentUser.name && currentUser.name.toLowerCase().includes('agenciador lider')) ||
-        (currentUser.name && currentUser.name.toLowerCase().includes('agenciador líder'));
-
+    // Regra de escopo restrito por equipe para Embarcador GO
+    if (currentUser.profile === UserProfile.AgenciadorEmbarque) {
       const allowedTeamIds = new Set<string>([currentUser.id]);
-      if (currentUser.profile === UserProfile.AgenciadorLider || isAgenciadorLider) {
-        users
-          .filter(u => u.leaderId === currentUser.id && u.profile === UserProfile.AgenciadorEmbarque)
-          .forEach(u => allowedTeamIds.add(u.id));
-      } else if (currentUser.profile === UserProfile.AgenciadorEmbarque && currentUser.leaderId) {
+      if (currentUser.leaderId) {
         allowedTeamIds.add(currentUser.leaderId);
         users
           .filter(u => u.leaderId === currentUser.leaderId && u.profile === UserProfile.AgenciadorEmbarque)
@@ -687,11 +675,6 @@ const App: React.FC = () => {
       }
 
       return cargos.filter(c => {
-        // Agenciador Líder pode ver todas as cargas em andamento
-        if (isAgenciadorLider && (c.status === CargoStatus.EmAndamento || String(c.status).toLowerCase().includes('andamento'))) {
-          return true;
-        }
-
         if (c.createdById && allowedTeamIds.has(c.createdById)) return true;
         if (c.history?.[0]?.userId && allowedTeamIds.has(c.history[0].userId)) return true;
         if (currentUser.branchId && c.branchId === currentUser.branchId) return true;
@@ -732,18 +715,14 @@ const App: React.FC = () => {
         return shipments.filter(s => clientCargoIds.has(s.cargoId));
     }
     // Profiles that see everything
-    if ([UserProfile.Admin, UserProfile.Diretor, UserProfile.Fiscal].includes(currentUser.profile as UserProfile)) {
+    if ([UserProfile.Admin, UserProfile.Diretor, UserProfile.Fiscal, UserProfile.Supervisor, UserProfile.AgenciadorLider].includes(currentUser.profile as UserProfile)) {
       return shipments;
     }
 
-    // Regra de escopo restrito por equipe para Agenciador Líder e Agenciador de Embarque
-    if (currentUser.profile === UserProfile.AgenciadorLider || currentUser.profile === UserProfile.AgenciadorEmbarque) {
+    // Regra de escopo restrito por equipe para Embarcador GO
+    if (currentUser.profile === UserProfile.AgenciadorEmbarque) {
       const allowedTeamIds = new Set<string>([currentUser.id]);
-      if (currentUser.profile === UserProfile.AgenciadorLider) {
-        users
-          .filter(u => u.leaderId === currentUser.id && u.profile === UserProfile.AgenciadorEmbarque)
-          .forEach(u => allowedTeamIds.add(u.id));
-      } else if (currentUser.profile === UserProfile.AgenciadorEmbarque && currentUser.leaderId) {
+      if (currentUser.leaderId) {
         allowedTeamIds.add(currentUser.leaderId);
         users
           .filter(u => u.leaderId === currentUser.leaderId && u.profile === UserProfile.AgenciadorEmbarque)
@@ -788,7 +767,7 @@ const App: React.FC = () => {
     }
 
     if (currentUser.profile === UserProfile.AgenciadorLider) {
-        return allEmbarcadorUsers.filter(u => u.leaderId === currentUser.id || u.id === currentUser.id);
+        return allEmbarcadorUsers;
     }
 
     if (currentUser.profile === UserProfile.AgenciadorEmbarque) {

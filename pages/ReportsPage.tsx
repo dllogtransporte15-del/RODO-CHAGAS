@@ -60,7 +60,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ shipments, embarcadores, carg
   // Escopo de Visibilidade e Privacidade: Perfil Agenciador / Agenciador Líder
   const isAdminOrDirector = useMemo(() => {
     if (!currentUser) return false;
-    return [UserProfile.Admin, UserProfile.Diretor].includes(currentUser.profile);
+    return [UserProfile.Admin, UserProfile.Diretor, UserProfile.Supervisor, UserProfile.AgenciadorLider].includes(currentUser.profile);
   }, [currentUser]);
 
   const isRestrictedAgent = useMemo(() => {

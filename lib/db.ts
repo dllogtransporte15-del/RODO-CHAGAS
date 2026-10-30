@@ -672,11 +672,29 @@ async function fetchAllRows(
     const from = page * pageSize;
     const to = from + pageSize - 1;
 
-    const { data, error } = await supabase
-      .from(tableName)
-      .select('*')
-      .order(orderColumn, orderOptions)
-      .range(from, to);
+    let retries = 0;
+    let data: any = null;
+    let error: any = null;
+
+    // Resiliência contra oscilações de rede e janelas de upgrade do Supabase (retry com backoff)
+    while (retries < 3) {
+      const res = await supabase
+        .from(tableName)
+        .select('*')
+        .order(orderColumn, orderOptions)
+        .range(from, to);
+
+      data = res.data;
+      error = res.error;
+
+      if (!error) break;
+
+      retries++;
+      if (retries < 3) {
+        console.warn(`[fetchAllRows] Erro transitório em ${tableName} (tentativa ${retries}/3). Aguardando reconexão...`, error.message);
+        await new Promise(r => setTimeout(r, 1000 * retries));
+      }
+    }
 
     if (error) {
       throw error;

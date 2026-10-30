@@ -24,6 +24,7 @@ import { ToolIcon } from './icons/ToolIcon';
 import { CalculatorIcon } from './icons/CalculatorIcon';
 import { InfoIcon } from './icons/InfoIcon';
 import { Menu as MenuIcon, X as XIcon, Activity, Sun, Moon, Sparkles, MapPin } from 'lucide-react';
+import { LATEST_SYSTEM_RELEASE } from '../utils/systemUpdates';
 import DriverLocationTracker from './DriverLocationTracker';
 
 interface TopNavBarProps {
@@ -384,7 +385,7 @@ const TopNavBar: React.FC<TopNavBarProps> = ({
                           <span>Novidades do Sistema</span>
                         </span>
                         <span className="text-[9px] uppercase font-black px-1.5 py-0.5 rounded bg-[#F16421]/15 text-[#D1541C] dark:text-[#F16421]">
-                          v2.8.2
+                          {LATEST_SYSTEM_RELEASE.version}
                         </span>
                       </button>
                     )}
