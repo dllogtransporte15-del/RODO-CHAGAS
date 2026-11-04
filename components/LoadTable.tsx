@@ -35,12 +35,13 @@ interface LoadTableProps {
   onDelete?: (cargoId: string) => void;
   onRequestLoadOrder?: (load: Cargo) => void;
   currentUser: User;
+  users?: User[];
   stays?: StayRecord[];
   tickets?: Ticket[];
   onFilteredLoadsChange?: (loads: Cargo[]) => void;
 }
 
-const LoadTable: React.FC<LoadTableProps> = ({ loads, clients, products, shipments, dailyBalanceDate, onDailyBalanceDateChange, onCreateShipment, onSuspend, onReactivate, onFinalize, onEdit, onClose, onShowHistory, onShowDetails, onEditSchedule, onShowShipments, onRecommendDrivers, onDelete, onRequestLoadOrder, currentUser, stays = [], tickets = [], onFilteredLoadsChange }) => {
+const LoadTable: React.FC<LoadTableProps> = ({ loads, clients, products, shipments, dailyBalanceDate, onDailyBalanceDateChange, onCreateShipment, onSuspend, onReactivate, onFinalize, onEdit, onClose, onShowHistory, onShowDetails, onEditSchedule, onShowShipments, onRecommendDrivers, onDelete, onRequestLoadOrder, currentUser, users = [], stays = [], tickets = [], onFilteredLoadsChange }) => {
   const [openActionMenu, setOpenActionMenu] = useState<string | null>(null);
   
   const [showFilters, setShowFilters] = useState(false);
@@ -599,6 +600,25 @@ const LoadTable: React.FC<LoadTableProps> = ({ loads, clients, products, shipmen
                   </div>
                 </div>
 
+                {/* Responsáveis (Comercial e Supervisor) */}
+                {currentUser.profile !== UserProfile.Motorista && currentUser.profile !== UserProfile.Cliente && (() => {
+                  const comName = users.find(u => u.id === load.createdById)?.name || 'N/A';
+                  const resolvedSupId = load.supervisorId || (load.history && load.history[0]?.userId);
+                  const supUser = resolvedSupId ? users.find(u => u.id === resolvedSupId) : null;
+                  const supName = (supUser && supUser.profile === UserProfile.Supervisor) ? supUser.name : 'N/A';
+                  return (
+                    <div className="flex flex-col text-[11px] min-w-[130px] max-w-[160px] truncate justify-center py-1 border-t lg:border-t-0 dark:border-gray-700/50">
+                      <div className="flex items-center gap-1.5 truncate text-gray-700 dark:text-gray-300" title={`Comercial: ${comName}`}>
+                        <span className="font-bold text-gray-400 text-[10px] uppercase shrink-0">Com:</span>
+                        <span className="truncate font-semibold">{comName}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 truncate text-gray-700 dark:text-gray-300" title={`Supervisor: ${supName}`}>
+                        <span className="font-bold text-indigo-500 dark:text-indigo-400 text-[10px] uppercase shrink-0">Sup:</span>
+                        <span className="truncate font-semibold">{supName}</span>
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {/* Balanço Geral */}
                 {currentUser.profile !== UserProfile.Motorista && (

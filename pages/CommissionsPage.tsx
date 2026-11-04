@@ -26,13 +26,13 @@ type ActiveTab = 'comercial' | 'embarcador' | 'vendedor-externo';
 const CommissionsPage: React.FC<CommissionsPageProps> = ({ shipments, cargos, users, currentUser, stays = [], clients }) => {
   const [activeTab, setActiveTab] = useState<ActiveTab>('comercial');
 
-  const isAgentOrLeader = currentUser && [UserProfile.AgenciadorLider, UserProfile.AgenciadorEmbarque].includes(currentUser.profile);
+  const isAgentOnly = currentUser && currentUser.profile === UserProfile.AgenciadorEmbarque;
 
   React.useEffect(() => {
-    if (isAgentOrLeader && activeTab !== 'comercial') {
+    if (isAgentOnly && activeTab !== 'comercial') {
       setActiveTab('comercial');
     }
-  }, [isAgentOrLeader, activeTab]);
+  }, [isAgentOnly, activeTab]);
 
   const renderContent = () => {
     switch(activeTab) {
@@ -49,7 +49,7 @@ const CommissionsPage: React.FC<CommissionsPageProps> = ({ shipments, cargos, us
   
   const navItems = [
       { id: 'comercial', label: 'Supervisão & Gestor GO', icon: BriefcaseIcon },
-      ...(!isAgentOrLeader ? [
+      ...(!isAgentOnly ? [
         { id: 'embarcador', label: 'Embarcadores', icon: ShipIcon },
         { id: 'vendedor-externo', label: 'Vendedor Externo', icon: UsersIcon },
       ] : []),

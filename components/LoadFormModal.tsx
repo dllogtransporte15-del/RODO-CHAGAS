@@ -124,7 +124,7 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
   })};
   
   const [step, setStep] = useState(initialStep);
-  const [load, setLoad] = useState<Omit<Cargo, 'id' | 'history' | 'createdAt' | 'createdById' | 'scheduledVolume' | 'loadedVolume'> & { createdById?: string }>(getInitialState());
+  const [load, setLoad] = useState<Omit<Cargo, 'id' | 'history' | 'createdAt' | 'createdById' | 'scheduledVolume' | 'loadedVolume'> & { createdById?: string; supervisorId?: string }>(getInitialState());
   const [hasMultiLeg, setHasMultiLeg] = useState(false);
   const [showSalesperson, setShowSalesperson] = useState(false);
   
@@ -191,14 +191,10 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
 
   const commercialUsers = useMemo(() => {
     const allowedProfiles = [
-      UserProfile.Admin,
-      UserProfile.Diretor,
-      UserProfile.Comercial,
-      UserProfile.Supervisor,
       UserProfile.Embarcador,
-      UserProfile.Coordenador,
+      UserProfile.Supervisor,
       UserProfile.AgenciadorLider,
-      UserProfile.AgenciadorEmbarque,
+      UserProfile.Admin,
     ];
     const list = users.filter(u => allowedProfiles.includes(u.profile) && u.active !== false);
     // Se a carga atual já tiver um createdById que não está na lista (ex: inativo ou outro perfil), inclui para não perder
@@ -208,6 +204,19 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
     }
     return list;
   }, [users, load.createdById]);
+
+  const supervisorUsers = useMemo(() => {
+    // Apenas usuários do perfil Supervisor (Gestor GO nunca entra como supervisor)
+    const list = users.filter(u => u.profile === UserProfile.Supervisor && u.active !== false);
+    if (currentUser?.profile === UserProfile.Supervisor && !list.some(u => u.id === currentUser.id)) {
+      list.unshift(currentUser);
+    }
+    if (load.supervisorId && !list.some(u => u.id === load.supervisorId)) {
+      const current = users.find(u => u.id === load.supervisorId);
+      if (current && current.profile === UserProfile.Supervisor) list.push(current);
+    }
+    return list;
+  }, [users, load.supervisorId, currentUser]);
 
   // Previne recarregamento acidental com dados preenchidos no mobile/desktop
   useEffect(() => {
@@ -285,13 +294,14 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
                 destinationLocation: editableLoad.destinationLocation || '',
                 recipientClient: editableLoad.recipientClient || '',
                 branchId: editableLoad.branchId,
-                createdById: editableLoad.createdById || (loadToEdit.history && loadToEdit.history[0]?.userId) || currentUser.id,
+                createdById: editableLoad.createdById || (loadToEdit.history && loadToEdit.history[0]?.userId) || '',
+                supervisorId: editableLoad.supervisorId || (currentUser.profile === UserProfile.Supervisor ? currentUser.id : ''),
             });
             setHasMultiLeg(editableLoad.freightLegs ? editableLoad.freightLegs.length > 1 : false);
             setShowSalesperson(!!editableLoad.salespersonName);
         } else {
             const { scheduledVolume, loadedVolume, ...initialState } = getInitialState();
-            setLoad({ ...initialState, createdById: currentUser.id });
+            setLoad({ ...initialState, createdById: '', supervisorId: currentUser.profile === UserProfile.Supervisor ? currentUser.id : '' });
             setHasMultiLeg(false);
             setShowSalesperson(false);
         }
@@ -460,6 +470,18 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSubmitting) return;
+
+    // Validação de Responsáveis Obrigatórios
+    if (!load.createdById) {
+      showToast('Por favor, selecione obrigatoriamente o Comercial Responsável da carga.', 'warning');
+      setStep(3);
+      return;
+    }
+    if (!load.supervisorId) {
+      showToast('Por favor, selecione o Supervisor Responsável.', 'warning');
+      setStep(3);
+      return;
+    }
 
     // Validação estrita de Origem e Destino
     const originValidation = validateCityFormat(load.origin, 'Origem (Cidade)');
@@ -1454,24 +1476,43 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
                     )}
                 </div>
 
-                {[
-                  UserProfile.Admin,
-                  UserProfile.Diretor,
-                  UserProfile.Supervisor,
-                  UserProfile.Coordenador,
-                  UserProfile.AgenciadorLider,
-                  UserProfile.Comercial,
-                ].includes(currentUser.profile) && (
-                    <div className="border-t dark:border-gray-600 pt-4">
-                        <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2">Administração</h3>
+                <div className="border-t dark:border-gray-600 pt-4">
+                    <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2">Administração & Responsáveis</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Comercial Responsável</label>
-                            <select 
-                              name="createdById" 
-                              value={load.createdById} 
-                              onChange={handleChange} 
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                              Supervisor Responsável <span className="text-red-500">*</span>
+                            </label>
+                            <select
+                              name="supervisorId"
+                              value={load.supervisorId || ''}
+                              onChange={handleChange}
                               className="mt-1 p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600 text-sm"
+                              required
                             >
+                              <option value="">Selecione o Supervisor Responsável...</option>
+                              {supervisorUsers.map(u => (
+                                <option key={u.id} value={u.id}>
+                                  {u.name}
+                                </option>
+                              ))}
+                            </select>
+                            <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">
+                              Supervisor responsável da carga (3% s/ Lucro Líquido dos embarques).
+                            </p>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                              Comercial Responsável <span className="text-red-500">*</span>
+                            </label>
+                            <select
+                              name="createdById"
+                              value={load.createdById || ''}
+                              onChange={handleChange}
+                              className="mt-1 p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600 text-sm"
+                              required
+                            >
+                              <option value="">Selecione obrigatoriamente o Comercial...</option>
                               {commercialUsers.map(u => (
                                 <option key={u.id} value={u.id}>
                                   {u.name} ({u.profile})
@@ -1479,11 +1520,11 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
                               ))}
                             </select>
                             <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">
-                              Usuário responsável pela carga e pelo cálculo de supervisão/comissões.
+                              Comercial responsável pela prospecção/gestão da carga (Obrigatório).
                             </p>
                         </div>
                     </div>
-                )}
+                </div>
                 <div className="border-t dark:border-gray-600 pt-4 grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Produto</label>

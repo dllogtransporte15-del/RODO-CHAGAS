@@ -252,6 +252,7 @@ export interface Cargo {
   status: CargoStatus;
   createdAt: string;
   createdById: string;
+  supervisorId?: string;
   history: HistoryLog[];
   loadingDeadline?: string;
   allowedVehicleTypes?: { setType: VehicleSetType; bodyTypes: VehicleBodyType[] }[];

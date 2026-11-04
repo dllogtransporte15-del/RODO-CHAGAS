@@ -40,7 +40,7 @@ export interface ShipmentCommissionDetail {
   grossDriverFreight: number;
   netRevenue: number;
   netProfit: number;
-  scenario: 'equipe' | 'terceiros' | 'padrao' | 'proprio';
+  scenario: 'equipe' | 'terceiros' | 'padrao' | 'proprio' | 'supervisor';
   scenarioTag: string; // Ex: '[Próprio - 25% s/ Lucro]' ou '[Equipe - 25% s/ Lucro]' ou '[Terceiros - 1.5% s/ Fat.]'
   rate: number;
   calculationBase: number;
@@ -49,7 +49,7 @@ export interface ShipmentCommissionDetail {
   operatorId: string;
   operatorName: string;
   isTeamOperator: boolean;
-  operatorRoleType?: 'lider' | 'equipe' | 'externo';
+  operatorRoleType?: 'lider' | 'equipe' | 'externo' | 'supervisor';
 }
 
 export interface ResponsibleStats {
@@ -77,12 +77,18 @@ export interface ResponsibleStats {
   teamNetProfit: number;
   teamCommission: number;
 
-  // Cenário B: Cargas Externas (Terceiros)
+  // Cenário B: Cargas Externas (Terceiros - Comercial 1,5%)
   externalShipmentsCount: number;
   externalTonnage: number;
   externalNetRevenue: number;
   externalNetProfit: number;
   externalCommission: number;
+
+  // Cenário C: Supervisor Responsável da Carga (3,0% s/ Lucro Líquido)
+  supervisorShipmentsCount: number;
+  supervisorTonnage: number;
+  supervisorNetProfit: number;
+  supervisorCommission: number;
 
   // Detalhes por embarque
   shipmentDetails: ShipmentCommissionDetail[];
@@ -121,7 +127,7 @@ const SupervisorReport: React.FC<SupervisorReportProps> = ({ shipments, cargos, 
 
   const isRestricted = useMemo(() => {
     if (!currentUser) return false;
-    return ![UserProfile.Admin, UserProfile.Diretor].includes(currentUser.profile);
+    return ![UserProfile.Admin, UserProfile.Diretor, UserProfile.Supervisor, UserProfile.AgenciadorLider].includes(currentUser.profile);
   }, [currentUser]);
 
   const allowedTeamIds = useMemo(() => {
@@ -170,9 +176,46 @@ const SupervisorReport: React.FC<SupervisorReportProps> = ({ shipments, cargos, 
     return { user: fallbackUser, isFallback: true };
   };
 
-  // Motor de Cálculo comissionário híbrido
+  // Motor de Cálculo comissionário híbrido (Supervisor 3% + Comercial 1,5% + Equipe)
   const responsibleStats = useMemo(() => {
     const statsMap = new Map<string, ResponsibleStats>();
+
+    const createEmptyStats = (u: User, isFallback: boolean): ResponsibleStats => {
+      const isLeader = u.profile === UserProfile.AgenciadorLider;
+      const teamRate = u.leaderProfitCommissionRate !== undefined ? Number(u.leaderProfitCommissionRate) : 25;
+      const externalRate = u.leaderRevenueCommissionRate !== undefined ? Number(u.leaderRevenueCommissionRate) : 1.5;
+      return {
+        user: u,
+        isFallback,
+        cargos: [],
+        shipments: [],
+        totalTonnage: 0,
+        grossCompanyFreight: 0,
+        grossDriverFreight: 0,
+        totalDemurrageProfit: 0,
+        totalDemurrageRevenue: 0,
+        netProfit: 0,
+        netRevenue: 0,
+        commission: 0,
+        isLeader,
+        teamRate,
+        externalRate,
+        teamShipmentsCount: 0,
+        teamTonnage: 0,
+        teamNetProfit: 0,
+        teamCommission: 0,
+        externalShipmentsCount: 0,
+        externalTonnage: 0,
+        externalNetRevenue: 0,
+        externalNetProfit: 0,
+        externalCommission: 0,
+        supervisorShipmentsCount: 0,
+        supervisorTonnage: 0,
+        supervisorNetProfit: 0,
+        supervisorCommission: 0,
+        shipmentDetails: [],
+      };
+    };
 
     // Pré-popula usuários elegíveis:
     users
@@ -184,93 +227,46 @@ const SupervisorReport: React.FC<SupervisorReportProps> = ({ shipments, cargos, 
           u.profile === UserProfile.Supervisor || 
           u.profile === UserProfile.Coordenador ||
           u.profile === UserProfile.AgenciadorLider ||
-          u.profile === UserProfile.Diretor
+          u.profile === UserProfile.Embarcador ||
+          u.profile === UserProfile.Diretor ||
+          u.profile === UserProfile.Admin
         );
       })
       .forEach(u => {
-        const isLeader = u.profile === UserProfile.AgenciadorLider;
-        const teamRate = u.leaderProfitCommissionRate !== undefined ? Number(u.leaderProfitCommissionRate) : 25;
-        const externalRate = u.leaderRevenueCommissionRate !== undefined ? Number(u.leaderRevenueCommissionRate) : 1.5;
-
-        statsMap.set(u.id, {
-          user: u,
-          isFallback: false,
-          cargos: [],
-          shipments: [],
-          totalTonnage: 0,
-          grossCompanyFreight: 0,
-          grossDriverFreight: 0,
-          totalDemurrageProfit: 0,
-          totalDemurrageRevenue: 0,
-          netProfit: 0,
-          netRevenue: 0,
-          commission: 0,
-          isLeader,
-          teamRate,
-          externalRate,
-          teamShipmentsCount: 0,
-          teamTonnage: 0,
-          teamNetProfit: 0,
-          teamCommission: 0,
-          externalShipmentsCount: 0,
-          externalTonnage: 0,
-          externalNetRevenue: 0,
-          externalNetProfit: 0,
-          externalCommission: 0,
-          shipmentDetails: [],
-        });
+        statsMap.set(u.id, createEmptyStats(u, false));
       });
 
-    // Mapeia cargas para seus responsáveis
+    // Mapeia cargas para seus responsáveis (Comercial e Supervisor)
     cargos.forEach(cargo => {
       const { user: responsible, isFallback } = getCargoResponsible(cargo);
       
-      // Se for usuário restrito (Gestor GO), não mapeia cargas de terceiros
-      if (isRestricted && !allowedTeamIds.has(responsible.id)) {
-        return;
+      if (!isRestricted || allowedTeamIds.has(responsible.id)) {
+        if (!statsMap.has(responsible.id)) {
+          statsMap.set(responsible.id, createEmptyStats(responsible, isFallback));
+        }
+        const existingCargos = statsMap.get(responsible.id)!.cargos;
+        if (!existingCargos.some(c => c.id === cargo.id)) {
+          existingCargos.push(cargo);
+        }
       }
 
-      if (!statsMap.has(responsible.id)) {
-        const isLeader = responsible.profile === UserProfile.AgenciadorLider;
-        const teamRate = responsible.leaderProfitCommissionRate !== undefined ? Number(responsible.leaderProfitCommissionRate) : 25;
-        const externalRate = responsible.leaderRevenueCommissionRate !== undefined ? Number(responsible.leaderRevenueCommissionRate) : 1.5;
-
-        statsMap.set(responsible.id, {
-          user: responsible,
-          isFallback,
-          cargos: [],
-          shipments: [],
-          totalTonnage: 0,
-          grossCompanyFreight: 0,
-          grossDriverFreight: 0,
-          totalDemurrageProfit: 0,
-          totalDemurrageRevenue: 0,
-          netProfit: 0,
-          netRevenue: 0,
-          commission: 0,
-          isLeader,
-          teamRate,
-          externalRate,
-          teamShipmentsCount: 0,
-          teamTonnage: 0,
-          teamNetProfit: 0,
-          teamCommission: 0,
-          externalShipmentsCount: 0,
-          externalTonnage: 0,
-          externalNetRevenue: 0,
-          externalNetProfit: 0,
-          externalCommission: 0,
-          shipmentDetails: [],
-        });
-      }
-
-      const existingCargos = statsMap.get(responsible.id)!.cargos;
-      if (!existingCargos.some(c => c.id === cargo.id)) {
-        existingCargos.push(cargo);
+      const resolvedSupervisorId = cargo.supervisorId || (cargo.history && cargo.history[0]?.userId) || cargo.createdById;
+      if (resolvedSupervisorId) {
+        const supUser = usersMap.get(resolvedSupervisorId);
+        // GESTOR GO NÃO GANHA COMISSÃO DE SUPERVISOR: apenas UserProfile.Supervisor é elegível
+        if (supUser && supUser.profile === UserProfile.Supervisor && (!isRestricted || allowedTeamIds.has(supUser.id))) {
+          if (!statsMap.has(supUser.id)) {
+            statsMap.set(supUser.id, createEmptyStats(supUser, false));
+          }
+          const supCargos = statsMap.get(supUser.id)!.cargos;
+          if (!supCargos.some(c => c.id === cargo.id)) {
+            supCargos.push(cargo);
+          }
+        }
       }
     });
 
-    // Mapeamento de equipes por Líder: APENAS quando for "Agenciador Embarque" vinculado ao Agenciador Líder
+    // Mapeamento de equipes por Líder
     const leaderTeamMap = new Map<string, Set<string>>();
     users
       .filter(u => u.profile === UserProfile.AgenciadorLider)
@@ -294,9 +290,9 @@ const SupervisorReport: React.FC<SupervisorReportProps> = ({ shipments, cargos, 
       const operatorUser = usersMap.get(operatorId);
       const operatorName = operatorUser ? operatorUser.name : (shipment.driverName || 'Operador');
 
-      // Se for usuário restrito (Gestor GO), só processa fretes operados pela equipe ou em cargas da equipe
+      // Se for usuário restrito, só processa se envolver a equipe
       if (isRestricted) {
-        const isTeamCargo = allowedTeamIds.has(responsible.id);
+        const isTeamCargo = allowedTeamIds.has(responsible.id) || (cargo.supervisorId ? allowedTeamIds.has(cargo.supervisorId) : false);
         const isTeamOp = allowedTeamIds.has(operatorId) ||
           (shipment.embarcadorId ? allowedTeamIds.has(shipment.embarcadorId) : false) ||
           (shipment.createdById ? allowedTeamIds.has(shipment.createdById) : false);
@@ -325,105 +321,108 @@ const SupervisorReport: React.FC<SupervisorReportProps> = ({ shipments, cargos, 
       const netRevenue = companyVal + demurrageRevenue;
       const netProfit = ((grossRate - driverRate - commissionRate) * tonnage) + demurrageProfit;
 
-      // 1. Apuração para o Responsável da Carga
+      // -------------------------------------------------------------
+      // 1. REGRA DO SUPERVISOR RESPONSÁVEL DA CARGA (3,0% s/ Lucro)
+      // REGRA INVIOLÁVEL: Gestor GO NÃO GANHA comissão de Supervisor!
+      // Apenas usuários do perfil Supervisor (UserProfile.Supervisor) são elegíveis aos 3%.
+      // -------------------------------------------------------------
+      const resolvedSupervisorId = cargo.supervisorId || (cargo.history && cargo.history[0]?.userId) || cargo.createdById;
+      const supUser = resolvedSupervisorId ? usersMap.get(resolvedSupervisorId) : null;
+      const isEligibleSupervisor = supUser && supUser.profile === UserProfile.Supervisor;
+
+      if (isEligibleSupervisor && (!isRestricted || allowedTeamIds.has(supUser.id))) {
+        if (!statsMap.has(supUser.id)) {
+          statsMap.set(supUser.id, createEmptyStats(supUser, false));
+        }
+        const supStats = statsMap.get(supUser.id)!;
+        if (!supStats.shipments.some(s => s.id === shipment.id)) {
+          supStats.shipments.push(shipment);
+        }
+
+        supStats.totalTonnage += tonnage;
+        supStats.grossCompanyFreight += companyVal;
+        supStats.grossDriverFreight += driverVal;
+        supStats.totalDemurrageProfit += demurrageProfit;
+        supStats.totalDemurrageRevenue += demurrageRevenue;
+        supStats.netProfit += netProfit;
+        supStats.netRevenue += netRevenue;
+
+        const rate = 3.0;
+        const commVal = netProfit > 0 ? netProfit * (rate / 100) : 0;
+        supStats.supervisorShipmentsCount += 1;
+        supStats.supervisorTonnage += tonnage;
+        supStats.supervisorNetProfit += netProfit;
+        supStats.supervisorCommission += commVal;
+        supStats.commission = supStats.supervisorCommission;
+
+        supStats.shipmentDetails.push({
+          shipment,
+          cargo,
+          tonnage,
+          grossCompanyFreight: companyVal,
+          grossDriverFreight: driverVal,
+          netRevenue,
+          netProfit,
+          scenario: 'supervisor',
+          scenarioTag: `[Supervisor - ${rate.toFixed(1).replace('.', ',')}% s/ Lucro]`,
+          rate,
+          calculationBase: netProfit,
+          calculationBaseLabel: 'Lucro Líquido',
+          commissionValue: commVal,
+          operatorId,
+          operatorName,
+          isTeamOperator: false,
+          operatorRoleType: 'supervisor',
+        });
+      }
+
+      // -------------------------------------------------------------
+      // 2. REGRA DO COMERCIAL RESPONSÁVEL DA CARGA (EXCLUSIVO GESTOR GO)
+      // Cenário A: Próprio / Equipe -> teamRate% s/ Lucro
+      // Cenário B: Cargas Externas -> 1,5% s/ Lucro
+      // -------------------------------------------------------------
+      const isGestorGO = responsible.profile === UserProfile.AgenciadorLider;
       const respStats = statsMap.get(responsible.id);
-      if (respStats) {
+      if (isGestorGO && respStats && (!isRestricted || allowedTeamIds.has(responsible.id))) {
         if (!respStats.shipments.some(s => s.id === shipment.id)) {
           respStats.shipments.push(shipment);
         }
 
-        respStats.totalTonnage += tonnage;
-        respStats.grossCompanyFreight += companyVal;
-        respStats.grossDriverFreight += driverVal;
-        respStats.totalDemurrageProfit += demurrageProfit;
-        respStats.totalDemurrageRevenue += demurrageRevenue;
-        respStats.netProfit += netProfit;
-        respStats.netRevenue += netRevenue;
+        // Se o comercial for diferente do supervisor já computado acima, soma nos totais gerais
+        if (!isEligibleSupervisor || supUser?.id !== responsible.id) {
+          respStats.totalTonnage += tonnage;
+          respStats.grossCompanyFreight += companyVal;
+          respStats.grossDriverFreight += driverVal;
+          respStats.totalDemurrageProfit += demurrageProfit;
+          respStats.totalDemurrageRevenue += demurrageRevenue;
+          respStats.netProfit += netProfit;
+          respStats.netRevenue += netRevenue;
+        }
 
-        if (respStats.isLeader) {
-          const leaderTeam = leaderTeamMap.get(responsible.id) || new Set<string>();
+        const leaderTeam = leaderTeamMap.get(responsible.id) || new Set<string>();
 
-          // O próprio Agenciador Líder
-          const isLeaderOperator = operatorId === responsible.id || 
-            (!operatorId && (shipment.embarcadorId === responsible.id || shipment.createdById === responsible.id));
+        const isLeaderOperator = operatorId === responsible.id || 
+          (!operatorId && (shipment.embarcadorId === responsible.id || shipment.createdById === responsible.id));
 
-          // Apenas quando for "Agenciador embarque" vinculado ao agenciador líder
-          const isTeamOperator = !isLeaderOperator && (
-            leaderTeam.has(operatorId) || 
-            (shipment.embarcadorId ? leaderTeam.has(shipment.embarcadorId) : false) || 
-            (shipment.createdById ? leaderTeam.has(shipment.createdById) : false)
-          );
+        const isTeamOperator = !isLeaderOperator && (
+          leaderTeam.has(operatorId) || 
+          (shipment.embarcadorId ? leaderTeam.has(shipment.embarcadorId) : false) || 
+          (shipment.createdById ? leaderTeam.has(shipment.createdById) : false)
+        );
 
-          if (isLeaderOperator || isTeamOperator) {
-            // CENÁRIO A: Operação Própria do Líder ou da Equipe (Agenciador Embarque) -> % sobre Lucro Líquido
-            const rate = respStats.teamRate;
-            const commVal = netProfit > 0 ? netProfit * (rate / 100) : 0;
-            respStats.teamShipmentsCount += 1;
-            respStats.teamTonnage += tonnage;
-            respStats.teamNetProfit += netProfit;
-            respStats.teamCommission += commVal;
+        if (isLeaderOperator || isTeamOperator) {
+          // CENÁRIO A: Operação Própria ou de Equipe direta -> % s/ Lucro Líquido
+          const rate = respStats.teamRate;
+          const commVal = netProfit > 0 ? netProfit * (rate / 100) : 0;
+          respStats.teamShipmentsCount += 1;
+          respStats.teamTonnage += tonnage;
+          respStats.teamNetProfit += netProfit;
+          respStats.teamCommission += commVal;
 
-            const roleType: 'lider' | 'equipe' | 'externo' = isLeaderOperator ? 'lider' : 'equipe';
-            const scenarioTag = isLeaderOperator 
-              ? `[Próprio - ${rate}% s/ Lucro]` 
-              : `[Equipe - ${rate}% s/ Lucro]`;
-
-            respStats.shipmentDetails.push({
-              shipment,
-              cargo,
-              tonnage,
-              grossCompanyFreight: companyVal,
-              grossDriverFreight: driverVal,
-              netRevenue,
-              netProfit,
-              scenario: isLeaderOperator ? 'proprio' : 'equipe',
-              scenarioTag,
-              rate,
-              calculationBase: netProfit,
-              calculationBaseLabel: 'Lucro Líquido',
-              commissionValue: commVal,
-              operatorId,
-              operatorName,
-              isTeamOperator: isTeamOperator, // Apenas true se for membro da equipe (Agenciador Embarque vinculado)
-              operatorRoleType: roleType,
-            });
-          } else {
-            // CENÁRIO B: Cargas Sob Responsabilidade do Líder com Embarque Externo -> % sobre Lucro Líquido
-            const rate = respStats.externalRate;
-            const commVal = netProfit > 0 ? netProfit * (rate / 100) : 0;
-            respStats.externalShipmentsCount += 1;
-            respStats.externalTonnage += tonnage;
-            respStats.externalNetRevenue += netRevenue;
-            respStats.externalNetProfit += netProfit;
-            respStats.externalCommission += commVal;
-
-            respStats.shipmentDetails.push({
-              shipment,
-              cargo,
-              tonnage,
-              grossCompanyFreight: companyVal,
-              grossDriverFreight: driverVal,
-              netRevenue,
-              netProfit,
-              scenario: 'terceiros',
-              scenarioTag: `[Terceiros - ${rate}% s/ Lucro]`,
-              rate,
-              calculationBase: netProfit,
-              calculationBaseLabel: 'Lucro Líquido',
-              commissionValue: commVal,
-              operatorId,
-              operatorName,
-              isTeamOperator: false,
-              operatorRoleType: 'externo',
-            });
-          }
-
-          respStats.commission = respStats.teamCommission + respStats.externalCommission;
-        } else {
-          // Regra Tradicional para Supervisor / Coordenador: 3,0% sobre o Lucro Líquido
-          const rate = 3.0;
-          const commVal = netProfit > 0 ? netProfit * 0.03 : 0;
-          respStats.commission += commVal;
+          const roleType: 'lider' | 'equipe' | 'externo' = isLeaderOperator ? 'lider' : 'equipe';
+          const scenarioTag = isLeaderOperator 
+            ? `[Próprio - ${rate}% s/ Lucro]` 
+            : `[Equipe - ${rate}% s/ Lucro]`;
 
           respStats.shipmentDetails.push({
             shipment,
@@ -433,8 +432,37 @@ const SupervisorReport: React.FC<SupervisorReportProps> = ({ shipments, cargos, 
             grossDriverFreight: driverVal,
             netRevenue,
             netProfit,
-            scenario: 'padrao',
-            scenarioTag: `[Padrão - ${rate}% s/ Lucro]`,
+            scenario: isLeaderOperator ? 'proprio' : 'equipe',
+            scenarioTag,
+            rate,
+            calculationBase: netProfit,
+            calculationBaseLabel: 'Lucro Líquido',
+            commissionValue: commVal,
+            operatorId,
+            operatorName,
+            isTeamOperator: isTeamOperator,
+            operatorRoleType: roleType,
+          });
+        } else {
+          // CENÁRIO B: Cargas Comerciais com Embarque Externo -> 1,5% s/ Lucro Líquido
+          const rate = respStats.externalRate || 1.5;
+          const commVal = netProfit > 0 ? netProfit * (rate / 100) : 0;
+          respStats.externalShipmentsCount += 1;
+          respStats.externalTonnage += tonnage;
+          respStats.externalNetRevenue += netRevenue;
+          respStats.externalNetProfit += netProfit;
+          respStats.externalCommission += commVal;
+
+          respStats.shipmentDetails.push({
+            shipment,
+            cargo,
+            tonnage,
+            grossCompanyFreight: companyVal,
+            grossDriverFreight: driverVal,
+            netRevenue,
+            netProfit,
+            scenario: 'terceiros',
+            scenarioTag: `[Comercial - ${rate}% s/ Lucro]`,
             rate,
             calculationBase: netProfit,
             calculationBaseLabel: 'Lucro Líquido',
@@ -442,14 +470,18 @@ const SupervisorReport: React.FC<SupervisorReportProps> = ({ shipments, cargos, 
             operatorId,
             operatorName,
             isTeamOperator: false,
-            operatorRoleType: 'lider',
+            operatorRoleType: 'externo',
           });
         }
+
+        respStats.commission = respStats.teamCommission + respStats.externalCommission;
       }
 
-      // 2. Cenário A Adicional: Carga de terceiros embarcada pelo próprio Líder ou por Agenciador Embarque da sua equipe
+      // -------------------------------------------------------------
+      // 3. CENÁRIO A ADICIONAL: Carga de terceiros operada por equipe
+      // -------------------------------------------------------------
       leaderTeamMap.forEach((teamSet, leaderId) => {
-        if (leaderId === responsible.id) return; // Já foi contabilizado acima
+        if (leaderId === responsible.id) return; // Já foi computado acima
 
         const isLeaderOperator = operatorId === leaderId ||
           (!operatorId && (shipment.embarcadorId === leaderId || shipment.createdById === leaderId));
@@ -462,8 +494,7 @@ const SupervisorReport: React.FC<SupervisorReportProps> = ({ shipments, cargos, 
 
         if (isLeaderOperator || isTeamOperator) {
           const leaderStat = statsMap.get(leaderId);
-          if (leaderStat) {
-            // Adiciona a carga à lista do líder se não estiver lá
+          if (leaderStat && (!isRestricted || allowedTeamIds.has(leaderId))) {
             if (!leaderStat.cargos.some(c => c.id === cargo.id)) {
               leaderStat.cargos.push(cargo);
             }
@@ -485,7 +516,7 @@ const SupervisorReport: React.FC<SupervisorReportProps> = ({ shipments, cargos, 
             leaderStat.teamTonnage += tonnage;
             leaderStat.teamNetProfit += netProfit;
             leaderStat.teamCommission += commVal;
-            leaderStat.commission = leaderStat.teamCommission + leaderStat.externalCommission;
+            leaderStat.commission = leaderStat.teamCommission + leaderStat.externalCommission + leaderStat.supervisorCommission;
 
             const roleType: 'lider' | 'equipe' | 'externo' = isLeaderOperator ? 'lider' : 'equipe';
             const scenarioTag = isLeaderOperator 
@@ -574,6 +605,10 @@ const SupervisorReport: React.FC<SupervisorReportProps> = ({ shipments, cargos, 
       externalNetRevenue: acc.externalNetRevenue + curr.externalNetRevenue,
       externalNetProfit: acc.externalNetProfit + curr.externalNetProfit,
       externalCommission: acc.externalCommission + curr.externalCommission,
+
+      supervisorShipmentsCount: acc.supervisorShipmentsCount + curr.supervisorShipmentsCount,
+      supervisorNetProfit: acc.supervisorNetProfit + curr.supervisorNetProfit,
+      supervisorCommission: acc.supervisorCommission + curr.supervisorCommission,
     }), {
       cargosCount: 0,
       shipmentsCount: 0,
@@ -590,6 +625,9 @@ const SupervisorReport: React.FC<SupervisorReportProps> = ({ shipments, cargos, 
       externalNetRevenue: 0,
       externalNetProfit: 0,
       externalCommission: 0,
+      supervisorShipmentsCount: 0,
+      supervisorNetProfit: 0,
+      supervisorCommission: 0,
     });
   }, [filteredStats]);
 
@@ -743,8 +781,8 @@ const SupervisorReport: React.FC<SupervisorReportProps> = ({ shipments, cargos, 
         </div>
       </div>
 
-      {/* CARDS DE KPIS CONSOLIDADOS (DISCRIMINAÇÃO TRANSPARENTE CONFORME REQUISITOS) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
+      {/* CARDS DE KPIS CONSOLIDADOS */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         {/* Card 1: Cargas Ativas */}
         <div className="p-3.5 rounded-xl bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 shadow-xs flex items-center gap-3">
           <div className="p-2.5 rounded-lg bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 shrink-0">
@@ -778,57 +816,21 @@ const SupervisorReport: React.FC<SupervisorReportProps> = ({ shipments, cargos, 
           </div>
         </div>
 
-        {/* Card 4: Comissão Equipe / Própria (Lucro) */}
-        <div className="p-3.5 rounded-xl bg-gradient-to-br from-indigo-50 via-white to-indigo-50/30 dark:from-indigo-950/40 dark:via-gray-800 dark:to-indigo-950/20 border border-indigo-200/80 dark:border-indigo-800/60 shadow-xs flex flex-col justify-between">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-700 dark:text-indigo-300">
-              Comissão Equipe / Própria
-            </span>
-            <span className="text-[9px] font-black bg-indigo-100 text-indigo-800 dark:bg-indigo-900/60 dark:text-indigo-300 px-1.5 py-0.2 rounded">
-              {selectedLeaderStat ? `${selectedLeaderStat.teamRate}% s/ Lucro` : '25% s/ Lucro'}
-            </span>
-          </div>
-          <p className="text-lg font-black text-indigo-600 dark:text-indigo-400 truncate">
-            {formatCurrency(selectedLeaderStat ? selectedLeaderStat.teamCommission : totals.teamCommission)}
-          </p>
-          <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate mt-1">
-            {selectedLeaderStat ? selectedLeaderStat.teamShipmentsCount : totals.teamShipmentsCount} fretes • Lucro {formatCurrency(selectedLeaderStat ? selectedLeaderStat.teamNetProfit : totals.teamNetProfit)}
-          </p>
-        </div>
-
-        {/* Card 5: Comissão Cargas Externas (Lucro Líquido) */}
-        <div className="p-3.5 rounded-xl bg-gradient-to-br from-blue-50 via-white to-blue-50/30 dark:from-blue-950/40 dark:via-gray-800 dark:to-blue-950/20 border border-blue-200/80 dark:border-blue-800/60 shadow-xs flex flex-col justify-between">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-blue-700 dark:text-blue-300">
-              Comissão Cargas Externas
-            </span>
-            <span className="text-[9px] font-black bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-300 px-1.5 py-0.2 rounded">
-              {selectedLeaderStat ? `${selectedLeaderStat.externalRate}% s/ Lucro` : '1,5% s/ Lucro'}
-            </span>
-          </div>
-          <p className="text-lg font-black text-blue-600 dark:text-blue-400 truncate">
-            {formatCurrency(selectedLeaderStat ? selectedLeaderStat.externalCommission : totals.externalCommission)}
-          </p>
-          <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate mt-1">
-            {selectedLeaderStat ? selectedLeaderStat.externalShipmentsCount : totals.externalShipmentsCount} fretes terc. • Lucro {formatCurrency(selectedLeaderStat ? selectedLeaderStat.externalNetProfit : totals.externalNetProfit)}
-          </p>
-        </div>
-
-        {/* Card 6: Total Geral de Comissão */}
+        {/* Card 4: Total Geral de Comissão */}
         <div className="p-3.5 rounded-xl bg-gradient-to-br from-emerald-500/15 via-emerald-500/5 to-transparent border border-emerald-500/40 dark:border-emerald-500/30 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between mb-1">
             <span className="text-[10px] font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
-              Total Geral Comissão
+              Total de Comissões
             </span>
             <span className="text-[9px] font-extrabold bg-emerald-200/80 dark:bg-emerald-800/80 text-emerald-800 dark:text-emerald-200 px-1.5 py-0.2 rounded-full">
-              Soma
+              Líquido
             </span>
           </div>
           <p className="text-xl font-black text-emerald-600 dark:text-emerald-400 truncate">
             {formatCurrency(selectedLeaderStat ? selectedLeaderStat.commission : totals.commission)}
           </p>
           <p className="text-[10px] text-emerald-700/80 dark:text-emerald-300/80 truncate mt-1 font-medium">
-            Equipe + Cargas de Terceiros
+            {selectedLeaderStat ? `Apurado para ${selectedLeaderStat.user.name}` : 'Apurado para todos os elegíveis'}
           </p>
         </div>
       </div>
@@ -922,11 +924,10 @@ const SupervisorReport: React.FC<SupervisorReportProps> = ({ shipments, cargos, 
                           </span>
                         </td>
 
-                        {/* Discriminação da Comissão (Híbrida transparente para Líder) */}
-                        <td className="py-3 px-4 min-w-[280px]">
-                          {stat.isLeader ? (
-                            <div className="space-y-1.5 py-0.5">
-                              {/* Cenário A: Equipe */}
+                        {/* Discriminação da Comissão (3 Categorias: Equipe, Comercial Externo, Supervisor) */}
+                        <td className="py-3 px-4 min-w-[290px]">
+                          <div className="space-y-1.5 py-0.5">
+                            {stat.user.profile === UserProfile.AgenciadorLider && stat.teamCommission > 0 && (
                               <div className="flex items-center justify-between text-[11px] gap-2">
                                 <span className="inline-flex items-center gap-1 font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/40 px-1.5 py-0.5 rounded border border-indigo-200/60 dark:border-indigo-800/40">
                                   <span>Equipe ({stat.teamRate}% s/ Lucro):</span>
@@ -936,25 +937,33 @@ const SupervisorReport: React.FC<SupervisorReportProps> = ({ shipments, cargos, 
                                   {formatCurrency(stat.teamCommission)}
                                 </span>
                               </div>
-                              {/* Cenário B: Terceiros */}
+                            )}
+                            {stat.user.profile === UserProfile.AgenciadorLider && stat.externalCommission > 0 && (
                               <div className="flex items-center justify-between text-[11px] gap-2">
                                 <span className="inline-flex items-center gap-1 font-bold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/40 px-1.5 py-0.5 rounded border border-blue-200/60 dark:border-blue-800/40">
-                                  <span>Terceiros ({stat.externalRate}% s/ Lucro):</span>
+                                  <span>Comercial ({stat.externalRate}% s/ Lucro):</span>
                                   <span className="text-[10px] opacity-75">{stat.externalShipmentsCount} fretes</span>
                                 </span>
                                 <span className="font-black text-blue-700 dark:text-blue-300">
                                   {formatCurrency(stat.externalCommission)}
                                 </span>
                               </div>
-                            </div>
-                          ) : (
-                            <div className="text-[11px] font-bold text-gray-600 dark:text-gray-300 flex items-center justify-between">
-                              <span className="bg-gray-100 dark:bg-gray-700/50 px-2 py-0.5 rounded">
-                                Padrão (3,0% s/ Lucro Líquido)
-                              </span>
-                              <span>{formatCurrency(stat.commission)}</span>
-                            </div>
-                          )}
+                            )}
+                            {stat.user.profile === UserProfile.Supervisor && stat.supervisorCommission > 0 && (
+                              <div className="flex items-center justify-between text-[11px] gap-2">
+                                <span className="inline-flex items-center gap-1 font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 px-1.5 py-0.5 rounded border border-amber-200/60 dark:border-amber-800/40">
+                                  <span>Supervisor (3,0% s/ Lucro):</span>
+                                  <span className="text-[10px] opacity-75">{stat.supervisorShipmentsCount} fretes</span>
+                                </span>
+                                <span className="font-black text-amber-700 dark:text-amber-300">
+                                  {formatCurrency(stat.supervisorCommission)}
+                                </span>
+                              </div>
+                            )}
+                            {stat.teamCommission === 0 && stat.externalCommission === 0 && stat.supervisorCommission === 0 && (
+                              <span className="text-[11px] text-gray-400 italic">Sem comissões apuradas</span>
+                            )}
+                          </div>
                         </td>
 
                         {/* Total Comissão */}
@@ -1091,7 +1100,9 @@ const SupervisorReport: React.FC<SupervisorReportProps> = ({ shipments, cargos, 
                                             {/* Tag / Regra Conforme Especificação */}
                                             <td className="py-2.5 px-3 text-center whitespace-nowrap">
                                               <span className={`inline-block px-2.5 py-1 rounded-md text-[11px] font-black border ${
-                                                detail.scenario === 'proprio'
+                                                detail.scenario === 'supervisor'
+                                                  ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border-amber-200 dark:border-amber-800'
+                                                  : detail.scenario === 'proprio'
                                                   ? 'bg-purple-50 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 border-purple-200 dark:border-purple-800'
                                                   : detail.scenario === 'equipe'
                                                   ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800'
@@ -1240,36 +1251,47 @@ const SupervisorReport: React.FC<SupervisorReportProps> = ({ shipments, cargos, 
                   </div>
                 </div>
 
-                {/* Sub-cards da Regra Híbrida quando for Agenciador Líder */}
-                {stat.isLeader && (
-                  <div className="p-3 bg-indigo-50/30 dark:bg-indigo-950/20 border-b border-indigo-100/50 dark:border-indigo-900/30 grid grid-cols-2 gap-2 text-xs">
-                    <div className="p-2 rounded-xl bg-white dark:bg-gray-800/80 border border-indigo-100 dark:border-indigo-900/40">
-                      <div className="flex items-center justify-between text-[10px] font-bold text-indigo-700 dark:text-indigo-300">
-                        <span>Equipe / Próprio</span>
-                        <span className="bg-indigo-100 dark:bg-indigo-900/60 px-1 rounded">{stat.teamRate}%</span>
-                      </div>
-                      <p className="text-sm font-black text-indigo-600 dark:text-indigo-400 mt-0.5">
-                        {formatCurrency(stat.teamCommission)}
-                      </p>
-                      <p className="text-[10px] text-gray-400 mt-0.5 truncate">
-                        {stat.teamShipmentsCount} fretes • Lucro {formatCurrency(stat.teamNetProfit)}
-                      </p>
+                {/* Sub-cards das Comissões (Equipe, Comercial Externo, Supervisor) */}
+                <div className="p-3 bg-indigo-50/30 dark:bg-indigo-950/20 border-b border-indigo-100/50 dark:border-indigo-900/30 grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+                  <div className="p-2 rounded-xl bg-white dark:bg-gray-800/80 border border-indigo-100 dark:border-indigo-900/40">
+                    <div className="flex items-center justify-between text-[10px] font-bold text-indigo-700 dark:text-indigo-300">
+                      <span>Equipe / Próprio</span>
+                      <span className="bg-indigo-100 dark:bg-indigo-900/60 px-1 rounded">{stat.teamRate}%</span>
                     </div>
-
-                    <div className="p-2 rounded-xl bg-white dark:bg-gray-800/80 border border-blue-100 dark:border-blue-900/40">
-                      <div className="flex items-center justify-between text-[10px] font-bold text-blue-700 dark:text-blue-300">
-                        <span>Cargas de Terceiros</span>
-                        <span className="bg-blue-100 dark:bg-blue-900/60 px-1 rounded">{stat.externalRate}%</span>
-                      </div>
-                      <p className="text-sm font-black text-blue-600 dark:text-blue-400 mt-0.5">
-                        {formatCurrency(stat.externalCommission)}
-                      </p>
-                      <p className="text-[10px] text-gray-400 mt-0.5 truncate">
-                        {stat.externalShipmentsCount} fretes • Lucro {formatCurrency(stat.externalNetProfit)}
-                      </p>
-                    </div>
+                    <p className="text-sm font-black text-indigo-600 dark:text-indigo-400 mt-0.5">
+                      {formatCurrency(stat.teamCommission)}
+                    </p>
+                    <p className="text-[10px] text-gray-400 mt-0.5 truncate">
+                      {stat.teamShipmentsCount} fretes • Lucro {formatCurrency(stat.teamNetProfit)}
+                    </p>
                   </div>
-                )}
+
+                  <div className="p-2 rounded-xl bg-white dark:bg-gray-800/80 border border-blue-100 dark:border-blue-900/40">
+                    <div className="flex items-center justify-between text-[10px] font-bold text-blue-700 dark:text-blue-300">
+                      <span>Comercial Externo</span>
+                      <span className="bg-blue-100 dark:bg-blue-900/60 px-1 rounded">{stat.externalRate}%</span>
+                    </div>
+                    <p className="text-sm font-black text-blue-600 dark:text-blue-400 mt-0.5">
+                      {formatCurrency(stat.externalCommission)}
+                    </p>
+                    <p className="text-[10px] text-gray-400 mt-0.5 truncate">
+                      {stat.externalShipmentsCount} fretes • Lucro {formatCurrency(stat.externalNetProfit)}
+                    </p>
+                  </div>
+
+                  <div className="p-2 rounded-xl bg-white dark:bg-gray-800/80 border border-amber-100 dark:border-amber-900/40">
+                    <div className="flex items-center justify-between text-[10px] font-bold text-amber-700 dark:text-amber-300">
+                      <span>Supervisor Carga</span>
+                      <span className="bg-amber-100 dark:bg-amber-900/60 px-1 rounded">3,0%</span>
+                    </div>
+                    <p className="text-sm font-black text-amber-600 dark:text-amber-400 mt-0.5">
+                      {formatCurrency(stat.supervisorCommission)}
+                    </p>
+                    <p className="text-[10px] text-gray-400 mt-0.5 truncate">
+                      {stat.supervisorShipmentsCount} fretes • Lucro {formatCurrency(stat.supervisorNetProfit)}
+                    </p>
+                  </div>
+                </div>
 
                 {/* Métricas do Responsável em Grade 4 Colunas */}
                 <div className="p-4 grid grid-cols-2 sm:grid-cols-4 gap-3 bg-white dark:bg-gray-800 text-center">
@@ -1328,7 +1350,9 @@ const SupervisorReport: React.FC<SupervisorReportProps> = ({ shipments, cargos, 
                                 <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400">#{detail.cargo.sequenceId}</span>
                                 <span className="font-semibold text-gray-800 dark:text-gray-200 truncate">{detail.cargo.origin} → {detail.cargo.destination}</span>
                                 <span className={`text-[9px] font-black px-1.5 py-0.2 rounded ${
-                                  detail.scenario === 'proprio'
+                                  detail.scenario === 'supervisor'
+                                    ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300'
+                                    : detail.scenario === 'proprio'
                                     ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300'
                                     : detail.scenario === 'equipe'
                                     ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300'
@@ -1390,40 +1414,37 @@ const SupervisorReport: React.FC<SupervisorReportProps> = ({ shipments, cargos, 
             <div className="py-4 text-xs text-gray-600 dark:text-gray-300 space-y-3.5 leading-relaxed">
               <div className="p-3 rounded-xl bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-200/60 dark:border-indigo-800/40">
                 <p className="font-bold text-indigo-900 dark:text-indigo-200 text-sm mb-1">
-                  1. Regra Híbrida para Gestor GO
+                  1. Regras de Comissionamento sobre Lucro Líquido
                 </p>
                 <p className="text-[11px] text-indigo-800/90 dark:text-indigo-300/90">
-                  O Gestor GO tem seu ganho dividido de forma transparente em duas categorias:
+                  Os ganhos são discriminados de forma transparente em 3 categorias independentes:
                 </p>
                 <div className="mt-2 space-y-2">
-                  <div className="p-2 bg-white dark:bg-gray-800 rounded-lg border border-indigo-100 dark:border-indigo-900/40">
-                    <strong className="text-indigo-600 dark:text-indigo-400 block">
-                      • Cenário A: Operações da Equipe / Próprias (Padrão: 25% s/ Lucro Líquido)
+                  <div className="p-2 bg-white dark:bg-gray-800 rounded-lg border border-amber-100 dark:border-amber-900/40">
+                    <strong className="text-amber-700 dark:text-amber-400 block">
+                      • 1. Supervisor Responsável da Carga (3,0% s/ Lucro Líquido)
                     </strong>
                     <span className="text-[11px] text-gray-500 dark:text-gray-400">
-                      Cargas cadastradas e/ou embarcadas pelo próprio Gestor GO ou por Embarcadores GO vinculados à equipe dele. 
-                      Base de Cálculo: Margem líquida de lucro do frete.
+                      Regra padrão dos <strong>Supervisores</strong>: alíquota garantida de 3,0% sobre o Lucro Líquido de todos os embarques realizados nas cargas onde for o Supervisor Responsável, independente de quem operou o frete.
+                    </span>
+                  </div>
+                  <div className="p-2 bg-white dark:bg-gray-800 rounded-lg border border-indigo-100 dark:border-indigo-900/40">
+                    <strong className="text-indigo-600 dark:text-indigo-400 block">
+                      • 2. Modalidade Agência: Operações da Equipe / Próprias (25% s/ Lucro Líquido)
+                    </strong>
+                    <span className="text-[11px] text-gray-500 dark:text-gray-400">
+                      <strong>Exclusivo para Gestor GO (Agenciador Líder)</strong>: 25% sobre o Lucro Líquido de tudo aquilo que ele próprio ou membros da sua equipe embarcarem.
                     </span>
                   </div>
                   <div className="p-2 bg-white dark:bg-gray-800 rounded-lg border border-blue-100 dark:border-blue-900/40">
                     <strong className="text-blue-600 dark:text-blue-400 block">
-                      • Cenário B: Cargas do Gestor GO com Embarque Externo (Padrão: 1,5% s/ Lucro Líquido)
+                      • 3. Modalidade Agência: Cargas Comerciais com Embarque Externo (1,5% s/ Lucro Líquido)
                     </strong>
                     <span className="text-[11px] text-gray-500 dark:text-gray-400">
-                      Cargas sob responsabilidade do Gestor GO que foram embarcadas por um operador que NÃO faz parte da sua equipe.
-                      Base de Cálculo: Margem líquida de lucro do frete.
+                      <strong>Exclusivo para Gestor GO (Agenciador Líder)</strong>: 1,5% sobre o Lucro Líquido das cargas onde ele for o Comercial Responsável que forem embarcadas por operadores fora de sua equipe.
                     </span>
                   </div>
                 </div>
-              </div>
-
-              <div className="p-3 rounded-xl bg-gray-50 dark:bg-gray-700/40 border border-gray-200/60 dark:border-gray-700/60">
-                <p className="font-bold text-gray-800 dark:text-gray-200 mb-1">
-                  2. Regra para Supervisores e Coordenadores
-                </p>
-                <p className="text-[11px]">
-                  Aplica-se a alíquota padrão de <strong>3,0% sobre o Lucro Líquido</strong> apurado exclusivamente nas cargas em que é o titular cadastrado.
-                </p>
               </div>
 
               <div className="p-2.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/40 text-[11px] text-emerald-800 dark:text-emerald-300">

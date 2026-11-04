@@ -15,7 +15,9 @@ interface CargoDetailsModalProps {
   cargo: Cargo | null;
   client: Client | undefined;
   product: Product | undefined;
-  commercialUser: User | undefined;
+  commercialUser?: User | undefined;
+  supervisorUser?: User | undefined;
+  users?: User[];
   stays?: StayRecord[];
   shipments?: Shipment[];
   currentUser?: User;
@@ -56,8 +58,12 @@ const FreightLegDetail: React.FC<{ leg: FreightLeg; index: number; hideSensitive
 );
 
 
-const CargoDetailsModal: React.FC<CargoDetailsModalProps> = ({ isOpen, onClose, cargo, client, product, commercialUser, stays = [], shipments = [], currentUser }) => {
+const CargoDetailsModal: React.FC<CargoDetailsModalProps> = ({ isOpen, onClose, cargo, client, product, commercialUser, supervisorUser, users = [], stays = [], shipments = [], currentUser }) => {
   if (!isOpen || !cargo) return null;
+  const resolvedCommercial = commercialUser || (cargo.createdById ? users.find(u => u.id === cargo.createdById) : undefined);
+  const resolvedSupervisorId = cargo.supervisorId || (cargo.history && cargo.history[0]?.userId);
+  const supCandidate = resolvedSupervisorId ? users.find(u => u.id === resolvedSupervisorId) : undefined;
+  const resolvedSupervisor = supervisorUser || (supCandidate && supCandidate.profile === UserProfile.Supervisor ? supCandidate : undefined);
   const isClient = currentUser?.profile === UserProfile.Cliente;
   const isEmbarcador = currentUser?.profile === UserProfile.Embarcador;
   const isMotorista = currentUser?.profile === UserProfile.Motorista;
@@ -406,7 +412,8 @@ const CargoDetailsModal: React.FC<CargoDetailsModalProps> = ({ isOpen, onClose, 
                 <DetailItem label="Tipo de Carga" value={cargo.type} />
                 <DetailItem label="Status da Carga" value={cargo.status} />
                 <DetailItem label="Prazo de Carregamento" value={cargo.loadingDeadline ? new Date(cargo.loadingDeadline).toLocaleDateString('pt-BR') : 'N/A'} />
-                <DetailItem label="Comercial Responsável" value={commercialUser?.name} />
+                <DetailItem label="Comercial Responsável" value={resolvedCommercial?.name || 'Não informado'} />
+                <DetailItem label="Supervisor Responsável" value={resolvedSupervisor?.name || 'Não informado'} />
                 <DetailItem label="Data de Criação" value={formatDate(cargo.createdAt)} />
             </div>
 

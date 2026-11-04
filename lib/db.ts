@@ -318,6 +318,7 @@ export const toCargo = (row: any): Cargo => {
     status: row.status,
     createdAt: row.created_at,
     createdById: row.created_by_id,
+    supervisorId: row.supervisor_id || undefined,
     history: rawHistory.filter((h: any) => h.id !== 'meta_dest_obs' && h.id !== 'meta_cargo_extra'),
     loadingDeadline: row.loading_deadline,
     allowedVehicleTypes: row.allowed_vehicle_types,
@@ -397,6 +398,7 @@ const fromCargo = (c: Cargo | Omit<Cargo, 'id'>) => {
     status: c.status,
     created_at: c.createdAt,
     created_by_id: c.createdById,
+    supervisor_id: c.supervisorId || null,
     history: rawHistory,
     loading_deadline: c.loadingDeadline,
     allowed_vehicle_types: c.allowedVehicleTypes,
@@ -922,6 +924,9 @@ export async function getNextCargoIdentifiers(): Promise<{ nextId: string; nextS
   return { nextId, nextSeq, nextNum };
 }
 
+const isMissingSupervisorCol = (e: any) =>
+  e && (e.code === 'PGRST204' || e.code === '42703') && String(e.message || '').includes('supervisor_id');
+
 export async function upsertCargo(cargo: Cargo): Promise<void> {
   if (!cargo.id || cargo.id.startsWith('TEMP-')) {
     const created = await insertCargo(cargo);
@@ -931,7 +936,13 @@ export async function upsertCargo(cargo: Cargo): Promise<void> {
   }
   const payload = fromCargo(cargo);
   console.log('[upsertCargo] Saving cargo:', cargo.id, payload);
-  const { error } = await supabase.from('cargos').update(payload).eq('id', cargo.id);
+  let { error } = await supabase.from('cargos').update(payload).eq('id', cargo.id);
+  if (error && isMissingSupervisorCol(error)) {
+    console.warn('[upsertCargo] Coluna supervisor_id não existe em cargos. Salvando sem ela. Execute a migração SQL.');
+    const { supervisor_id, ...payloadWithoutSup } = payload;
+    const retry = await supabase.from('cargos').update(payloadWithoutSup).eq('id', cargo.id);
+    error = retry.error;
+  }
   if (error) {
     console.error('[upsertCargo] Error:', error);
     throw error;
@@ -1026,7 +1037,14 @@ export async function insertCargo(cargo: Cargo | Omit<Cargo, 'id'>): Promise<Car
       sequence_id: finalSeq,
     };
 
-    const { data, error } = await supabase.from('cargos').insert(insertPayload).select().single();
+    let { data, error } = await supabase.from('cargos').insert(insertPayload).select().single();
+    if (error && isMissingSupervisorCol(error)) {
+      console.warn('[insertCargo] Coluna supervisor_id não existe em cargos. Inserindo sem ela. Execute a migração SQL.');
+      const { supervisor_id, ...payloadWithoutSup } = insertPayload;
+      const retry = await supabase.from('cargos').insert(payloadWithoutSup).select().single();
+      data = retry.data;
+      error = retry.error;
+    }
     if (!error && data) {
       console.log('[insertCargo] Success for cargo:', data.id);
       return toCargo(data);

@@ -359,6 +359,7 @@ const OperationalLoadsPage: React.FC<OperationalLoadsPageProps> = ({
             client={clients.find(c => c.id === detailsModalCargo.clientId)}
             product={products.find(p => p.id === detailsModalCargo.productId)}
             commercialUser={users.find(u => u.id === detailsModalCargo.createdById)}
+              users={users}
             currentUser={currentUser}
           />
         )}
@@ -467,6 +468,7 @@ const OperationalLoadsPage: React.FC<OperationalLoadsPageProps> = ({
         client={detailsModalCargo ? clients.find(c => c.id === detailsModalCargo.clientId) : undefined}
         product={detailsModalCargo ? products.find(p => p.id === detailsModalCargo.productId) : undefined}
         commercialUser={detailsModalCargo ? users.find(u => u.id === detailsModalCargo.createdById) : undefined}
+          users={users}
         stays={stays}
         shipments={allShipments}
         currentUser={currentUser}
