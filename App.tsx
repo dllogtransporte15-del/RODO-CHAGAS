@@ -162,7 +162,8 @@ const App: React.FC = () => {
     isAnyModalActiveRef,
     branches, setBranches,
     stays, setStays,
-    freightOffers, setFreightOffers
+    freightOffers, setFreightOffers,
+    recordRecentShipmentUpdate,
   } = useDatabase(currentUser);
 
   const { showToast } = useToast();
@@ -1494,6 +1495,13 @@ const App: React.FC = () => {
 
     if (currentUser.profile === UserProfile.Motorista && originalShipment.status === ShipmentStatus.AguardandoDescarga) {
         nextStatus = ShipmentStatus.AguardandoDescarga;
+    } else if (originalShipment.status === ShipmentStatus.AguardandoAdiantamento) {
+        const relatedCargo = cargos.find(c => c.id === originalShipment.cargoId);
+        if (relatedCargo?.requiresScheduling) {
+            nextStatus = ShipmentStatus.AguardandoAgendamento;
+        } else {
+            nextStatus = ShipmentStatus.AguardandoDescarga;
+        }
     } else {
         nextStatus = nextStatusMap[originalShipment.status];
     }
@@ -1688,8 +1696,8 @@ const App: React.FC = () => {
     }
 
     // 4. Optimistic update: atualiza estado local ANTES de persistir,
-    //    para evitar que o evento realtime sobrescreva com dado antigo
-    //    durante a janela do await.
+    //    e registra a mutação recente para proteger contra sobrescrita por real-time / background sync.
+    recordRecentShipmentUpdate(shipmentId, nextStatus);
     setShipments((prev: Shipment[]) => prev.map(s => s.id === shipmentId ? updatedShipment : s));
     if (updatedCargo) {
       const cargoToUpdate = updatedCargo;
@@ -1704,35 +1712,35 @@ const App: React.FC = () => {
     // 5. Persist to Supabase
     try {
       await upsertShipment(updatedShipment);
-      if (updatedCargo) {
-        await upsertCargo(updatedCargo);
-      }
-      if (createdTicket) {
-        await upsertTicket(createdTicket);
-      }
-      
-      const successMsg = (currentUser.profile === UserProfile.Motorista && originalShipment.status === ShipmentStatus.AguardandoDescarga)
-        ? 'Comprovante enviado! Aguardando confirmação do peso pelo embarcador.'
-        : 'Embarque atualizado com sucesso!';
-      showToast(successMsg, 'success');
     } catch(err: any) { 
       console.error('Erro ao salvar no Supabase:', err);
-      // Rollback do estado local para o original em caso de falha na persistência
+      // Rollback do estado local para o original apenas se o salvamento do embarque falhar
       setShipments((prev: Shipment[]) => prev.map(s => s.id === shipmentId ? originalShipment : s));
-      if (updatedCargo) {
-        const originalCargo = cargos.find(c => c.id === updatedCargo!.id);
-        if (originalCargo) {
-          setCargos(prev => prev.map(c => c.id === originalCargo.id ? originalCargo : c));
-        }
-      }
-      if (createdTicket) {
-        setTickets((prev: Ticket[]) => prev.filter(t => t.id !== createdTicket!.id));
-        setNextIds((prev: any) => ({ ...prev, ticket: prev.ticket - 1 }));
-      }
       const errorMessage = err?.message || 'Erro desconhecido ao salvar no banco de dados.';
-      showToast(`[ERRO CRÍTICO] Falha ao persistir dados: ${errorMessage}`, 'error');
+      showToast(`[ERRO CRÍTICO] Falha ao persistir status do embarque: ${errorMessage}`, 'error');
       throw err;
     }
+
+    if (updatedCargo) {
+      try {
+        await upsertCargo(updatedCargo);
+      } catch (cargoErr) {
+        console.warn('[handleUpdateShipmentAttachment] Falha secundária ao atualizar volume da carga no Supabase:', cargoErr);
+      }
+    }
+
+    if (createdTicket) {
+      try {
+        await upsertTicket(createdTicket);
+      } catch (ticketErr) {
+        console.warn('[handleUpdateShipmentAttachment] Falha secundária ao criar ticket no Supabase:', ticketErr);
+      }
+    }
+
+    const successMsg = (currentUser.profile === UserProfile.Motorista && originalShipment.status === ShipmentStatus.AguardandoDescarga)
+      ? 'Comprovante enviado! Aguardando confirmação do peso pelo embarcador.'
+      : 'Embarque atualizado com sucesso!';
+    showToast(successMsg, 'success');
   };
 
   const handleUpdateShipmentAnttAndBankDetails = async (shipmentId: string, data: { anttOwnerIdentifier: string; bankDetails?: string }) => {
@@ -1963,6 +1971,7 @@ const App: React.FC = () => {
         };
     }
 
+    recordRecentShipmentUpdate(shipmentId, ShipmentStatus.Cancelado);
     setShipments((prev: Shipment[]) => prev.map(s => s.id === shipmentId ? cancelledShipment : s));
     if (updatedCargo) {
         setCargos(prevCargos => prevCargos.map(cargo => cargo.id === relatedCargo!.id ? updatedCargo! : cargo));
@@ -2667,6 +2676,12 @@ const App: React.FC = () => {
     } else {
         // Fallback para a ordem inversa estrita: 9 -> 8 -> 7 -> 6 -> 5 -> 4 -> 3 -> 2 -> 1
         previousStatus = prevStatusMap[currentStatus];
+        if (currentStatus === ShipmentStatus.AguardandoDescarga) {
+            const relatedCargo = cargos.find(c => c.id === shipment.cargoId);
+            if (!relatedCargo?.requiresScheduling) {
+                previousStatus = ShipmentStatus.AguardandoAdiantamento;
+            }
+        }
         if (previousStatus) {
             historyCopy = [{ status: previousStatus, timestamp: new Date().toISOString(), userId: currentUser.id }];
         }
@@ -2730,6 +2745,7 @@ const App: React.FC = () => {
     };
 
     // Optimistic update antes de persistir
+    recordRecentShipmentUpdate(shipmentId, previousStatus);
     setShipments((prev: Shipment[]) => prev.map(s => s.id === shipmentId ? updatedShipment : s));
     if (updatedCargo) {
         setCargos(prev => prev.map(c => c.id === updatedShipment.cargoId ? updatedCargo! : c));

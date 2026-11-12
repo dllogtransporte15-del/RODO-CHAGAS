@@ -103,6 +103,11 @@ export function useDatabase(currentUser: User | null) {
   });
 
   const isAnyModalActiveRef = useRef(false);
+  const recentLocalUpdatesRef = useRef<Map<string, { status: ShipmentStatus; timestamp: number }>>(new Map());
+
+  const recordRecentShipmentUpdate = useCallback((id: string, status: ShipmentStatus) => {
+    recentLocalUpdatesRef.current.set(id, { status, timestamp: Date.now() });
+  }, []);
 
   const loadAllData = useCallback(async (isBackground = false) => {
     if (!isBackground) setIsLoading(true);
@@ -119,6 +124,21 @@ export function useDatabase(currentUser: User | null) {
         return;
       }
 
+      const now = Date.now();
+      const mergeWithRecent = (fetchedShipments: Shipment[]) => {
+        if (!isBackground) return fetchedShipments;
+        return fetchedShipments.map(dbShip => {
+          const recent = recentLocalUpdatesRef.current.get(dbShip.id);
+          if (recent && (now - recent.timestamp < 30000) && dbShip.status !== recent.status) {
+            const localShip = shipmentsRef.current.find(s => s.id === dbShip.id);
+            if (localShip) {
+              return { ...dbShip, ...localShip, status: recent.status };
+            }
+          }
+          return dbShip;
+        });
+      };
+
       const isMotorista = currentUser.profile === 'Motorista';
 
       if (isMotorista) {
@@ -130,9 +150,12 @@ export function useDatabase(currentUser: User | null) {
           fetchProducts(), fetchClients(), fetchFreightOffers(), fetchUsers()
         ]);
 
-        const syncedCargos = syncCargosWithShipments(dbCargos, dbShipments);
+        const effectiveShipments = mergeWithRecent(dbShipments);
+        const syncedCargos = syncCargosWithShipments(dbCargos, effectiveShipments);
         setCargos(syncedCargos);
-        setShipments(dbShipments);
+        cargosRef.current = syncedCargos;
+        setShipments(effectiveShipments);
+        shipmentsRef.current = effectiveShipments;
         setProducts(dbProducts);
         setClients(dbClients);
         setFreightOffers(dbFreightOffers);
@@ -156,14 +179,17 @@ export function useDatabase(currentUser: User | null) {
           fetchBranches(), getAllToolStays(), fetchFreightOffers()
         ]);
 
-        const syncedCargos = syncCargosWithShipments(dbCargos, dbShipments);
+        const effectiveShipments = mergeWithRecent(dbShipments);
+        const syncedCargos = syncCargosWithShipments(dbCargos, effectiveShipments);
         setClients(dbClients);
         setOwners(dbOwners);
         setDrivers(dbDrivers);
         setVehicles(dbVehicles);
         setProducts(dbProducts);
         setCargos(syncedCargos);
-        setShipments(dbShipments);
+        cargosRef.current = syncedCargos;
+        setShipments(effectiveShipments);
+        shipmentsRef.current = effectiveShipments;
         setUsers(dbUsers);
         setTickets(dbTickets);
         setFreightOffers(dbFreightOffers);
@@ -224,6 +250,10 @@ export function useDatabase(currentUser: User | null) {
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
+        if (isAnyModalActiveRef.current) {
+          console.log('[useDatabase] Modal ativo detectado. Sincronização em background suspensa para evitar perda de dados.');
+          return;
+        }
         console.log('[useDatabase] Aba visível novamente. Sincronizando dados em background...');
         loadAllData(true);
       }
@@ -309,13 +339,20 @@ export function useDatabase(currentUser: User | null) {
               }
             } else if (eventType === 'UPDATE' && newRow) {
               const item = toShipment(newRow);
+              const recent = recentLocalUpdatesRef.current.get(item.id);
+              if (recent && recent.status === item.status) {
+                recentLocalUpdatesRef.current.delete(item.id);
+              }
               setShipments(prev => {
                 const updated = prev.map(s => {
                   if (s.id !== item.id) return s;
+                  const isStaleRealtime = recent && (Date.now() - recent.timestamp < 30000) && item.status !== recent.status;
+                  const finalStatus = isStaleRealtime ? s.status : item.status;
                   return {
                     ...s,
                     ...item,
-                    documents: item.documents || s.documents,
+                    status: finalStatus,
+                    documents: (item.documents && Object.keys(item.documents).length > 0) ? item.documents : s.documents,
                     history: (item.history && item.history.length > 0) ? item.history : s.history,
                   };
                 });
@@ -597,6 +634,7 @@ export function useDatabase(currentUser: User | null) {
     themeImage, setThemeImage,
     nextIds, setNextIds,
     loadAllData,
-    isAnyModalActiveRef
+    isAnyModalActiveRef,
+    recordRecentShipmentUpdate,
   };
 }
