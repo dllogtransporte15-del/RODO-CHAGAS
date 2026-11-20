@@ -11,6 +11,7 @@ interface ShipperRankingCardProps {
   cargos: Cargo[];
   users: User[];
   currentUser: User | null;
+  className?: string;
 }
 
 interface ShipperStat {
@@ -24,7 +25,7 @@ interface ShipperStat {
   commission: number;
 }
 
-const ShipperRankingCard: React.FC<ShipperRankingCardProps> = ({ shipments, cargos, users, currentUser }) => {
+const ShipperRankingCard: React.FC<ShipperRankingCardProps> = ({ shipments, cargos, users, currentUser, className = 'col-span-1' }) => {
   const canViewCommission = React.useMemo(() => {
     if (!currentUser) return false;
     return [UserProfile.Diretor, UserProfile.Comercial, UserProfile.Admin].includes(currentUser.profile);
@@ -165,7 +166,7 @@ const ShipperRankingCard: React.FC<ShipperRankingCardProps> = ({ shipments, carg
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md col-span-1 lg:col-span-2">
+    <div className={`bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md ${className}`}>
       <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-1">Ranking de Embarcadores</h3>
       <p className="text-xs text-gray-500 mb-4">Resultados do mês atual</p>
       <div className="overflow-x-auto">
