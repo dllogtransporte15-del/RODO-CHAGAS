@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { MapPin, Navigation } from 'lucide-react';
 import type { Shipment, Cargo } from '../types';
 import { CargoStatus } from '../types';
@@ -28,7 +28,7 @@ interface RegionStyleConfig {
   defaultPercent: number;
 }
 
-const REGION_CONFIGS: Record<RegionKey, RegionStyleConfig> = {
+const REGION_CONFIGS_DARK: Record<RegionKey, RegionStyleConfig> = {
   Sudeste: {
     key: 'Sudeste',
     name: 'Sudeste',
@@ -77,6 +77,59 @@ const REGION_CONFIGS: Record<RegionKey, RegionStyleConfig> = {
     mapStroke: '#0891b2',
     activeFill: '#1c4259',
     activeStroke: '#38bdf8',
+    defaultPercent: 0.0,
+  },
+};
+
+const REGION_CONFIGS_LIGHT: Record<RegionKey, RegionStyleConfig> = {
+  Sudeste: {
+    key: 'Sudeste',
+    name: 'Sudeste',
+    color: '#7e22ce', // Deep purple
+    mapFill: '#f3e8ff', // Soft lavender
+    mapStroke: '#9333ea',
+    activeFill: '#e9d5ff',
+    activeStroke: '#6b21a8',
+    defaultPercent: 90.4,
+  },
+  Sul: {
+    key: 'Sul',
+    name: 'Sul',
+    color: '#1d4ed8', // Deep royal blue
+    mapFill: '#dbeafe', // Soft sky blue
+    mapStroke: '#2563eb',
+    activeFill: '#bfdbfe',
+    activeStroke: '#1e40af',
+    defaultPercent: 5.8,
+  },
+  Norte: {
+    key: 'Norte',
+    name: 'Norte',
+    color: '#c2410c', // Deep orange
+    mapFill: '#ffedd5', // Soft orange
+    mapStroke: '#ea580c',
+    activeFill: '#fed7aa',
+    activeStroke: '#9a3412',
+    defaultPercent: 3.8,
+  },
+  Nordeste: {
+    key: 'Nordeste',
+    name: 'Nordeste',
+    color: '#047857', // Deep emerald
+    mapFill: '#d1fae5', // Soft mint
+    mapStroke: '#059669',
+    activeFill: '#a7f3d0',
+    activeStroke: '#065f46',
+    defaultPercent: 0.0,
+  },
+  'Centro-Oeste': {
+    key: 'Centro-Oeste',
+    name: 'Centro-Oeste',
+    color: '#0e7490', // Deep cyan
+    mapFill: '#cffafe', // Soft cyan
+    mapStroke: '#0891b2',
+    activeFill: '#a5f3fc',
+    activeStroke: '#155e75',
     defaultPercent: 0.0,
   },
 };
@@ -231,6 +284,34 @@ export const DeliveriesByRegionCard: React.FC<DeliveriesByRegionCardProps> = ({
   cargos,
   className = '',
 }) => {
+  // Theme state: automatically detects light/dark mode and responds to changes
+  const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
+    if (typeof document !== 'undefined') {
+      return document.documentElement.classList.contains('dark');
+    }
+    return true;
+  });
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+
+    const checkDarkMode = () => {
+      setIsDarkMode(document.documentElement.classList.contains('dark'));
+    };
+
+    checkDarkMode();
+
+    const observer = new MutationObserver(checkDarkMode);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class'],
+    });
+
+    return () => observer.disconnect();
+  }, []);
+
+  const currentRegionConfigs = isDarkMode ? REGION_CONFIGS_DARK : REGION_CONFIGS_LIGHT;
+
   const [hoveredRegion, setHoveredRegion] = useState<RegionKey | null>(null);
   const [hoveredStateId, setHoveredStateId] = useState<string | null>(null);
   const [tooltip, setTooltip] = useState<{
@@ -320,11 +401,11 @@ export const DeliveriesByRegionCard: React.FC<DeliveriesByRegionCardProps> = ({
 
     // If real shipments exist with destinations, calculate dynamically
     if (totalValid > 0) {
-      const computed = (Object.keys(REGION_CONFIGS) as RegionKey[]).map((key) => {
+      const computed = (Object.keys(currentRegionConfigs) as RegionKey[]).map((key) => {
         const count = counts[key];
         const pct = (count / totalValid) * 100;
         return {
-          ...REGION_CONFIGS[key],
+          ...currentRegionConfigs[key],
           percentageVal: pct,
           percentageStr: `${pct.toFixed(1).replace('.', ',')}%`,
           count,
@@ -336,7 +417,7 @@ export const DeliveriesByRegionCard: React.FC<DeliveriesByRegionCardProps> = ({
     // Default benchmark distribution from reference image (Sudeste 90,4%, Sul 5,8%, Norte 3,8%, Nordeste 0,0%, Centro-Oeste 0,0%)
     const defaultOrder: RegionKey[] = ['Sudeste', 'Sul', 'Norte', 'Nordeste', 'Centro-Oeste'];
     return defaultOrder.map((key) => {
-      const config = REGION_CONFIGS[key];
+      const config = currentRegionConfigs[key];
       return {
         ...config,
         percentageVal: config.defaultPercent,
@@ -344,7 +425,7 @@ export const DeliveriesByRegionCard: React.FC<DeliveriesByRegionCardProps> = ({
         count: 0,
       };
     });
-  }, [shipments, cargos]);
+  }, [shipments, cargos, currentRegionConfigs]);
 
   const handleStateMouseMove = (state: StateShape, e: React.MouseEvent) => {
     if (mapContainerRef.current) {
@@ -387,22 +468,22 @@ export const DeliveriesByRegionCard: React.FC<DeliveriesByRegionCardProps> = ({
 
   return (
     <div
-      className={`bg-[#141b2d] dark:bg-[#111827] text-white p-5 rounded-xl shadow-xl border border-slate-800/90 flex flex-col justify-between ${className}`}
+      className={`bg-white dark:bg-[#141b2d] text-gray-900 dark:text-white p-4 sm:p-5 rounded-xl shadow-md dark:shadow-xl border border-gray-200 dark:border-slate-800/90 flex flex-col justify-between transition-colors duration-300 ${className}`}
     >
       {/* Header */}
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-purple-900/30 border border-purple-500/30 flex items-center justify-center text-purple-400 shadow-inner">
-            <MapPin className="w-5 h-5 text-purple-400 fill-purple-400/30" />
+          <div className="w-9 h-9 rounded-xl bg-purple-50 dark:bg-purple-900/30 border border-purple-200 dark:border-purple-500/30 flex items-center justify-center text-purple-600 dark:text-purple-400 shadow-sm dark:shadow-inner">
+            <MapPin className="w-5 h-5 text-purple-600 dark:text-purple-400 fill-purple-600/20 dark:fill-purple-400/30" />
           </div>
           <div>
-            <h3 className="text-base font-bold text-gray-100 tracking-tight">Entregas por Região</h3>
-            <p className="text-xs text-gray-400 font-normal">
+            <h3 className="text-base font-bold text-gray-900 dark:text-gray-100 tracking-tight">Entregas por Região</h3>
+            <p className="text-xs text-gray-600 dark:text-gray-400 font-semibold dark:font-normal">
               {activeCargosCount} cargas ativas em operação (Mês Atual)
             </p>
           </div>
         </div>
-        <div className="px-3 py-1 rounded-full bg-slate-800/80 border border-slate-700 text-xs font-semibold text-gray-200 shadow-sm">
+        <div className="px-3 py-1 rounded-full bg-gray-100 dark:bg-slate-800/80 border border-gray-300 dark:border-slate-700 text-xs font-bold text-gray-800 dark:text-gray-200 shadow-sm">
           {totalTonnageFormatted} t
         </div>
       </div>
@@ -417,7 +498,11 @@ export const DeliveriesByRegionCard: React.FC<DeliveriesByRegionCardProps> = ({
           {/* Interactive Floating Tooltip Card */}
           {tooltip.visible && tooltipStateMeta && (
             <div
-              className="absolute z-30 pointer-events-none bg-[#0e1726]/95 border border-slate-700/80 rounded-xl p-3 shadow-2xl backdrop-blur-md min-w-[150px] max-w-[210px] transition-all duration-75 text-left ring-1 ring-slate-600/50"
+              className={`absolute z-30 pointer-events-none rounded-xl p-3 shadow-2xl backdrop-blur-md min-w-[150px] max-w-[210px] transition-all duration-75 text-left ring-1 ${
+                isDarkMode
+                  ? 'bg-[#0e1726]/95 border border-slate-700/80 text-white ring-slate-600/50'
+                  : 'bg-white/95 border border-gray-200 text-gray-900 shadow-xl ring-gray-900/10'
+              }`}
               style={{
                 left: `${tooltip.x}px`,
                 top: `${tooltip.y}px`,
@@ -426,17 +511,17 @@ export const DeliveriesByRegionCard: React.FC<DeliveriesByRegionCardProps> = ({
               <div className="flex items-center gap-2 mb-1">
                 <span
                   className="w-2.5 h-2.5 rounded-full flex-shrink-0 shadow-sm"
-                  style={{ backgroundColor: REGION_CONFIGS[tooltipStateMeta.region].color }}
+                  style={{ backgroundColor: currentRegionConfigs[tooltipStateMeta.region].color }}
                 />
-                <h4 className="text-xs font-bold text-white tracking-wide">
+                <h4 className="text-xs font-bold text-gray-900 dark:text-white tracking-wide">
                   {tooltipStateMeta.name} ({tooltipStateMeta.id})
                 </h4>
               </div>
-              <p className="text-[11px] text-gray-300 font-normal mb-1">
-                <span className="text-gray-400">Região: </span>
-                <span className="font-semibold text-gray-100">{tooltipStateMeta.region}</span>
+              <p className="text-[11px] text-gray-600 dark:text-gray-300 font-normal mb-1">
+                <span className="text-gray-500 dark:text-gray-400">Região: </span>
+                <span className="font-bold text-gray-800 dark:text-gray-100">{tooltipStateMeta.region}</span>
               </p>
-              <p className="text-[10px] text-gray-400 italic">
+              <p className="text-[10px] text-gray-500 dark:text-gray-400 italic font-medium">
                 {tooltipStats && tooltipStats.count > 0
                   ? `${tooltipStats.count} ${tooltipStats.count === 1 ? 'entrega' : 'entregas'} • ${new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(tooltipStats.tonnage)} t`
                   : 'Sem entregas no período'}
@@ -446,7 +531,7 @@ export const DeliveriesByRegionCard: React.FC<DeliveriesByRegionCardProps> = ({
 
           <svg
             viewBox={BRAZIL_VIEWBOX}
-            className="w-full h-full min-h-[440px] max-h-[640px] object-contain select-none drop-shadow-2xl"
+            className="w-full h-full min-h-[440px] max-h-[640px] object-contain select-none drop-shadow-xl"
             aria-label="Mapa do Brasil com Regiões, Origens, Destinos e Rotas"
           >
             <defs>
@@ -468,14 +553,17 @@ export const DeliveriesByRegionCard: React.FC<DeliveriesByRegionCardProps> = ({
 
               {/* Radial gradient for Santos port mega halo */}
               <radialGradient id="halo-santos" cx="50%" cy="50%" r="50%">
-                <stop offset="0%" stopColor="#c084fc" stopOpacity="0.8" />
-                <stop offset="35%" stopColor="#a855f7" stopOpacity="0.4" />
-                <stop offset="100%" stopColor="#a855f7" stopOpacity="0" />
+                <stop offset="0%" stopColor={isDarkMode ? '#c084fc' : '#9333ea'} stopOpacity={isDarkMode ? 0.8 : 0.4} />
+                <stop offset="35%" stopColor={isDarkMode ? '#a855f7' : '#a855f7'} stopOpacity={isDarkMode ? 0.4 : 0.2} />
+                <stop offset="100%" stopColor={isDarkMode ? '#a855f7' : '#a855f7'} stopOpacity="0" />
               </radialGradient>
             </defs>
 
             {/* Coastal Islands */}
-            <g className="fill-[#1b233a] stroke-[#334155]" strokeWidth="0.5">
+            <g
+              className={isDarkMode ? 'fill-[#1b233a] stroke-[#334155]' : 'fill-[#f1f5f9] stroke-[#94a3b8]'}
+              strokeWidth="0.5"
+            >
               {BRAZIL_ISLANDS.map((island, idx) =>
                 island.tag === 'polygon' ? (
                   <polygon key={`isl-${idx}`} points={island.points} />
@@ -488,27 +576,26 @@ export const DeliveriesByRegionCard: React.FC<DeliveriesByRegionCardProps> = ({
             {/* Brazilian States grouped into the 5 Macro-Regions */}
             <g>
               {BRAZIL_STATES.map((state) => {
-                const config = REGION_CONFIGS[state.region];
+                const config = currentRegionConfigs[state.region];
                 const isRegionHovered = hoveredRegion === state.region;
                 const isStateHovered = hoveredStateId === state.id;
                 const isRR = state.id === 'RR'; // Highlighted border in reference model
 
-                // When state is hovered, display bright white border like in reference model!
+                // State Fill & Stroke: in Light Mode vs Dark Mode
                 const fillColor = isStateHovered
                   ? config.activeFill
                   : isRegionHovered
                   ? config.activeFill
                   : config.mapFill;
 
+                const defaultStroke = isRR ? (isDarkMode ? '#ea580c' : '#c2410c') : config.mapStroke;
                 const strokeColor = isStateHovered
-                  ? '#ffffff'
+                  ? (isDarkMode ? '#ffffff' : '#0f172a')
                   : isRegionHovered
                   ? config.activeStroke
-                  : isRR
-                  ? '#ea580c'
-                  : config.mapStroke;
+                  : defaultStroke;
 
-                const strokeWidth = isStateHovered ? 2.0 : isRegionHovered || isRR ? 1.4 : 0.8;
+                const strokeWidth = isStateHovered ? 2.2 : isRegionHovered || isRR ? 1.4 : 0.85;
 
                 const commonProps = {
                   fill: fillColor,
@@ -545,6 +632,11 @@ export const DeliveriesByRegionCard: React.FC<DeliveriesByRegionCardProps> = ({
                 const meta = STATE_METADATA[state.id];
                 if (!meta) return null;
                 const isStateHovered = hoveredStateId === state.id;
+                const labelFill = isDarkMode
+                  ? '#ffffff'
+                  : isStateHovered
+                  ? '#0f172a'
+                  : '#334155';
 
                 return (
                   <text
@@ -553,10 +645,10 @@ export const DeliveriesByRegionCard: React.FC<DeliveriesByRegionCardProps> = ({
                     y={meta.cy}
                     textAnchor="middle"
                     dominantBaseline="central"
-                    fill="#ffffff"
-                    fontWeight={isStateHovered ? 'bold' : '600'}
+                    fill={labelFill}
+                    fontWeight={isDarkMode ? (isStateHovered ? 'bold' : '600') : '800'}
                     fontSize={isStateHovered ? '9.5' : '6.5'}
-                    opacity={isStateHovered ? 1 : 0.45}
+                    opacity={isDarkMode ? (isStateHovered ? 1 : 0.45) : (isStateHovered ? 1 : 0.65)}
                     className="transition-all duration-150 drop-shadow-sm font-sans"
                   >
                     {state.id}
@@ -579,10 +671,10 @@ export const DeliveriesByRegionCard: React.FC<DeliveriesByRegionCardProps> = ({
                     key={`route-${idx}`}
                     d={d}
                     fill="none"
-                    stroke="#38bdf8"
-                    strokeWidth="0.85"
+                    stroke={isDarkMode ? '#38bdf8' : '#0284c7'}
+                    strokeWidth={isDarkMode ? '0.85' : '1.1'}
                     strokeDasharray="3 3"
-                    strokeOpacity="0.45"
+                    strokeOpacity={isDarkMode ? '0.45' : '0.65'}
                   />
                 );
               })}
@@ -590,10 +682,10 @@ export const DeliveriesByRegionCard: React.FC<DeliveriesByRegionCardProps> = ({
 
             {/* Santos Port Mega Concentric Halos & Expanding Ripples */}
             <g className="pointer-events-none">
-              <circle cx="238" cy="258" r="22" fill="url(#halo-santos)" opacity="0.6" />
-              <circle cx="238" cy="258" r="14" fill="none" stroke="#c084fc" strokeWidth="0.75" strokeOpacity="0.6" />
-              <circle cx="238" cy="258" r="8" fill="none" stroke="#e9d5ff" strokeWidth="0.9" strokeOpacity="0.8" />
-              <circle cx="238" cy="258" r="3.5" fill="#c084fc" filter="url(#glow-dest)" />
+              <circle cx="238" cy="258" r="22" fill="url(#halo-santos)" opacity={isDarkMode ? 0.6 : 0.4} />
+              <circle cx="238" cy="258" r="14" fill="none" stroke={isDarkMode ? '#c084fc' : '#9333ea'} strokeWidth="0.85" strokeOpacity="0.7" />
+              <circle cx="238" cy="258" r="8" fill="none" stroke={isDarkMode ? '#e9d5ff' : '#7e22ce'} strokeWidth="1" strokeOpacity="0.8" />
+              <circle cx="238" cy="258" r="3.5" fill={isDarkMode ? '#c084fc' : '#9333ea'} filter="url(#glow-dest)" />
               <circle cx="238" cy="258" r="1.5" fill="#ffffff" />
             </g>
 
@@ -607,7 +699,7 @@ export const DeliveriesByRegionCard: React.FC<DeliveriesByRegionCardProps> = ({
                     cy={node.y}
                     r="6.5"
                     fill="none"
-                    stroke="#c084fc"
+                    stroke={isDarkMode ? '#c084fc' : '#9333ea'}
                     strokeWidth="0.75"
                     strokeOpacity="0.65"
                   />
@@ -617,7 +709,7 @@ export const DeliveriesByRegionCard: React.FC<DeliveriesByRegionCardProps> = ({
                     cy={node.y}
                     r="4"
                     fill="none"
-                    stroke="#e9d5ff"
+                    stroke={isDarkMode ? '#e9d5ff' : '#7e22ce'}
                     strokeWidth="0.8"
                     strokeOpacity="0.8"
                   />
@@ -626,7 +718,7 @@ export const DeliveriesByRegionCard: React.FC<DeliveriesByRegionCardProps> = ({
                     cx={node.x}
                     cy={node.y}
                     r="2.5"
-                    fill="#a855f7"
+                    fill={isDarkMode ? '#a855f7' : '#9333ea'}
                     filter="url(#glow-dest)"
                   />
                   <circle cx={node.x} cy={node.y} r="1" fill="#ffffff" />
@@ -644,16 +736,16 @@ export const DeliveriesByRegionCard: React.FC<DeliveriesByRegionCardProps> = ({
                     cy={node.y}
                     r="5"
                     fill="none"
-                    stroke="#34d399"
-                    strokeWidth="0.7"
-                    strokeOpacity="0.7"
+                    stroke={isDarkMode ? '#34d399' : '#059669'}
+                    strokeWidth="0.75"
+                    strokeOpacity="0.75"
                   />
                   {/* Core dot */}
                   <circle
                     cx={node.x}
                     cy={node.y}
                     r="2.2"
-                    fill="#10b981"
+                    fill={isDarkMode ? '#10b981' : '#047857'}
                     filter="url(#glow-orig)"
                   />
                   <circle cx={node.x} cy={node.y} r="0.8" fill="#ffffff" />
@@ -689,15 +781,19 @@ export const DeliveriesByRegionCard: React.FC<DeliveriesByRegionCardProps> = ({
                     />
                     <span
                       className={`truncate transition-colors ${
-                        isHovered ? 'text-white font-medium' : 'text-gray-300 font-normal'
+                        isHovered
+                          ? 'text-gray-900 dark:text-white font-extrabold'
+                          : 'text-gray-800 dark:text-gray-300 font-bold dark:font-normal'
                       }`}
                     >
                       {item.name}
                     </span>
                   </div>
                   <span
-                    className={`font-semibold tabular-nums ml-2 transition-colors ${
-                      isHovered ? 'text-white' : 'text-gray-200'
+                    className={`tabular-nums ml-2 transition-colors ${
+                      isHovered
+                        ? 'text-gray-900 dark:text-white font-extrabold'
+                        : 'text-gray-900 dark:text-gray-200 font-extrabold dark:font-semibold'
                     }`}
                   >
                     {item.percentageStr}
@@ -705,7 +801,7 @@ export const DeliveriesByRegionCard: React.FC<DeliveriesByRegionCardProps> = ({
                 </div>
 
                 {/* Horizontal Progress Bar */}
-                <div className="w-full h-1 bg-slate-800/80 rounded-full overflow-hidden">
+                <div className="w-full h-1.5 bg-gray-200 dark:bg-slate-800/80 rounded-full overflow-hidden">
                   <div
                     className="h-full rounded-full transition-all duration-700 ease-out"
                     style={{
@@ -725,7 +821,7 @@ export const DeliveriesByRegionCard: React.FC<DeliveriesByRegionCardProps> = ({
       </div>
 
       {/* Footer Legend Bar */}
-      <div className="border-t border-slate-800/80 pt-2.5 mt-2 flex flex-wrap items-center justify-between gap-3 text-xs text-gray-400">
+      <div className="border-t border-gray-200 dark:border-slate-800/80 pt-2.5 mt-1 flex flex-wrap items-center justify-between gap-3 text-xs text-gray-700 dark:text-gray-400 font-semibold dark:font-normal">
         <div className="flex items-center gap-4 flex-wrap">
           <div className="flex items-center gap-1.5">
             <span className="w-2.5 h-2.5 rounded-full bg-[#10b981] shadow-sm shadow-emerald-500/50" />
@@ -736,11 +832,11 @@ export const DeliveriesByRegionCard: React.FC<DeliveriesByRegionCardProps> = ({
             <span>Destino (Descarga)</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="inline-block w-4 border-t-2 border-dashed border-[#38bdf8]" />
+            <span className="inline-block w-4 border-t-2 border-dashed border-sky-600 dark:border-[#38bdf8]" />
             <span>Rotas em Aberto</span>
           </div>
         </div>
-        <div className="flex items-center gap-1.5 text-cyan-400 font-medium">
+        <div className="flex items-center gap-1.5 text-sky-700 dark:text-cyan-400 font-bold dark:font-medium">
           <Navigation className="w-3.5 h-3.5 -rotate-45" />
           <span>{activeCargosCount} cargas não finalizadas</span>
         </div>

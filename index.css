@@ -390,4 +390,217 @@ html, body {
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
 }
 
+/* ==========================================================================
+   MODO CLARO (LIGHT THEME): FONTES DAS LETRAS E NÚMEROS EM NEGRITO
+   Aplicado extensivamente a TODOS os campos, inputs, tabelas, labels e textos
+   ========================================================================== */
+
+:is(html:not(.dark), html.light) {
+  color-scheme: light;
+}
+
+:is(html:not(.dark), html.light) body {
+  font-weight: 600;
+  color: #0f172a;
+}
+
+/* Tipografia base reforçada para todos os elementos de texto no modo claro */
+:is(html:not(.dark), html.light) :is(
+  p, span, a, div, li, ul, ol, dl, dt, dd,
+  b, strong, em, small, blockquote, summary,
+  caption, figcaption, mark
+) {
+  font-weight: 600;
+}
+
+/* ==========================================================================
+   TODOS OS CAMPOS DE FORMULÁRIO, CONTROLES E INPUTS EM NEGRITO FORTE (700)
+   ========================================================================== */
+:is(html:not(.dark), html.light) :is(
+  input,
+  input[type="text"],
+  input[type="number"],
+  input[type="search"],
+  input[type="email"],
+  input[type="password"],
+  input[type="date"],
+  input[type="datetime-local"],
+  input[type="time"],
+  input[type="month"],
+  input[type="week"],
+  input[type="tel"],
+  input[type="url"],
+  input[type="file"],
+  input:not([type]),
+  select,
+  textarea,
+  datalist,
+  output,
+  optgroup,
+  option,
+  .input,
+  .select,
+  .textarea
+) {
+  font-weight: 700 !important;
+  color: #0f172a !important;
+}
+
+/* Labels, legendas e identificadores de campos */
+:is(html:not(.dark), html.light) :is(
+  label,
+  legend,
+  .form-label,
+  [class*="label"],
+  [class*="-label"]
+) {
+  font-weight: 700 !important;
+  color: #1e293b !important;
+}
+
+/* Placeholders dos campos com excelente legibilidade e peso */
+:is(html:not(.dark), html.light) ::placeholder,
+:is(html:not(.dark), html.light) input::placeholder,
+:is(html:not(.dark), html.light) textarea::placeholder {
+  font-weight: 600 !important;
+  color: #64748b !important;
+  opacity: 1 !important;
+}
+
+/* ==========================================================================
+   TODAS AS TABELAS, CABEÇALHOS, LINHAS E CÉLULAS DE DADOS
+   ========================================================================== */
+:is(html:not(.dark), html.light) :is(
+  table,
+  thead,
+  tbody,
+  tfoot,
+  tr,
+  th,
+  td,
+  [role="table"],
+  [role="row"],
+  [role="columnheader"],
+  [role="cell"]
+) {
+  font-weight: 700;
+}
+
+:is(html:not(.dark), html.light) :is(th, thead th, [role="columnheader"]) {
+  font-weight: 800 !important;
+  color: #1e293b !important;
+}
+
+:is(html:not(.dark), html.light) :is(td, tbody td, [role="cell"]) {
+  font-weight: 700 !important;
+}
+
+/* ==========================================================================
+   BOTÕES E AÇÕES
+   ========================================================================== */
+:is(html:not(.dark), html.light) :is(
+  button,
+  [role="button"],
+  .btn,
+  [class*="btn-"],
+  [class*="-btn"]
+) {
+  font-weight: 700 !important;
+}
+
+/* ==========================================================================
+   TÍTULOS E CABEÇALHOS
+   ========================================================================== */
+:is(html:not(.dark), html.light) :is(h1, h2, h3, h4, h5, h6) {
+  font-weight: 800 !important;
+  color: #0f172a !important;
+}
+
+/* ==========================================================================
+   NÚMEROS, VALORES TABULARES, MÉTRICAS E BADGES
+   ========================================================================== */
+:is(html:not(.dark), html.light) :is(
+  .tabular-nums,
+  [class*="tabular-nums"],
+  .font-mono,
+  [class*="badge"],
+  [class*="pill"],
+  [class*="tag"],
+  [class*="chip"]
+) {
+  font-weight: 700 !important;
+}
+
+/* ==========================================================================
+   SOBRESCRITA RIGOROSA DE CLASSES UTILITÁRIAS DO TAILWIND NO MODO CLARO
+   ========================================================================== */
+:is(html:not(.dark), html.light) :is(
+  .font-thin,
+  .font-extralight,
+  .font-light,
+  .font-normal
+) {
+  font-weight: 600 !important;
+}
+
+:is(html:not(.dark), html.light) .font-medium {
+  font-weight: 700 !important;
+}
+
+:is(html:not(.dark), html.light) .font-semibold {
+  font-weight: 700 !important;
+}
+
+:is(html:not(.dark), html.light) :is(.font-bold, .font-extrabold) {
+  font-weight: 800 !important;
+}
+
+:is(html:not(.dark), html.light) .font-black {
+  font-weight: 900 !important;
+}
+
+/* ==========================================================================
+   ALTO CONTRASTE E NITIDEZ DE CORES DE TEXTO NO MODO CLARO
+   ========================================================================== */
+:is(html:not(.dark), html.light) :is(
+  .text-gray-400,
+  .text-slate-400,
+  .text-zinc-400,
+  .text-neutral-400
+) {
+  color: #64748b !important;
+  font-weight: 600 !important;
+}
+
+:is(html:not(.dark), html.light) :is(
+  .text-gray-500,
+  .text-slate-500,
+  .text-zinc-500,
+  .text-neutral-500
+) {
+  color: #334155 !important;
+  font-weight: 700 !important;
+}
+
+:is(html:not(.dark), html.light) :is(
+  .text-gray-600,
+  .text-slate-600,
+  .text-zinc-600,
+  .text-neutral-600
+) {
+  color: #1e293b !important;
+  font-weight: 700 !important;
+}
+
+:is(html:not(.dark), html.light) :is(
+  .text-gray-700,
+  .text-slate-700,
+  .text-zinc-700,
+  .text-neutral-700
+) {
+  color: #0f172a !important;
+  font-weight: 700 !important;
+}
+
+
 
