@@ -21,8 +21,9 @@ import ShipmentHistoryModal from '../components/ShipmentHistoryModal';
 import NewShipmentModal from '../components/NewShipmentModal';
 import OptimizedShipmentsBoard, { BoardColumnConfig } from '../components/OptimizedShipmentsBoard';
 import { ShieldCheck, FileCheck2, Receipt, Wallet, Truck as TruckLucide, Clock } from 'lucide-react';
-import { getShipmentRequesterUser } from '../utils/shipperUtils';
+import { getShipmentRequesterUser, resolveShipmentRequesterId } from '../utils/shipperUtils';
 import { hasDriverEffectiveShipment, hasVehicleEffectiveShipment } from '../utils';
+import { StayRecord } from '../utils/toolStorage';
 
 interface DashboardPageProps {
   cargos: Cargo[];
@@ -34,6 +35,7 @@ interface DashboardPageProps {
   companyLogo?: string | null;
   vehicles: Vehicle[];
   drivers?: Driver[];
+  stays?: StayRecord[];
   onDeleteAttachment?: (shipmentId: string, url: string) => Promise<void>;
   onUpdatePrice?: (shipmentId: string, data: { newTotal: number, newRate?: number, newCompanyRate?: number }) => void;
   onUpdateAttachment?: (shipmentId: string, data: { 
@@ -232,7 +234,8 @@ const DashboardPage: React.FC<DashboardPageProps> = ({
   onDeleteFreightOffer,
   onConvertToCargo,
   onCreateShipment,
-  allShipments
+  allShipments,
+  stays = []
 }) => {
   const [detailsModalShipment, setDetailsModalShipment] = React.useState<Shipment | null>(null);
   const [attachmentModalShipment, setAttachmentModalShipment] = React.useState<Shipment | null>(null);
@@ -387,15 +390,105 @@ const DashboardPage: React.FC<DashboardPageProps> = ({
       }
     });
 
-    const monthlyCommission = monthlyEffectiveTonnage * 2;
-    const canViewCommission = currentUser && [UserProfile.Diretor, UserProfile.Comercial, UserProfile.Admin].includes(currentUser.profile);
+    const isGestorGO = currentUser?.profile === UserProfile.AgenciadorLider;
+    let monthlyCommission = 0;
+
+    if (isGestorGO && currentUser) {
+      // Regra de Comissionamento Exclusiva para Gestor GO (Agenciador Líder):
+      // Cenário A (Equipe / Próprio): teamRate% (padrão 25%) sobre Lucro Líquido
+      // Cenário B (Comercial Externo): externalRate% (padrão 1,5%) sobre Lucro Líquido de cargas sob sua responsabilidade comercial operadas por terceiros
+      const teamMemberIds = new Set<string>();
+      users
+        .filter(u => u.leaderId === currentUser.id && u.profile === UserProfile.AgenciadorEmbarque)
+        .forEach(u => teamMemberIds.add(u.id));
+
+      const teamRate = currentUser.leaderProfitCommissionRate !== undefined ? Number(currentUser.leaderProfitCommissionRate) : 25;
+      const externalRate = currentUser.leaderRevenueCommissionRate !== undefined ? Number(currentUser.leaderRevenueCommissionRate) : 1.5;
+
+      const cargoMap = new Map<string, Cargo>(cargos.map(c => [c.id, c]));
+      let gestorCommissionTotal = 0;
+
+      // Utiliza allShipments (se fornecido) ou shipments para computar os fretes de sua responsabilidade
+      const shipmentsToProcess = allShipments || shipments;
+
+      shipmentsToProcess.forEach(s => {
+        const effectiveEntry = s.statusHistory?.find(h => h.status === ShipmentStatus.AguardandoNota);
+        let date: Date | null = null;
+        if (effectiveEntry) {
+          date = new Date(effectiveEntry.timestamp);
+        } else if ([
+          ShipmentStatus.AguardandoNota,
+          ShipmentStatus.AguardandoAdiantamento,
+          ShipmentStatus.AguardandoAgendamento,
+          ShipmentStatus.AguardandoDescarga,
+          ShipmentStatus.AguardandoPagamentoSaldo,
+          ShipmentStatus.Finalizado
+        ].includes(s.status) && (s.createdAt || s.scheduledDate)) {
+          date = new Date(s.createdAt || s.scheduledDate);
+        }
+
+        if (!date || date.getMonth() !== currentMonth || date.getFullYear() !== currentYear) {
+          return;
+        }
+
+        const cargo = cargoMap.get(s.cargoId);
+        if (!cargo) return;
+
+        const operatorId = resolveShipmentRequesterId(s, users);
+        const isLeaderOperator = operatorId === currentUser.id ||
+          (!operatorId && (s.embarcadorId === currentUser.id || s.createdById === currentUser.id));
+
+        const isTeamOperator = !isLeaderOperator && (
+          teamMemberIds.has(operatorId) ||
+          (s.embarcadorId ? teamMemberIds.has(s.embarcadorId) : false) ||
+          (s.createdById ? teamMemberIds.has(s.createdById) : false)
+        );
+
+        const resolvedCommercialId = cargo.createdById || (cargo.history && cargo.history[0]?.userId) || '';
+        const isCommercialForCargo = resolvedCommercialId === currentUser.id;
+
+        if (!isLeaderOperator && !isTeamOperator && !isCommercialForCargo) {
+          return;
+        }
+
+        const grossRate = s.companyFreightRateSnapshot || cargo.companyFreightValuePerTon || 0;
+        const driverRate = s.driverFreightRateSnapshot || cargo.driverFreightValuePerTon || 0;
+        const salespersonRate = cargo.salespersonCommissionPerTon || 0;
+        const tonnage = s.shipmentTonnage || 0;
+
+        const demurrageProfit = (stays || [])
+          .filter(stay => stay.shipmentId === s.id)
+          .reduce((sum, stay) => sum + ((stay.approvedValue || 0) - (stay.driverPaidValue || 0)), 0);
+
+        const netProfit = ((grossRate - driverRate - salespersonRate) * tonnage) + demurrageProfit;
+
+        if (netProfit > 0) {
+          if (isLeaderOperator || isTeamOperator) {
+            gestorCommissionTotal += netProfit * (teamRate / 100);
+          } else if (isCommercialForCargo) {
+            gestorCommissionTotal += netProfit * (externalRate / 100);
+          }
+        }
+      });
+
+      monthlyCommission = gestorCommissionTotal;
+    } else {
+      monthlyCommission = monthlyEffectiveTonnage * 2;
+    }
+
+    const canViewCommission = currentUser && [
+      UserProfile.Diretor,
+      UserProfile.Comercial,
+      UserProfile.Admin,
+      UserProfile.AgenciadorLider,
+    ].includes(currentUser.profile);
 
     return {
       monthlyEffectiveTonnage,
       monthlyCommission,
       canViewCommission
     };
-  }, [shipments, currentUser]);
+  }, [shipments, allShipments, cargos, users, currentUser, stays]);
 
   const clientDashboardData = useMemo(() => {
     if (currentUser?.profile !== UserProfile.Cliente) return null;
@@ -647,6 +740,13 @@ const DashboardPage: React.FC<DashboardPageProps> = ({
                     onShowDetails={setDetailsModalShipment}
                 />
             </div>
+        </div>
+        <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="space-y-6">
+            <DonutChartCard title="Distribuição de Cargas por Status" data={cargoStatusData} />
+            <DonutChartCard title="Volume Carregado por Cliente (Mês)" data={clientVolumeData} unit="t" />
+          </div>
+          <DeliveriesByRegionCard shipments={allShipments || shipments} cargos={cargos} />
         </div>
         <ShipmentDetailsModal
           isOpen={!!detailsModalShipment}
