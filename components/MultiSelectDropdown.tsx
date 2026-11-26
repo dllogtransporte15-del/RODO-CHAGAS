@@ -46,7 +46,7 @@ const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({ label, option
   };
 
   return (
-    <div className={`space-y-1 relative ${className}`} ref={dropdownRef}>
+    <div className={`space-y-1 relative ${isOpen ? 'z-50' : ''} ${className}`} ref={dropdownRef}>
       {label && <label className="text-xs font-medium text-gray-500 dark:text-gray-400">{label}</label>}
       <button
         type="button"

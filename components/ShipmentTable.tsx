@@ -272,7 +272,7 @@ const ShipmentTable: React.FC<ShipmentTableProps> = ({ shipments, allShipments, 
   return (
     <div className="space-y-4">
       {currentUser.profile !== UserProfile.Motorista && (
-      <div className="flex flex-col bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700">
+      <div className="relative z-30 flex flex-col bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700">
         <div className="flex flex-col md:flex-row items-center justify-between p-4 gap-4">
           <div className="w-full md:w-auto">
             <button 

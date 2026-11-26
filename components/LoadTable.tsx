@@ -291,7 +291,7 @@ const LoadTable: React.FC<LoadTableProps> = ({ loads, clients, products, shipmen
         </div>
       )}
 
-      <div className="flex flex-col bg-white/95 dark:bg-slate-800/90 backdrop-blur-sm rounded-2xl shadow-lg shadow-slate-900/5 dark:shadow-black/20 border border-slate-200/80 dark:border-slate-700/60">
+      <div className="relative z-[45] flex flex-col bg-white/95 dark:bg-slate-800/90 backdrop-blur-sm rounded-2xl shadow-lg shadow-slate-900/5 dark:shadow-black/20 border border-slate-200/80 dark:border-slate-700/60">
         <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between p-4 gap-3">
           {/* Left: Quick Search + Advanced Filters */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 flex-1">
