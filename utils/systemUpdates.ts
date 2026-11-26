@@ -20,6 +20,40 @@ export interface SystemRelease {
  */
 export const SYSTEM_RELEASES: SystemRelease[] = [
   {
+    id: 'rel_2026_11_25_v2_10_0',
+    version: 'v2.10.0',
+    date: '25/11/2026',
+    title: 'Frete Motorista PJ (ETC) e PF (TAC) & Painéis Interativos',
+    summary: 'Novo modelo de embarque com diferenciação de frete motorista PJ (ETC) e PF (TAC) desde o cadastro até a divulgação e solicitação de embarque, além de gráficos e listagem de cargas totalmente modernizados e interativos.',
+    items: [
+      {
+        category: 'feature',
+        title: 'Modalidades de Frete Motorista PJ (ETC) e PF (TAC)',
+        description: 'Cadastro de cargas, oportunidades ativas e solicitação de embarque agora contam com valores distintos para motoristas PJ (ETC) e PF (TAC), mantendo compatibilidade automática com as cargas já existentes.'
+      },
+      {
+        category: 'feature',
+        title: 'Seleção de Modalidade no Embarque',
+        description: 'Ao solicitar um novo embarque, é possível escolher entre frete PJ ou PF diretamente no fechamento do formulário, aplicando o valor correspondente ao embarque.'
+      },
+      {
+        category: 'improvement',
+        title: 'Divulgar Cargas & Prompt Fretebras',
+        description: 'A mensagem de divulgação de cargas agora destaca os dois valores de frete (PJ e PF), enquanto o Prompt Fretebras gera o texto padronizado com valor "A combinar".'
+      },
+      {
+        category: 'improvement',
+        title: 'Gráficos Interativos (Rosca/Pizza e Funil de Embarques)',
+        description: 'Os gráficos do dashboard ganharam alternância entre Rosca e Pizza, destaque suave sem deslocamento de layout, busca/ordenação na legenda e funil de embarques com filtros rápidos.'
+      },
+      {
+        category: 'improvement',
+        title: 'Oportunidades de Carga Mais Interativas e Cidades Completas',
+        description: 'Nova barra de busca rápida, filtros por status de programação, navegador de data diário, painel expansível nos cards e exibição completa dos nomes das cidades de origem e destino.'
+      }
+    ]
+  },
+  {
     id: 'rel_2026_10_30_v2_9_0',
     version: 'v2.9.0',
     date: '30/10/2026',

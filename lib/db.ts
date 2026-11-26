@@ -271,10 +271,12 @@ export const toCargo = (row: any): Cargo => {
   const rawHistory = row.history || [];
   const metaLog = rawHistory.find((h: any) => h.id === 'meta_dest_obs' || h.id === 'meta_cargo_extra');
   let recipientClient = row.recipient_client || row.recipientClient || undefined;
+  let metaExtra: any = {};
 
   if (metaLog) {
     try {
       const parsed = typeof metaLog.description === 'string' ? JSON.parse(metaLog.description) : metaLog.description;
+      metaExtra = parsed || {};
       if (parsed.recipientClient) recipientClient = parsed.recipientClient;
     } catch (e) {
       console.error('Error parsing cargo extra metadata:', e);
@@ -290,6 +292,19 @@ export const toCargo = (row: any): Cargo => {
   const fixedDriver = row.fixed_driver_freight !== undefined && row.fixed_driver_freight !== null 
     ? Number(row.fixed_driver_freight) 
     : (firstLeg.fixedDriverFreight !== undefined ? Number(firstLeg.fixedDriverFreight) : undefined);
+  const baseDriverRate = Number(row.driver_freight_value_per_ton) || 0;
+  const driverPJ = metaExtra.driverFreightValuePerTonPJ !== undefined
+    ? Number(metaExtra.driverFreightValuePerTonPJ)
+    : (firstLeg.driverFreightValuePerTonPJ !== undefined ? Number(firstLeg.driverFreightValuePerTonPJ) : baseDriverRate);
+  const driverPF = metaExtra.driverFreightValuePerTonPF !== undefined
+    ? Number(metaExtra.driverFreightValuePerTonPF)
+    : (firstLeg.driverFreightValuePerTonPF !== undefined ? Number(firstLeg.driverFreightValuePerTonPF) : baseDriverRate);
+  const fixedDriverPJ = metaExtra.fixedDriverFreightPJ !== undefined
+    ? Number(metaExtra.fixedDriverFreightPJ)
+    : (firstLeg.fixedDriverFreightPJ !== undefined ? Number(firstLeg.fixedDriverFreightPJ) : fixedDriver);
+  const fixedDriverPF = metaExtra.fixedDriverFreightPF !== undefined
+    ? Number(metaExtra.fixedDriverFreightPF)
+    : (firstLeg.fixedDriverFreightPF !== undefined ? Number(firstLeg.fixedDriverFreightPF) : fixedDriver);
   const icmsCalcType = row.icms_calculation_type || firstLeg.icmsCalculationType || 'percentage';
   const icmsVal = row.icms_value !== undefined && row.icms_value !== null 
     ? Number(row.icms_value) 
@@ -310,7 +325,9 @@ export const toCargo = (row: any): Cargo => {
     scheduledVolume: Number(row.scheduled_volume),
     loadedVolume: Number(row.loaded_volume),
     companyFreightValuePerTon: Number(row.company_freight_value_per_ton),
-    driverFreightValuePerTon: Number(row.driver_freight_value_per_ton),
+    driverFreightValuePerTon: baseDriverRate,
+    driverFreightValuePerTonPJ: driverPJ,
+    driverFreightValuePerTonPF: driverPF,
     hasIcms: row.has_icms,
     icmsPercentage: Number(row.icms_percentage),
     requiresScheduling: row.requires_scheduling,
@@ -326,6 +343,8 @@ export const toCargo = (row: any): Cargo => {
     freightPricingType: pricingType,
     fixedCompanyFreight: fixedCompany,
     fixedDriverFreight: fixedDriver,
+    fixedDriverFreightPJ: fixedDriverPJ,
+    fixedDriverFreightPF: fixedDriverPF,
     icmsCalculationType: icmsCalcType,
     icmsValue: icmsVal,
     dailySchedule: row.daily_schedule,
@@ -342,13 +361,24 @@ export const toCargo = (row: any): Cargo => {
 
 const fromCargo = (c: Cargo | Omit<Cargo, 'id'>) => {
   const rawHistory = [...(c.history || [])].filter(h => h.id !== 'meta_cargo_extra');
-  if (c.recipientClient) {
+  const hasExtraMeta =
+    !!c.recipientClient ||
+    c.driverFreightValuePerTonPJ !== undefined ||
+    c.driverFreightValuePerTonPF !== undefined ||
+    c.fixedDriverFreightPJ !== undefined ||
+    c.fixedDriverFreightPF !== undefined;
+
+  if (hasExtraMeta) {
     rawHistory.push({
       id: 'meta_cargo_extra',
       userId: 'system',
       timestamp: c.createdAt || new Date().toISOString(),
       description: JSON.stringify({
         recipientClient: c.recipientClient,
+        driverFreightValuePerTonPJ: c.driverFreightValuePerTonPJ,
+        driverFreightValuePerTonPF: c.driverFreightValuePerTonPF,
+        fixedDriverFreightPJ: c.fixedDriverFreightPJ,
+        fixedDriverFreightPF: c.fixedDriverFreightPF,
       }),
     });
   }
@@ -360,17 +390,23 @@ const fromCargo = (c: Cargo | Omit<Cargo, 'id'>) => {
         pricingType: leg.pricingType || pricingType,
         fixedCompanyFreight: leg.fixedCompanyFreight ?? c.fixedCompanyFreight,
         fixedDriverFreight: leg.fixedDriverFreight ?? c.fixedDriverFreight,
+        fixedDriverFreightPJ: leg.fixedDriverFreightPJ ?? c.fixedDriverFreightPJ,
+        fixedDriverFreightPF: leg.fixedDriverFreightPF ?? c.fixedDriverFreightPF,
         icmsCalculationType: leg.icmsCalculationType ?? c.icmsCalculationType,
         icmsValue: leg.icmsValue ?? c.icmsValue,
       }))
     : [{
         companyFreightValuePerTon: c.companyFreightValuePerTon,
         driverFreightValuePerTon: c.driverFreightValuePerTon,
+        driverFreightValuePerTonPJ: c.driverFreightValuePerTonPJ,
+        driverFreightValuePerTonPF: c.driverFreightValuePerTonPF,
         hasIcms: c.hasIcms,
         icmsPercentage: c.icmsPercentage,
         pricingType: pricingType,
         fixedCompanyFreight: c.fixedCompanyFreight,
         fixedDriverFreight: c.fixedDriverFreight,
+        fixedDriverFreightPJ: c.fixedDriverFreightPJ,
+        fixedDriverFreightPF: c.fixedDriverFreightPF,
         icmsCalculationType: c.icmsCalculationType,
         icmsValue: c.icmsValue,
       }];
@@ -414,7 +450,17 @@ const fromCargo = (c: Cargo | Omit<Cargo, 'id'>) => {
   };
 };
 
-export const toShipment = (row: any): Shipment => ({
+export const toShipment = (row: any): Shipment => {
+  const rawHistory = row.history || [];
+  const metaLog = rawHistory.find((h: any) => h.id === 'meta_shipment_extra');
+  let driverFreightModality = row.driver_freight_modality || undefined;
+  if (metaLog) {
+    try {
+      const parsed = typeof metaLog.description === 'string' ? JSON.parse(metaLog.description) : metaLog.description;
+      if (parsed?.driverFreightModality) driverFreightModality = parsed.driverFreightModality;
+    } catch {}
+  }
+  return {
   id: row.id,
   orderId: row.order_id,
   cargoId: row.cargo_id,
@@ -433,7 +479,7 @@ export const toShipment = (row: any): Shipment => ({
   scheduledTime: row.scheduled_time,
   arrivalTime: row.arrival_time,
   documents: row.documents || {},
-  history: row.history || [],
+  history: rawHistory.filter((h: any) => h.id !== 'meta_shipment_extra'),
   createdAt: row.created_at,
   createdById: row.created_by_id,
   statusHistory: row.status_history || [],
@@ -445,6 +491,7 @@ export const toShipment = (row: any): Shipment => ({
   vehicleTag: row.vehicle_tag,
   companyFreightRateSnapshot: row.company_freight_rate_snapshot !== null ? Number(row.company_freight_rate_snapshot) : undefined,
   driverFreightRateSnapshot: row.driver_freight_rate_snapshot !== null ? Number(row.driver_freight_rate_snapshot) : undefined,
+  driverFreightModality,
   route: row.route,
   cancellationReason: row.cancellation_reason,
   driverReferences: Array.isArray(row.driver_references) ? row.driver_references.join('\n') : (row.driver_references || ''),
@@ -456,9 +503,22 @@ export const toShipment = (row: any): Shipment => ({
   branchId: row.branch_id,
   vehicleSetType: row.vehicle_set_type,
   vehicleBodyType: row.vehicle_body_type,
-});
+};
+};
 
-const fromShipment = (s: Shipment) => ({
+const fromShipment = (s: Shipment) => {
+  const rawHistory = [...(s.history || [])].filter(h => h.id !== 'meta_shipment_extra');
+  if (s.driverFreightModality) {
+    rawHistory.push({
+      id: 'meta_shipment_extra',
+      userId: 'system',
+      timestamp: s.createdAt || new Date().toISOString(),
+      description: JSON.stringify({
+        driverFreightModality: s.driverFreightModality,
+      }),
+    });
+  }
+  return {
   id: s.id,
   order_id: s.orderId,
   cargo_id: s.cargoId,
@@ -477,7 +537,7 @@ const fromShipment = (s: Shipment) => ({
   scheduled_time: s.scheduledTime,
   arrival_time: s.arrivalTime,
   documents: s.documents || {},
-  history: s.history,
+  history: rawHistory,
   created_at: s.createdAt,
   created_by_id: s.createdById,
   status_history: s.statusHistory,
@@ -500,7 +560,8 @@ const fromShipment = (s: Shipment) => ({
   branch_id: s.branchId || null,
   vehicle_set_type: s.vehicleSetType,
   vehicle_body_type: s.vehicleBodyType,
-});
+};
+};
 
 export const toUser = (row: any): User => {
   let profile = row.profile;

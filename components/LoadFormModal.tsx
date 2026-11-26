@@ -59,11 +59,15 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
         loadedVolume: 0,
         companyFreightValuePerTon: offerToConvert.counterOfferValue || offerToConvert.freightValuePerTon || 0,
         driverFreightValuePerTon: 0,
+        driverFreightValuePerTonPJ: 0,
+        driverFreightValuePerTonPF: 0,
         hasIcms: false,
         icmsPercentage: 0,
         freightPricingType: FreightPricingType.PorTonelada,
         fixedCompanyFreight: 0,
         fixedDriverFreight: 0,
+        fixedDriverFreightPJ: 0,
+        fixedDriverFreightPF: 0,
         icmsCalculationType: 'percentage',
         icmsValue: 0,
         requiresScheduling: false,
@@ -100,11 +104,15 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
     loadedVolume: 0,
     companyFreightValuePerTon: 0,
     driverFreightValuePerTon: 0,
+    driverFreightValuePerTonPJ: 0,
+    driverFreightValuePerTonPF: 0,
     hasIcms: false,
     icmsPercentage: 0,
     freightPricingType: FreightPricingType.PorTonelada,
     fixedCompanyFreight: 0,
     fixedDriverFreight: 0,
+    fixedDriverFreightPJ: 0,
+    fixedDriverFreightPF: 0,
     icmsCalculationType: 'percentage',
     icmsValue: 0,
     requiresScheduling: false,
@@ -243,21 +251,33 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
             const fixedDriv = editableLoad.fixedDriverFreight !== undefined 
               ? editableLoad.fixedDriverFreight 
               : (editableLoad.freightLegs?.[0]?.fixedDriverFreight ?? (pricingType === FreightPricingType.FreteFechado ? editableLoad.driverFreightValuePerTon : 0));
+            const fixedDrivPJ = editableLoad.fixedDriverFreightPJ ?? editableLoad.freightLegs?.[0]?.fixedDriverFreightPJ ?? fixedDriv;
+            const fixedDrivPF = editableLoad.fixedDriverFreightPF ?? editableLoad.freightLegs?.[0]?.fixedDriverFreightPF ?? fixedDriv;
             const icmsCalcType = editableLoad.icmsCalculationType || editableLoad.freightLegs?.[0]?.icmsCalculationType || 'percentage';
             const icmsVal = editableLoad.icmsValue !== undefined 
               ? editableLoad.icmsValue 
               : (editableLoad.freightLegs?.[0]?.icmsValue ?? 0);
 
             const legs = editableLoad.freightLegs && editableLoad.freightLegs.length > 0
-                ? [...editableLoad.freightLegs]
+                ? editableLoad.freightLegs.map(leg => ({
+                    ...leg,
+                    driverFreightValuePerTonPJ: leg.driverFreightValuePerTonPJ ?? leg.driverFreightValuePerTon,
+                    driverFreightValuePerTonPF: leg.driverFreightValuePerTonPF ?? leg.driverFreightValuePerTon,
+                    fixedDriverFreightPJ: leg.fixedDriverFreightPJ ?? leg.fixedDriverFreight ?? fixedDrivPJ,
+                    fixedDriverFreightPF: leg.fixedDriverFreightPF ?? leg.fixedDriverFreight ?? fixedDrivPF,
+                  }))
                 : [{ 
                     companyFreightValuePerTon: editableLoad.companyFreightValuePerTon, 
-                    driverFreightValuePerTon: editableLoad.driverFreightValuePerTon, 
+                    driverFreightValuePerTon: editableLoad.driverFreightValuePerTon,
+                    driverFreightValuePerTonPJ: editableLoad.driverFreightValuePerTonPJ ?? editableLoad.driverFreightValuePerTon,
+                    driverFreightValuePerTonPF: editableLoad.driverFreightValuePerTonPF ?? editableLoad.driverFreightValuePerTon,
                     hasIcms: editableLoad.hasIcms, 
                     icmsPercentage: editableLoad.icmsPercentage,
                     pricingType: pricingType,
                     fixedCompanyFreight: fixedComp,
                     fixedDriverFreight: fixedDriv,
+                    fixedDriverFreightPJ: fixedDrivPJ,
+                    fixedDriverFreightPF: fixedDrivPF,
                     icmsCalculationType: icmsCalcType,
                     icmsValue: icmsVal,
                   }];
@@ -265,12 +285,16 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
             while (legs.length < 2) {
                 legs.push({ 
                   companyFreightValuePerTon: 0, 
-                  driverFreightValuePerTon: 0, 
+                  driverFreightValuePerTon: 0,
+                  driverFreightValuePerTonPJ: 0,
+                  driverFreightValuePerTonPF: 0,
                   hasIcms: false, 
                   icmsPercentage: 0,
                   pricingType: pricingType,
                   fixedCompanyFreight: 0,
                   fixedDriverFreight: 0,
+                  fixedDriverFreightPJ: 0,
+                  fixedDriverFreightPF: 0,
                   icmsCalculationType: 'percentage',
                   icmsValue: 0,
                 });
@@ -281,6 +305,10 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
                 freightPricingType: pricingType,
                 fixedCompanyFreight: fixedComp,
                 fixedDriverFreight: fixedDriv,
+                fixedDriverFreightPJ: fixedDrivPJ,
+                fixedDriverFreightPF: fixedDrivPF,
+                driverFreightValuePerTonPJ: editableLoad.driverFreightValuePerTonPJ ?? editableLoad.driverFreightValuePerTon,
+                driverFreightValuePerTonPF: editableLoad.driverFreightValuePerTonPF ?? editableLoad.driverFreightValuePerTon,
                 icmsCalculationType: icmsCalcType,
                 icmsValue: icmsVal,
                 freightLegs: legs, 
@@ -309,7 +337,7 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
     prevIsOpen.current = isOpen;
   }, [isOpen, initialStep, currentUser]);
   
-  const { totalCompanyFreight, totalDriverFreight, netMarginPercentage, exampleSimulation } = useMemo(() => {
+  const { totalCompanyFreight, totalDriverFreight, totalDriverFreightPJ, totalDriverFreightPF, netMarginPercentage, exampleSimulation } = useMemo(() => {
     const pricingType = load.freightPricingType || FreightPricingType.PorTonelada;
     const legs = load.freightLegs || [];
     const activeLegs = hasMultiLeg ? legs.slice(0, 2) : legs.slice(0, 1);
@@ -317,7 +345,9 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
 
     if (pricingType === FreightPricingType.FreteFechado) {
       const compFixed = Number(load.fixedCompanyFreight) || 0;
-      const drivFixed = Number(load.fixedDriverFreight) || 0;
+      const drivFixedPJ = Number(load.fixedDriverFreightPJ ?? load.fixedDriverFreight) || 0;
+      const drivFixedPF = Number(load.fixedDriverFreightPF ?? load.fixedDriverFreight) || 0;
+      const drivFixed = drivFixedPJ || drivFixedPF || Number(load.fixedDriverFreight) || 0;
       const icmsPct = load.hasIcms ? (Number(load.icmsPercentage) || 0) / 100 : 0;
       const netCompany = compFixed * (1 - icmsPct);
       const netProfit = netCompany - drivFixed;
@@ -329,7 +359,9 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
 
       return { 
         totalCompanyFreight: compFixed, 
-        totalDriverFreight: drivFixed, 
+        totalDriverFreight: drivFixed,
+        totalDriverFreightPJ: drivFixedPJ,
+        totalDriverFreightPF: drivFixedPF,
         netMarginPercentage, 
         exampleSimulation: null 
       };
@@ -337,7 +369,9 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
 
     if (pricingType === FreightPricingType.VlrTonIcms) {
       const baseCompanyPerTon = activeLegs[0]?.companyFreightValuePerTon || 0;
-      const driverPerTon = activeLegs[0]?.driverFreightValuePerTon || 0;
+      const driverPerTonPJ = activeLegs[0]?.driverFreightValuePerTonPJ ?? activeLegs[0]?.driverFreightValuePerTon ?? 0;
+      const driverPerTonPF = activeLegs[0]?.driverFreightValuePerTonPF ?? activeLegs[0]?.driverFreightValuePerTon ?? 0;
+      const driverPerTon = driverPerTonPJ || driverPerTonPF || activeLegs[0]?.driverFreightValuePerTon || 0;
       const icmsPct = Number(load.icmsPercentage) || 0;
 
       // Simulated standard 32t load
@@ -360,6 +394,8 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
       return {
         totalCompanyFreight: totalCompanyEffectivePerTon,
         totalDriverFreight: driverPerTon,
+        totalDriverFreightPJ: driverPerTonPJ,
+        totalDriverFreightPF: driverPerTonPF,
         netMarginPercentage,
         exampleSimulation: {
           weight: simWeight,
@@ -375,7 +411,9 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
 
     // Default: Por Tonelada
     const totalCompanyFreight = activeLegs.reduce((sum, leg) => sum + leg.companyFreightValuePerTon, 0);
-    const totalDriverFreight = activeLegs.reduce((sum, leg) => sum + leg.driverFreightValuePerTon, 0);
+    const totalDriverFreightPJ = activeLegs.reduce((sum, leg) => sum + (leg.driverFreightValuePerTonPJ ?? leg.driverFreightValuePerTon ?? 0), 0);
+    const totalDriverFreightPF = activeLegs.reduce((sum, leg) => sum + (leg.driverFreightValuePerTonPF ?? leg.driverFreightValuePerTon ?? 0), 0);
+    const totalDriverFreight = totalDriverFreightPJ || totalDriverFreightPF || activeLegs.reduce((sum, leg) => sum + leg.driverFreightValuePerTon, 0);
     
     const totalNetCompanyValue = activeLegs.reduce((sum, leg) => {
         const icmsRate = leg.hasIcms ? leg.icmsPercentage / 100 : 0;
@@ -390,8 +428,8 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
         ? '0,00%'
         : `${margin.toFixed(2).replace('.', ',')}%`;
 
-    return { totalCompanyFreight, totalDriverFreight, netMarginPercentage, exampleSimulation: null };
-  }, [load.freightPricingType, load.freightLegs, hasMultiLeg, load.fixedCompanyFreight, load.fixedDriverFreight, load.hasIcms, load.icmsPercentage, load.icmsCalculationType, load.icmsValue, load.salespersonCommissionPerTon]);
+    return { totalCompanyFreight, totalDriverFreight, totalDriverFreightPJ, totalDriverFreightPF, netMarginPercentage, exampleSimulation: null };
+  }, [load.freightPricingType, load.freightLegs, hasMultiLeg, load.fixedCompanyFreight, load.fixedDriverFreight, load.fixedDriverFreightPJ, load.fixedDriverFreightPF, load.hasIcms, load.icmsPercentage, load.icmsCalculationType, load.icmsValue, load.salespersonCommissionPerTon]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
@@ -429,12 +467,29 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
         const legToUpdate = { ...newLegs[index] };
         
         let finalValue = value;
-        if (field === 'companyFreightValuePerTon' || field === 'driverFreightValuePerTon' || field === 'icmsPercentage' || field === 'fixedCompanyFreight' || field === 'fixedDriverFreight' || field === 'icmsValue') {
+        if (
+          field === 'companyFreightValuePerTon' ||
+          field === 'driverFreightValuePerTon' ||
+          field === 'driverFreightValuePerTonPJ' ||
+          field === 'driverFreightValuePerTonPF' ||
+          field === 'icmsPercentage' ||
+          field === 'fixedCompanyFreight' ||
+          field === 'fixedDriverFreight' ||
+          field === 'fixedDriverFreightPJ' ||
+          field === 'fixedDriverFreightPF' ||
+          field === 'icmsValue'
+        ) {
             finalValue = parseFloat(value as string) || 0;
         }
 
         (legToUpdate as any)[field] = finalValue;
         
+        if (field === 'driverFreightValuePerTonPJ' || field === 'driverFreightValuePerTonPF') {
+            legToUpdate.driverFreightValuePerTon = legToUpdate.driverFreightValuePerTonPJ || legToUpdate.driverFreightValuePerTonPF || 0;
+        }
+        if (field === 'fixedDriverFreightPJ' || field === 'fixedDriverFreightPF') {
+            legToUpdate.fixedDriverFreight = legToUpdate.fixedDriverFreightPJ || legToUpdate.fixedDriverFreightPF || 0;
+        }
         if (field === 'hasIcms' && value === false) {
             legToUpdate.icmsPercentage = 0;
         }
@@ -505,19 +560,32 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
       let activeLegs = hasMultiLeg ? (load.freightLegs || []).slice(0, 2) : (load.freightLegs || []).slice(0, 1);
 
       if (pricingType === FreightPricingType.FreteFechado) {
+        const fixedDrivPJ = load.fixedDriverFreightPJ ?? load.fixedDriverFreight ?? 0;
+        const fixedDrivPF = load.fixedDriverFreightPF ?? load.fixedDriverFreight ?? 0;
+        const fixedDriv = fixedDrivPJ || fixedDrivPF || load.fixedDriverFreight || 0;
         activeLegs = [{
           companyFreightValuePerTon: load.fixedCompanyFreight || 0,
-          driverFreightValuePerTon: load.fixedDriverFreight || 0,
+          driverFreightValuePerTon: fixedDriv,
+          driverFreightValuePerTonPJ: fixedDrivPJ,
+          driverFreightValuePerTonPF: fixedDrivPF,
           hasIcms: load.hasIcms || false,
           icmsPercentage: load.icmsPercentage || 0,
           pricingType: FreightPricingType.FreteFechado,
           fixedCompanyFreight: load.fixedCompanyFreight || 0,
-          fixedDriverFreight: load.fixedDriverFreight || 0,
+          fixedDriverFreight: fixedDriv,
+          fixedDriverFreightPJ: fixedDrivPJ,
+          fixedDriverFreightPF: fixedDrivPF,
         }];
       } else if (pricingType === FreightPricingType.VlrTonIcms) {
+        const leg0 = load.freightLegs?.[0];
+        const drivPJ = leg0?.driverFreightValuePerTonPJ ?? leg0?.driverFreightValuePerTon ?? 0;
+        const drivPF = leg0?.driverFreightValuePerTonPF ?? leg0?.driverFreightValuePerTon ?? 0;
+        const drivBase = drivPJ || drivPF || leg0?.driverFreightValuePerTon || 0;
         activeLegs = [{
-          companyFreightValuePerTon: load.freightLegs?.[0]?.companyFreightValuePerTon || 0,
-          driverFreightValuePerTon: load.freightLegs?.[0]?.driverFreightValuePerTon || 0,
+          companyFreightValuePerTon: leg0?.companyFreightValuePerTon || 0,
+          driverFreightValuePerTon: drivBase,
+          driverFreightValuePerTonPJ: drivPJ,
+          driverFreightValuePerTonPF: drivPF,
           hasIcms: true,
           icmsPercentage: load.icmsPercentage || 0,
           pricingType: FreightPricingType.VlrTonIcms,
@@ -525,10 +593,17 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
           icmsValue: load.icmsValue || 0,
         }];
       } else {
-        activeLegs = activeLegs.map(leg => ({
-          ...leg,
-          pricingType: FreightPricingType.PorTonelada,
-        }));
+        activeLegs = activeLegs.map(leg => {
+          const drivPJ = leg.driverFreightValuePerTonPJ ?? leg.driverFreightValuePerTon ?? 0;
+          const drivPF = leg.driverFreightValuePerTonPF ?? leg.driverFreightValuePerTon ?? 0;
+          return {
+            ...leg,
+            driverFreightValuePerTon: drivPJ || drivPF || leg.driverFreightValuePerTon || 0,
+            driverFreightValuePerTonPJ: drivPJ,
+            driverFreightValuePerTonPF: drivPF,
+            pricingType: FreightPricingType.PorTonelada,
+          };
+        });
       }
 
       // Geocode origin and destination
@@ -537,21 +612,30 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
           geocodeCity(destValidation.formatted)
       ]);
 
+      const finalDriverPJ = pricingType === FreightPricingType.FreteFechado
+        ? (load.fixedDriverFreightPJ ?? load.fixedDriverFreight ?? 0)
+        : (pricingType === FreightPricingType.VlrTonIcms ? (activeLegs[0]?.driverFreightValuePerTonPJ || 0) : totalDriverFreightPJ);
+      const finalDriverPF = pricingType === FreightPricingType.FreteFechado
+        ? (load.fixedDriverFreightPF ?? load.fixedDriverFreight ?? 0)
+        : (pricingType === FreightPricingType.VlrTonIcms ? (activeLegs[0]?.driverFreightValuePerTonPF || 0) : totalDriverFreightPF);
+
       const finalLoadData = {
           ...load,
           origin: originValidation.formatted,
           destination: destValidation.formatted,
           freightPricingType: pricingType,
           fixedCompanyFreight: pricingType === FreightPricingType.FreteFechado ? (load.fixedCompanyFreight || 0) : undefined,
-          fixedDriverFreight: pricingType === FreightPricingType.FreteFechado ? (load.fixedDriverFreight || 0) : undefined,
+          fixedDriverFreight: pricingType === FreightPricingType.FreteFechado ? (finalDriverPJ || finalDriverPF || load.fixedDriverFreight || 0) : undefined,
+          fixedDriverFreightPJ: pricingType === FreightPricingType.FreteFechado ? finalDriverPJ : undefined,
+          fixedDriverFreightPF: pricingType === FreightPricingType.FreteFechado ? finalDriverPF : undefined,
           icmsCalculationType: pricingType === FreightPricingType.VlrTonIcms ? (load.icmsCalculationType || 'percentage') : undefined,
           icmsValue: pricingType === FreightPricingType.VlrTonIcms ? (load.icmsValue || 0) : undefined,
           companyFreightValuePerTon: pricingType === FreightPricingType.FreteFechado 
             ? (load.fixedCompanyFreight || 0) 
             : (pricingType === FreightPricingType.VlrTonIcms ? (load.freightLegs?.[0]?.companyFreightValuePerTon || 0) : totalCompanyFreight),
-          driverFreightValuePerTon: pricingType === FreightPricingType.FreteFechado
-            ? (load.fixedDriverFreight || 0)
-            : (pricingType === FreightPricingType.VlrTonIcms ? (load.freightLegs?.[0]?.driverFreightValuePerTon || 0) : totalDriverFreight),
+          driverFreightValuePerTon: finalDriverPJ || finalDriverPF || totalDriverFreight,
+          driverFreightValuePerTonPJ: finalDriverPJ,
+          driverFreightValuePerTonPF: finalDriverPF,
           freightLegs: activeLegs,
           hasIcms: pricingType === FreightPricingType.VlrTonIcms ? true : (activeLegs[0]?.hasIcms || false),
           icmsPercentage: activeLegs[0]?.icmsPercentage || load.icmsPercentage || 0,
@@ -1124,7 +1208,7 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
                                         <span className="text-sm text-gray-700 dark:text-gray-300">Incide ICMS</span>
                                     </label>
                                 </div>
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                                     <div>
                                         <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Frete Empresa (R$/ton)</label>
                                         <input value={leg1.companyFreightValuePerTon || ''} onChange={(e) => handleLegChange(0, 'companyFreightValuePerTon', e.target.value)} type="number" placeholder="Ex: 120,00" className="p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600 text-sm" step="0.01"/>
@@ -1135,9 +1219,13 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
                                             <input value={leg1.icmsPercentage || ''} onChange={(e) => handleLegChange(0, 'icmsPercentage', e.target.value)} type="number" placeholder="Ex: 12,00" className="p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600 text-sm" step="0.01"/>
                                         </div>
                                     )}
-                                    <div className={leg1.hasIcms ? '' : 'md:col-start-3'}>
-                                        <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Frete Motorista (R$/ton)</label>
-                                        <input value={leg1.driverFreightValuePerTon || ''} onChange={(e) => handleLegChange(0, 'driverFreightValuePerTon', e.target.value)} type="number" placeholder="Ex: 100,00" className="p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600 text-sm" step="0.01"/>
+                                    <div>
+                                        <label className="block text-xs font-semibold text-blue-600 dark:text-blue-400 mb-1">Frete Motorista PJ - ETC (R$/ton)</label>
+                                        <input value={leg1.driverFreightValuePerTonPJ ?? leg1.driverFreightValuePerTon ?? ''} onChange={(e) => handleLegChange(0, 'driverFreightValuePerTonPJ', e.target.value)} type="number" placeholder="Ex: 100,00" className="p-2 w-full border border-blue-200 dark:border-blue-800 rounded dark:bg-gray-700 text-sm" step="0.01"/>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-semibold text-emerald-600 dark:text-emerald-400 mb-1">Frete Motorista PF - TAC (R$/ton)</label>
+                                        <input value={leg1.driverFreightValuePerTonPF ?? leg1.driverFreightValuePerTon ?? ''} onChange={(e) => handleLegChange(0, 'driverFreightValuePerTonPF', e.target.value)} type="number" placeholder="Ex: 95,00" className="p-2 w-full border border-emerald-200 dark:border-emerald-800 rounded dark:bg-gray-700 text-sm" step="0.01"/>
                                     </div>
                                 </div>
                             </div>
@@ -1151,7 +1239,7 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
                                             <span className="text-sm text-gray-700 dark:text-gray-300">Incide ICMS</span>
                                         </label>
                                     </div>
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                                         <div>
                                             <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Frete Empresa (R$/ton)</label>
                                             <input value={leg2.companyFreightValuePerTon || ''} onChange={(e) => handleLegChange(1, 'companyFreightValuePerTon', e.target.value)} type="number" placeholder="Ex: 60,00" className="p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600 text-sm" step="0.01"/>
@@ -1162,22 +1250,30 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
                                                 <input value={leg2.icmsPercentage || ''} onChange={(e) => handleLegChange(1, 'icmsPercentage', e.target.value)} type="number" placeholder="Ex: 12,00" className="p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600 text-sm" step="0.01"/>
                                             </div>
                                         )}
-                                        <div className={leg2.hasIcms ? '' : 'md:col-start-3'}>
-                                            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Frete Motorista (R$/ton)</label>
-                                            <input value={leg2.driverFreightValuePerTon || ''} onChange={(e) => handleLegChange(1, 'driverFreightValuePerTon', e.target.value)} type="number" placeholder="Ex: 50,00" className="p-2 w-full border rounded dark:bg-gray-700 dark:border-gray-600 text-sm" step="0.01"/>
+                                        <div>
+                                            <label className="block text-xs font-semibold text-blue-600 dark:text-blue-400 mb-1">Frete Motorista PJ - ETC (R$/ton)</label>
+                                            <input value={leg2.driverFreightValuePerTonPJ ?? leg2.driverFreightValuePerTon ?? ''} onChange={(e) => handleLegChange(1, 'driverFreightValuePerTonPJ', e.target.value)} type="number" placeholder="Ex: 50,00" className="p-2 w-full border border-blue-200 dark:border-blue-800 rounded dark:bg-gray-700 text-sm" step="0.01"/>
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-semibold text-emerald-600 dark:text-emerald-400 mb-1">Frete Motorista PF - TAC (R$/ton)</label>
+                                            <input value={leg2.driverFreightValuePerTonPF ?? leg2.driverFreightValuePerTon ?? ''} onChange={(e) => handleLegChange(1, 'driverFreightValuePerTonPF', e.target.value)} type="number" placeholder="Ex: 48,00" className="p-2 w-full border border-emerald-200 dark:border-emerald-800 rounded dark:bg-gray-700 text-sm" step="0.01"/>
                                         </div>
                                     </div>
                                 </div>
                             )}
                             {/* Totals */}
-                            <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="mt-4 grid grid-cols-1 md:grid-cols-4 gap-3">
                                 <div className="p-3 bg-gray-100 dark:bg-gray-700/70 rounded-lg">
                                     <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Frete Empresa (Final / Ton)</label>
                                     <p className="text-lg font-bold text-gray-800 dark:text-gray-200">{totalCompanyFreight.toLocaleString('pt-BR', {style:'currency', currency: 'BRL'})}/ton</p>
                                 </div>
-                                <div className="p-3 bg-gray-100 dark:bg-gray-700/70 rounded-lg">
-                                    <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Frete Motorista (Final / Ton)</label>
-                                    <p className="text-lg font-bold text-gray-800 dark:text-gray-200">{totalDriverFreight.toLocaleString('pt-BR', {style:'currency', currency: 'BRL'})}/ton</p>
+                                <div className="p-3 bg-blue-50/70 dark:bg-blue-900/20 rounded-lg border border-blue-200/70 dark:border-blue-800/50">
+                                    <label className="text-xs font-semibold text-blue-600 dark:text-blue-400">Frete Motorista PJ (ETC)</label>
+                                    <p className="text-lg font-bold text-gray-800 dark:text-gray-200">{totalDriverFreightPJ.toLocaleString('pt-BR', {style:'currency', currency: 'BRL'})}/ton</p>
+                                </div>
+                                <div className="p-3 bg-emerald-50/70 dark:bg-emerald-900/20 rounded-lg border border-emerald-200/70 dark:border-emerald-800/50">
+                                    <label className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">Frete Motorista PF (TAC)</label>
+                                    <p className="text-lg font-bold text-gray-800 dark:text-gray-200">{totalDriverFreightPF.toLocaleString('pt-BR', {style:'currency', currency: 'BRL'})}/ton</p>
                                 </div>
                                 <div className="p-3 bg-blue-50 dark:bg-blue-900/40 rounded-lg border border-blue-200 dark:border-blue-800">
                                     <label className="text-xs font-medium text-blue-600 dark:text-blue-400">Margem Líquida Estimada</label>
@@ -1196,7 +1292,7 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
                             </div>
 
                             <div className="p-4 border rounded-lg dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     <div>
                                         <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                                             Frete Empresa Fixo (R$ por viagem) <span className="text-red-500">*</span>
@@ -1214,20 +1310,36 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
                                         <p className="text-xs text-gray-400 mt-1">Valor integral a faturar da empresa cliente por frete/viagem.</p>
                                     </div>
                                     <div>
-                                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                            Frete Motorista Fixo (R$ por viagem) <span className="text-red-500">*</span>
+                                        <label className="block text-xs font-semibold text-blue-600 dark:text-blue-400 mb-1">
+                                            Frete Motorista PJ - ETC (R$ por viagem) <span className="text-red-500">*</span>
                                         </label>
                                         <input
-                                            name="fixedDriverFreight"
-                                            value={load.fixedDriverFreight || ''}
+                                            name="fixedDriverFreightPJ"
+                                            value={load.fixedDriverFreightPJ ?? load.fixedDriverFreight ?? ''}
                                             onChange={handleChange}
                                             type="number"
                                             placeholder="Ex: 4200,00"
-                                            className="p-2.5 w-full border rounded-lg dark:bg-gray-700 dark:border-gray-600 font-semibold text-gray-800 dark:text-gray-100"
+                                            className="p-2.5 w-full border border-blue-200 dark:border-blue-800 rounded-lg dark:bg-gray-700 font-semibold text-gray-800 dark:text-gray-100"
                                             step="0.01"
                                             min="0"
                                         />
-                                        <p className="text-xs text-gray-400 mt-1">Valor fixo acordado a pagar ao motorista por viagem realizada.</p>
+                                        <p className="text-xs text-gray-400 mt-1">Valor fixo para motorista PJ (ETC).</p>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-semibold text-emerald-600 dark:text-emerald-400 mb-1">
+                                            Frete Motorista PF - TAC (R$ por viagem) <span className="text-red-500">*</span>
+                                        </label>
+                                        <input
+                                            name="fixedDriverFreightPF"
+                                            value={load.fixedDriverFreightPF ?? load.fixedDriverFreight ?? ''}
+                                            onChange={handleChange}
+                                            type="number"
+                                            placeholder="Ex: 4000,00"
+                                            className="p-2.5 w-full border border-emerald-200 dark:border-emerald-800 rounded-lg dark:bg-gray-700 font-semibold text-gray-800 dark:text-gray-100"
+                                            step="0.01"
+                                            min="0"
+                                        />
+                                        <p className="text-xs text-gray-400 mt-1">Valor fixo para motorista PF (TAC).</p>
                                     </div>
                                 </div>
 
@@ -1268,8 +1380,13 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
                                     <p className="text-lg font-bold text-gray-800 dark:text-gray-200">{(load.fixedCompanyFreight || 0).toLocaleString('pt-BR', {style:'currency', currency: 'BRL'})}</p>
                                 </div>
                                 <div className="p-3 bg-gray-100 dark:bg-gray-700/70 rounded-lg">
-                                    <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Total Pago Motorista</label>
-                                    <p className="text-lg font-bold text-gray-800 dark:text-gray-200">{(load.fixedDriverFreight || 0).toLocaleString('pt-BR', {style:'currency', currency: 'BRL'})}</p>
+                                    <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Total Pago Motorista (PJ / PF)</label>
+                                    <p className="text-sm font-bold text-blue-600 dark:text-blue-400 mt-0.5">
+                                      PJ: {((load.fixedDriverFreightPJ ?? load.fixedDriverFreight) || 0).toLocaleString('pt-BR', {style:'currency', currency: 'BRL'})}
+                                    </p>
+                                    <p className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
+                                      PF: {((load.fixedDriverFreightPF ?? load.fixedDriverFreight) || 0).toLocaleString('pt-BR', {style:'currency', currency: 'BRL'})}
+                                    </p>
                                 </div>
                                 <div className="p-3 bg-blue-50 dark:bg-blue-900/40 rounded-lg border border-blue-200 dark:border-blue-800">
                                     <label className="text-xs font-medium text-blue-600 dark:text-blue-400">Margem Líquida Estimada</label>
@@ -1288,7 +1405,7 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
                             </div>
 
                             <div className="p-4 border rounded-lg dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 space-y-4">
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                                     <div>
                                         <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                                             Frete Empresa Base (R$/ton) <span className="text-red-500">*</span>
@@ -1323,19 +1440,35 @@ const LoadFormModal: React.FC<LoadFormModalProps> = ({ isOpen, onClose, onSave, 
                                     </div>
 
                                     <div>
-                                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                            Frete Motorista (R$/ton) <span className="text-red-500">*</span>
+                                        <label className="block text-xs font-semibold text-blue-600 dark:text-blue-400 mb-1">
+                                            Frete Motorista PJ - ETC (R$/ton) <span className="text-red-500">*</span>
                                         </label>
                                         <input
-                                            value={leg1.driverFreightValuePerTon || ''}
-                                            onChange={(e) => handleLegChange(0, 'driverFreightValuePerTon', e.target.value)}
+                                            value={leg1.driverFreightValuePerTonPJ ?? leg1.driverFreightValuePerTon ?? ''}
+                                            onChange={(e) => handleLegChange(0, 'driverFreightValuePerTonPJ', e.target.value)}
                                             type="number"
                                             placeholder="Ex: 85,00"
-                                            className="p-2.5 w-full border rounded-lg dark:bg-gray-700 dark:border-gray-600 font-semibold text-gray-800 dark:text-gray-100 text-sm"
+                                            className="p-2.5 w-full border border-blue-200 dark:border-blue-800 rounded-lg dark:bg-gray-700 font-semibold text-gray-800 dark:text-gray-100 text-sm"
                                             step="0.01"
                                             min="0"
                                         />
-                                        <p className="text-[11px] text-gray-400 mt-1">Valor pago ao motorista por tonelada transportada.</p>
+                                        <p className="text-[11px] text-gray-400 mt-1">Valor pago ao motorista PJ (ETC).</p>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-xs font-semibold text-emerald-600 dark:text-emerald-400 mb-1">
+                                            Frete Motorista PF - TAC (R$/ton) <span className="text-red-500">*</span>
+                                        </label>
+                                        <input
+                                            value={leg1.driverFreightValuePerTonPF ?? leg1.driverFreightValuePerTon ?? ''}
+                                            onChange={(e) => handleLegChange(0, 'driverFreightValuePerTonPF', e.target.value)}
+                                            type="number"
+                                            placeholder="Ex: 80,00"
+                                            className="p-2.5 w-full border border-emerald-200 dark:border-emerald-800 rounded-lg dark:bg-gray-700 font-semibold text-gray-800 dark:text-gray-100 text-sm"
+                                            step="0.01"
+                                            min="0"
+                                        />
+                                        <p className="text-[11px] text-gray-400 mt-1">Valor pago ao motorista PF (TAC).</p>
                                     </div>
                                 </div>
                             </div>

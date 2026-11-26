@@ -957,11 +957,12 @@ const OperationalMapPage: React.FC<OperationalMapPageProps> = ({
       const product = products.find(p => p.id === load.productId)?.name?.toUpperCase() || 'N/A';
       const origin = load.origin.toUpperCase();
       const destination = load.destination.toUpperCase();
-      const price = load.driverFreightValuePerTon.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      const pricePJ = (load.driverFreightValuePerTonPJ ?? load.driverFreightValuePerTon).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      const pricePF = (load.driverFreightValuePerTonPF ?? load.driverFreightValuePerTon).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
       const bodyTypes = formatAllowedVehicleTypes(load.allowedVehicleTypes);
       const availableTons = Math.max(0, (load.totalVolume || 0) - (load.loadedVolume || 0));
       const dispText = availableTons > 0 ? ` | ⚖️ Disp: ${availableTons.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} ton` : '';
-      let text = `📍 ${origin} x ${destination} \n🌾 ${product} - 💲 R$ ${price}${dispText}\t\n🚛 ${bodyTypes} 🚛`;
+      let text = `📍 ${origin} x ${destination} \n🌾 ${product}${dispText}\n💲 PJ R$ ${pricePJ} | PF R$ ${pricePF}\t\n🚛 ${bodyTypes} 🚛`;
       
       if (load.originLocation) text += `\n🏢 Coleta: ${load.originLocation}`;
       const cleanOriginMap = cleanOrShortenLocationInput(load.originMapLink);

@@ -205,9 +205,15 @@ export enum FreightPricingType {
   VlrTonIcms = "VLR P/ton + ICMS",
 }
 
+export type DriverFreightModality = 'PJ' | 'PF';
+
 export interface FreightLeg {
   companyFreightValuePerTon: number;
   driverFreightValuePerTon: number;
+  driverFreightValuePerTonPJ?: number;
+  driverFreightValuePerTonPF?: number;
+  fixedDriverFreightPJ?: number;
+  fixedDriverFreightPF?: number;
   hasIcms: boolean;
   icmsPercentage: number;
   pricingType?: FreightPricingType;
@@ -245,6 +251,10 @@ export interface Cargo {
   loadedVolume: number; 
   companyFreightValuePerTon: number;
   driverFreightValuePerTon: number;
+  driverFreightValuePerTonPJ?: number;
+  driverFreightValuePerTonPF?: number;
+  fixedDriverFreightPJ?: number;
+  fixedDriverFreightPF?: number;
   hasIcms: boolean;
   icmsPercentage: number;
   requiresScheduling: boolean;
@@ -352,6 +362,7 @@ export interface Shipment {
   vehicleTag?: string;
   companyFreightRateSnapshot?: number;
   driverFreightRateSnapshot?: number;
+  driverFreightModality?: DriverFreightModality;
   route?: string;
   cancellationReason?: string;
   driverReferences?: string;

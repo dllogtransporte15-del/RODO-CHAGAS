@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import type { Cargo, Driver, Shipment, Client, Vehicle, User } from '../types';
+import type { Cargo, Driver, Shipment, Client, Vehicle, User, DriverFreightModality } from '../types';
 import { UserProfile, DailyScheduleType, VehicleSetType, VehicleBodyType, FreightPricingType, ShipmentStatus } from '../types';
 import { supabase } from '../supabase';
 import { useToast } from '../hooks/useToast';
@@ -44,6 +44,7 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
   const [driverReferences, setDriverReferences] = useState('');
   const [isScanning, setIsScanning] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [driverFreightModality, setDriverFreightModality] = useState<DriverFreightModality>('PJ');
   const [pendingVehicleWarning, setPendingVehicleWarning] = useState<{ plate: string; cargoIdentifier: string; driverName?: string; isPlateConflict?: boolean } | null>(null);
   const { showToast } = useToast();
 
@@ -380,14 +381,32 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
   }, [horsePlate, vehicles, shipments, lastAutofilledPlate]);
 
 
+  const pjDriverRate = useMemo(() => {
+    if (!cargo) return 0;
+    if (cargo.freightPricingType === FreightPricingType.FreteFechado) {
+      return cargo.fixedDriverFreightPJ ?? cargo.fixedDriverFreight ?? cargo.driverFreightValuePerTon ?? 0;
+    }
+    return cargo.driverFreightValuePerTonPJ ?? cargo.driverFreightValuePerTon ?? 0;
+  }, [cargo]);
+
+  const pfDriverRate = useMemo(() => {
+    if (!cargo) return 0;
+    if (cargo.freightPricingType === FreightPricingType.FreteFechado) {
+      return cargo.fixedDriverFreightPF ?? cargo.fixedDriverFreight ?? cargo.driverFreightValuePerTon ?? 0;
+    }
+    return cargo.driverFreightValuePerTonPF ?? cargo.driverFreightValuePerTon ?? 0;
+  }, [cargo]);
+
+  const selectedDriverRate = driverFreightModality === 'PJ' ? pjDriverRate : pfDriverRate;
+
   const calculatedFreight = useMemo(() => {
     if (!cargo) return 0;
     if (cargo.freightPricingType === FreightPricingType.FreteFechado) {
-      return cargo.fixedDriverFreight || cargo.driverFreightValuePerTon || 0;
+      return selectedDriverRate;
     }
     if (shipmentTonnage <= 0) return 0;
-    return (cargo?.driverFreightValuePerTon || 0) * shipmentTonnage;
-  }, [cargo, shipmentTonnage]);
+    return selectedDriverRate * shipmentTonnage;
+  }, [cargo, shipmentTonnage, selectedDriverRate]);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
@@ -409,6 +428,8 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
         trailer3Plate,
         shipmentTonnage,
         driverFreightValue: calculatedFreight,
+        driverFreightRateSnapshot: selectedDriverRate,
+        driverFreightModality,
         embarcadorId: embarcadorId,
         scheduledDate,
         scheduledTime,
@@ -833,26 +854,56 @@ const NewShipmentModal: React.FC<NewShipmentModalProps> = ({ isOpen, onClose, on
             </div>
 
             <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="p-4 bg-gray-100 dark:bg-gray-900/50 rounded-lg text-center">
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Valor do Frete (Motorista)</p>
+              <div className="p-4 bg-gray-100 dark:bg-gray-900/50 rounded-lg text-center border border-gray-200 dark:border-gray-700">
+                <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Modalidade e Valor do Frete (Motorista)</p>
+                <div className="grid grid-cols-2 gap-2 mb-3">
+                  <button
+                    type="button"
+                    onClick={() => setDriverFreightModality('PJ')}
+                    className={`p-2 rounded-lg border text-xs font-bold transition-all ${
+                      driverFreightModality === 'PJ'
+                        ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                        : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:border-blue-400'
+                    }`}
+                  >
+                    <div>PJ (ETC)</div>
+                    <div className="text-[11px] font-semibold opacity-90 mt-0.5">
+                      {formatCurrency(pjDriverRate)}{cargo?.freightPricingType === FreightPricingType.FreteFechado ? '' : '/t'}
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDriverFreightModality('PF')}
+                    className={`p-2 rounded-lg border text-xs font-bold transition-all ${
+                      driverFreightModality === 'PF'
+                        ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                        : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:border-emerald-400'
+                    }`}
+                  >
+                    <div>PF (TAC)</div>
+                    <div className="text-[11px] font-semibold opacity-90 mt-0.5">
+                      {formatCurrency(pfDriverRate)}{cargo?.freightPricingType === FreightPricingType.FreteFechado ? '' : '/t'}
+                    </div>
+                  </button>
+                </div>
                 <div className="flex flex-col items-center">
                     {cargo?.freightPricingType === FreightPricingType.FreteFechado ? (
                       <>
                         <p className="text-2xl font-bold text-gray-800 dark:text-white">
-                            {formatCurrency(cargo.fixedDriverFreight || cargo.driverFreightValuePerTon || 0)}
+                            {formatCurrency(selectedDriverRate)}
                         </p>
                         <span className="text-xs font-semibold px-2 py-0.5 mt-1 rounded bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300">
-                          🔒 Frete Fechado (Fixo por Viagem)
+                          🔒 Frete Fechado ({driverFreightModality})
                         </span>
                       </>
                     ) : (
                       <>
                         <p className="text-2xl font-bold text-gray-800 dark:text-white">
-                            {formatCurrency(cargo?.driverFreightValuePerTon || 0)} <span className="text-sm font-normal text-gray-500">/ TON</span>
+                            {formatCurrency(selectedDriverRate)} <span className="text-sm font-normal text-gray-500">/ TON ({driverFreightModality})</span>
                         </p>
                         {shipmentTonnage > 0 && (
                           <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                            Total Estimado: {formatCurrency(calculatedFreight)}
+                            Total Estimado ({driverFreightModality}): {formatCurrency(calculatedFreight)}
                           </span>
                         )}
                       </>

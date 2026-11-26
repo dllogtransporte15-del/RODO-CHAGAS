@@ -13,7 +13,7 @@ import { REQUIRED_DOCUMENT_MAP } from '../types';
 import type { Cargo, Client, Product, Driver, Shipment, Vehicle, User, ProfilePermissions, VehicleSetType, VehicleBodyType, Branch } from '../types';
 import { can } from '../auth';
 import { CopyIcon } from '../components/icons/CopyIcon';
-import { CargoStatus, UserProfile, ShipmentStatus } from '../types';
+import { CargoStatus, UserProfile, ShipmentStatus, FreightPricingType } from '../types';
 import ShipmentTable from '../components/ShipmentTable';
 import { StayRecord } from '../utils/toolStorage';
 import { formatFretebrasVehicleTypes, cleanOrShortenLocationInput } from '../utils/formatters';
@@ -231,7 +231,14 @@ const OperationalLoadsPage: React.FC<OperationalLoadsPageProps> = ({
       const product = products.find(p => p.id === load.productId)?.name?.toUpperCase() || 'N/A';
       const origin = load.origin.toUpperCase();
       const destination = load.destination.toUpperCase();
-      const price = load.driverFreightValuePerTon.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      const pricePJ = (load.freightPricingType === FreightPricingType.FreteFechado
+        ? (load.fixedDriverFreightPJ ?? load.fixedDriverFreight ?? load.driverFreightValuePerTon)
+        : (load.driverFreightValuePerTonPJ ?? load.driverFreightValuePerTon)
+      ).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      const pricePF = (load.freightPricingType === FreightPricingType.FreteFechado
+        ? (load.fixedDriverFreightPF ?? load.fixedDriverFreight ?? load.driverFreightValuePerTon)
+        : (load.driverFreightValuePerTonPF ?? load.driverFreightValuePerTon)
+      ).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
       const bodyTypes = formatAllowedVehicleTypes(load.allowedVehicleTypes);
       const effectiveScheduled = allShipments
         .filter(s => s.cargoId === load.id && s.status !== ShipmentStatus.Cancelado)
@@ -239,7 +246,7 @@ const OperationalLoadsPage: React.FC<OperationalLoadsPageProps> = ({
       const availableTons = Math.max(0, (load.totalVolume || 0) - effectiveScheduled);
       const dispText = availableTons > 0 ? ` | ⚖️ Disp: ${availableTons.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} ton` : '';
 
-      let text = `📍 ${origin} x ${destination} \n🌾 ${product} - 💲 R$ ${price}${dispText}\t\n🚛 ${bodyTypes} 🚛`;
+      let text = `📍 ${origin} x ${destination} \n🌾 ${product}${dispText}\n💲 PJ R$ ${pricePJ} | PF R$ ${pricePF}\t\n🚛 ${bodyTypes} 🚛`;
       
       const cleanOriginLink = cleanOrShortenLocationInput(load.originMapLink);
       if (cleanOriginLink) {
@@ -274,7 +281,7 @@ const OperationalLoadsPage: React.FC<OperationalLoadsPageProps> = ({
       const product = products.find(p => p.id === load.productId)?.name || '';
       const origin = load.origin;
       const destination = load.destination;
-      const price = `R$ ${load.driverFreightValuePerTon.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      const price = 'A combinar';
       
       const allowed = load.allowedVehicleTypes || [];
       const vehicleTypes = formatFretebrasVehicleTypes(load.allowedVehicleTypes);
