@@ -195,7 +195,7 @@ const TopNavBar: React.FC<TopNavBarProps> = ({
   };
 
   return (
-    <header className="bg-white/90 dark:bg-[#0A1128]/90 backdrop-blur-2xl border-b border-slate-200 dark:border-white/10 shadow-sm dark:shadow-2xl sticky top-0 z-40 transition-colors duration-200">
+    <header className="bg-white/90 dark:bg-[#0A1128]/90 backdrop-blur-2xl border-b border-slate-200 dark:border-white/10 shadow-sm dark:shadow-2xl sticky top-0 z-[100] transition-colors duration-200">
       <div className="w-full px-6">
         <div className="flex items-center justify-between min-h-16 md:min-h-20 py-1.5">
           {/* Logo e Nome da Empresa + Status Online */}
@@ -244,7 +244,7 @@ const TopNavBar: React.FC<TopNavBarProps> = ({
                                 <ChevronDownIcon className={`w-3.5 h-3.5 ml-1.5 transition-transform ${openDropdown === item.id ? 'rotate-180' : ''}`} />
                             </button>
                             {openDropdown === item.id && (
-                                <div className="absolute mt-2.5 w-60 origin-top-left bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border border-slate-200 dark:border-white/15 rounded-2xl shadow-2xl p-2 z-50 animate-fadeIn">
+                                <div className="absolute mt-2.5 w-60 origin-top-left bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border border-slate-200 dark:border-white/15 rounded-2xl shadow-2xl p-2 z-[110] animate-fadeIn">
                                     {item.children.map(child => {
                                       if (child.children) {
                                         return (
@@ -364,7 +364,7 @@ const TopNavBar: React.FC<TopNavBarProps> = ({
                  <ChevronDownIcon className={`hidden lg:block w-3.5 h-3.5 text-slate-500 dark:text-slate-400 transition-transform ${openDropdown === 'user' ? 'rotate-180' : ''}`} />
               </button>
               {openDropdown === 'user' && (
-                <div className="absolute mt-2.5 w-56 right-0 origin-top-right bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border border-slate-200 dark:border-white/15 rounded-2xl shadow-2xl p-2 z-50 animate-fadeIn">
+                <div className="absolute mt-2.5 w-56 right-0 origin-top-right bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border border-slate-200 dark:border-white/15 rounded-2xl shadow-2xl p-2 z-[110] animate-fadeIn">
                     <div className="px-3 py-2 border-b border-slate-100 dark:border-white/10 mb-1">
                       <p className="text-xs font-bold text-slate-900 dark:text-white truncate">{user.name}</p>
                       <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">{user.email}</p>

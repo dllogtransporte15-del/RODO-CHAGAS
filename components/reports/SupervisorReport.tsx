@@ -480,6 +480,7 @@ const SupervisorReport: React.FC<SupervisorReportProps> = ({ shipments, cargos, 
       // -------------------------------------------------------------
       // 3. CENÁRIO A ADICIONAL: Carga de terceiros operada por equipe
       // -------------------------------------------------------------
+      let handledByExternalLeaderTeam = false;
       leaderTeamMap.forEach((teamSet, leaderId) => {
         if (leaderId === responsible.id) return; // Já foi computado acima
 
@@ -493,6 +494,7 @@ const SupervisorReport: React.FC<SupervisorReportProps> = ({ shipments, cargos, 
         );
 
         if (isLeaderOperator || isTeamOperator) {
+          handledByExternalLeaderTeam = true;
           const leaderStat = statsMap.get(leaderId);
           if (leaderStat && (!isRestricted || allowedTeamIds.has(leaderId))) {
             if (!leaderStat.cargos.some(c => c.id === cargo.id)) {
@@ -545,6 +547,50 @@ const SupervisorReport: React.FC<SupervisorReportProps> = ({ shipments, cargos, 
           }
         }
       });
+
+      // -------------------------------------------------------------
+      // 4. DEMAIS PERFIS (ex: Admin, Diretor, Coordenador, Embarcador):
+      // Contabiliza embarques, volume, faturamento e lucro líquido no total
+      // sem gerar comissão e sem duplicar caso já computado em 1 ou 3.
+      // -------------------------------------------------------------
+      if (
+        !isGestorGO &&
+        (!isEligibleSupervisor || supUser?.id !== responsible.id) &&
+        !isEligibleSupervisor &&
+        !handledByExternalLeaderTeam &&
+        respStats &&
+        (!isRestricted || allowedTeamIds.has(responsible.id))
+      ) {
+        if (!respStats.shipments.some(s => s.id === shipment.id)) {
+          respStats.shipments.push(shipment);
+        }
+        respStats.totalTonnage += tonnage;
+        respStats.grossCompanyFreight += companyVal;
+        respStats.grossDriverFreight += driverVal;
+        respStats.totalDemurrageProfit += demurrageProfit;
+        respStats.totalDemurrageRevenue += demurrageRevenue;
+        respStats.netProfit += netProfit;
+        respStats.netRevenue += netRevenue;
+
+        respStats.shipmentDetails.push({
+          shipment,
+          cargo,
+          tonnage,
+          grossCompanyFreight: companyVal,
+          grossDriverFreight: driverVal,
+          netRevenue,
+          netProfit,
+          scenario: 'padrao',
+          scenarioTag: '[Sem Comissão]',
+          rate: 0,
+          calculationBase: netProfit,
+          calculationBaseLabel: 'Lucro Líquido',
+          commissionValue: 0,
+          operatorId,
+          operatorName,
+          isTeamOperator: false,
+        });
+      }
     });
 
     const allStats = Array.from(statsMap.values())
@@ -585,38 +631,36 @@ const SupervisorReport: React.FC<SupervisorReportProps> = ({ shipments, cargos, 
     });
   }, [responsibleStats, selectedUserId, searchTerm]);
 
-  // Totais consolidados
+  // Totais consolidados (deduplicados por carga/embarque para evitar dupla contagem nos KPIs gerais)
   const totals = useMemo(() => {
-    return filteredStats.reduce((acc, curr) => ({
-      cargosCount: acc.cargosCount + curr.cargos.length,
-      shipmentsCount: acc.shipmentsCount + curr.shipments.length,
-      tonnage: acc.tonnage + curr.totalTonnage,
-      grossCompany: acc.grossCompany + curr.grossCompanyFreight,
-      grossDriver: acc.grossDriver + curr.grossDriverFreight,
-      netProfit: acc.netProfit + curr.netProfit,
-      netRevenue: acc.netRevenue + curr.netRevenue,
-      commission: acc.commission + curr.commission,
+    const uniqueCargoIds = new Set<string>();
+    const uniqueShipments = new Map<string, ShipmentCommissionDetail>();
 
-      teamShipmentsCount: acc.teamShipmentsCount + curr.teamShipmentsCount,
-      teamNetProfit: acc.teamNetProfit + curr.teamNetProfit,
-      teamCommission: acc.teamCommission + curr.teamCommission,
+    const baseTotals = filteredStats.reduce((acc, curr) => {
+      curr.cargos.forEach(c => uniqueCargoIds.add(c.id));
+      curr.shipmentDetails.forEach(detail => {
+        if (!uniqueShipments.has(detail.shipment.id)) {
+          uniqueShipments.set(detail.shipment.id, detail);
+        }
+      });
 
-      externalShipmentsCount: acc.externalShipmentsCount + curr.externalShipmentsCount,
-      externalNetRevenue: acc.externalNetRevenue + curr.externalNetRevenue,
-      externalNetProfit: acc.externalNetProfit + curr.externalNetProfit,
-      externalCommission: acc.externalCommission + curr.externalCommission,
+      return {
+        commission: acc.commission + curr.commission,
 
-      supervisorShipmentsCount: acc.supervisorShipmentsCount + curr.supervisorShipmentsCount,
-      supervisorNetProfit: acc.supervisorNetProfit + curr.supervisorNetProfit,
-      supervisorCommission: acc.supervisorCommission + curr.supervisorCommission,
-    }), {
-      cargosCount: 0,
-      shipmentsCount: 0,
-      tonnage: 0,
-      grossCompany: 0,
-      grossDriver: 0,
-      netProfit: 0,
-      netRevenue: 0,
+        teamShipmentsCount: acc.teamShipmentsCount + curr.teamShipmentsCount,
+        teamNetProfit: acc.teamNetProfit + curr.teamNetProfit,
+        teamCommission: acc.teamCommission + curr.teamCommission,
+
+        externalShipmentsCount: acc.externalShipmentsCount + curr.externalShipmentsCount,
+        externalNetRevenue: acc.externalNetRevenue + curr.externalNetRevenue,
+        externalNetProfit: acc.externalNetProfit + curr.externalNetProfit,
+        externalCommission: acc.externalCommission + curr.externalCommission,
+
+        supervisorShipmentsCount: acc.supervisorShipmentsCount + curr.supervisorShipmentsCount,
+        supervisorNetProfit: acc.supervisorNetProfit + curr.supervisorNetProfit,
+        supervisorCommission: acc.supervisorCommission + curr.supervisorCommission,
+      };
+    }, {
       commission: 0,
       teamShipmentsCount: 0,
       teamNetProfit: 0,
@@ -629,6 +673,31 @@ const SupervisorReport: React.FC<SupervisorReportProps> = ({ shipments, cargos, 
       supervisorNetProfit: 0,
       supervisorCommission: 0,
     });
+
+    let tonnage = 0;
+    let grossCompany = 0;
+    let grossDriver = 0;
+    let netProfit = 0;
+    let netRevenue = 0;
+
+    uniqueShipments.forEach(detail => {
+      tonnage += detail.tonnage;
+      grossCompany += detail.grossCompanyFreight;
+      grossDriver += detail.grossDriverFreight;
+      netProfit += detail.netProfit;
+      netRevenue += detail.netRevenue;
+    });
+
+    return {
+      ...baseTotals,
+      cargosCount: uniqueCargoIds.size,
+      shipmentsCount: uniqueShipments.size,
+      tonnage,
+      grossCompany,
+      grossDriver,
+      netProfit,
+      netRevenue,
+    };
   }, [filteredStats]);
 
   const formatCurrency = (val: number) => {

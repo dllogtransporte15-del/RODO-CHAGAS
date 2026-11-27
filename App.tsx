@@ -2947,7 +2947,7 @@ const App: React.FC = () => {
             onOpenSystemUpdates={() => setIsSystemUpdateModalOpen(true)}
           />
         )}
-        <main className="flex-1 overflow-y-auto" style={{ zoom: isDriverUser ? 0.8 : 0.8 }}>
+        <main className="relative z-0 flex-1 overflow-y-auto" style={{ zoom: isDriverUser ? 0.8 : 0.8 }}>
           <div className={isDriverUser ? "w-full" : "w-full px-6 py-8"}>
               {renderPage()}
           </div>

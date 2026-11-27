@@ -88,6 +88,7 @@ const LoadHistoryPage: React.FC<LoadHistoryPageProps> = ({
         clients={clients}
         products={products}
         shipments={shipments}
+        users={users}
         dailyBalanceDate={dailyBalanceDate}
         onDailyBalanceDateChange={setDailyBalanceDate}
         onShowHistory={handleShowHistory}

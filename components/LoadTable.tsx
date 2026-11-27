@@ -681,9 +681,11 @@ const LoadTable: React.FC<LoadTableProps> = ({ loads, clients, products, shipmen
 
           const isCardExpanded = expandedCardId === load.id;
           const comName = users.find(u => u.id === load.createdById)?.name || 'N/A';
-          const resolvedSupId = load.supervisorId || (load.history && load.history[0]?.userId);
-          const supUser = resolvedSupId ? users.find(u => u.id === resolvedSupId) : null;
-          const supName = (supUser && supUser.profile === UserProfile.Supervisor) ? supUser.name : 'N/A';
+          const explicitSupUser = load.supervisorId ? users.find(u => u.id === load.supervisorId) : null;
+          const fallbackHistoryUser = !load.supervisorId && load.history?.[0]?.userId
+            ? users.find(u => u.id === load.history[0].userId && u.profile === UserProfile.Supervisor)
+            : null;
+          const supName = explicitSupUser?.name || fallbackHistoryUser?.name || 'N/A';
 
           return (
             <div key={load.id} className={`relative ${openActionMenu === load.id ? 'z-40' : 'z-0'} bg-white/95 dark:bg-slate-800/90 backdrop-blur-sm rounded-xl shadow-sm hover:shadow-lg hover:shadow-slate-900/5 dark:hover:shadow-black/30 border border-slate-200/80 dark:border-slate-700/70 border-l-4 ${leftAccentColor} hover:border-blue-500/40 transition-all duration-200`}>

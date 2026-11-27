@@ -335,7 +335,7 @@ export const toCargo = (row: any): Cargo => {
     status: row.status,
     createdAt: row.created_at,
     createdById: row.created_by_id,
-    supervisorId: row.supervisor_id || undefined,
+    supervisorId: row.supervisor_id || metaExtra.supervisorId || undefined,
     history: rawHistory.filter((h: any) => h.id !== 'meta_dest_obs' && h.id !== 'meta_cargo_extra'),
     loadingDeadline: row.loading_deadline,
     allowedVehicleTypes: row.allowed_vehicle_types,
@@ -363,6 +363,7 @@ const fromCargo = (c: Cargo | Omit<Cargo, 'id'>) => {
   const rawHistory = [...(c.history || [])].filter(h => h.id !== 'meta_cargo_extra');
   const hasExtraMeta =
     !!c.recipientClient ||
+    !!c.supervisorId ||
     c.driverFreightValuePerTonPJ !== undefined ||
     c.driverFreightValuePerTonPF !== undefined ||
     c.fixedDriverFreightPJ !== undefined ||
@@ -375,6 +376,7 @@ const fromCargo = (c: Cargo | Omit<Cargo, 'id'>) => {
       timestamp: c.createdAt || new Date().toISOString(),
       description: JSON.stringify({
         recipientClient: c.recipientClient,
+        supervisorId: c.supervisorId,
         driverFreightValuePerTonPJ: c.driverFreightValuePerTonPJ,
         driverFreightValuePerTonPF: c.driverFreightValuePerTonPF,
         fixedDriverFreightPJ: c.fixedDriverFreightPJ,

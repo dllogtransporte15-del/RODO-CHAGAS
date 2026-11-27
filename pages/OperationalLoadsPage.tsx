@@ -414,6 +414,7 @@ const OperationalLoadsPage: React.FC<OperationalLoadsPageProps> = ({
         clients={clients} 
         products={products}
         shipments={allShipments}
+        users={users}
         dailyBalanceDate={dailyBalanceDate}
         onDailyBalanceDateChange={setDailyBalanceDate}
         onCreateShipment={canCreateShipment ? handleOpenNewShipmentModal : undefined} 
